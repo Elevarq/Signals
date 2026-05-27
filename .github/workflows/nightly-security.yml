@@ -56,6 +56,7 @@ jobs:
     permissions:
       contents: read
       security-events: write   # SARIF upload to the Security tab.
+      actions: read            # upload-sarif resolves the workflow run.
     env:
       # Opt JavaScript-based actions into the Node 24 runtime ahead
       # of GitHub's 2026-06-02 forced switch. Declared per-job (not
@@ -105,7 +106,7 @@ jobs:
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: gitleaks-sarif
           path: gitleaks.sarif
@@ -129,7 +130,7 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOM artefact
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: source-sbom
           path: arq-signals-source.spdx.json
@@ -141,6 +142,7 @@ jobs:
     permissions:
       contents: read
       security-events: write   # SARIF upload to the Security tab.
+      actions: read            # upload-sarif resolves the workflow run.
     env:
       # See full-history-secrets job for rationale (Scorecard webapp
       # rejects top-level env, so declared per-job).
@@ -149,7 +151,7 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Download source SBOM
-        uses: actions/download-artifact@v5
+        uses: actions/download-artifact@v8
         with:
           name: source-sbom
 
@@ -158,7 +160,7 @@ jobs:
         # Scanning the SBOM (rather than re-walking the source)
         # keeps the two jobs consistent: Grype evaluates exactly
         # what syft described.
-        uses: anchore/scan-action@v6
+        uses: anchore/scan-action@v7
         with:
           sbom: arq-signals-source.spdx.json
           fail-build: true
@@ -174,7 +176,7 @@ jobs:
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: grype-sarif
           path: ${{ steps.grype.outputs.sarif }}
@@ -182,6 +184,9 @@ jobs:
   scorecard:
     name: OpenSSF Scorecard
     runs-on: ubuntu-24.04
+    # OpenSSF Scorecard only analyses public repositories — skip while
+    # the repo is private (it runs automatically once the repo is public).
+    if: ${{ !github.event.repository.private }}
     # Scorecard's published action handles its own publishing /
     # SARIF upload semantics; we run it on the same cadence as the
     # other evidence jobs so all the artefacts land together.
@@ -190,15 +195,14 @@ jobs:
     # publish_results webapp rejects with HTTP 400 ("scorecard job
     # contains env vars"). The restriction is stricter than the
     # README implies — see #196/#198 for the empirical confirmation.
-    # As a consequence, this job's `actions/upload-artifact@v5` step
-    # will run on Node 20 and emit a deprecation annotation. That is
-    # accepted residual noise until upstream actions ship Node 24
-    # natively. The other three jobs use per-job env to opt into
-    # Node 24 (#194).
+    # All actions here are pinned to Node 24-native versions, so no
+    # FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 env is needed (and none can be
+    # added, per the above).
     permissions:
       contents: read
       security-events: write
       id-token: write
+      actions: read            # upload-sarif resolves the workflow run.
       # Needed for the `publish_results: true` path to publish to
       # api.scorecard.dev for the public Scorecard badge.
     steps:
@@ -222,7 +226,7 @@ jobs:
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: scorecard-sarif
           path: scorecard.sarif
