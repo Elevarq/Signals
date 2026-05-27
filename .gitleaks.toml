@@ -1,0 +1,30 @@
+title = "arq-signals gitleaks configuration"
+
+# Inherit gitleaks' built-in default rules.
+[extend]
+useDefault = true
+
+# Documentation and example files contain illustrative curl examples
+# with placeholder bearer tokens (smoke-test-token, my-token, etc.).
+# These are deliberately fake values shown to operators and contain no
+# real secrets. Code under cmd/, internal/, snapshot/, tests/ is still
+# scanned; this allowlist scopes only to documentation and examples.
+[allowlist]
+description = "Allow placeholder tokens in documentation and example files"
+paths = [
+  '''^docs/.*''',
+  '''^examples/.*''',
+  '''^features/.*\.md$''',
+  '''^README\.md$''',
+  '''^CHANGELOG\.md$''',
+]
+# False positive in tests/signals_r083_managed_mode_test.go at this
+# commit: the apiToken fixture was a literal 32-char alphanumeric
+# string, which trips the generic-api-key heuristic. HEAD was
+# refactored to strings.Repeat("a", 32). Allowlisting the historical
+# commit avoids rewriting history (force-push to main would break
+# the signed commit chain and release-tag provenance).
+# See Elevarq/Arq-Signals#182.
+commits = [
+  "45bd3bac5ed88f2da4ce11ca7a3f51c893c0b432",
+]

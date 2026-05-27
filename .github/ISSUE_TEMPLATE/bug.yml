@@ -1,0 +1,97 @@
+name: Bug
+description: Something is broken.
+title: "bug: "
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what_happened
+    attributes:
+      label: What happened
+      description: Concrete observed behaviour.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: How to reproduce
+      description: Minimal steps so anyone can hit the same bug.
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Version, OS, PostgreSQL major, container tag, etc.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options:
+        - "Critical — production-down / data loss"
+        - "High — feature broken in a release branch"
+        - "Medium — feature broken on main, workaround exists"
+        - "Low — cosmetic"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort (T-shirt size)
+      description: Rough sizing for the fix. See docs/ESTIMATION.md.
+      options:
+        - "XS — 1-2 hours"
+        - "S — 3-8 hours"
+        - "M — 8-24 hours"
+        - "L — 24-80 hours"
+        - "XL — 80+ hours"
+    validations:
+      required: true
+
+  - type: input
+    id: estimated_hours
+    attributes:
+      label: Estimated hours (number)
+      placeholder: "e.g. 4"
+    validations:
+      required: true
+
+  - type: input
+    id: actual_hours
+    attributes:
+      label: Actual hours
+      description: Leave blank when opening.
+      placeholder: "leave blank on open"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      options:
+        - "P0 — Must-have"
+        - "P1 — Should-have"
+        - "P2 — Nice-to-have"
+        - "P3 — Backlog"
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        After creating this issue, apply the matching labels:
+        `effort:XS` / `effort:S` / `effort:M` / `effort:L` / `effort:XL`
+        `priority:P0` / `priority:P1` / `priority:P2` / `priority:P3`

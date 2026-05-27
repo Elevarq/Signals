@@ -1,0 +1,103 @@
+name: Feature or task
+description: A unit of planned work with estimated effort.
+title: "feat: "
+labels: []
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement
+      description: What problem does this work solve? Who asked for it?
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What is in scope and what is explicitly out of scope.
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Checklist of conditions that must hold before this issue closes.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: dropdown
+    id: effort
+    attributes:
+      label: Effort (T-shirt size)
+      description: Rough sizing. See docs/ESTIMATION.md for the scale.
+      options:
+        - "XS — 1-2 hours"
+        - "S — 3-8 hours"
+        - "M — 8-24 hours"
+        - "L — 24-80 hours"
+        - "XL — 80+ hours"
+    validations:
+      required: true
+
+  - type: input
+    id: estimated_hours
+    attributes:
+      label: Estimated hours (number)
+      description: Best-guess numeric estimate. Should fall inside the chosen Effort bucket.
+      placeholder: "e.g. 6"
+    validations:
+      required: true
+
+  - type: input
+    id: actual_hours
+    attributes:
+      label: Actual hours
+      description: Leave blank when opening. Filled in when the issue closes — used to calibrate future estimates.
+      placeholder: "leave blank on open"
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority
+      description: |
+        P0 = must-have, blocks revenue or shipping.
+        P1 = should-have.
+        P2 = nice-to-have.
+        P3 = backlog / opportunistic.
+      options:
+        - "P0 — Must-have"
+        - "P1 — Should-have"
+        - "P2 — Nice-to-have"
+        - "P3 — Backlog"
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: Linked issues or external blockers (optional).
+    validations:
+      required: false
+
+  - type: textarea
+    id: links
+    attributes:
+      label: Links
+      description: Specifications, related issues, prior art (optional).
+    validations:
+      required: false
+
+  - type: markdown
+    attributes:
+      value: |
+        After creating this issue, apply the matching labels:
+        `effort:XS` / `effort:S` / `effort:M` / `effort:L` / `effort:XL`
+        `priority:P0` / `priority:P1` / `priority:P2` / `priority:P3`

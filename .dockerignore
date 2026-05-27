@@ -1,0 +1,11 @@
+.git
+.github
+bin/
+*.db
+*.db-wal
+*.db-shm
+.env
+test-config.yaml
+docs/
+features/
+examples/snapshot-example/

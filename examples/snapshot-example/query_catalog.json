@@ -1,0 +1,6 @@
+[
+  {"query_id": "pg_version_v1", "category": "server", "result_kind": "scalar", "retention_class": "long", "registered_at": "2026-03-14T10:00:00Z"},
+  {"query_id": "pg_settings_v1", "category": "server", "result_kind": "rowset", "retention_class": "long", "registered_at": "2026-03-14T10:00:00Z"},
+  {"query_id": "pg_stat_activity_v1", "category": "activity", "result_kind": "rowset", "retention_class": "short", "registered_at": "2026-03-14T10:00:00Z"},
+  {"query_id": "pg_stat_database_v1", "category": "database", "result_kind": "rowset", "retention_class": "medium", "registered_at": "2026-03-14T10:00:00Z"}
+]

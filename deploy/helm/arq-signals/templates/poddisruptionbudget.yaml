@@ -1,0 +1,36 @@
+{{- /*
+  #140 — PodDisruptionBudget for the Signals pod.
+
+  Opt-in via `podDisruptionBudget.enabled`. The chart ships
+  `replicas: 1` (Signals is a single-node collector), so the PDB
+  is informational at v1 — it protects against voluntary
+  disruptions during cluster maintenance (`kubectl drain`,
+  cluster-autoscaler scale-downs, version upgrades) by signalling
+  "do not evict the only replica unless coordinated".
+
+  For multi-replica HA (future v1.1 work — SQLite-on-network-FS
+  considerations), set replicas > 1 and `minAvailable: 1` to keep
+  collection running through one pod's planned maintenance.
+*/}}
+{{- if .Values.podDisruptionBudget.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ .Release.Name }}-arq-signals
+  labels:
+    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  {{- if .Values.podDisruptionBudget.minAvailable }}
+  minAvailable: {{ .Values.podDisruptionBudget.minAvailable }}
+  {{- else if .Values.podDisruptionBudget.maxUnavailable }}
+  maxUnavailable: {{ .Values.podDisruptionBudget.maxUnavailable }}
+  {{- else }}
+  # Default: prevent voluntary eviction of the single replica.
+  maxUnavailable: 0
+  {{- end }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: arq-signals
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

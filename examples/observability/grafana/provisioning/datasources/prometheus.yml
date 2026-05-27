@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Prometheus
+    # Pinned UID so the dashboard JSON's datasource references resolve
+    # without ad-hoc remapping. Grafana auto-generates a hash UID when
+    # this is omitted, which breaks the bundled dashboard.
+    uid: prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: false
+    jsonData:
+      timeInterval: "15s"

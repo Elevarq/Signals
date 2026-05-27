@@ -1,0 +1,406 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "type": "row",
+      "id": 100,
+      "title": "Daemon posture",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "stat",
+      "id": 1,
+      "title": "High-sensitivity collectors enabled (R075)",
+      "description": "1 = the daemon-wide high-sensitivity gate is open and high-sensitivity collectors run; 0 = closed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "options": { "0": { "color": "green",  "index": 0, "text": "OFF (0)" } }, "type": "value" },
+            { "options": { "1": { "color": "orange", "index": 1, "text": "ON (1)" } }, "type": "value" }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] }
+        }
+      },
+      "targets": [
+        {
+          "expr": "arq_signal_high_sensitivity_collectors_enabled",
+          "refId": "A",
+          "legendFormat": "high_sensitivity"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 2,
+      "title": "Time since last successful collection (per target)",
+      "description": "Seconds elapsed since the most recent successful collection cycle for each target. Stale targets surface in red.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 18, "x": 6, "y": 1 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 120 },
+              { "color": "red",    "value": 600 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "time() - arq_signal_last_successful_collection_timestamp",
+          "refId": "A",
+          "legendFormat": "{{target}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 101,
+      "title": "Collection cycles",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 3,
+      "title": "Collection cycles by status (rate / 5m)",
+      "description": "Per-target collection cycle outcomes. Status values: success / partial / failed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "stacking": { "mode": "normal" } },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*status=\"success\".*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*status=\"partial\".*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*status=\"failed\".*" },  "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (target, status) (rate(arq_signal_collection_cycles_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{target}} / {{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 4,
+      "title": "Collection duration (p50 / p95 / p99)",
+      "description": "Per-target collection cycle wall-clock duration percentiles, computed from the histogram buckets.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 0 },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "refId": "A",
+          "legendFormat": "{{target}} p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "refId": "B",
+          "legendFormat": "{{target}} p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "refId": "C",
+          "legendFormat": "{{target}} p99"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 102,
+      "title": "Collector outcomes",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 15 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 5,
+      "title": "Collector outcomes by status (rate / 5m)",
+      "description": "Per-cycle collector outcomes summed across cycles. status: succeeded / failed / skipped.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10, "stacking": { "mode": "normal" } },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (target) (rate(arq_signal_collectors_succeeded_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{target}} / succeeded"
+        },
+        {
+          "expr": "sum by (target) (rate(arq_signal_collectors_failed_total[5m]))",
+          "refId": "B",
+          "legendFormat": "{{target}} / failed"
+        },
+        {
+          "expr": "sum by (target) (rate(arq_signal_collectors_skipped_total[5m]))",
+          "refId": "C",
+          "legendFormat": "{{target}} / skipped"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 6,
+      "title": "Collector failed/skipped by reason (rate / 5m)",
+      "description": "Bounded reason enums: failed = permission_denied, timeout, execution_error; skipped = config_disabled, version_unsupported, extension_missing.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "stacking": { "mode": "normal" } },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (target, reason) (rate(arq_signal_collectors_failed_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{target}} failed / {{reason}}"
+        },
+        {
+          "expr": "sum by (target, reason) (rate(arq_signal_collectors_skipped_total[5m]))",
+          "refId": "B",
+          "legendFormat": "{{target}} skipped / {{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "id": 103,
+      "title": "Exports & storage",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 24 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "id": 7,
+      "title": "Export requests by status (rate / 5m)",
+      "description": "All /export requests labelled success / failed.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 25 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "line", "lineWidth": 1, "fillOpacity": 10 },
+          "color": { "mode": "palette-classic" }
+        },
+        "overrides": [
+          { "matcher": { "id": "byRegexp", "options": ".*success.*" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byRegexp", "options": ".*failed.*" },  "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }
+        ]
+      },
+      "targets": [
+        {
+          "expr": "sum by (status) (rate(arq_signal_export_requests_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{status}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 8,
+      "title": "Export failures by error_category (rate / 5m)",
+      "description": "Failed export categories. Bounded enum from the audit log: invalid_target_id, invalid_time_format, invalid_time_range, builder_error, write_error.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 25 },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "calcs": ["lastNotNull", "sum"] },
+        "tooltip": { "mode": "multi", "sort": "desc" }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ops",
+          "custom": { "drawStyle": "bars", "lineWidth": 1, "fillOpacity": 60, "stacking": { "mode": "normal" } },
+          "color": { "mode": "palette-classic" }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (error_category) (rate(arq_signal_export_failures_total[5m]))",
+          "refId": "A",
+          "legendFormat": "{{error_category}}"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 9,
+      "title": "SQLite persistence failures (R077, last 24h)",
+      "description": "InsertCollectionAtomic rollbacks. Anything > 0 means a collection cycle failed to commit atomically — investigate the daemon logs.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 0, "y": 33 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "background",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red",   "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "increase(arq_signal_sqlite_persistence_failures_total[24h])",
+          "refId": "A",
+          "legendFormat": "rollbacks (24h)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "id": 10,
+      "title": "Collection failures by reason (last 1h)",
+      "description": "Hard target collection failures by bounded reason: connect_error, version_unsupported, timeout_setup, safety_check, persistence, internal.",
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "gridPos": { "h": 5, "w": 12, "x": 12, "y": 33 },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false },
+        "textMode": "value_and_name",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green",  "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red",    "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum by (target, reason) (increase(arq_signal_collection_failures_total[1h]))",
+          "refId": "A",
+          "legendFormat": "{{target}} / {{reason}}"
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "id": 11,
+      "title": "Note: collect_now dropped requests",
+      "description": "",
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 38 },
+      "options": {
+        "mode": "markdown",
+        "content": "**No metric exists for `collect_now_dropped` in this Arq Signals build.** The drop signal is emitted as a structured audit event (`audit_event=collect_now_dropped` with `reason_category=previous_request_pending` or `cycle_overlap_skipped`) — grep the daemon log to count drops by `request_id`. See `docs/audit-model.md` and `docs/grafana-dashboard.md` for the rationale and the workaround."
+      }
+    }
+  ],
+  "refresh": "30s",
+  "schemaVersion": 39,
+  "tags": ["arq-signals", "operational-health"],
+  "templating": { "list": [] },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Arq Signal Operational Health",
+  "uid": "arq-signal-operational-health",
+  "version": 1,
+  "weekStart": ""
+}

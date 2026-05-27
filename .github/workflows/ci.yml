@@ -1,0 +1,169 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      # The Go gates below mirror scripts/preflight.sh exactly so
+      # developers can run the same checks pre-push via the
+      # .githooks/pre-push hook. Tracked by Elevarq/Arq-Signals#141
+      # (sibling of Workbench#255).
+
+      - name: gofmt
+        run: bash scripts/preflight.sh gofmt
+
+      - name: Vet
+        run: bash scripts/preflight.sh vet
+
+      - name: Test
+        run: bash scripts/preflight.sh test
+
+      - name: Boundary tests
+        run: >
+          go test -v -run
+          'TestNoAnalyzerImports|TestNoLLMCode|TestNoScoringCode|TestNoProprietaryContent|TestLicenseFileExists'
+          ./tests/
+
+  security-scan:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      # #161: setup-go so the govulncheck install + preflight `vuln`
+      # gate runs against the same toolchain as the test job above.
+      # The secrets gate doesn't need Go, but co-locating both gates
+      # in one job keeps the workflow surface flat.
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache-dependency-path: go.sum
+
+      - name: Trivy filesystem scan (vuln + secret)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: "fs"
+          scan-ref: "."
+          scanners: "vuln,secret"
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+      - name: Trivy config scan (Dockerfile + Helm)
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: "config"
+          scan-ref: "."
+          severity: "CRITICAL,HIGH"
+          exit-code: "1"
+
+      # #161: route the secret + vulnerability gates through
+      # scripts/preflight.sh so the local pre-push hook (.githooks/
+      # pre-push → `preflight.sh all`) and the push/PR CI gate run
+      # identical commands. The repo-side .gitleaks.toml is the
+      # single source of truth for the secret-scan allowlist (#160).
+      - name: Install gitleaks (checksum-verified)
+        env:
+          GITLEAKS_VERSION: "8.24.3"
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          # Download the tarball and the official checksums file from
+          # the same release. Verifying via the upstream-published
+          # SHA256SUMS catches a tampered tarball even when the
+          # checksum row is rewritten — gh-attestations + the release
+          # asset signing on gitleaks' side cover the upstream channel.
+          curl -sSfLo "$tmp/$TARBALL"          "$BASE/$TARBALL"
+          curl -sSfLo "$tmp/checksums.txt"     "$BASE/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          (cd "$tmp" && grep "  $TARBALL\$" checksums.txt | sha256sum -c -)
+          tar -xzf "$tmp/$TARBALL" -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+
+      # #163: Semgrep + OSV-Scanner round out the security bundle.
+      # Semgrep ships from PyPI; OSV-Scanner installs via go install
+      # against the same toolchain setup-go provisioned above. The
+      # google/osv-scanner-action wrapper is not used directly
+      # because its setup subpath doesn't ship an action.yml.
+      - name: Install Semgrep
+        run: pipx install semgrep || python3 -m pip install --user semgrep
+
+      - name: Install OSV-Scanner
+        run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.2.4
+
+      - name: Secrets gate (gitleaks via preflight.sh)
+        run: bash scripts/preflight.sh secrets
+
+      - name: Vulnerability gate (govulncheck via preflight.sh)
+        run: bash scripts/preflight.sh vuln
+
+      - name: SAST gate (semgrep via preflight.sh)
+        run: bash scripts/preflight.sh semgrep
+
+      - name: Dependency CVE gate (osv-scanner via preflight.sh)
+        run: bash scripts/preflight.sh osv
+
+      # #164: KubeLinter + Conftest against the rendered Helm
+      # chart. Helm is preinstalled on the GitHub Ubuntu runner;
+      # the linters are downloaded as release tarballs because the
+      # upstream actions are out-of-date or require a license.
+      - name: Install kube-linter
+        env:
+          KUBE_LINTER_VERSION: "0.8.3"
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_LINTER_VERSION}/kube-linter-linux.tar.gz" \
+            | tar -xz -C /usr/local/bin kube-linter
+          kube-linter version
+
+      - name: Install conftest
+        env:
+          CONFTEST_VERSION: "0.62.0"
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin conftest
+          conftest --version
+
+      - name: Helm + Kubernetes gate (kube-linter + conftest via preflight.sh)
+        run: bash scripts/preflight.sh kube-lint
+
+      # #173: golangci-lint gate. The default-linter set
+      # (errcheck/staticcheck/unused) ran 50 findings at the
+      # baseline; #173 cleaned the tree, pinned `.golangci.yml`,
+      # and promoted the gate from local-only to push/PR-enforced.
+      #
+      # Install via `go install` rather than the upstream action
+      # because the action's v6/v7 implicit version selection
+      # lags golangci-lint v2 releases; pinning here keeps CI and
+      # local in lockstep on the v2 config schema this repo uses.
+      - name: Install golangci-lint
+        run: go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@v2.5.0
+
+      - name: Lint gate (golangci-lint via preflight.sh)
+        run: bash scripts/preflight.sh lint

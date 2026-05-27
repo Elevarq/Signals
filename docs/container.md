@@ -1,0 +1,104 @@
+# Container Deployment
+
+## Build the container
+
+```bash
+docker build -t arq-signals .
+```
+
+With version metadata:
+
+```bash
+docker build \
+  --build-arg VERSION=0.2.0 \
+  --build-arg COMMIT=$(git rev-parse --short HEAD) \
+  --build-arg DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+  -t arq-signals:0.2.0 .
+```
+
+## Run the collector
+
+### Minimal example
+
+```bash
+docker run -d --name arq-signals \
+  -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
+  -e ARQ_SIGNALS_TARGET_USER=arq_signals \
+  -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
+  -e ARQ_SIGNALS_TARGET_PASSWORD_ENV=PG_PASSWORD \
+  -e PG_PASSWORD=your_password \
+  -e ARQ_ALLOW_INSECURE_PG_TLS=true \
+  -e ARQ_ENV=dev \
+  -v arq-data:/data \
+  -p 8081:8081 \
+  arq-signals
+```
+
+### With a config file
+
+```bash
+docker run -d --name arq-signals \
+  -v /etc/arq/signals.yaml:/etc/arq/signals.yaml:ro \
+  -v arq-data:/data \
+  -p 127.0.0.1:8081:8081 \
+  arq-signals --config /etc/arq/signals.yaml
+```
+
+### Production TLS
+
+```bash
+docker run -d --name arq-signals \
+  -e ARQ_SIGNALS_TARGET_HOST=db.prod.internal \
+  -e ARQ_SIGNALS_TARGET_USER=arq_signals \
+  -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
+  -e ARQ_SIGNALS_TARGET_SSLMODE=verify-full \
+  -e ARQ_SIGNALS_TARGET_PASSWORD_FILE=/run/secrets/pg_password \
+  -e ARQ_ENV=prod \
+  -v arq-data:/data \
+  -v /run/secrets:/run/secrets:ro \
+  -p 127.0.0.1:8081:8081 \
+  arq-signals
+```
+
+## Environment variables
+
+All `ARQ_SIGNALS_*` environment variables are supported. See the
+README for the complete list.
+
+Key variables:
+
+| Variable | Description |
+|----------|-------------|
+| `ARQ_SIGNALS_TARGET_HOST` | PostgreSQL hostname |
+| `ARQ_SIGNALS_TARGET_PORT` | PostgreSQL port (default: 5432) |
+| `ARQ_SIGNALS_TARGET_DBNAME` | Database name (default: postgres) |
+| `ARQ_SIGNALS_TARGET_USER` | PostgreSQL user |
+| `ARQ_SIGNALS_TARGET_PASSWORD_FILE` | Path to password file |
+| `ARQ_SIGNALS_TARGET_PASSWORD_ENV` | Env var containing password |
+| `ARQ_SIGNALS_POLL_INTERVAL` | Collection interval (default: 5m) |
+| `ARQ_SIGNALS_API_TOKEN` | API bearer token (auto-generated if unset) |
+| `ARQ_ENV` | Environment: dev, lab, prod |
+
+## Container details
+
+- **Base image:** Alpine 3.21
+- **User:** non-root (UID 10001)
+- **Init:** tini (PID 1 reaping)
+- **Volumes:** `/data` for SQLite storage
+- **Port:** 8081 (HTTP API)
+- **Binaries:** `arq-signals` (daemon), `arqctl` (CLI)
+
+## Triggering collection and export
+
+```bash
+# From outside the container
+curl -X POST http://localhost:8081/collect/now \
+  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+
+curl -o snapshot.zip http://localhost:8081/export \
+  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+
+# From inside the container
+docker exec arq-signals arqctl collect now
+docker exec arq-signals arqctl export --output /data/snapshot.zip
+```

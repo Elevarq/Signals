@@ -1,0 +1,228 @@
+name: Nightly Security
+
+# Arq-Signals #162 — scheduled security-evidence workflow.
+# Complements .github/workflows/ci.yml (push/PR-time gates, fast)
+# and .github/workflows/release.yml (release-tag evidence). This
+# workflow produces the ongoing posture evidence Arq-Signals needs
+# between releases:
+#
+#   - Full-history Gitleaks scan against the project allowlist
+#     (`.gitleaks.toml`). PR-time uses `gitleaks detect --log-opts
+#     -1` for speed; this scans the full history so newly-surfaced
+#     historical findings get caught quickly instead of waiting for
+#     the next release.
+#   - Source-level SBOM (syft, SPDX-JSON) over the working tree.
+#     Release-tag SBOMs cover the published container images; this
+#     captures the source-graph view between releases.
+#   - Source-level Grype scan against that SBOM. Orthogonal to
+#     Trivy (which already runs in ci.yml) — two scanners reduce
+#     the chance that a single tool's vuln-DB lag misses an
+#     advisory.
+#   - OpenSSF Scorecard, weekly. Arq-Signals is a public repo,
+#     so Scorecard can evaluate the standard ecosystem signals
+#     (branch protection, signed releases, dependency review,
+#     etc.).
+#
+# All produced artefacts are uploaded as workflow artefacts and
+# as SARIF where the target tab supports it.
+#
+# Sibling repo nightly evidence
+# stays aligned across the train.
+
+on:
+  schedule:
+    # 07:23 UTC daily — off the hour to avoid scheduler hot-minute
+    # contention. Arq's nightly runs at 07:17 — keep them 5 minutes
+    # apart so simultaneous Anchore/Grype DB pulls don't collide.
+    - cron: "23 7 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  # Write permissions are intentionally NOT declared at the workflow
+  # level. Scorecard's publish-to-webapp path rejects workflows that
+  # declare write perms globally (HTTP 400, "global perm is set to
+  # write") — it requires top-level perms to be read-only with
+  # writes scoped to the specific jobs that need them. The
+  # Scorecard Token-Permissions check enforces the same pattern.
+  # Per-job `permissions:` blocks below grant `security-events: write`
+  # only to the SARIF-uploading jobs and `id-token: write` only to
+  # the Scorecard job. See #190.
+
+jobs:
+  full-history-secrets:
+    name: Full-history secret scan
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      security-events: write   # SARIF upload to the Security tab.
+    env:
+      # Opt JavaScript-based actions into the Node 24 runtime ahead
+      # of GitHub's 2026-06-02 forced switch. Declared per-job (not
+      # workflow-level) because Scorecard's publish_results webapp
+      # rejects workflows with any top-level env block. See #194.
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # Full history — push/PR gates already cover HEAD; this
+          # job exists specifically to catch deeper-history
+          # regressions.
+          fetch-depth: 0
+
+      - name: Install gitleaks (checksum-verified)
+        env:
+          GITLEAKS_VERSION: "8.24.3"
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          curl -sSfLo "$tmp/$TARBALL"          "$BASE/$TARBALL"
+          curl -sSfLo "$tmp/checksums.txt"     "$BASE/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          (cd "$tmp" && grep "  $TARBALL\$" checksums.txt | sha256sum -c -)
+          tar -xzf "$tmp/$TARBALL" -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Gitleaks full-history scan (SARIF)
+        run: |
+          gitleaks detect \
+            --source . \
+            --config .gitleaks.toml \
+            --redact \
+            --no-banner \
+            --report-format sarif \
+            --report-path gitleaks.sarif \
+            --exit-code 1
+
+      - name: Upload SARIF to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: gitleaks.sarif
+          category: gitleaks-full-history
+
+      - name: Upload SARIF artefact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: gitleaks-sarif
+          path: gitleaks.sarif
+
+  source-sbom:
+    name: Source SBOM (syft)
+    runs-on: ubuntu-24.04
+    env:
+      # See full-history-secrets job for rationale (Scorecard webapp
+      # rejects top-level env, so declared per-job).
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Generate source SBOM (SPDX-JSON)
+        uses: anchore/sbom-action@v0
+        with:
+          path: .
+          format: spdx-json
+          output-file: arq-signals-source.spdx.json
+          upload-artifact: false
+
+      - name: Upload SBOM artefact
+        uses: actions/upload-artifact@v5
+        with:
+          name: source-sbom
+          path: arq-signals-source.spdx.json
+
+  source-vuln:
+    name: Source vuln scan (grype)
+    runs-on: ubuntu-24.04
+    needs: source-sbom
+    permissions:
+      contents: read
+      security-events: write   # SARIF upload to the Security tab.
+    env:
+      # See full-history-secrets job for rationale (Scorecard webapp
+      # rejects top-level env, so declared per-job).
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download source SBOM
+        uses: actions/download-artifact@v5
+        with:
+          name: source-sbom
+
+      - name: Grype scan against SBOM (SARIF)
+        id: grype
+        # Scanning the SBOM (rather than re-walking the source)
+        # keeps the two jobs consistent: Grype evaluates exactly
+        # what syft described.
+        uses: anchore/scan-action@v6
+        with:
+          sbom: arq-signals-source.spdx.json
+          fail-build: true
+          severity-cutoff: high
+          output-format: sarif
+
+      - name: Upload SARIF to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: ${{ steps.grype.outputs.sarif }}
+          category: grype-source
+
+      - name: Upload SARIF artefact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: grype-sarif
+          path: ${{ steps.grype.outputs.sarif }}
+
+  scorecard:
+    name: OpenSSF Scorecard
+    runs-on: ubuntu-24.04
+    # Scorecard's published action handles its own publishing /
+    # SARIF upload semantics; we run it on the same cadence as the
+    # other evidence jobs so all the artefacts land together.
+    #
+    # IMPORTANT: do NOT add an `env:` block to this job. Scorecard's
+    # publish_results webapp rejects with HTTP 400 ("scorecard job
+    # contains env vars"). The restriction is stricter than the
+    # README implies — see #196/#198 for the empirical confirmation.
+    # As a consequence, this job's `actions/upload-artifact@v5` step
+    # will run on Node 20 and emit a deprecation annotation. That is
+    # accepted residual noise until upstream actions ship Node 24
+    # natively. The other three jobs use per-job env to opt into
+    # Node 24 (#194).
+    permissions:
+      contents: read
+      security-events: write
+      id-token: write
+      # Needed for the `publish_results: true` path to publish to
+      # api.scorecard.dev for the public Scorecard badge.
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Run Scorecard
+        uses: ossf/scorecard-action@v2.4.3
+        with:
+          results_file: scorecard.sarif
+          results_format: sarif
+          publish_results: true
+
+      - name: Upload SARIF to Security tab
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: scorecard.sarif
+          category: scorecard
+
+      - name: Upload SARIF artefact
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: scorecard-sarif
+          path: scorecard.sarif

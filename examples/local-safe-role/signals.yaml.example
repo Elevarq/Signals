@@ -1,0 +1,32 @@
+# Arq Signals — safe monitoring role example
+#
+# This config uses a dedicated arq_signals role with pg_monitor.
+# No unsafe override is needed.
+
+env: dev
+
+signals:
+  poll_interval: 5m
+  retention_days: 30
+  log_level: info
+  target_timeout: 30s
+  query_timeout: 10s
+
+targets:
+  - name: my-database
+    host: localhost
+    port: 5432
+    dbname: postgres
+    user: arq_signals
+    sslmode: prefer
+    enabled: true
+    # For password auth, use one of:
+    # password_file: /path/to/password
+    # password_env: PG_PASSWORD
+
+database:
+  path: ./arq-signals.db
+  wal: true
+
+api:
+  listen_addr: "127.0.0.1:8081"

@@ -1,0 +1,23 @@
+# Prometheus scrape config for the local observability stack.
+# Local/dev only — see docs/grafana-dashboard.md for caveats.
+
+global:
+  scrape_interval: 15s
+  scrape_timeout: 10s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: arq-signals
+    metrics_path: /metrics
+    scheme: http
+    # The same bearer token that protects /status, /collect/now, and
+    # /export. Mounted from prometheus/arq-signals-token. See
+    # docs/prometheus.md for the production posture (file mode 0600,
+    # internal-only listener, etc.).
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/secrets/arq-signals-token
+    static_configs:
+      - targets: ['arq-signals:8081']
+        labels:
+          deployment: local

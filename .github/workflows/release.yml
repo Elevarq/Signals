@@ -1,0 +1,446 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+  id-token: write
+  attestations: write
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ghcr.io/elevarq/arq-signals
+  # Docker Hub mirror. Publishing is opt-in: when DOCKERHUB_USERNAME
+  # is unset the Docker Hub login + push steps no-op so the release
+  # still succeeds (e.g. on forks without the secret configured).
+  # `elevarq/arq-signals` matches the GHCR slug; if a different
+  # Docker Hub repo name is desired, change DOCKERHUB_IMAGE here.
+  DOCKERHUB_IMAGE: elevarq/arq-signals
+  # Opt every JavaScript-based action into the Node.js 24 runtime
+  # ahead of GitHub's 2026-06-02 forced switch (Node 20 is removed
+  # 2026-09-16). See #192.
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+jobs:
+  # ── Gate A: Correctness ───────────────────────────────────────────────
+  validate:
+    name: Validate Release
+    runs-on: ubuntu-24.04
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Verify CHANGELOG contains this version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -q "## \[${VERSION}\]" CHANGELOG.md; then
+            echo "STOP: CHANGELOG.md has no entry for version ${VERSION}"
+            exit 1
+          fi
+          echo "CHANGELOG entry found for ${VERSION}"
+
+  test:
+    name: Test
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Vet
+        run: go vet ./...
+
+      - name: Test
+        run: go test -race -count=1 ./...
+
+      - name: Boundary tests
+        run: >
+          go test -v -run
+          'TestNoAnalyzerImports|TestNoLLMCode|TestNoScoringCode|TestNoProprietaryContent|TestLicenseFileExists'
+          ./tests/
+
+  # ── Gate B: Lint / Quality ────────────────────────────────────────────
+  lint:
+    name: Lint
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Lint Dockerfile with hadolint
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: error
+
+  # ── Gate C: Security ──────────────────────────────────────────────────
+  security-scan:
+    name: Security Scan
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Build image for scanning
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker build \
+            --build-arg VERSION="${VERSION}" \
+            --build-arg COMMIT="${COMMIT}" \
+            --build-arg DATE="${DATE}" \
+            -t arq-signals:scan .
+
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          scanners: vuln,secret
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
+      - name: Trivy config scan
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: config
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+
+      - name: Trivy image scan
+        uses: aquasecurity/trivy-action@a9c7b0f06e461e9d4b4d1711f154ee024b8d7ab8 # v0.36.0
+        with:
+          scan-type: image
+          image-ref: arq-signals:scan
+          severity: CRITICAL,HIGH
+          exit-code: '1'
+          ignore-unfixed: true
+
+      # Use the gitleaks binary directly rather than the now-paywalled
+      # gitleaks/gitleaks-action wrapper. Same tool, same scan, no
+      # licensing surface. Matches the approach in ci.yml so the two
+      # workflows stay consistent. Tarball download is verified
+      # against the upstream-published SHA256SUMS file from the same
+      # release so a swapped binary fails the pipeline before it can
+      # run a scan.
+      - name: Install gitleaks (checksum-verified)
+        env:
+          GITLEAKS_VERSION: "8.24.3"
+        run: |
+          set -euo pipefail
+          BASE="https://github.com/gitleaks/gitleaks/releases/download/v${GITLEAKS_VERSION}"
+          TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
+          tmp="$(mktemp -d)"
+          trap 'rm -rf "$tmp"' EXIT
+          curl -sSfLo "$tmp/$TARBALL"          "$BASE/$TARBALL"
+          curl -sSfLo "$tmp/checksums.txt"     "$BASE/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          (cd "$tmp" && grep "  $TARBALL\$" checksums.txt | sha256sum -c -)
+          tar -xzf "$tmp/$TARBALL" -C /usr/local/bin gitleaks
+          gitleaks version
+
+      - name: Gitleaks detect
+        run: gitleaks detect --source . --verbose --exit-code 1
+
+  # ── Gate D + E: Build, Sign & Publish ─────────────────────────────────
+  publish:
+    name: Publish to GHCR
+    needs: [validate, test, lint, security-scan]
+    runs-on: ubuntu-24.04
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      tags: ${{ steps.meta.outputs.tags }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # QEMU is required so buildx can produce arm64 layers on an amd64
+      # runner — Go cross-compiles natively, but Alpine apk add and
+      # adduser in the runtime stage execute on each target arch.
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Docker Hub login is opt-in (skipped when DOCKERHUB_USERNAME
+      # isn't configured — e.g. forks or pre-credential-setup runs).
+      # The metadata-action below also emits Docker Hub tags only
+      # when this login succeeded; otherwise the push step pushes
+      # to GHCR only.
+      - name: Check Docker Hub credentials available
+        id: dockerhub-check
+        run: |
+          if [[ -n "${{ secrets.DOCKERHUB_USERNAME }}" && -n "${{ secrets.DOCKERHUB_TOKEN }}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not set — Docker Hub publishing skipped; GHCR still publishes."
+          fi
+
+      - name: Log in to Docker Hub
+        if: steps.dockerhub-check.outputs.available == 'true'
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            ${{ env.IMAGE_NAME }}
+            ${{ steps.dockerhub-check.outputs.available == 'true' && env.DOCKERHUB_IMAGE || '' }}
+          # latest=auto: only the highest non-pre-release semver also
+          # gets the floating `latest` tag. Pre-releases (vX.Y.Z-rc.1)
+          # never overwrite latest. `latest` is produced by CI only —
+          # never pushed manually.
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+          # OCI annotations land on the image manifest. metadata-action
+          # sets a baseline (source, revision, created); the explicit
+          # labels below add the rest of the org.opencontainers.image.*
+          # set so consumers can identify the build without pulling.
+          labels: |
+            org.opencontainers.image.title=arq-signals
+            org.opencontainers.image.description=Open-source PostgreSQL diagnostic signal collector — local-first, no data egress.
+            org.opencontainers.image.licenses=BSD-3-Clause
+            org.opencontainers.image.vendor=Elevarq
+            org.opencontainers.image.documentation=https://github.com/Elevarq/Arq-Signals/blob/main/README.md
+
+      - name: Build and push (multi-arch + SBOM + SLSA provenance)
+        id: push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Multi-arch manifest list. Buildx produces both per-arch
+          # images and publishes a single manifest list at the digest;
+          # `docker pull` auto-selects by host platform.
+          platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          build-args: |
+            VERSION=${{ needs.validate.outputs.version }}
+            COMMIT=${{ github.sha }}
+            DATE=${{ github.event.head_commit.timestamp }}
+          # Registry-attached SBOM: buildkit generates a per-platform
+          # SPDX SBOM and pushes it as an OCI attestation referenced
+          # from the image digest. Consumers retrieve it with
+          # `cosign download sbom <image>` (or `docker buildx
+          # imagetools inspect --format '{{json .SBOM}}'`).
+          sbom: true
+          # SLSA build provenance attestation, mode=max. Records the
+          # builder identity, source materials, build parameters, and
+          # output digests in an in-toto statement attached to the
+          # image. Verifiable with `cosign verify-attestation
+          # --type slsaprovenance ...`.
+          provenance: mode=max
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Install cosign
+        uses: sigstore/cosign-installer@v3
+
+      # Keyless signing: sigstore Fulcio issues a short-lived
+      # certificate bound to this workflow's GitHub OIDC identity. No
+      # long-lived signing key is stored anywhere. Verification at
+      # consumption time binds the signature back to the workflow ref
+      # via the certificate identity (see docs/release-verification.md).
+      #
+      # Sign in both GHCR and Docker Hub (when the latter is wired).
+      # The manifest digest is identical across registries (same
+      # image bytes), but cosign attaches signatures next to the
+      # image in its own registry — consumers pulling from Docker
+      # Hub need a signature in Docker Hub.
+      - name: Sign image in GHCR (cosign keyless)
+        run: cosign sign --yes ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+
+      - name: Sign image in Docker Hub (cosign keyless)
+        if: steps.dockerhub-check.outputs.available == 'true'
+        run: cosign sign --yes ${{ env.DOCKERHUB_IMAGE }}@${{ steps.push.outputs.digest }}
+
+      # The release also publishes a downloadable SPDX SBOM file as a
+      # workflow artifact. This is independent of the registry-attached
+      # SBOM (sbom: true above) — the file artifact lets consumers
+      # download the SBOM without pulling the image at all.
+      - name: Generate SBOM artifact (file)
+        uses: anchore/sbom-action@v0
+        with:
+          image: ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+          format: spdx-json
+          output-file: sbom.spdx.json
+
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+      # #165: cosign-attest the SBOM as an in-toto SPDX predicate
+      # tied to the image digest. buildkit's `sbom: true` attaches
+      # an SBOM as an OCI artefact, but that attachment is signed
+      # by the buildkit attestation chain — not by cosign's
+      # keyless OIDC identity. Re-attesting with cosign binds the
+      # SBOM to THIS workflow's GitHub Actions OIDC identity, so
+      # consumers running `cosign verify-attestation --type spdxjson`
+      # get the same trust root they use for the image signature.
+      #
+      # Use --type=spdxjson, NOT --type=spdx: `spdx` is the SPDX
+      # tag-value plaintext format; `spdxjson` is the JSON form
+      # that syft produces. v0.7.0 used `spdx` by mistake, which
+      # caused cosign to embed the JSON file as a JSON-encoded
+      # string in the predicate field — verify-attestation then
+      # rejected the attestation with a proto syntax error. The
+      # in-toto envelope was structurally valid (subject,
+      # predicateType, OIDC-bound signature all correct), but
+      # the predicate object was double-encoded. Bumped here so
+      # the next tag verifies cleanly with stock cosign.
+      - name: Attest SBOM in GHCR (cosign keyless)
+        run: |
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate sbom.spdx.json \
+            ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+
+      - name: Attest SBOM in Docker Hub (cosign keyless)
+        if: steps.dockerhub-check.outputs.available == 'true'
+        run: |
+          cosign attest --yes \
+            --type spdxjson \
+            --predicate sbom.spdx.json \
+            ${{ env.DOCKERHUB_IMAGE }}@${{ steps.push.outputs.digest }}
+
+  # ── Go binary artifacts ───────────────────────────────────────────────
+  build-binaries:
+    name: Build Go Binaries
+    needs: [validate, test, security-scan]
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        goos: [linux, darwin]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.25"
+          cache: true
+
+      - name: Build binaries
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: "0"
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          LDFLAGS="-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.Commit=${GITHUB_SHA::8}"
+          LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          mkdir -p dist
+          go build -ldflags "${LDFLAGS}" -o "dist/arq-signals-${GOOS}-${GOARCH}" ./cmd/arq-signals
+          go build -ldflags "${LDFLAGS}" -o "dist/arqctl-${GOOS}-${GOARCH}" ./cmd/arqctl
+
+      - name: Upload binary artifacts
+        uses: actions/upload-artifact@v5
+        with:
+          name: binaries-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/
+
+  # ── Gate F: Release ───────────────────────────────────────────────────
+  release:
+    name: GitHub Release
+    needs: [validate, publish, build-binaries]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Download SBOM
+        uses: actions/download-artifact@v5
+        with:
+          name: sbom
+
+      - name: Download all binaries
+        uses: actions/download-artifact@v5
+        with:
+          pattern: binaries-*
+          merge-multiple: true
+          path: dist/
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum ./* > SHA256SUMS
+
+      - name: Extract changelog for this version
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          awk "/^## \[${VERSION}\]/{found=1; next} /^## \[/{if(found) exit} found{print}" \
+            CHANGELOG.md > release-notes.md
+          if [[ ! -s release-notes.md ]]; then
+            echo "Release ${VERSION}" > release-notes.md
+          fi
+          cat >> release-notes.md <<EOF
+
+          ---
+
+          ## Supply chain
+
+          - Images (same manifest digest in both registries):
+            - GHCR: \`${{ env.IMAGE_NAME }}:${VERSION}\`
+            - Docker Hub: \`${{ env.DOCKERHUB_IMAGE }}:${VERSION}\` (when configured)
+          - Digest: \`${{ needs.publish.outputs.digest }}\`
+          - Architectures: \`linux/amd64\`, \`linux/arm64\`
+          - Cosign-signed in both registries (keyless, GitHub OIDC)
+          - SBOM attached as OCI attestation **and** as \`sbom.spdx.json\` release asset
+          - SLSA build provenance attestation (\`mode=max\`)
+
+          Quick signature verification (GHCR):
+          \`\`\`bash
+          cosign verify ${{ env.IMAGE_NAME }}:${VERSION} \
+            --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+            --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+          \`\`\`
+
+          Same command works against \`${{ env.DOCKERHUB_IMAGE }}:${VERSION}\` — the certificate identity is bound to the workflow, not the registry.
+
+          Full verification checklist (manifest, SBOM, provenance, Trivy):
+          [docs/release-verification.md](https://github.com/Elevarq/Arq-Signals/blob/main/docs/release-verification.md)
+          EOF
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          body_path: release-notes.md
+          files: |
+            sbom.spdx.json
+            dist/*
+          generate_release_notes: false

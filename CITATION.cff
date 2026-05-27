@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+title: Arq Signals
+message: >-
+  If you use Arq Signals in your work, please cite it using
+  these metadata.
+type: software
+authors:
+  - name: Elevarq
+    website: https://elevarq.com
+repository-code: https://github.com/elevarq/arq-signals
+url: https://github.com/elevarq/arq-signals
+abstract: >-
+  Read-only PostgreSQL diagnostic collector. Extracts
+  operational signals from PostgreSQL system views and
+  packages them as portable diagnostic snapshots.
+keywords:
+  - postgresql
+  - monitoring
+  - diagnostics
+  - database
+  - observability
+  - read-only
+license: BSD-3-Clause
+version: 0.6.0
+date-released: "2026-05-13"

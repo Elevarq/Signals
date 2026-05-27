@@ -1,0 +1,29 @@
+# Arq Signals — superuser override example (LOCAL/DEV ONLY)
+#
+# Uses the postgres superuser. Requires ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true.
+# Do NOT use this configuration in production.
+
+env: dev
+
+signals:
+  poll_interval: 5m
+  retention_days: 7
+  log_level: info
+  target_timeout: 30s
+  query_timeout: 10s
+
+targets:
+  - name: local-test
+    host: localhost
+    port: 5432
+    dbname: postgres
+    user: postgres
+    sslmode: disable
+    enabled: true
+
+database:
+  path: ./arq-signals-test.db
+  wal: true
+
+api:
+  listen_addr: "127.0.0.1:8081"

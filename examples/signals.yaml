@@ -1,0 +1,64 @@
+# arq-signals configuration
+#
+# This file configures the arq-signals collector. All values shown are
+# defaults unless noted otherwise.
+#
+# Environment variables override file values. See README.md for the
+# full list of environment variables.
+
+# Environment: dev, lab, or prod
+# In prod, TLS is strictly enforced on all PostgreSQL connections.
+env: dev
+
+# Collector settings
+signals:
+  # How often to run collection cycles
+  poll_interval: 5m
+
+  # How many days of data to retain in local storage
+  retention_days: 30
+
+  # Log level: debug, info, warn, error
+  log_level: info
+
+  # Output logs as JSON (useful for log aggregation)
+  log_json: false
+
+  # Maximum number of targets collected in parallel
+  max_concurrent_targets: 4
+
+  # Per-target collection timeout
+  target_timeout: 60s
+
+  # Per-query execution timeout
+  query_timeout: 10s
+
+# PostgreSQL targets to monitor
+targets:
+  - name: my-database
+    host: localhost
+    port: 5432
+    dbname: postgres
+    user: arq_monitor
+    enabled: true
+
+    # Credential source (choose one):
+    password_file: /etc/arq/pg_password
+    # password_env: PG_MONITOR_PASSWORD
+    # pgpass_file: /etc/arq/.pgpass
+
+    # TLS configuration
+    # For production, use verify-full with a CA certificate:
+    sslmode: prefer
+    # sslrootcert_file: /etc/arq/server-ca.crt
+
+# Local SQLite storage
+database:
+  path: /data/arq-signals.db
+  wal: true
+
+# HTTP API
+api:
+  listen_addr: "127.0.0.1:8081"
+  # read_timeout: 30s
+  # write_timeout: 180s

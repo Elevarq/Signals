@@ -1,0 +1,11 @@
+# Default owners for the entire repository
+* @fheikens
+
+# Helm chart
+deploy/helm/ @fheikens
+
+# CI, release, and security workflows
+.github/ @fheikens
+
+# Specifications (STDD knowledge layer)
+features/ @fheikens

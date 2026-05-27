@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+#
+# Pre-push hook — runs scripts/preflight.sh before allowing a push.
+#
+# Wire it up after cloning:
+#
+#   ln -s ../../.githooks/pre-push .git/hooks/pre-push
+#   chmod +x .githooks/pre-push
+#
+# Bypass for an emergency push (rare):
+#
+#   git push --no-verify
+#
+# The hook runs the same checks CI runs. If it passes locally, CI's
+# Go gates pass on the first try — no round-trip cost of pushing,
+# watching CI fail, fixing, and pushing again.
+#
+# Spec: tracking issue Elevarq/Arq-Signals#141. Sibling of
+# Elevarq/Arq-Workbench#255 — same pattern shared across repos.
+
+set -euo pipefail
+
+# Resolve repo root from this hook's location. Git's hooks run with
+# CWD set to the repo root, but the symlink-via-.githooks pattern
+# means `dirname "$0"` resolves through the .git/hooks symlink. Use
+# `git rev-parse` for a portable answer.
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+exec "${REPO_ROOT}/scripts/preflight.sh" all

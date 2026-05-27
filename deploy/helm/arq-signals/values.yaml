@@ -1,0 +1,116 @@
+# Arq Signals Helm chart values
+
+image:
+  repository: ghcr.io/elevarq/arq-signals
+  tag: "0.8.0"
+  pullPolicy: IfNotPresent
+
+# PostgreSQL target configuration
+target:
+  host: ""           # Required: PostgreSQL hostname
+  port: 5432
+  dbname: postgres
+  user: arq_signals
+  sslmode: prefer
+  # Credential source (choose one):
+  passwordSecretName: ""    # Kubernetes secret containing the password
+  passwordSecretKey: password
+
+# Collector settings
+collector:
+  pollInterval: 5m
+  retentionDays: 30
+  targetTimeout: 60s
+  queryTimeout: 10s
+
+# API settings
+api:
+  port: 8081
+  # API bearer token for the control-plane endpoints
+  # (pause/resume/reload/status/export/metrics). The binary
+  # auto-generates a strong 32-byte token at startup when none is
+  # configured, but production installs SHOULD supply one through
+  # a Kubernetes Secret so the token survives restarts and rotation
+  # is declarative.
+  #
+  # When `tokenSecretName` is set, the deployment injects the value
+  # as `ARQ_SIGNALS_API_TOKEN` via secretKeyRef — the token never
+  # lands in a ConfigMap or rendered manifest beyond the Secret
+  # reference name.
+  #
+  # Token strength (#135): tokens must be at least 32 characters
+  # AND carry >= 8 distinct characters. Generate one with:
+  #   kubectl create secret generic arq-signals-api \
+  #     --from-literal=token="$(openssl rand -base64 32)"
+  tokenSecretName: ""        # Required for production deployments
+  tokenSecretKey: token      # Defaults to `token`
+
+# Environment. "dev" / "lab" tolerate weak operator-supplied API
+# tokens with warnings; "prod" hard-fails on weak tokens at
+# startup. Docs: docs/security/access-control.md.
+env: dev
+
+# ServiceAccount (#140). A dedicated SA per release is the
+# production default — least-privilege identity binding + audit
+# affordance. Disable only if your platform mandates a shared SA.
+serviceAccount:
+  create: true
+  annotations: {}     # e.g. for IRSA / Workload Identity
+
+# NetworkPolicy (#140). Opt-in. When enabled, the policy denies
+# all ingress + egress by default and explicitly allows:
+#   - Egress to Postgres (operator-supplied CIDR + target.port)
+#   - Egress to DNS (operator-supplied kube-DNS CIDR)
+#   - Ingress from named pod selectors (typically the scraper /
+#     control-plane caller)
+#
+# Setting `enabled: true` without populating
+# `ingressPodSelectors` results in no ingress allowed — that's
+# the conservative default; operators MUST list who can reach
+# the API.
+networkPolicy:
+  enabled: false
+  # ingressPodSelectors: list of label-maps that may reach the API
+  # port. e.g.:
+  #   - app.kubernetes.io/name: prometheus
+  #   - app.kubernetes.io/name: grafana
+  ingressPodSelectors: []
+  # Postgres target CIDRs the daemon is permitted to reach. Use
+  # /32 for a single host or your cluster's pod-network CIDR for
+  # an in-cluster Postgres.
+  targetCIDRs:
+    - "0.0.0.0/0"   # placeholder; override with the actual target CIDR
+  # Kube-DNS CIDR. Typical defaults below; override per cluster.
+  kubeDNS:
+    - "10.96.0.10/32"   # kube-system default; override for your cluster
+
+# PodDisruptionBudget (#140). Opt-in. Protects the single replica
+# during voluntary disruptions (kubectl drain, cluster-autoscaler
+# scale-downs, version upgrades). For multi-replica HA, set
+# `minAvailable: 1` and bump deployment replicas.
+podDisruptionBudget:
+  enabled: false
+  # minAvailable: 1
+  # maxUnavailable: 0
+
+# Resource limits
+resources:
+  requests:
+    cpu: 50m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 128Mi
+
+# Persistence
+persistence:
+  enabled: true
+  size: 1Gi
+  storageClass: ""
+
+# Security context
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 10001
+  runAsGroup: 10001
+  readOnlyRootFilesystem: true

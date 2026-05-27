@@ -1,0 +1,76 @@
+{{- /*
+  #140 — NetworkPolicy for the Signals pod.
+
+  Opt-in via `networkPolicy.enabled`. Default is OFF because not
+  every cluster runs a CNI that implements NetworkPolicy (in
+  which case the manifest is a no-op rather than a security gain
+  — opt-in surfaces that decision to the operator).
+
+  Default deny-all egress except:
+  - Postgres target (operator-configured CIDR + port)
+  - DNS (kube-system /28 default; override via egress.kubeDNS)
+
+  Default deny-all ingress except:
+  - API port from the operator-configured selector (typically
+    Grafana / Prometheus / a reverse-proxy pod label)
+
+  The policy is intentionally restrictive — Signals is a pull-only
+  collector with no outbound network needs beyond Postgres and DNS.
+*/}}
+{{- if .Values.networkPolicy.enabled }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-arq-signals
+  labels:
+    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: arq-signals
+      app.kubernetes.io/instance: {{ .Release.Name }}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    {{- with .Values.networkPolicy.ingressPodSelectors }}
+    - from:
+        {{- range . }}
+        - podSelector:
+            matchLabels:
+              {{- toYaml . | nindent 14 }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ $.Values.api.port }}
+    {{- else }}
+    # No ingress allowed. Operators MUST set
+    # networkPolicy.ingressPodSelectors to allow monitoring /
+    # control-plane traffic. Falling through to no-ingress is
+    # the conservative default.
+    {{- end }}
+  egress:
+    # Postgres target
+    - to:
+        {{- range .Values.networkPolicy.targetCIDRs }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: TCP
+          port: {{ .Values.target.port }}
+    # DNS
+    {{- with .Values.networkPolicy.kubeDNS }}
+    - to:
+        {{- range . }}
+        - ipBlock:
+            cidr: {{ . | quote }}
+        {{- end }}
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+    {{- end }}
+{{- end }}

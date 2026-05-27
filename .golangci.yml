@@ -1,0 +1,40 @@
+# golangci-lint configuration for Arq Signals.
+#
+# Pinned by issue #173. The baseline is golangci-lint's default
+# linter set; this file's job is to (a) document the carve-outs we
+# accept and (b) be the single source of truth shared between the
+# pre-push hook and the push/PR CI gate (`bash scripts/preflight.sh
+# lint`).
+#
+# Spec rationale: SECURITY.md "Local development gates" + #173
+# acceptance criteria.
+
+version: "2"
+
+linters:
+  default: standard
+  settings:
+    errcheck:
+      # Carve-outs for the idioms where ignoring the error is the
+      # community-standard, well-documented behaviour. Anything
+      # not in this list MUST be either handled or explicitly
+      # `_ = call(...)`-discarded with a justifying comment.
+      exclude-functions:
+        # Resource teardown. Returning from a deferred Close is
+        # the canonical Go idiom; surfacing the error from a
+        # deferred call requires named returns + bespoke
+        # plumbing that's worse than the swallow.
+        - (io.Closer).Close
+        - (io.ReadCloser).Close
+        - (*os.File).Close
+        - (net.Listener).Close
+        - (*net/http.Response).Body.Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*database/sql.Stmt).Close
+        - (*database/sql.Tx).Rollback
+        - (*compress/gzip.Writer).Close
+        # HTTP response writers are a one-way pipe by the time
+        # Encode runs; the connection is already gone if it
+        # errors and the handler has no useful recovery.
+        - (*encoding/json.Encoder).Encode

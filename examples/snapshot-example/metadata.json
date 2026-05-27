@@ -1,0 +1,7 @@
+{
+  "schema_version": "arq-snapshot.v1",
+  "collector_version": "0.1.0",
+  "collector_commit": "abc1234",
+  "collected_at": "2026-03-14T10:30:00Z",
+  "instance_id": "a1b2c3d4e5f67890"
+}
