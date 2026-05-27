@@ -56,6 +56,7 @@ jobs:
     permissions:
       contents: read
       security-events: write   # SARIF upload to the Security tab.
+      actions: read            # upload-sarif resolves the workflow run.
     env:
       # Opt JavaScript-based actions into the Node 24 runtime ahead
       # of GitHub's 2026-06-02 forced switch. Declared per-job (not
@@ -141,6 +142,7 @@ jobs:
     permissions:
       contents: read
       security-events: write   # SARIF upload to the Security tab.
+      actions: read            # upload-sarif resolves the workflow run.
     env:
       # See full-history-secrets job for rationale (Scorecard webapp
       # rejects top-level env, so declared per-job).
@@ -199,6 +201,7 @@ jobs:
       contents: read
       security-events: write
       id-token: write
+      actions: read            # upload-sarif resolves the workflow run.
       # Needed for the `publish_results: true` path to publish to
       # api.scorecard.dev for the public Scorecard badge.
     steps:
