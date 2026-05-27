@@ -6,6 +6,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-05-27
+
+### Added
+
+- Broader read-only catalog coverage: additional collectors capture
+  user-defined catalog objects and extended statistics so dependent
+  tables and queries are fully represented in a snapshot for downstream
+  analysis.
+- Optional per-collector view in the export ZIP.
+- Extra PG 14+ session counters in `pg_stat_database`; role `oid` in
+  `login_roles` for stable role-name resolution; `pg_settings` context
+  and value bounds.
+
+Still read-only by design — three-layer enforcement, no write
+operations, no telemetry, no AI.
+
 ## [0.8.0] - 2026-05-15
 
 ### Added

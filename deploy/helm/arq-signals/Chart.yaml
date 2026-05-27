@@ -6,7 +6,7 @@ type: application
 # are kept in lockstep with the released container image. Bump all three
 # together at release time; do not float chart version independently.
 version: 0.8.0
-appVersion: "0.8.0"
+appVersion: "0.9.0"
 keywords:
   - postgresql
   - monitoring
