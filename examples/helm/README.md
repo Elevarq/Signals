@@ -5,6 +5,30 @@ A starter Helm chart is provided at
 
 ## Install
 
+Each release publishes the chart as an OCI artifact to GHCR, so you
+can install by reference without a repo checkout (the chart version
+matches the release version):
+
+```bash
+helm install arq-signals oci://ghcr.io/elevarq/charts/arq-signals \
+  --version 0.9.0 \
+  --set target.host=db.example.com \
+  --set target.user=arq_signals \
+  --set target.dbname=postgres \
+  --set target.passwordSecretName=arq-pg-password
+```
+
+The published chart is cosign-signed (keyless, GitHub OIDC) — the same
+trust root as the container image. Verify before install:
+
+```bash
+cosign verify ghcr.io/elevarq/charts/arq-signals:0.9.0 \
+  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
+```
+
+Or install straight from a working-tree checkout:
+
 ```bash
 helm install arq-signals deploy/helm/arq-signals/ \
   --set target.host=db.example.com \
