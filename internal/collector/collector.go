@@ -1105,6 +1105,15 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// Spec: specifications/collectors/fdw_*_v1.md REDACT-R001..R004.
 		redactFDWRowsIfNeeded(q.ID, rows)
 
+		// R075 (revised, issue #6): when the operator has opted out of
+		// high-sensitivity collection, NULL the collector's declared
+		// SensitiveColumns in each row so the sensitive payload never
+		// reaches disk while the row's non-sensitive diagnostic columns
+		// survive. No-op when high-sensitivity is enabled (the default)
+		// or when the collector has no SensitiveColumns (skip-path
+		// collectors are already excluded by Filter).
+		redactHighSensitivityColumnsIfNeeded(q, rows, c.highSensitivityEnabled)
+
 		// Encode result as NDJSON.
 		payload, compressed, sizeBytes, encErr := db.EncodeNDJSON(rows)
 		if encErr != nil {

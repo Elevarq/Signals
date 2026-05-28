@@ -127,7 +127,12 @@ func Filter(p FilterParams) []QueryDef {
 		if q.RequiresExtension != "" && !extSet[q.RequiresExtension] {
 			continue
 		}
-		if q.HighSensitivity && !p.HighSensitivityEnabled {
+		// R075 (revised 2026-05): when opted out, only collectors whose
+		// row is *itself* the sensitive payload are dropped here
+		// (SensitiveColumns empty/nil — the skip path). Collectors with
+		// non-empty SensitiveColumns stay eligible; the collector loop
+		// nulls those columns in each row at execution time (redact path).
+		if q.HighSensitivity && !p.HighSensitivityEnabled && len(q.SensitiveColumns) == 0 {
 			continue
 		}
 		// #128 — per-collector opt-in for pg_stats_array_range_v1
@@ -175,7 +180,11 @@ func HighSensitivityIDs(p FilterParams) []string {
 	}
 	var out []string
 	for _, q := range registry {
-		if !q.HighSensitivity {
+		// Only the **skip-path** high-sensitivity collectors land here
+		// — the redact-path ones (SensitiveColumns non-empty) keep
+		// running with redacted columns and are NOT recorded as
+		// skipped/config_disabled (R075 revised).
+		if !q.HighSensitivity || len(q.SensitiveColumns) > 0 {
 			continue
 		}
 		if q.MinPGVersion > 0 && p.PGMajorVersion < q.MinPGVersion {
@@ -224,7 +233,9 @@ func GatedIDsByReason(p FilterParams) map[string][]string {
 			out[GateReasonVersionUnsupported] = append(out[GateReasonVersionUnsupported], q.ID)
 		case q.RequiresExtension != "" && !extSet[q.RequiresExtension]:
 			out[GateReasonExtensionMissing] = append(out[GateReasonExtensionMissing], q.ID)
-		case q.HighSensitivity && !p.HighSensitivityEnabled:
+		case q.HighSensitivity && len(q.SensitiveColumns) == 0 && !p.HighSensitivityEnabled:
+			// R075 revised: only skip-path collectors are reported as
+			// config_disabled. Redact-path collectors keep running.
 			out[GateReasonConfigDisabled] = append(out[GateReasonConfigDisabled], q.ID)
 		case p.ProfileRestricted && q.HighSensitivity:
 			// R098: per-target restricted profile drops every

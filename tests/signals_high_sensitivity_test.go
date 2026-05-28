@@ -40,13 +40,12 @@ var highSensitivityCollectors = []string{
 	"pg_policies_v1",
 	// pg_rules_v1 (#219) emits the rewrite-rule action — arbitrary SQL.
 	"pg_rules_v1",
-	// R075 (revised 2026-05, issue #6): live pg_stat_activity statement
-	// text. Default-on with an opt-out — collectors run by default,
-	// `high_sensitivity_collectors_enabled = false` skips them.
-	"long_running_txns_v1",
-	"blocking_locks_v1",
-	"idle_in_txn_offenders_v1",
-	"wraparound_blockers_v1",
+	// NOTE: the 4 live pg_stat_activity collectors (long_running_txns_v1,
+	// blocking_locks_v1, idle_in_txn_offenders_v1, wraparound_blockers_v1)
+	// are HighSensitivity = true but use the **redact** path (R075 revised
+	// 2026-05, issue #6) — they stay eligible when opted out and have their
+	// sensitive columns nulled at execution time. They are covered by
+	// tests/signals_redact_columns_test.go, not this skip-path list.
 }
 
 // TestHighSensitivityCollectorsAreFlagged verifies all four definition
@@ -64,18 +63,21 @@ func TestHighSensitivityCollectorsAreFlagged(t *testing.T) {
 	}
 }
 
-// TestFilterExcludesHighSensitivityWhenDisabled verifies that without
-// opt-in, Filter returns no high-sensitivity queries — they are gated off
-// at the catalog filter, not at execution time.
-// Traces: ARQ-SIGNALS-R075
-func TestFilterExcludesHighSensitivityWhenDisabled(t *testing.T) {
+// TestFilterExcludesSkipPathHighSensitivityWhenDisabled verifies that
+// when high-sensitivity is opted out, Filter drops the skip-path
+// high-sensitivity collectors (whole row is the sensitive payload, no
+// SensitiveColumns declared). Redact-path collectors (non-empty
+// SensitiveColumns) keep running and have their sensitive columns
+// nulled at execution time — covered by tests/signals_redact_columns_test.go.
+// Traces: ARQ-SIGNALS-R075 (revised 2026-05, issue #6).
+func TestFilterExcludesSkipPathHighSensitivityWhenDisabled(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion:         16,
 		HighSensitivityEnabled: false,
 	})
 	for _, q := range out {
-		if q.HighSensitivity {
-			t.Errorf("%s should be excluded when HighSensitivityEnabled=false", q.ID)
+		if q.HighSensitivity && len(q.SensitiveColumns) == 0 {
+			t.Errorf("%s is a skip-path high-sensitivity collector but Filter kept it when opted out", q.ID)
 		}
 	}
 }

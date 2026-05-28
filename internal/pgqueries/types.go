@@ -82,9 +82,19 @@ type QueryDef struct {
 	// pg_stat_activity statement text (long-running txns, blocking
 	// locks, idle-in-txn, wraparound blockers). Per R075 these run by
 	// default (collect-everything default); operators opt **out** by
-	// setting `high_sensitivity_collectors_enabled = false`, which
-	// skips every collector with this flag.
+	// setting `high_sensitivity_collectors_enabled = false`. The
+	// opt-out behavior depends on SensitiveColumns (see below).
 	HighSensitivity bool
+	// SensitiveColumns lists the columns to NULL-out when the operator
+	// has opted out of high-sensitivity collection (R075, redact path).
+	// Non-empty SensitiveColumns puts the collector on the **redact**
+	// path: it still runs when opted out, but the listed columns are
+	// zeroed in every persisted row so non-sensitive columns survive.
+	// Empty/nil SensitiveColumns keeps the historical **skip** path:
+	// the collector is dropped from the eligible set when opted out and
+	// recorded `status=skipped, reason=config_disabled`. Used by Filter
+	// and by the collector's per-row redaction step.
+	SensitiveColumns []string
 }
 
 // FilterParams controls which queries are eligible for a given target.

@@ -39,45 +39,9 @@ func TestLiveQueryTextCollectorsAreHighSensitivity(t *testing.T) {
 	}
 }
 
-func TestFilterDropsHighSensitivityWhenOptedOut(t *testing.T) {
-	livesensIDs := map[string]bool{
-		"long_running_txns_v1":     true,
-		"blocking_locks_v1":        true,
-		"idle_in_txn_offenders_v1": true,
-		"wraparound_blockers_v1":   true,
-	}
-
-	hasAll := func(qs []pgqueries.QueryDef) bool {
-		got := map[string]bool{}
-		for _, q := range qs {
-			got[q.ID] = true
-		}
-		for id := range livesensIDs {
-			if !got[id] {
-				return false
-			}
-		}
-		return true
-	}
-
-	// PG 18 + no extensions: the four collectors have no extension
-	// dependency and no MinPGVersion above 18, so eligibility is gated
-	// only by HighSensitivityEnabled.
-	on := pgqueries.Filter(pgqueries.FilterParams{
-		PGMajorVersion:         18,
-		HighSensitivityEnabled: true,
-	})
-	if !hasAll(on) {
-		t.Errorf("with HighSensitivityEnabled=true, all four live-sensitive collectors must be eligible")
-	}
-
-	off := pgqueries.Filter(pgqueries.FilterParams{
-		PGMajorVersion:         18,
-		HighSensitivityEnabled: false,
-	})
-	for _, q := range off {
-		if livesensIDs[q.ID] {
-			t.Errorf("with HighSensitivityEnabled=false, %s leaked through the gate — opt-out must drop high-sensitivity collectors entirely", q.ID)
-		}
-	}
-}
+// Note: PR #13's TestFilterDropsHighSensitivityWhenOptedOut asserted
+// the four live-sensitive collectors were dropped when opted out. That
+// behavior was corrected by issue #6 v2 (redact path): the collectors
+// now stay eligible when opted out and have their sensitive columns
+// nulled at execution time. The replacement coverage lives in
+// tests/signals_redact_columns_test.go.
