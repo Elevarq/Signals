@@ -78,10 +78,14 @@ Same as `pg_stats_v1` / `pg_stats_extended_v1`: excludes
 - Stable output column order (explicit `SELECT`, no `SELECT *`)
 - Read-only query, passes the existing collector linter, no
   superuser requirement
-- Disabled by default — requires BOTH `HighSensitivityEnabled` and
-  `CollectArrayRangeHistograms`
-- When disabled, `collector_status` reports
-  `reason=config_disabled` (same shape as `pg_stats_extended_v1`)
+- Gated behind the `CollectArrayRangeHistograms` per-collector
+  opt-in (default `false`). The daemon-wide `HighSensitivityEnabled`
+  is the necessary floor — both must be true for the collector to
+  run. Since R075 v2 (issue #6), `HighSensitivityEnabled` itself
+  defaults to `true`, so in practice the array-range opt-in is the
+  binding gate.
+- When gated, `collector_status` reports `reason=config_disabled`
+  (EA-R001; same shape as `pg_stats_extended_v1`).
 
 ## Configuration
 
@@ -110,13 +114,17 @@ Same as `pg_stats_v1` / `pg_stats_extended_v1`: excludes
 Same defence in depth as `pg_stats_extended_v1`, plus the
 per-collector opt-in:
 
-1. **Disabled by default.**
-2. **Two-gate opt-in** (daemon-wide high-sensitivity floor AND
-   per-collector flag).
+1. **Per-collector opt-in (`CollectArrayRangeHistograms`, default `false`).**
+2. **Two-gate composition** — daemon-wide `HighSensitivityEnabled`
+   (default `true`, R075 v2) as the necessary floor AND the
+   per-collector opt-in. In a default install only the per-collector
+   opt-in actively gates the collector.
 3. **Local storage only** (SQLite + export ZIPs; never external
    transmission).
 4. **Short retention** (RetentionShort class).
-5. **Explicit operator opt-in** documented in configuration.
+5. **`reason=config_disabled` surfaced** in `collector_status.json`
+   when gated (EA-R001), so an operator's coverage gap is never
+   silent.
 
 ## Analyzer-side consumption
 

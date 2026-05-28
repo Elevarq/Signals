@@ -58,6 +58,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Documentation
 
+- Pre-Beta sweep of operator-facing docs to match R075 (revised v2):
+  `README.md` "Off-by-default surfaces" rewritten as "Operator-controlled
+  sensitivity" with the default-on / opt-out-redact-or-skip semantics;
+  `docs/postgres-role.md` "High-sensitivity collectors" section
+  rewritten (default-on, two opt-out branches, skip vs redact); the
+  Grafana dashboard panel description for
+  `arq_signal_high_sensitivity_collectors_enabled` updated;
+  `features/arq-signals/traceability.md` R075 row rewritten and R070
+  row clarified; spec entries for the skip-path stats collectors
+  (`pg_stats_array_range_v1.md`, `pg_statistic_ext_data_v1.md`)
+  realigned with the redact-or-skip model. No stale "opt-in / off-by-
+  default" wording remains in operator-facing markdown. (#20)
 - Operator-facing sensitivity docs realigned with R075 (revised v2):
   `appendix-b-configuration-schema.md` example, env-var table, and the
   "High-sensitivity collectors" section now reflect the default-on /
