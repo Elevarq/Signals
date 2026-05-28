@@ -121,6 +121,18 @@ func (b *Builder) SetExportPerCollectorFiles(enabled bool) {
 
 // WriteTo writes the ZIP export to the given writer.
 func (b *Builder) WriteTo(w io.Writer, opts Options) error {
+	// R110: hold the export read lock for the whole sequence of store
+	// reads below. Retention DELETEs (`DeleteSnapshotsOlderThan`,
+	// `DeleteQueryRunsOlderThanByClass`) take the exclusive lock, so a
+	// concurrent cleanup cycle cannot commit between this export's
+	// reads and leave it referring to rows that have just been deleted
+	// (e.g. the "missing result payload for successful run" tear).
+	// Concurrent collection commits are not gated here — they only add
+	// rows, so an export reading "old state" before a commit remains
+	// internally consistent.
+	release := b.store.LockExports()
+	defer release()
+
 	// Resolve the snapshot scope once, up front. Every writer below
 	// reads from b.scopedSnapshots / b.scopedSnapshotIDs so the six
 	// files in the ZIP can never disagree about which cycles are

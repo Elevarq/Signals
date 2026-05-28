@@ -567,6 +567,34 @@ This closes the drift where the lazy per-collection `UpsertTarget`
 target's row at `enabled = 1` after it was disabled or removed, so its
 stale snapshots kept appearing in the default export and `/status`.
 
+**ARQ-SIGNALS-R110**: An export shall observe a consistent state of the
+local store across all of its reads. The store issues several
+independent reads to compose one export ZIP
+(`GetLatestRunsPerCollector` -> `GetSnapshotsByIDs` ->
+`GetQueryResultByRunID` per run -> `GetQueryCatalog`), and the daemon
+runs a retention `cleanup()` on a timer that deletes `query_runs` and
+`snapshots`. Without serialisation, a delete committing between the
+export's reads can leave the export referring to rows that were just
+removed — most visibly the "missing result payload for successful run"
+hard error.
+
+The store therefore serialises **exports against destructive writes**:
+exports take a shared read lock; the destructive retention deletes
+(`DeleteQueryRunsOlderThanByClass`, `DeleteSnapshotsOlderThan`) take an
+exclusive write lock. Consequences:
+
+- Multiple exports run concurrently (shared lock).
+- A retention cycle that fires during an export waits for the export
+  to complete; an export that starts while retention is running waits
+  for retention to finish. Both operations are short-lived in practice.
+- Concurrent collection commits are **not** serialised against
+  exports: they only **add** rows, so an export reading "old state"
+  before a commit remains internally consistent (no tear).
+
+A future revision MAY upgrade this to a per-export SQLite read
+transaction (true WAL MVCC snapshot) without changing the externally
+observable invariant.
+
 **ARQ-SIGNALS-R073**: The system shall support target-scoped export.
 When exporting for a specific target, query_runs, query_results, and
 collector_status shall contain only data for that target. The

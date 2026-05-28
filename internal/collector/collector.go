@@ -1251,6 +1251,15 @@ func (c *Collector) cleanup() {
 		return
 	}
 
+	// R110: hold the exclusive retention lock for the duration of the
+	// destructive DELETEs so a concurrent export sees either the
+	// pre-cleanup state or the post-cleanup state, never a mix that
+	// would let it reference rows that have just been removed (the
+	// "missing result payload" tear). Cleanup is short-lived; an
+	// export overlapping it briefly waits.
+	release := c.db.LockRetention()
+	defer release()
+
 	// R099: per-class retention. Each retention class has its own
 	// cutoff; query_runs are pruned per class so high-cadence data
 	// (RetentionShort) doesn't linger in storage just because slow-

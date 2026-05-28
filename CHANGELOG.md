@@ -35,6 +35,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Exports no longer tear when retention cleanup runs concurrently. An
+  export composes the ZIP from several sequential reads of the local
+  store; if retention's `DeleteSnapshotsOlderThan` /
+  `DeleteQueryRunsOlderThanByClass` committed between those reads, the
+  export could end up referencing a row that had just been removed
+  (most visibly the `missing result payload for successful run` hard
+  error). Exports now take a shared read lock; the destructive
+  retention writes take an exclusive write lock. Concurrent exports
+  remain non-blocking; concurrent collection commits are not gated
+  (additive only — no tear). (R110, #10)
 - Disabled or removed targets no longer linger as active. The daemon
   reconciles `targets.enabled` against config on startup and on every
   reload (soft-disable; snapshots retained), and the default export +
