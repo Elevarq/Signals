@@ -239,25 +239,34 @@ carries snapshot data, the metadata shall additionally include the
 
 ### Export Scope
 
-**ARQ-SIGNALS-R084**: The default export scope is the **latest completed
-snapshot per active target**. An `arqctl export` invocation with no
-selector flags shall package, for each enabled target with at least one
-completed collection cycle, only the rows belonging to that target's
-most recent snapshot (the row in the `snapshots` table with the largest
-`collected_at` for that `target_id`). Targets that have never produced
-a completed snapshot are omitted from the default export.
+**ARQ-SIGNALS-R084**: The default export scope is the **latest run of
+each collector per active target**. An `arqctl export` invocation with
+no selector flags shall package, for each target with at least one
+recorded collector run, the most recent run of every collector that
+has ever run against that target — the row in `query_runs` with the
+largest `collected_at` for each distinct `(target_id, query_id)` pair —
+together with the snapshots those runs belong to. Targets that have
+never produced a recorded run are omitted from the default export.
 
-This rule replaces the v0.3.x default that aggregated every snapshot
-in local storage into a single ZIP. The old behavior is preserved
-behind the explicit `--all` selector defined in R085.
+This rule replaces both the v0.3.x default that aggregated every
+snapshot into a single ZIP and the interim "latest completed snapshot
+per target" default (superseded 2026-05; see issue #5). The
+all-snapshots behavior remains available behind the explicit `--all`
+selector (R085); a single point-in-time snapshot remains available
+behind `--snapshot-id`.
 
-Rationale: a long-running daemon accumulates one row in `snapshots`
-per cycle per target. Aggregating all of them into one ZIP made every
-analyzer ingest quadratic in daemon uptime — a one-table issue
-appearing in 1,138 cycles produced 1,138 analyzer-side rule hits and
-the same number of LLM calls. Restricting the default to "the latest
-completed snapshot" makes one export = one analyzer ingest = one
-analysis cycle, which is the intended unit of consumption.
+Rationale: collectors run at different cadences (5m/15m/1h/6h/24h). A
+single collection cycle persists a **new** snapshot containing only the
+collectors that were *due* that cycle, so the single latest snapshot
+per target is **not** a complete current picture — immediately after a
+5-minute cycle it carries only the 5m collectors and silently drops the
+15m/1h/6h/24h evidence, undermining R072 (completeness). Scoping the
+default to the latest run *per collector* restores completeness across
+cadences while preserving R084's original intent: one default export =
+one analyzer ingest = one analysis cycle. It does not reintroduce the
+quadratic-history problem the latest-snapshot default was created to
+solve — each collector contributes exactly one (its most recent) run,
+not its full history. Full history remains behind `--all`.
 
 **ARQ-SIGNALS-R085**: Operators shall be able to widen or narrow the
 export scope via mutually-named selectors. The CLI (`arqctl export`)
@@ -283,7 +292,8 @@ intent explicitly via two new fields under R035:
 
 | Field | Type | Semantics |
 |---|---|---|
-| `snapshot_count` | integer | The number of distinct `snapshots` rows packaged in this ZIP **after R090 filtering** (orphaned `target_id`s are excluded from the default scope but appear under `--all`). Always populated. For the R084 default export across N active targets this is N (each target contributes its latest); for `--snapshot-id` it is 1; for `--all` it is the size of the daemon's store at the moment of export, including any orphaned snapshots. |
+| `snapshot_count` | integer | The number of distinct `snapshots` rows packaged in this ZIP **after R090 filtering** (orphaned `target_id`s are excluded from the default scope but appear under `--all`). Always populated. For the R084 default export this is the number of distinct snapshots the latest-per-collector runs belong to — **at least** the number of active targets, and more when a target's collectors span cadences that last fired in different cycles; for `--snapshot-id` it is 1; for `--all` it is the size of the daemon's store at the moment of export, including any orphaned snapshots. |
+| `run_scope` | string | One of `"latest-per-collector"` or `"snapshot"`. `"latest-per-collector"` marks the R084 default export: runs are assembled as the most recent run per `(target_id, query_id)`, so two runs in the same export may carry **different** `collected_at` values. `"snapshot"` marks every selector-scoped export (`--all`, `--snapshot-id`, `--since/--until`), whose runs are exactly those belonging to the selected snapshot rows. Consumers use this to know whether per-run `collected_at` must be read individually (latest-per-collector) or can be taken from the snapshot. A consumer that does not recognise the value, or finds it absent (legacy producer), MUST treat the export as `"snapshot"`. |
 | `ingest_mode` | string | One of `"analyze"` or `"history_only"`. Indicates how the consuming Analyzer should process this export. The default `arqctl export` (R084 scope) sets `ingest_mode = "analyze"` — the consumer treats it as a current snapshot and may run full report generation. The backlog-replay flow defined in R087 sets `ingest_mode = "history_only"` for snapshots that pre-date the most recent one in a replay burst. |
 
 `ingest_mode` is advisory metadata, not enforcement. The Analyzer side
@@ -296,6 +306,45 @@ cycle), an export ZIP missing these fields shall be treated by the
 Analyzer as `snapshot_count` equal to the number of distinct
 `snapshot_id` values observed in `query_runs.ndjson` and
 `ingest_mode = "analyze"`.
+
+### Collector Freshness Metadata
+
+**ARQ-SIGNALS-R107**: Because the R084 default export assembles the
+latest run *per collector*, runs in one export may carry different
+`collected_at` values, and a low-cadence collector (e.g. 24h) may be
+present but old. A consumer must be able to judge each collector's
+freshness from the export alone, without external state. For every
+collector entry in `collector_status.json`, the export shall carry:
+
+| Field | Semantics |
+|---|---|
+| `collected_at` | RFC3339 timestamp of the specific run this entry describes (per-collector — not a single export-level time). |
+| `cadence` | The collector's expected cadence as a duration string (`"5m"`, `"15m"`, `"1h"`, `"6h"`, `"24h"`). |
+| `freshness` | One of `fresh`, `stale`, `never_run` (defined below). |
+
+Freshness classification:
+
+- `fresh` — the latest run's age (`now - collected_at`) is at most
+  twice the collector's cadence (one full missed cycle of slack to
+  avoid flapping at the boundary).
+- `stale` — the latest run is older than twice the cadence: at least
+  one full cycle was missed.
+- `never_run` — the collector is eligible for the target (passes the
+  R098/R075 eligibility filter) but has no run in the default scope.
+
+The **target-scoped** default export (`--target-id`) shall additionally
+enumerate eligible-but-never-run collectors as `never_run` entries so a
+consumer can distinguish "collector ran and is current" from "collector
+has never produced data." `never_run` enumeration is limited to
+target-scoped exports because the instance-level
+`collector_status.json` carries no per-entry target attribution, so a
+`never_run` row there would be ambiguous across targets; `collected_at`,
+`cadence`, and the `fresh`/`stale` classification are unambiguous and
+appear in both. Collectors that are ineligible for a target
+(version/extension/profile gated) are not `never_run` — they are
+recorded as `skipped` runs every cycle (R072), so a registered
+collector with no run at all for a cycled target is one whose cadence
+has simply not fired yet.
 
 ### Version-Sensitive Collectors
 
@@ -1181,12 +1230,13 @@ target; the v0.3.x default export (which then groups by
 `snapshots.target_id` was no longer a true reference. R089 closes
 this drift.
 
-**ARQ-SIGNALS-R090**: `GetLatestSnapshotsPerTarget` (the R084 default
-scope) and `GetLatestSnapshotForTarget` (R084 narrowed to one
-target) MUST exclude `snapshots` rows whose `target_id` does not
-reference an existing row in `targets`. The exclusion is performed
-at query time via an explicit `JOIN targets t ON t.id = s.target_id`
-clause.
+**ARQ-SIGNALS-R090**: `GetLatestRunsPerCollector` (the R084 default
+scope, and the same function narrowed to one target) MUST exclude
+`query_runs` rows whose `target_id` does not reference an existing row
+in `targets`. The legacy `GetLatestSnapshotsPerTarget` /
+`GetLatestSnapshotForTarget` helpers carry the same exclusion for any
+path that still uses them. The exclusion is performed at query time via
+an explicit `JOIN targets t ON t.id = <table>.target_id` clause.
 
 Rationale: defense in depth. Even with R089 in place going forward,
 existing daemon stores carry historical orphans from the v0.3.x
@@ -2150,10 +2200,14 @@ work) and is intentionally out of scope here.
   The only observable side effect is the `collection_skipped`
   audit event.
 - **INV-SIGNALS-13**: Default `arqctl export` (no selector flags) does
-  not aggregate cross-cycle history. The ZIP carries at most one
-  snapshot per active target — not the daemon's accumulated store.
-  Forensic full-history exports are available behind the explicit
-  `--all` selector (R085).
+  not aggregate cross-cycle history. It carries, per active target,
+  exactly the **latest run of each collector** (R084) — at most one run
+  per `(target_id, query_id)`, never a collector's full run history.
+  The ZIP may therefore reference more than one snapshot per target
+  (when that target's collectors last fired in different cycles), but
+  the number of runs per collector is bounded at one. Forensic
+  full-history exports remain behind the explicit `--all` selector
+  (R085).
 - **INV-SIGNALS-16**: Every PostgreSQL connection opened by Arq
   Signals reports `application_name = 'arq-signals'` to the
   server. The value originates from a single Go constant; no
