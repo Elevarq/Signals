@@ -103,7 +103,15 @@ jobs:
           gitleaks version
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        # Pinned to the 40-char SHA of golang/vuln v1.3.0 so Scorecard's
+        # PinnedDependenciesID `goCommand not pinned by hash` finding
+        # actually clears (a version tag like @v1.3.0 still trips it —
+        # the policy specifically requires a hash). Refresh via Dependabot
+        # is not automatic for `go install` invocations; bump manually
+        # when a new golang/vuln tag lands by replacing the SHA with the
+        # new commit's SHA (the comment after `#` is the human-readable
+        # version pointer).
+        run: go install golang.org/x/vuln/cmd/govulncheck@0782b76014f15f24e22a438f30f308df42899ba1 # v1.3.0
 
       # #163: Semgrep + OSV-Scanner round out the security bundle.
       # Semgrep ships from PyPI; OSV-Scanner installs via go install
