@@ -90,7 +90,7 @@ text panel. Every query maps to a metric defined in
 
 | Panel | Metric(s) | What it answers |
 |---|---|---|
-| **High-sensitivity collectors enabled (R075)** | `arq_signal_high_sensitivity_collectors_enabled` | Is the daemon-wide opt-in gate open? |
+| **High-sensitivity collectors enabled (R075)** | `arq_signal_high_sensitivity_collectors_enabled` | Effective state of the daemon-wide gate. Default `1` (collect-everything default, R075 revised 2026-05); `0` means the operator opted out (redact-path collectors null their `SensitiveColumns`; skip-path collectors are dropped). |
 | **Time since last successful collection (per target)** | `time() - arq_signal_last_successful_collection_timestamp` | Are any targets going stale? |
 | **Collection cycles by status (rate / 5m)** | `arq_signal_collection_cycles_total{status}` | How are per-target cycles trending — success / partial / failed? |
 | **Collection duration (p50 / p95 / p99)** | `arq_signal_collection_duration_seconds_bucket` | Cycle latency profile per target. |

@@ -134,7 +134,13 @@ column values.
 `pg_statistic_ext_data_mcv_v1`: **high**. The `m` blob carries
 actual most-common-value tuples for the columns the statistics
 object covers. Treated identically to `pg_stats_extended_v1`'s
-MCV/histogram blob: HighSensitivity-gated, operator opt-in only.
+MCV/histogram blob: classified `HighSensitivity = true` on the
+**skip-path** (no `SensitiveColumns` declared). Runs by default
+(R075 v2: collect-everything default). When an operator opts out via
+`signals.high_sensitivity_collectors_enabled: false`, the collector
+is dropped from the eligible set and recorded `status=skipped,
+reason=config_disabled` rather than having columns redacted (nothing
+useful remains after redacting the blob).
 
 `pg_monitor` membership is NOT sufficient. The collecting role
 must either own the underlying tables (so `pg_statistic_ext_data`

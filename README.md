@@ -231,10 +231,19 @@ Arq Signals is local-first by design:
   appear in logs, exports, or the metrics endpoint. A central
   audit-event denylist filters secret-shaped attribute keys before
   any slog record is emitted (R078).
-- **Off-by-default surfaces.** The Prometheus `/metrics` endpoint
-  (R079), the high-sensitivity collector pack (R075), and the
-  per-collector export view (R080) are all opt-in and have no effect
-  unless explicitly enabled in `signals.yaml`.
+- **Operator-controlled sensitivity.** The Prometheus `/metrics`
+  endpoint (R079) and the per-collector export view (R080) are
+  opt-in and have no effect unless explicitly enabled in
+  `signals.yaml`. The high-sensitivity collector pack (R075, revised
+  2026-05) runs **by default** (collect-everything default); operators
+  who prefer privacy over diagnostic richness opt **out** with
+  `signals.high_sensitivity_collectors_enabled: false`, which redacts
+  the listed `SensitiveColumns` for collectors with non-sensitive
+  diagnostic columns (the live `pg_stat_activity` collectors) and
+  skips collectors whose row is itself the sensitive payload (DDL
+  definitions, sampled-value stats, RLS policies, rewrite rules). The
+  effective state is recorded in
+  `metadata.json.high_sensitivity_collectors_enabled` for auditors.
 
 ## Verifying a release
 

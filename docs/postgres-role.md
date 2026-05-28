@@ -75,26 +75,41 @@ runtime on every connection:
   collector query is executed. Any failure aborts collection
   (R006/R023).
 
-## High-sensitivity collectors (R075, opt-in only)
+## High-sensitivity collectors (R075, default-on)
 
-When the operator opts into the high-sensitivity collectors via:
+The high-sensitivity pack runs **by default** (R075 revised 2026-05:
+collect-everything default). Two groups of collectors are flagged
+high-sensitivity:
+
+1. **SQL definition text** authored by the application owners
+   (whole-row-sensitive — opt-out skips them entirely):
+   - `pg_views_definitions_v1` — `pg_get_viewdef(oid)`
+   - `pg_matviews_definitions_v1` — `pg_get_viewdef(oid)`
+   - `pg_triggers_definitions_v1` — `pg_get_triggerdef(oid)`
+   - `pg_functions_definitions_v1` — `pg_get_functiondef(oid)` (PG 11+)
+2. **Live `pg_stat_activity` query text** (mixed sensitive /
+   non-sensitive columns — opt-out keeps the collectors running and
+   nulls only the listed `SensitiveColumns`):
+   - `long_running_txns_v1` (`query_snippet`)
+   - `blocking_locks_v1` (`blocked_query`, `blocking_query`)
+   - `idle_in_txn_offenders_v1` (`query_snippet`)
+   - `wraparound_blockers_v1` (`query_snippet`)
+
+Operators who prefer privacy over diagnostic richness opt **out** with:
 
 ```yaml
 signals:
-  high_sensitivity_collectors_enabled: true
+  high_sensitivity_collectors_enabled: false
 ```
 
-(or the equivalent `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED`
-environment variable), four additional collectors run and capture the
-**SQL definition text** authored by the application owners:
-
-- `pg_views_definitions_v1` — `pg_get_viewdef(oid)`
-- `pg_matviews_definitions_v1` — `pg_get_viewdef(oid)`
-- `pg_triggers_definitions_v1` — `pg_get_triggerdef(oid)`
-- `pg_functions_definitions_v1` — `pg_get_functiondef(oid)` (PG 11+)
+(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). Group 1
+collectors then skip entirely and appear in `collector_status.json` as
+`status=skipped, reason=config_disabled`; group 2 collectors keep
+running with their listed `SensitiveColumns` set to `NULL` in
+persisted rows.
 
 These collectors do **not** read user data, but the captured
-definition text may contain:
+text may contain:
 
 - Application-authored SQL logic (a form of intellectual property).
 - Inline constants or comments referencing internal terminology,
@@ -125,15 +140,22 @@ Operators evaluating SOC 2 / ISO 27001 readiness should treat the
 high-sensitivity pack as data classification "Internal" or higher.
 Specifically:
 
-- The pack is **off by default**; enabling it is an explicit
-  operator decision recorded in the export metadata under
-  `high_sensitivity_collectors_enabled` (R078).
-- Each collected definition emits a query_run row. When the gate is
-  off, the row's `status=skipped` / `reason=config_disabled` —
-  visible in `collector_status.json` for the audit trail.
-- Exports produced while the gate is open will contain definition
-  text. Treat the resulting ZIP at the same classification level as
-  the underlying schema definitions.
+- The pack runs **by default** (R075 revised 2026-05:
+  collect-everything default). Opting **out** is an explicit operator
+  decision; the effective state is recorded in the export metadata
+  under `high_sensitivity_collectors_enabled` (R078) so an auditor can
+  tell at a glance whether sensitive data may be present in the
+  artifact.
+- When the operator has opted out:
+  - Group 1 collectors (SQL definition text) are skipped — each
+    appears in `collector_status.json` with `status=skipped` /
+    `reason=config_disabled` for the audit trail.
+  - Group 2 collectors (live `pg_stat_activity` query text) still run
+    but emit `NULL` in their declared `SensitiveColumns`; the
+    non-sensitive columns survive.
+- Exports produced with the gate open will contain SQL definitions
+  and live query text. Treat the resulting ZIP at the same
+  classification level as the underlying schema definitions.
 
 ## Verifying the role
 
