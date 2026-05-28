@@ -401,6 +401,18 @@ jobs:
       - name: Install cosign
         uses: sigstore/cosign-installer@398d4b0eeef1380460a10c8013a76f728fb906ac  # v3
 
+      # cosign reads the docker keychain (~/.docker/config.json) when
+      # pushing the signature; helm registry login above writes only to
+      # helm's config, so cosign sees no credentials and 401s. Mirror the
+      # image-publish pattern: docker/login-action before cosign sign.
+      # Issue #50.
+      - name: Log in to GHCR (docker keychain for cosign)
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9  # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
       # Keyless signing, same trust root as the container image: the
       # signature binds back to this workflow's GitHub OIDC identity.
       - name: Sign chart (cosign keyless)
@@ -516,3 +528,7 @@ jobs:
             sbom.spdx.json
             dist/*
           generate_release_notes: false
+          # action-gh-release@v3 stopped auto-detecting pre-release from
+          # the semver suffix; declare it explicitly from the tag name so
+          # `v*.*.*-beta.N` / `-rc.N` are flagged correctly. Issue #50.
+          prerelease: ${{ contains(github.ref_name, '-') }}
