@@ -20,18 +20,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
-- **Sensitivity policy: collect-everything default, privacy opt-out.**
-  The live `pg_stat_activity` query-text collectors
-  (`long_running_txns_v1`, `blocking_locks_v1`,
-  `idle_in_txn_offenders_v1`, `wraparound_blockers_v1`) are now
-  classified `HighSensitivity = true`. The
-  `signals.high_sensitivity_collectors_enabled` default flips from
-  `false` to **`true`**, so high-sensitivity collectors run by default;
-  set the flag (or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED`)
-  to `false` to opt out and skip them entirely.
-  `metadata.json.high_sensitivity_collectors_enabled` reflects the
-  effective state so auditors can tell whether sensitive data may be
-  present. (R075 revised, #6)
+- **Sensitivity policy: collect-everything default, privacy opt-out
+  with per-collector redact/skip behavior.** High-sensitivity
+  collectors run by default
+  (`signals.high_sensitivity_collectors_enabled` defaults to `true`).
+  The opt-out (`= false`, a one-time startup setting) behaves per
+  collector based on whether the row carries non-sensitive diagnostic
+  columns:
+  - **Redact** path — the 4 live `pg_stat_activity` collectors
+    (`long_running_txns_v1`, `blocking_locks_v1`,
+    `idle_in_txn_offenders_v1`, `wraparound_blockers_v1`) keep running
+    with their `query_snippet` / `blocked_query` / `blocking_query`
+    columns set to `NULL`. Non-sensitive columns (`pid`, `wait_event`,
+    `txn_age_seconds`, `waiting_seconds`, …) survive, so
+    blocking-lock-chain shape and idle-in-txn / long-running-tx
+    visibility remain.
+  - **Skip** path — DDL-definition collectors and other
+    whole-row-sensitive collectors are dropped as before (recorded
+    `status=skipped, reason=config_disabled`).
+  Each collector declares its branch via `QueryDef.SensitiveColumns`
+  (non-empty -> redact; empty/nil -> skip). Corrects the
+  skip-everything-on-opt-out behavior previously shipped in
+  v0.9.0-unreleased; the metadata flag
+  `high_sensitivity_collectors_enabled` continues to record the
+  effective state. (R075 revised v2, #6)
 
 ### Fixed
 

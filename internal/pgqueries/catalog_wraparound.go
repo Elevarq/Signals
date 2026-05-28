@@ -95,10 +95,11 @@ func init() {
 		  AND state != 'idle'
 		ORDER BY xact_start ASC
 		LIMIT 20`,
-		ResultKind:      ResultRowset,
-		RetentionClass:  RetentionShort,
-		Timeout:         10 * time.Second,
-		Cadence:         Cadence5m,
-		HighSensitivity: true, // R075: emits live pg_stat_activity query text
+		ResultKind:       ResultRowset,
+		RetentionClass:   RetentionShort,
+		Timeout:          10 * time.Second,
+		Cadence:          Cadence5m,
+		HighSensitivity:  true, // R075: emits live pg_stat_activity query text
+		SensitiveColumns: []string{"query_snippet"},
 	})
 }

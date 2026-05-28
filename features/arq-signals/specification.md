@@ -628,13 +628,40 @@ statement text:
 High-sensitivity collectors run **by default** (collect-everything
 default). An operator who prefers privacy over diagnostic richness opts
 **out** by setting `signals.high_sensitivity_collectors_enabled: false`
-(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`), which
-skips every high-sensitivity collector entirely — including the
-non-sensitive columns of those collectors. When opted out, each shall
-appear in `collector_status.json` with `status=skipped` and
-`reason=config_disabled`. The toggle is local operator control over
-data sensitivity; it is not an exfiltration boundary (Arq Signals runs
-inside the operator's own environment).
+(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). This is a
+one-time startup configuration, not a per-cycle decision. The opt-out
+behaves per collector, declared on the `QueryDef` via a list of
+sensitive column names (`SensitiveColumns`):
+
+- **Redact** (live `pg_stat_activity` collectors with mixed
+  sensitive/non-sensitive columns: `long_running_txns_v1`,
+  `blocking_locks_v1`, `idle_in_txn_offenders_v1`,
+  `wraparound_blockers_v1`). When `SensitiveColumns` is non-empty, the
+  collector **still runs**, but the listed columns are set to `NULL` in
+  persisted output. The non-sensitive columns (`pid`, `wait_event`,
+  `txn_age_seconds`, `waiting_seconds`, …) survive, preserving the
+  collector's diagnostic value (blocking-lock chain shape,
+  idle-in-transaction visibility, long-running-tx detection).
+- **Skip** (collectors whose row is itself the sensitive payload — DDL
+  definitions, sampled-value stats, RLS policies / rewrite rules).
+  When `SensitiveColumns` is empty/nil, the collector is dropped from
+  the eligible set and recorded `status=skipped, reason=config_disabled`
+  in `collector_status.json`. (Pre-2026-05 behavior preserved for
+  these.)
+
+Each high-sensitivity collector declares its own branch. The
+classifying flag (`HighSensitivity=true`) is unchanged; the
+`SensitiveColumns` list distinguishes the two opt-out paths and lets
+new collectors choose redaction when they have meaningful non-sensitive
+columns.
+
+The per-target R098 `restricted` profile remains stricter than the
+daemon-wide opt-out: a restricted profile drops **every** high-
+sensitivity collector regardless of `SensitiveColumns` (no redaction
+substitute). INV-SENS-01 still holds: per-target profile never widens
+eligibility beyond the daemon-wide gate. The toggle is local operator
+control over data sensitivity; it is not an exfiltration boundary (Arq
+Signals runs inside the operator's own environment).
 
 `metadata.json.high_sensitivity_collectors_enabled` records the
 effective state so a consumer or auditor can tell, without parsing the
