@@ -314,7 +314,25 @@ func (c *Collector) Targets() []config.TargetConfig {
 //
 // Callers that need broader config swap should follow up via a
 // separate issue.
-func (c *Collector) Reload(newTargets []config.TargetConfig) {
+func (c *Collector) Reload(newTargets []config.TargetConfig) error {
+	// R109: reconcile the persisted `targets.enabled` column FIRST. If
+	// reconcile fails, we return the error WITHOUT mutating any
+	// in-memory state, so the caller sees a clean abort and the
+	// daemon stays in a consistent (old) state — rather than a split
+	// where the in-memory target list says one thing and the DB
+	// `enabled` column says another. (#16: previously this error was
+	// logged warn-only after the in-memory swap, so /reload + SIGHUP
+	// could appear successful while persistence was stale.)
+	enabledNames := make([]string, 0, len(newTargets))
+	for _, t := range newTargets {
+		if t.Enabled {
+			enabledNames = append(enabledNames, t.Name)
+		}
+	}
+	if err := c.db.ReconcileEnabledTargets(enabledNames); err != nil {
+		return fmt.Errorf("reconcile enabled targets: %w", err)
+	}
+
 	c.runtimeMu.Lock()
 	prev := c.targets
 	c.targets = make([]config.TargetConfig, len(newTargets))
@@ -356,19 +374,7 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) {
 		}
 	}
 
-	// R109: reconcile the persisted `targets.enabled` column so a target
-	// disabled in the new config, or removed from it, stops appearing in
-	// the default export and /status. Soft-disable only — snapshots are
-	// retained for `--all`.
-	enabledNames := make([]string, 0, len(newTargets))
-	for _, t := range newTargets {
-		if t.Enabled {
-			enabledNames = append(enabledNames, t.Name)
-		}
-	}
-	if err := c.db.ReconcileEnabledTargets(enabledNames); err != nil {
-		slog.Warn("reload: reconcile enabled targets failed", "err", err)
-	}
+	return nil
 }
 
 // sameConnection returns true when the network-identity fields of

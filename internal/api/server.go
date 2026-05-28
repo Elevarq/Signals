@@ -202,9 +202,14 @@ func handleStatus(deps *Deps) http.HandlerFunc {
 		}
 
 		resp := map[string]any{
-			"instance_id":         instanceID,
-			"version":             safety.Version,
-			"target_count":        len(targets),
+			"instance_id": instanceID,
+			"version":     safety.Version,
+			// R109 / INV-SIGNALS-14: target_count must match the
+			// active-target set surfaced in targetInfo (which already
+			// filters out enabled=0). Counting the unfiltered
+			// GetTargets() result would let a disabled or removed
+			// target still bump the count.
+			"target_count":        len(targetInfo),
 			"targets":             targetInfo,
 			"snapshot_count":      snapCount,
 			"query_catalog_count": len(queryCatalog),

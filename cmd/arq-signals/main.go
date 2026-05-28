@@ -323,7 +323,17 @@ func run() error {
 						"actor", "signal_handler", "reason", "validate_failed", "error", redacted)
 					continue
 				}
-				coll.Reload(newCfg.Targets)
+				// R109/#16: propagate reconcile failures rather than
+				// leaving DB enablement stale. Reload aborts before any
+				// in-memory mutation on failure, matching the
+				// load/validate-rejected pattern above.
+				if err := coll.Reload(newCfg.Targets); err != nil {
+					redacted := redactReloadErr(err)
+					slog.Error("SIGHUP reload: reconcile failed", "err", redacted)
+					safety.AuditLog("config_reload_rejected",
+						"actor", "signal_handler", "reason", "reconcile_failed", "error", redacted)
+					continue
+				}
 				slog.Info("SIGHUP reload applied", "target_count", len(newCfg.Targets))
 				safety.AuditLog("config_reload_applied",
 					"actor", "signal_handler", "target_count", len(newCfg.Targets))

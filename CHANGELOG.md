@@ -47,6 +47,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `GET /status.target_count` now matches the number of enabled targets
+  surfaced in the response (was using the unfiltered `GetTargets()`
+  count, so disabled targets still bumped it). Restores
+  INV-SIGNALS-14 agreement with the default export's active-target
+  set. (#16)
+- `collector.Reload` now returns an `error` and propagates
+  `ReconcileEnabledTargets` failures instead of logging-and-swallowing
+  them. The reconcile runs **before** the in-memory target swap, so a
+  reconcile failure aborts the reload cleanly without mutating
+  in-memory state. `POST /reload` returns 500 on failure; the SIGHUP
+  path audit-logs `config_reload_rejected` with
+  `reason=reconcile_failed` (matching the load/validate-rejected
+  pattern). (#16)
 - Exports no longer tear when retention cleanup runs concurrently. An
   export composes the ZIP from several sequential reads of the local
   store; if retention's `DeleteSnapshotsOlderThan` /
