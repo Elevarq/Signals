@@ -128,6 +128,22 @@ func run() error {
 		return fmt.Errorf("migrate: %w", err)
 	}
 
+	// R109: reconcile persisted target enable-state against config at
+	// startup so a target disabled or removed while the daemon was down
+	// stops appearing in the default export and /status. Reload does the
+	// same on SIGHUP / POST /reload.
+	{
+		enabledNames := make([]string, 0, len(cfg.Targets))
+		for _, t := range cfg.Targets {
+			if t.Enabled {
+				enabledNames = append(enabledNames, t.Name)
+			}
+		}
+		if err := store.ReconcileEnabledTargets(enabledNames); err != nil {
+			return fmt.Errorf("reconcile enabled targets: %w", err)
+		}
+	}
+
 	// Ensure instance ID.
 	instanceID, err := store.EnsureInstanceID()
 	if err != nil {

@@ -546,6 +546,27 @@ successful while leaving the remaining due collectors with no row at
 all — a consumer could not distinguish "ran clean" from "never got a
 turn" (R072 completeness).
 
+**ARQ-SIGNALS-R109**: A disabled or removed target shall not appear in
+the default export or in `arqctl status`. Specifically:
+
+- The default export scope (R084 `GetLatestRunsPerCollector`) and the
+  per-target snapshot helpers JOIN `targets` with `t.enabled = 1`, so a
+  disabled target contributes no runs or snapshots to the default
+  export. `--all` (R085) still surfaces disabled targets' history for
+  forensics.
+- `arqctl status` (`GET /status`) lists only enabled targets.
+- The daemon reconciles the `targets.enabled` column against
+  configuration on startup and on every reload: a target present and
+  enabled in config becomes `enabled = 1`; a target disabled in config,
+  or removed from it entirely, becomes `enabled = 0` (soft-disable).
+  Soft-disable never deletes snapshots — disabled targets' history
+  remains reachable via `--all`.
+
+This closes the drift where the lazy per-collection `UpsertTarget`
+(which runs only for enabled targets) left a previously-enabled
+target's row at `enabled = 1` after it was disabled or removed, so its
+stale snapshots kept appearing in the default export and `/status`.
+
 **ARQ-SIGNALS-R073**: The system shall support target-scoped export.
 When exporting for a specific target, query_runs, query_results, and
 collector_status shall contain only data for that target. The
@@ -2217,10 +2238,12 @@ work) and is intentionally out of scope here.
 - **INV-SIGNALS-12**: Schema intelligence collectors exclude system
   schemas (pg_catalog, information_schema, pg_toast, pg_temp_%).
 - **INV-SIGNALS-14**: `arqctl status` and the R084 default export
-  MUST agree on the active-target set. The number of targets in the
-  status response equals the number of distinct `target_id` values
-  in default-scope `snapshots.ndjson`. Disagreement is a regression
-  on R089 (producer-side drift) or R090 (consumer-side filter).
+  MUST agree on the active-target set, where "active" means
+  `enabled = 1` (R109). The number of targets in the status response
+  equals the number of distinct `target_id` values in default-scope
+  `snapshots.ndjson`. Disagreement is a regression on R089
+  (producer-side drift), R090 (orphan filter), or R109 (enabled
+  filter / reconciliation).
 - **INV-SIGNALS-15**: A collection skipped by R091 leaves zero
   rows behind. `snapshots`, `query_runs`, and `query_results` row
   counts after a skipped collection equal their pre-skip values.
@@ -2251,6 +2274,11 @@ work) and is intentionally out of scope here.
   collector is silently absent because the per-cycle budget elapsed
   before it ran. Budget-skipped collectors appear with
   `status=skipped, reason=budget_exhausted`.
+- **INV-SIGNALS-20**: `targets.enabled` reflects current configuration
+  after startup and after every reload (R109). A target disabled in
+  config, or absent from it, has `enabled = 0`; the default export and
+  `/status` exclude it. Soft-disabling never deletes its snapshots —
+  they remain reachable via `--all`.
 
 ## Failure Conditions
 
