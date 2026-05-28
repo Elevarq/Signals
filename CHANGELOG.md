@@ -6,6 +6,51 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.2] - 2026-05-28
+
+**Beta cut after Scorecard hardening.** `v0.10.0-beta.1` was tagged but
+its release pipeline run was cancelled (stuck on multi-arch GHCR
+publish); the GitHub Release page was never created. This Beta cut is
+the same data-collection layer (no user-observable daemon behaviour
+change vs beta.1) but built and published from a `main` whose CI /
+supply-chain posture has been hardened — see Security below. Consumers
+should pin `0.10.0-beta.2`; `:latest` is unmoved (pre-release).
+
+### Security
+
+- All GitHub Actions and Docker base images in
+  `ci.yml` / `release.yml` / `nightly-security.yml` / `Dockerfile` are
+  pinned by 40-char content SHAs (#44). Defends against tag-rewriting
+  / repo-takeover supply-chain attacks; Dependabot
+  (`.github/dependabot.yml`, #34) keeps both the SHA and the
+  human-readable version comment fresh.
+- `release.yml` top-level workflow permissions reduced to
+  `contents: read`. Writes (`packages: write`, `id-token: write`,
+  `attestations: write`, `contents: write` on the release job) are
+  declared per-job following the `nightly-security.yml` pattern (#39).
+- `golang.org/x/sys` bumped past **CVE-2026-39824** (#30). The
+  vulnerable `windows.NewNTUnicodeString` is not reachable in our
+  `linux` / `darwin` builds, but the bump clears the indirect-vuln
+  trail.
+- `go install golang.org/x/vuln/cmd/govulncheck` pinned by SHA to the
+  v1.3.0 commit (#47).
+- Native Go fuzz targets added for `RedactDSN` and `DecodeNDJSON`
+  (#43). >450k iterations across both targets find no panics or
+  property violations at this commit.
+- Branch protection applied to `main`: required status checks
+  (`test`, `security-scan`, `Analyze (go)`, `Analyze (actions)`,
+  `CodeQL`), `strict` (require branch up-to-date), linear history,
+  no force pushes, no deletions.
+
+### Changed (deps)
+
+- Dependabot routine bumps: `hadolint/hadolint-action` ->
+  `3.3.0` (#35), `azure/setup-helm` -> `v5` (#36),
+  `actions/download-artifact` -> `v8` (#37),
+  `softprops/action-gh-release` -> `v3` (#38),
+  `actions/upload-artifact` -> `v7` (#40), and a gomod minor-group
+  bundle across four modules (#41).
+
 ## [0.10.0-beta.1] - 2026-05-28
 
 **First Beta release.** The data-collection layer has been cleared as
