@@ -82,11 +82,23 @@ For each (target, collector) pair, eligibility resolves in order:
 1. **Version / extension gates** (R081). A collector that doesn't
    match the target's PG major or required extension is filtered out
    first, regardless of profile. (Same as today.)
-2. **Daemon-wide `high_sensitivity_collectors_enabled`** (R075).
-   When false, HighSensitivity collectors are filtered out
-   globally. (Same as today.)
+2. **Daemon-wide `high_sensitivity_collectors_enabled`** (R075,
+   revised 2026-05). Default `true` (collect-everything). When `false`:
+   - HighSensitivity collectors with **empty/nil** `SensitiveColumns`
+     (skip-path — DDL definitions, sampled-value stats, RLS policies,
+     rewrite rules) are filtered out globally and reported as
+     `status=skipped, reason=config_disabled`.
+   - HighSensitivity collectors with **non-empty** `SensitiveColumns`
+     (redact-path — the live `pg_stat_activity` collectors) stay
+     eligible at this step; the named columns are NULL-ed in the
+     persisted rows at execution time, preserving the non-sensitive
+     diagnostic columns. The collector is **not** reported as
+     `config_disabled` since it ran.
 3. **Per-target profile** (R098, this slice). Applied on the
-   per-target subset that survives steps 1 + 2:
+   per-target subset that survives steps 1 + 2. The `restricted`
+   profile is **stricter** than the daemon-wide opt-out: it drops
+   every `HighSensitivity=true` collector regardless of
+   `SensitiveColumns` (no redaction substitute). Options:
    - `default` / empty: no change.
    - `restricted`: drop all `HighSensitivity=true`.
    - `custom` with `include`: keep only the listed IDs.

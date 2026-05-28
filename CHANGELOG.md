@@ -47,6 +47,29 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- `pg_stats_array_range_v1` no longer disappears silently when its
+  per-collector opt-in (`collect_array_range_histograms`, default
+  `false`) is off. The collector now appears in `collector_status.json`
+  as `status=skipped, reason=config_disabled` — matching the EA-R001
+  status-completeness guarantee already provided for
+  `version_unsupported` / `extension_missing` / `config_disabled`. This
+  gap mattered more once `high_sensitivity_collectors_enabled` defaulted
+  to `true` (#6 v2). (#18)
+
+### Documentation
+
+- Operator-facing sensitivity docs realigned with R075 (revised v2):
+  `appendix-b-configuration-schema.md` example, env-var table, and the
+  "High-sensitivity collectors" section now reflect the default-on /
+  opt-out-redact-or-skip semantics. `specifications/sensitivity-profiles.md`
+  step 2 distinguishes the redact-path (collectors stay eligible,
+  sensitive columns nulled) from the skip-path (collector dropped),
+  and clarifies that the `restricted` per-target profile is stricter
+  than the daemon-wide opt-out (drops all `HighSensitivity=true`
+  regardless of `SensitiveColumns`). (#18)
+
+### Fixed
+
 - `GET /status.target_count` now matches the number of enabled targets
   surfaced in the response (was using the unfiltered `GetTargets()`
   count, so disabled targets still bumped it). Restores

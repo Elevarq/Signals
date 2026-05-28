@@ -237,6 +237,14 @@ func GatedIDsByReason(p FilterParams) map[string][]string {
 			// R075 revised: only skip-path collectors are reported as
 			// config_disabled. Redact-path collectors keep running.
 			out[GateReasonConfigDisabled] = append(out[GateReasonConfigDisabled], q.ID)
+		case RequiresArrayRangeOptIn[q.ID] && !p.CollectArrayRangeHistograms:
+			// #128 / issue #18: the array-range per-collector opt-in
+			// narrows eligibility on top of HighSensitivityEnabled. When
+			// the opt-in is off but the collector is otherwise eligible
+			// it must still surface in collector_status.json as
+			// skipped/config_disabled (EA-R001) — silent absence would
+			// hide a coverage gap from operators.
+			out[GateReasonConfigDisabled] = append(out[GateReasonConfigDisabled], q.ID)
 		case p.ProfileRestricted && q.HighSensitivity:
 			// R098: per-target restricted profile drops every
 			// HighSensitivity collector. The reason channel is
