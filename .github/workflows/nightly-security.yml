@@ -64,7 +64,7 @@ jobs:
       # rejects workflows with any top-level env block. See #194.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
         with:
           # Full history — push/PR gates already cover HEAD; this
           # job exists specifically to catch deeper-history
@@ -99,14 +99,14 @@ jobs:
 
       - name: Upload SARIF to Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4
         with:
           sarif_file: gitleaks.sarif
           category: gitleaks-full-history
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: gitleaks-sarif
           path: gitleaks.sarif
@@ -119,10 +119,10 @@ jobs:
       # rejects top-level env, so declared per-job).
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
 
       - name: Generate source SBOM (SPDX-JSON)
-        uses: anchore/sbom-action@v0
+        uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0
         with:
           path: .
           format: spdx-json
@@ -130,7 +130,7 @@ jobs:
           upload-artifact: false
 
       - name: Upload SBOM artefact
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: source-sbom
           path: arq-signals-source.spdx.json
@@ -148,10 +148,10 @@ jobs:
       # rejects top-level env, so declared per-job).
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
 
       - name: Download source SBOM
-        uses: actions/download-artifact@v8
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
         with:
           name: source-sbom
 
@@ -160,7 +160,7 @@ jobs:
         # Scanning the SBOM (rather than re-walking the source)
         # keeps the two jobs consistent: Grype evaluates exactly
         # what syft described.
-        uses: anchore/scan-action@v7
+        uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2  # v7
         with:
           sbom: arq-signals-source.spdx.json
           fail-build: true
@@ -169,14 +169,14 @@ jobs:
 
       - name: Upload SARIF to Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4
         with:
           sarif_file: ${{ steps.grype.outputs.sarif }}
           category: grype-source
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: grype-sarif
           path: ${{ steps.grype.outputs.sarif }}
@@ -206,12 +206,12 @@ jobs:
       # Needed for the `publish_results: true` path to publish to
       # api.scorecard.dev for the public Scorecard badge.
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
         with:
           persist-credentials: false
 
       - name: Run Scorecard
-        uses: ossf/scorecard-action@v2.4.3
+        uses: ossf/scorecard-action@4eaacf0543bb3f2c246792bd56e8cdeffafb205a  # v2.4.3
         with:
           results_file: scorecard.sarif
           results_format: sarif
@@ -219,14 +219,14 @@ jobs:
 
       - name: Upload SARIF to Security tab
         if: always()
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@7211b7c8077ea37d8641b6271f6a365a22a5fbfa  # v4
         with:
           sarif_file: scorecard.sarif
           category: scorecard
 
       - name: Upload SARIF artefact
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: scorecard-sarif
           path: scorecard.sarif
