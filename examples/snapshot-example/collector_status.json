@@ -1,0 +1,43 @@
+{
+  "schema_version": "1",
+  "target_name": "my-database",
+  "collected_at": "2026-05-28T10:30:00Z",
+  "collectors": [
+    {
+      "id": "pg_settings_v1",
+      "attempted": true,
+      "status": "success",
+      "reason": "",
+      "detail": "",
+      "row_count": 312,
+      "duration_ms": 8,
+      "collected_at": "2026-05-28T10:30:00Z",
+      "cadence": "1h",
+      "freshness": "fresh"
+    },
+    {
+      "id": "pg_stat_database_v1",
+      "attempted": true,
+      "status": "success",
+      "reason": "",
+      "detail": "",
+      "row_count": 3,
+      "duration_ms": 6,
+      "collected_at": "2026-05-28T10:25:00Z",
+      "cadence": "5m",
+      "freshness": "fresh"
+    },
+    {
+      "id": "pg_views_definitions_v1",
+      "attempted": false,
+      "status": "skipped",
+      "reason": "config_disabled",
+      "detail": "",
+      "row_count": 0,
+      "duration_ms": 0,
+      "collected_at": "",
+      "cadence": "24h",
+      "freshness": ""
+    }
+  ]
+}
