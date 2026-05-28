@@ -1,5 +1,7 @@
 # Release verification
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
+
 Every Arq Signals release publishes a multi-arch container image to
 `ghcr.io/elevarq/arq-signals` along with:
 
