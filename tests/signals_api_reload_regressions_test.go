@@ -155,7 +155,9 @@ func TestCollectNow_HonoursReloadedTargetList(t *testing.T) {
 	reloaded := []config.TargetConfig{
 		{Name: "new-target", Host: "127.0.0.1", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 	}
-	deps.Collector.Reload(reloaded)
+	if err := deps.Collector.Reload(reloaded); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
 
 	// 1. /collect/now naming the NEW target must accept it (200).
 	body := []byte(`{"targets":["new-target"]}`)
@@ -218,7 +220,9 @@ func TestCollectNow_AllEnabledUsesReloadedList(t *testing.T) {
 		{Name: "alpha", Host: "127.0.0.1", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 		{Name: "beta", Host: "127.0.0.1", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 	}
-	deps.Collector.Reload(reloaded)
+	if err := deps.Collector.Reload(reloaded); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
 
 	out := captureSlog(t, func() {
 		req, _ := http.NewRequest("POST", ts.URL+"/collect/now", bytes.NewReader([]byte(`{}`)))

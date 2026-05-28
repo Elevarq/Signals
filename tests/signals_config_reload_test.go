@@ -39,7 +39,9 @@ func TestReload_NoOpWhenTargetsUnchanged(t *testing.T) {
 		{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 	}
 	c, _ := newReloadTestCollector(t, tgts)
-	c.Reload(tgts)
+	if err := c.Reload(tgts); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
 	got := c.Targets()
 	if len(got) != 1 || got[0].Name != "a" {
 		t.Errorf("Reload no-op: got %+v, want one target named a", got)
@@ -51,10 +53,12 @@ func TestReload_AddsNewTarget(t *testing.T) {
 	c, _ := newReloadTestCollector(t, []config.TargetConfig{
 		{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 	})
-	c.Reload([]config.TargetConfig{
+	if err := c.Reload([]config.TargetConfig{
 		{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 		{Name: "b", Host: "h2", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
-	})
+	}); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
 	got := c.Targets()
 	if len(got) != 2 {
 		t.Fatalf("expected 2 targets after Reload-add, got %d", len(got))
@@ -74,9 +78,11 @@ func TestReload_RemovesTarget(t *testing.T) {
 		{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 		{Name: "b", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 	})
-	c.Reload([]config.TargetConfig{
+	if err := c.Reload([]config.TargetConfig{
 		{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
-	})
+	}); err != nil {
+		t.Fatalf("Reload: %v", err)
+	}
 	got := c.Targets()
 	if len(got) != 1 || got[0].Name != "a" {
 		t.Errorf("expected only 'a' after Reload-remove; got %+v", got)
@@ -117,11 +123,15 @@ func TestReload_ConcurrentReadsAreSafe(t *testing.T) {
 	}()
 
 	for ctx.Err() == nil {
-		c.Reload([]config.TargetConfig{
+		// Discard the error in this race-stress loop — the test asserts
+		// concurrency safety, not reconcile success. (#16 returns error
+		// from Reload; a stray reconcile failure here would still be
+		// surfaced by the dedicated #16 propagation test.)
+		_ = c.Reload([]config.TargetConfig{
 			{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 			{Name: "b", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 		})
-		c.Reload([]config.TargetConfig{
+		_ = c.Reload([]config.TargetConfig{
 			{Name: "a", Host: "h", Port: 5432, DBName: "d", User: "u", SSLMode: "disable", Enabled: true},
 		})
 	}

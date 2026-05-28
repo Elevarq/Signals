@@ -47,7 +47,19 @@ func handleConfigReload(deps *Deps, configPath string) http.HandlerFunc {
 			return
 		}
 
-		deps.Collector.Reload(newCfg.Targets)
+		// R109/#16: Reload propagates a reconcile failure so we surface
+		// it to the operator instead of silently leaving DB enablement
+		// stale. Reload aborts before any in-memory mutation on
+		// failure, so the daemon stays consistent.
+		if err := deps.Collector.Reload(newCfg.Targets); err != nil {
+			redacted := redactReloadErr(err)
+			safety.AuditLog("config_reload_rejected",
+				"actor", actor, "reason", "reconcile_failed", "error", redacted)
+			writeJSON(w, http.StatusInternalServerError, map[string]any{
+				"error": fmt.Sprintf("reload %s: %s", configPath, redacted),
+			})
+			return
+		}
 
 		safety.AuditLog("config_reload_applied",
 			"actor", actor, "target_count", len(newCfg.Targets))
