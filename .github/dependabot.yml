@@ -1,0 +1,64 @@
+# Dependabot configuration — automated dependency updates.
+#
+# Why an in-repo config when org-level Dependabot is already on:
+# the org settings drive vulnerability ALERTS and security updates,
+# but version-update PRs (the routine "bump x/sys, bump checkout
+# action") require this file. Adding it also closes Scorecard
+# DependencyUpdateToolID (issue #26 / Scorecard alert #4).
+#
+# Once the action-pinning effort (#28) lands, Dependabot is what
+# keeps the SHA pins fresh — manual SHA maintenance defeats the
+# purpose of pinning.
+
+version: 2
+
+updates:
+  # Go modules. Weekly cadence — releases come in bursts, so weekly
+  # is enough to stay current without per-day PR churn.
+  - package-ecosystem: gomod
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    labels:
+      - area:tooling
+      - priority:P3
+      - dependencies
+    commit-message:
+      prefix: deps
+      include: scope
+    groups:
+      # Group patch / minor bumps so we don't see 5 separate PRs for
+      # related x/* modules. Majors stay individual so they get the
+      # full attention they deserve.
+      go-minor:
+        update-types:
+          - minor
+          - patch
+
+  # GitHub Actions. Weekly. Pairs with the SHA-pinning effort (#28):
+  # Dependabot rewrites both the SHA and the trailing version comment
+  # in lockstep so the pin stays readable and current.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Europe/Amsterdam
+    open-pull-requests-limit: 5
+    labels:
+      - area:tooling
+      - priority:P3
+      - dependencies
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-minor:
+        update-types:
+          - minor
+          - patch
