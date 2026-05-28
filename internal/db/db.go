@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	_ "modernc.org/sqlite"
@@ -18,6 +19,29 @@ import (
 // DB wraps a sql.DB with Arq Signals-specific operations.
 type DB struct {
 	sql *sql.DB
+
+	// consistencyMu serialises exports against destructive retention
+	// writes (R110). Exports take RLock for their whole read sequence;
+	// retention DELETEs take Lock. Collection commits are not gated
+	// here — they only add rows, so an export reading "old state"
+	// before a commit remains internally consistent.
+	consistencyMu sync.RWMutex
+}
+
+// LockExports acquires the read lock that protects an export's full read
+// sequence from concurrent retention DELETEs (R110). Returns the release
+// func; callers must `defer release()`.
+func (d *DB) LockExports() func() {
+	d.consistencyMu.RLock()
+	return d.consistencyMu.RUnlock
+}
+
+// LockRetention acquires the exclusive write lock for destructive
+// retention writes (R110). Returns the release func; callers must
+// `defer release()`.
+func (d *DB) LockRetention() func() {
+	d.consistencyMu.Lock()
+	return d.consistencyMu.Unlock
 }
 
 // Open creates or opens the SQLite database at path.
