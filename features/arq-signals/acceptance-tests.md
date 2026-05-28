@@ -497,30 +497,36 @@ output. The collector's safety model is unchanged.
 
 ---
 
-## TC-SIG-093: Default Export Scope is Latest-Per-Target
+## TC-SIG-093: Default Export Scope is Latest-Run-Per-Collector
 
 **Linked Rules:** ARQ-SIGNALS-R084, INV-SIGNALS-13
 **Scenario:** Daemon has run multiple collection cycles for one or more
-targets. Operator invokes `arqctl export` with no selector flags.
+targets, each cycle persisting only the collectors due that cycle.
+Operator invokes `arqctl export` with no selector flags.
 **Inputs:**
 - Daemon with N completed snapshots for target A and M completed
-  snapshots for target B (N, M ≥ 2).
+  snapshots for target B (N, M ≥ 2), where each target runs a single
+  collector at one cadence (so latest-run == latest-snapshot for this
+  simple case).
 - `arqctl export -o /tmp/out.zip` (no other flags).
 
 **Expected Behavior:**
-- The ZIP's `snapshots.ndjson` contains exactly two rows: the latest
-  snapshot of target A and the latest snapshot of target B (the rows
-  with the largest `collected_at` per target).
-- `metadata.json.snapshot_count == 2`.
+- `query_runs.ndjson` contains, per target, the latest run of each
+  collector (the row with the largest `collected_at` per
+  `(target_id, query_id)`); rows from older cycles of the same
+  collector are absent.
+- `snapshots.ndjson` contains the distinct snapshots those latest runs
+  belong to — for this single-collector fixture, exactly two (target
+  A's and target B's latest).
+- `metadata.json.snapshot_count` equals the number of distinct
+  snapshot IDs in `snapshots.ndjson`.
+- `metadata.json.run_scope == "latest-per-collector"`.
 - `metadata.json.ingest_mode == "analyze"`.
-- `query_runs.ndjson` and `query_results.ndjson` contain only the
-  rows belonging to those two latest snapshots; rows from older
-  cycles are absent.
 - The ZIP shape (six files, file names) is unchanged from R035.
 
-**Failure Expectation:** A ZIP that includes any non-latest snapshot
-under the default scope is a regression on R084. A `snapshot_count`
-that does not match the number of distinct snapshot IDs in
+**Failure Expectation:** A ZIP that includes a non-latest run of any
+collector under the default scope is a regression on R084. A
+`snapshot_count` that does not match the distinct snapshot IDs in
 `snapshots.ndjson` is a regression on R086.
 
 ---
@@ -630,6 +636,77 @@ inspect each ZIP's `metadata.json`.
 **Failure Expectation:** A 5xx, an empty body, or a missing required
 file is a regression on FC-09. A non-zero `snapshot_count` with
 zero `snapshots.ndjson` rows is a regression on R086.
+
+---
+
+## TC-SIG-121: Default Export Includes Lower-Cadence Collectors After a High-Cadence Cycle
+
+**Linked Rules:** ARQ-SIGNALS-R084, ARQ-SIGNALS-R072, INV-SIGNALS-13
+**Scenario:** A target's most recent snapshot contains only the
+collectors that were due that cycle; a lower-cadence collector last ran
+in an earlier snapshot. This is the P0 the latest-snapshot default
+dropped (issue #5).
+**Inputs:**
+- Target A, snapshot S1 (older `collected_at`) with runs for collectors
+  `cadence_5m_v1` and `cadence_24h_v1`.
+- Target A, snapshot S2 (newer `collected_at`) with a run for
+  `cadence_5m_v1` only.
+- `arqctl export` (no flags).
+
+**Expected Behavior:**
+- `query_runs.ndjson` contains the latest run of **each** collector:
+  `cadence_5m_v1` from S2 and `cadence_24h_v1` from S1.
+- `collector_status.json` lists **both** collectors.
+- `snapshots.ndjson` contains both S1 and S2 (each is referenced by a
+  latest run); `metadata.json.snapshot_count == 2` for the single
+  target.
+- `metadata.json.run_scope == "latest-per-collector"`.
+
+**Failure Expectation:** An export that omits `cadence_24h_v1` (present
+only in S1) because S2 is the latest snapshot is the exact R084
+completeness regression issue #5 fixes.
+
+---
+
+## TC-SIG-122: `run_scope` Metadata Marker
+
+**Linked Rules:** ARQ-SIGNALS-R086
+**Scenario:** A consumer must know whether runs in an export share a
+snapshot timestamp or were assembled latest-per-collector.
+**Inputs:** The fixtures above, exported under each scope.
+**Expected Behavior:**
+- Default (no flags): `metadata.json.run_scope == "latest-per-collector"`.
+- `--all`, `--snapshot-id <id>`, and `--since/--until`:
+  `metadata.json.run_scope == "snapshot"`.
+
+**Failure Expectation:** A missing `run_scope`, or `"snapshot"` on a
+default export (or vice versa), is a regression on R086.
+
+---
+
+## TC-SIG-123: Collector Freshness Metadata
+
+**Linked Rules:** ARQ-SIGNALS-R107, ARQ-SIGNALS-R072
+**Scenario:** Consumers must distinguish a fresh collector from a stale
+or never-run one from the export alone.
+**Inputs:**
+- Target A with `cadence_5m_v1` run within the last minute, a
+  `cadence_24h_v1` whose latest run is 3 days old, and an eligible
+  `cadence_1h_v1` that has never produced a run.
+- `arqctl export --target-id A` (target-scoped — `never_run`
+  enumeration requires per-entry target attribution, R107).
+
+**Expected Behavior:**
+- Each `collector_status.json` entry carries `collected_at`, `cadence`,
+  and `freshness`.
+- `cadence_5m_v1` -> `freshness == "fresh"`.
+- `cadence_24h_v1` (3 days, > 2x cadence) -> `freshness == "stale"`.
+- `cadence_1h_v1` (eligible, no run) -> `freshness == "never_run"` and
+  appears as an entry rather than being silently absent.
+
+**Failure Expectation:** A stale low-cadence collector reported as
+`fresh`, or an eligible-but-never-run collector silently absent, defeats
+the consumer's ability to detect coverage gaps (R107).
 
 ---
 

@@ -253,8 +253,18 @@ func TestExportSnapshotsCarryPerSnapshotTargetIdentityForMultiTarget(t *testing.
 		{ID: "snap-prod-001", TargetID: prodID, CollectedAt: now, PGVersion: "PostgreSQL 16.2", Payload: json.RawMessage(`{}`), SizeBytes: 42},
 		{ID: "snap-staging-001", TargetID: stagingID, CollectedAt: now, PGVersion: "PostgreSQL 16.2", Payload: json.RawMessage(`{}`), SizeBytes: 42},
 	} {
-		if err := store.InsertSnapshot(snap); err != nil {
-			t.Fatalf("InsertSnapshot %s: %v", snap.ID, err)
+		// The R084 default scope is run-driven (latest run per
+		// collector), so each snapshot needs at least one query_run to
+		// appear in the default export — matching production, where
+		// snapshots and runs are written atomically.
+		run := db.QueryRun{
+			ID: "run-" + snap.ID, TargetID: snap.TargetID, SnapshotID: snap.ID,
+			QueryID: "pg_settings_v1", CollectedAt: now, PGVersion: snap.PGVersion,
+			CreatedAt: now, Status: "success",
+		}
+		results := []db.QueryResult{{RunID: run.ID, Payload: []byte("{\"k\":\"v\"}\n"), SizeBytes: 8}}
+		if err := store.InsertCollectionAtomic(snap, []db.QueryRun{run}, results); err != nil {
+			t.Fatalf("InsertCollectionAtomic %s: %v", snap.ID, err)
 		}
 	}
 

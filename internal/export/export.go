@@ -12,6 +12,7 @@ import (
 
 	"github.com/elevarq/arq-signals/internal/collector"
 	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/arq-signals/internal/pgqueries"
 	"github.com/elevarq/arq-signals/internal/safety"
 	"github.com/elevarq/arq-signals/snapshot"
 )
@@ -72,6 +73,17 @@ type Builder struct {
 	// scope.
 	scopedSnapshots   []db.Snapshot
 	scopedSnapshotIDs map[string]bool
+
+	// scopedRunSet is the resolved set of query_runs for the export.
+	// For selector scopes it is every run in scopedSnapshots; for the
+	// R084 default scope it is the latest run per (target_id, query_id)
+	// — which may reference more snapshots than the selector path. Held
+	// on the builder so collector_status, query_runs, and query_results
+	// all draw from the same set.
+	scopedRunSet []db.QueryRun
+	// runScope labels the scope in metadata.json (R086):
+	// "latest-per-collector" for the default, "snapshot" for selectors.
+	runScope string
 }
 
 // NewBuilder creates a new export Builder.
@@ -171,6 +183,10 @@ func (b *Builder) resolveScope(opts Options) error {
 		return ErrConflictingSelectors
 	}
 
+	// Selector scopes are snapshot-based; the default scope overrides
+	// this to "latest-per-collector" below (R086).
+	b.runScope = "snapshot"
+
 	var snaps []db.Snapshot
 
 	switch {
@@ -202,21 +218,31 @@ func (b *Builder) resolveScope(opts Options) error {
 		}
 
 	default:
-		// R084 default: latest completed snapshot per active target.
-		if opts.TargetID > 0 {
-			s, err := b.store.GetLatestSnapshotForTarget(opts.TargetID)
-			if err != nil {
-				return fmt.Errorf("latest snapshot for target %d: %w", opts.TargetID, err)
+		// R084 default: latest run of each collector per active target.
+		// Resolve at the run level (not the snapshot level) so a target
+		// whose collectors span cadences contributes the latest run of
+		// every collector, not only those due in its newest cycle.
+		runs, err := b.store.GetLatestRunsPerCollector(opts.TargetID)
+		if err != nil {
+			return fmt.Errorf("latest runs per collector: %w", err)
+		}
+		b.runScope = "latest-per-collector"
+		b.scopedRunSet = runs
+
+		// Materialise the snapshots those runs belong to so
+		// snapshots.ndjson and per-snapshot identity stay consistent.
+		seen := make(map[string]bool, len(runs))
+		var snapIDs []string
+		for _, r := range runs {
+			if r.SnapshotID == "" || seen[r.SnapshotID] {
+				continue
 			}
-			if s != nil {
-				snaps = []db.Snapshot{*s}
-			}
-		} else {
-			var err error
-			snaps, err = b.store.GetLatestSnapshotsPerTarget()
-			if err != nil {
-				return fmt.Errorf("latest snapshots per target: %w", err)
-			}
+			seen[r.SnapshotID] = true
+			snapIDs = append(snapIDs, r.SnapshotID)
+		}
+		snaps, err = b.store.GetSnapshotsByIDs(snapIDs)
+		if err != nil {
+			return fmt.Errorf("snapshots for latest runs: %w", err)
 		}
 	}
 
@@ -224,6 +250,20 @@ func (b *Builder) resolveScope(opts Options) error {
 	b.scopedSnapshotIDs = make(map[string]bool, len(snaps))
 	for _, s := range snaps {
 		b.scopedSnapshotIDs[s.ID] = true
+	}
+
+	// Selector scopes draw their run set from the resolved snapshots;
+	// the default scope already set scopedRunSet at the run level above.
+	if b.runScope == "snapshot" {
+		ids := make([]string, 0, len(snaps))
+		for _, s := range snaps {
+			ids = append(ids, s.ID)
+		}
+		runs, err := b.store.GetQueryRunsBySnapshotIDs(ids)
+		if err != nil {
+			return fmt.Errorf("runs for scoped snapshots: %w", err)
+		}
+		b.scopedRunSet = runs
 	}
 	return nil
 }
@@ -256,6 +296,10 @@ func (b *Builder) writeMetadata(zw *zip.Writer, opts Options) error {
 		// (future) replay path.
 		"snapshot_count": len(b.scopedSnapshots),
 		"ingest_mode":    "analyze",
+		// R086: marks how runs were assembled — "latest-per-collector"
+		// for the R084 default (runs may carry differing collected_at)
+		// or "snapshot" for selector scopes.
+		"run_scope": b.runScope,
 	}
 	if opts.TargetID > 0 {
 		if name, err := b.store.GetTargetName(opts.TargetID); err == nil && name != "" {
@@ -310,7 +354,7 @@ func (b *Builder) writeCollectorStatus(zw *zip.Writer, opts Options) error {
 	// Target-scoped: build status from query runs for that target (MTE-R004).
 	if opts.TargetID > 0 {
 		targetName := b.resolveTargetName(opts.TargetID)
-		statuses := collector.BuildStatusFromRuns(scopedRuns)
+		statuses := b.applyFreshness(collector.BuildStatusFromRuns(scopedRuns), scopedRuns, true)
 
 		file := collector.CollectorStatusFile{
 			SchemaVersion: CollectorStatusSchemaVersion,
@@ -343,13 +387,93 @@ func (b *Builder) writeCollectorStatus(zw *zip.Writer, opts Options) error {
 	file := collector.CollectorStatusFile{
 		SchemaVersion: CollectorStatusSchemaVersion,
 		CollectedAt:   time.Now().UTC().Format(time.RFC3339),
-		Collectors:    collector.BuildStatusFromRuns(scopedRuns),
+		Collectors:    b.applyFreshness(collector.BuildStatusFromRuns(scopedRuns), scopedRuns, false),
 	}
 	if file.Collectors == nil {
 		file.Collectors = []collector.CollectorStatus{}
 	}
 	file.Sort()
 	return json.NewEncoder(f).Encode(file)
+}
+
+// applyFreshness adds R107 freshness metadata to collector_status
+// entries. It only applies to the R084 default scope
+// ("latest-per-collector"); selector-scoped exports are returned
+// unchanged so a forensic --all / --snapshot-id export keeps its
+// historical semantics.
+//
+// For each entry that actually ran (has a timestamp) it records the
+// collector's expected cadence and classifies freshness: `fresh` when
+// the latest run is at most twice the cadence old, `stale` otherwise.
+// Gated/skipped entries get the cadence but no freshness (their
+// `reason` already explains the absence). It then appends a
+// `never_run` entry for every registered collector that has no run for
+// a target in scope, so consumers can distinguish "ran and is current"
+// from "never produced data."
+//
+// withNeverRun is set only for target-scoped exports: the flat,
+// instance-level collector_status.json carries no target field, so a
+// per-target `never_run` entry there would be ambiguous. Cadence and
+// fresh/stale enrichment is unambiguous and applies to both.
+func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db.QueryRun, withNeverRun bool) []collector.CollectorStatus {
+	if b.runScope != "latest-per-collector" {
+		return statuses
+	}
+	now := time.Now().UTC()
+
+	for i := range statuses {
+		qd := pgqueries.ByID(statuses[i].ID)
+		if qd == nil {
+			continue
+		}
+		statuses[i].Cadence = qd.Cadence.String()
+		if statuses[i].Status == "skipped" || statuses[i].CollectedAt == "" {
+			continue
+		}
+		ts, err := time.Parse(time.RFC3339, statuses[i].CollectedAt)
+		if err != nil {
+			continue
+		}
+		if now.Sub(ts) <= 2*time.Duration(qd.Cadence) {
+			statuses[i].Freshness = "fresh"
+		} else {
+			statuses[i].Freshness = "stale"
+		}
+	}
+
+	if !withNeverRun {
+		return statuses
+	}
+
+	// Enumerate eligible-but-never-run collectors per target. A
+	// collector gated for a target is recorded as a skipped run every
+	// cycle, so a registered collector with no run at all for a cycled
+	// target is one whose cadence simply has not fired yet — exactly
+	// the "missing coverage" case a consumer needs to see.
+	presentByTarget := map[int64]map[string]bool{}
+	for _, r := range runs {
+		m := presentByTarget[r.TargetID]
+		if m == nil {
+			m = map[string]bool{}
+			presentByTarget[r.TargetID] = m
+		}
+		m[r.QueryID] = true
+	}
+	for _, present := range presentByTarget {
+		for _, q := range pgqueries.All() {
+			if present[q.ID] {
+				continue
+			}
+			statuses = append(statuses, collector.CollectorStatus{
+				ID:        q.ID,
+				Attempted: false,
+				Status:    "never_run",
+				Freshness: "never_run",
+				Cadence:   q.Cadence.String(),
+			})
+		}
+	}
+	return statuses
 }
 
 func (b *Builder) resolveTargetName(targetID int64) string {
@@ -528,15 +652,13 @@ func (b *Builder) writeSnapshots(zw *zip.Writer, opts Options) error {
 // scopedRuns returns every query_run whose snapshot_id is in the
 // resolved scope. Used by writeQueryRuns and writeQueryResults so
 // both files draw from the same set.
+// scopedRuns returns the run set resolved by resolveScope (R084/R085).
+// For the default scope this is the latest run per (target_id,
+// query_id); for selector scopes it is every run in the scoped
+// snapshots. Both are computed once in resolveScope so the files in
+// the ZIP cannot disagree.
 func (b *Builder) scopedRuns() ([]db.QueryRun, error) {
-	if len(b.scopedSnapshots) == 0 {
-		return nil, nil
-	}
-	ids := make([]string, 0, len(b.scopedSnapshots))
-	for _, s := range b.scopedSnapshots {
-		ids = append(ids, s.ID)
-	}
-	return b.store.GetQueryRunsBySnapshotIDs(ids)
+	return b.scopedRunSet, nil
 }
 
 // writePerCollectorFiles regroups the latest run per collector into one

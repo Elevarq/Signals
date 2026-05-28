@@ -12,6 +12,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `oci://ghcr.io/elevarq/charts/arq-signals`, cosign-signed with the
   same keyless GitHub OIDC identity as the container image. The chart
   version is stamped from the release tag at package time. (#3)
+- Collector freshness metadata in `collector_status.json`: each entry
+  carries its `cadence` and a `freshness` classification
+  (`fresh`/`stale`), and target-scoped exports enumerate
+  eligible-but-never-run collectors as `never_run` so consumers can
+  detect missing coverage (R107, #5).
+
+### Fixed
+
+- Default export no longer drops lower-cadence collectors. The default
+  scope now assembles the latest run of **each** collector per active
+  target (`latest-per-collector`) instead of only the single most
+  recent snapshot, which could omit 15m/1h/6h/24h evidence right after
+  a 5m cycle. `metadata.json` gains a `run_scope` marker
+  (`latest-per-collector` | `snapshot`). Selector exports (`--all`,
+  `--snapshot-id`, `--since/--until`) are unchanged. (R084, #5)
 
 ## [0.9.0] - 2026-05-27
 

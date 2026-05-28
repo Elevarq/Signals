@@ -526,6 +526,102 @@ func (d *DB) GetQueryRunsBySnapshotIDs(ids []string) ([]QueryRun, error) {
 	return runs, rows.Err()
 }
 
+// GetLatestRunsPerCollector returns the most recent run of each
+// collector — the `query_runs` row with the largest `collected_at`
+// per distinct `(target_id, query_id)` — for every active target.
+// This is the R084 default export scope: it guarantees the export
+// carries the latest run of every collector regardless of cadence,
+// instead of only the collectors that were due in the single most
+// recent snapshot. Passing targetID > 0 narrows the result to one
+// target (the `--target-id` default scope).
+//
+// R090: the explicit `JOIN targets` filters out runs whose target_id
+// does not reference an existing row in `targets`, matching the orphan
+// defence the legacy snapshot-scope helpers carry.
+func (d *DB) GetLatestRunsPerCollector(targetID int64) ([]QueryRun, error) {
+	q := `
+		SELECT r.id, r.target_id, r.snapshot_id, r.query_id, r.collected_at,
+		       r.pg_version, r.duration_ms, r.row_count, r.error, r.created_at,
+		       r.status, r.reason
+		FROM query_runs r
+		JOIN targets t ON t.id = r.target_id
+		JOIN (
+			SELECT target_id, query_id, MAX(collected_at) AS max_at
+			FROM query_runs
+			GROUP BY target_id, query_id
+		) latest
+		  ON latest.target_id = r.target_id
+		 AND latest.query_id = r.query_id
+		 AND latest.max_at = r.collected_at`
+	var args []any
+	if targetID > 0 {
+		q += " WHERE r.target_id = ?"
+		args = append(args, targetID)
+	}
+	q += " ORDER BY r.target_id, r.query_id, r.id"
+
+	runs, err := d.scanQueryRuns(q, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	// Tie-break: if two cycles for the same (target, collector) share
+	// the same `collected_at` (second granularity), the MAX join
+	// returns both rows. Keep the one with the largest id (ULIDs are
+	// time-ordered) so the result is exactly one run per collector and
+	// deterministic. ORDER BY id ASC means the last row wins.
+	dedup := make(map[[2]string]int, len(runs))
+	out := make([]QueryRun, 0, len(runs))
+	for _, r := range runs {
+		key := [2]string{fmt.Sprintf("%d", r.TargetID), r.QueryID}
+		if idx, ok := dedup[key]; ok {
+			out[idx] = r
+			continue
+		}
+		dedup[key] = len(out)
+		out = append(out, r)
+	}
+	return out, nil
+}
+
+// GetSnapshotsByIDs returns the snapshot rows for the given IDs,
+// ordered by (target_id, id) for deterministic export output. Used by
+// the R084 default scope to materialise the snapshots that the
+// latest-per-collector runs belong to. Unknown IDs are silently
+// omitted (the caller derived the IDs from existing runs, so a missing
+// row would indicate out-of-band deletion, handled upstream).
+func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	placeholders := strings.Repeat("?,", len(ids))
+	placeholders = placeholders[:len(placeholders)-1]
+	q := `SELECT id, target_id, collected_at, pg_version, payload, size_bytes
+	      FROM snapshots WHERE id IN (` + placeholders + `)
+	      ORDER BY target_id ASC, id ASC`
+	args := make([]any, len(ids))
+	for i, id := range ids {
+		args[i] = id
+	}
+	rows, err := d.sql.Query(q, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var snaps []Snapshot
+	for rows.Next() {
+		var s Snapshot
+		var payload string
+		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes); err != nil {
+			return nil, err
+		}
+		s.Payload = json.RawMessage(payload)
+		snaps = append(snaps, s)
+	}
+	return snaps, rows.Err()
+}
+
 func (d *DB) DeleteSnapshotsOlderThan(before string) (int64, error) {
 	res, err := d.sql.Exec("DELETE FROM snapshots WHERE collected_at < ?", before)
 	if err != nil {

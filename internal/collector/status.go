@@ -20,6 +20,14 @@ type CollectorStatus struct {
 	RowCount    int    `json:"row_count"`
 	DurationMS  int    `json:"duration_ms"`
 	CollectedAt string `json:"collected_at"`
+	// Cadence is the collector's expected run interval as a duration
+	// string ("5m", "24h"); empty when the collector is not in the
+	// registry. Freshness is one of "fresh", "stale", "never_run"
+	// (R107) — empty for entries where freshness does not apply (e.g.
+	// gated/skipped collectors). Both are populated by the export
+	// builder, not by the daemon's live status path.
+	Cadence   string `json:"cadence,omitempty"`
+	Freshness string `json:"freshness,omitempty"`
 }
 
 // CollectorStatusFile is the top-level structure for collector_status.json.
