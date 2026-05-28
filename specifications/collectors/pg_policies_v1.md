@@ -69,8 +69,15 @@ Excludes system schemas (`pg_catalog`, `information_schema`,
 **HighSensitivity.** Policy `qual` / `with_check` are arbitrary SQL
 expressions that can embed column references, literals, and function
 calls — the same class as view / function / trigger definition text.
-Gated off by default; enabled via the R075 daemon flag or an R098
-per-target profile, like the other `*_definitions` collectors.
+Classified `HighSensitivity = true` on the **skip-path** (no
+`SensitiveColumns` declared) — its `qual` / `with_check` columns ARE
+the sensitive payload, so redaction would leave a near-empty row.
+Runs by default under R075 v2 (collect-everything default); an
+operator who opts out via
+`signals.high_sensitivity_collectors_enabled: false` (or an R098
+`restricted` per-target profile) drops the collector and it appears
+in `collector_status.json` as `status=skipped, reason=config_disabled`
+(EA-R001).
 
 ## Downstream use
 
