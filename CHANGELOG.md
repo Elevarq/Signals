@@ -6,6 +6,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.1] - 2026-05-28
+
+**First Beta release.** The data-collection layer has been cleared as
+Beta-ready by external review (four passes, all P0/P1 findings
+resolved); the operator-facing documentation has been swept to align
+with the current behavior. This release contains significant
+correctness and observability improvements to the default export, the
+sensitivity model, and the collection lifecycle, plus a new
+Helm-chart OCI publishing path.
+
+Pre-release: the container `:latest` floating tag does **not** move
+to this image — explicit pin to `0.10.0-beta.1` is required. The
+GitHub release is marked `prerelease`. Analyzer-side ingest-contract
+work tracking these producer changes lives in `Elevarq/Arq` (#906,
+#907) and is not yet shipped.
+
 ### Added
 
 - Release workflow now publishes the Helm chart as an OCI artifact to
@@ -16,7 +32,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   carries its `cadence` and a `freshness` classification
   (`fresh`/`stale`), and target-scoped exports enumerate
   eligible-but-never-run collectors as `never_run` so consumers can
-  detect missing coverage (R107, #5).
+  detect missing coverage. (R107, #5)
 
 ### Changed
 
@@ -39,49 +55,42 @@ This project adheres to [Semantic Versioning](https://semver.org/).
     whole-row-sensitive collectors are dropped as before (recorded
     `status=skipped, reason=config_disabled`).
   Each collector declares its branch via `QueryDef.SensitiveColumns`
-  (non-empty -> redact; empty/nil -> skip). Corrects the
-  skip-everything-on-opt-out behavior previously shipped in
-  v0.9.0-unreleased; the metadata flag
-  `high_sensitivity_collectors_enabled` continues to record the
+  (non-empty → redact; empty/nil → skip).
+  `metadata.json.high_sensitivity_collectors_enabled` records the
   effective state. (R075 revised v2, #6)
 
 ### Fixed
 
-- `pg_stats_array_range_v1` no longer disappears silently when its
-  per-collector opt-in (`collect_array_range_histograms`, default
-  `false`) is off. The collector now appears in `collector_status.json`
-  as `status=skipped, reason=config_disabled` — matching the EA-R001
-  status-completeness guarantee already provided for
-  `version_unsupported` / `extension_missing` / `config_disabled`. This
-  gap mattered more once `high_sensitivity_collectors_enabled` defaulted
-  to `true` (#6 v2). (#18)
-
-### Documentation
-
-- Pre-Beta sweep of operator-facing docs to match R075 (revised v2):
-  `README.md` "Off-by-default surfaces" rewritten as "Operator-controlled
-  sensitivity" with the default-on / opt-out-redact-or-skip semantics;
-  `docs/postgres-role.md` "High-sensitivity collectors" section
-  rewritten (default-on, two opt-out branches, skip vs redact); the
-  Grafana dashboard panel description for
-  `arq_signal_high_sensitivity_collectors_enabled` updated;
-  `features/arq-signals/traceability.md` R075 row rewritten and R070
-  row clarified; spec entries for the skip-path stats collectors
-  (`pg_stats_array_range_v1.md`, `pg_statistic_ext_data_v1.md`)
-  realigned with the redact-or-skip model. No stale "opt-in / off-by-
-  default" wording remains in operator-facing markdown. (#20)
-- Operator-facing sensitivity docs realigned with R075 (revised v2):
-  `appendix-b-configuration-schema.md` example, env-var table, and the
-  "High-sensitivity collectors" section now reflect the default-on /
-  opt-out-redact-or-skip semantics. `specifications/sensitivity-profiles.md`
-  step 2 distinguishes the redact-path (collectors stay eligible,
-  sensitive columns nulled) from the skip-path (collector dropped),
-  and clarifies that the `restricted` per-target profile is stricter
-  than the daemon-wide opt-out (drops all `HighSensitivity=true`
-  regardless of `SensitiveColumns`). (#18)
-
-### Fixed
-
+- Default export no longer drops lower-cadence collectors. The default
+  scope now assembles the latest run of **each** collector per active
+  target (`latest-per-collector`) instead of only the single most
+  recent snapshot, which could omit 15m/1h/6h/24h evidence right after
+  a 5m cycle. `metadata.json` gains a `run_scope` marker
+  (`latest-per-collector` | `snapshot`). Selector exports (`--all`,
+  `--snapshot-id`, `--since/--until`) are unchanged. (R084, #5)
+- Collection cycles that exhaust a target's per-cycle time budget now
+  record every remaining due collector as
+  `skipped`/`reason=budget_exhausted` instead of leaving them with no
+  row, so the status inventory is always complete (one run per due
+  collector). Such cycles are reported as `partial`, and the
+  bookkeeping commit/persistence no longer runs under the elapsed
+  budget so an over-budget cycle still persists its full inventory.
+  (R108, #8)
+- Disabled or removed targets no longer linger as active. The daemon
+  reconciles `targets.enabled` against config on startup and on every
+  reload (soft-disable; snapshots retained), and the default export +
+  `GET /status` now exclude disabled targets. `--all` still surfaces
+  their history for forensics. (R109, #7)
+- Exports no longer tear when retention cleanup runs concurrently. An
+  export composes the ZIP from several sequential reads of the local
+  store; if retention's `DeleteSnapshotsOlderThan` /
+  `DeleteQueryRunsOlderThanByClass` committed between those reads, the
+  export could end up referencing a row that had just been removed
+  (most visibly the `missing result payload for successful run` hard
+  error). Exports now take a shared read lock; the destructive
+  retention writes take an exclusive write lock. Concurrent exports
+  remain non-blocking; concurrent collection commits are not gated
+  (additive only — no tear). (R110, #10)
 - `GET /status.target_count` now matches the number of enabled targets
   surfaced in the response (was using the unfiltered `GetTargets()`
   count, so disabled targets still bumped it). Restores
@@ -95,36 +104,47 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   path audit-logs `config_reload_rejected` with
   `reason=reconcile_failed` (matching the load/validate-rejected
   pattern). (#16)
-- Exports no longer tear when retention cleanup runs concurrently. An
-  export composes the ZIP from several sequential reads of the local
-  store; if retention's `DeleteSnapshotsOlderThan` /
-  `DeleteQueryRunsOlderThanByClass` committed between those reads, the
-  export could end up referencing a row that had just been removed
-  (most visibly the `missing result payload for successful run` hard
-  error). Exports now take a shared read lock; the destructive
-  retention writes take an exclusive write lock. Concurrent exports
-  remain non-blocking; concurrent collection commits are not gated
-  (additive only — no tear). (R110, #10)
-- Disabled or removed targets no longer linger as active. The daemon
-  reconciles `targets.enabled` against config on startup and on every
-  reload (soft-disable; snapshots retained), and the default export +
-  `GET /status` now exclude disabled targets. `--all` still surfaces
-  their history for forensics. (R109, #7)
-- Collection cycles that exhaust a target's per-cycle time budget now
-  record every remaining due collector as
-  `skipped`/`reason=budget_exhausted` instead of leaving them with no
-  row, so the status inventory is always complete (one run per due
-  collector). Such cycles are reported as `partial`, and the
-  bookkeeping commit/persistence no longer runs under the elapsed
-  budget so an over-budget cycle still persists its full inventory.
-  (R108, #8)
-- Default export no longer drops lower-cadence collectors. The default
-  scope now assembles the latest run of **each** collector per active
-  target (`latest-per-collector`) instead of only the single most
-  recent snapshot, which could omit 15m/1h/6h/24h evidence right after
-  a 5m cycle. `metadata.json` gains a `run_scope` marker
-  (`latest-per-collector` | `snapshot`). Selector exports (`--all`,
-  `--snapshot-id`, `--since/--until`) are unchanged. (R084, #5)
+- `pg_stats_array_range_v1` no longer disappears silently when its
+  per-collector opt-in (`collect_array_range_histograms`, default
+  `false`) is off. The collector now appears in `collector_status.json`
+  as `status=skipped, reason=config_disabled` — matching the EA-R001
+  status-completeness guarantee already provided for
+  `version_unsupported` / `extension_missing` / `config_disabled`. (#18)
+
+### Documentation
+
+- Operator-facing sensitivity docs aligned with R075 (revised v2):
+  `appendix-b-configuration-schema.md` example, env-var table, and
+  the "High-sensitivity collectors" section reflect the default-on /
+  opt-out-redact-or-skip semantics.
+  `specifications/sensitivity-profiles.md` step 2 distinguishes the
+  redact-path (collectors stay eligible, sensitive columns nulled)
+  from the skip-path (collector dropped), and notes the `restricted`
+  per-target profile remains stricter than the daemon-wide opt-out
+  (drops all `HighSensitivity=true` regardless of
+  `SensitiveColumns`). (#18)
+- Pre-Beta sweep of operator-facing docs to match R075 (revised v2):
+  `README.md` "Off-by-default surfaces" rewritten as
+  "Operator-controlled sensitivity"; `docs/postgres-role.md`
+  "High-sensitivity collectors" section rewritten (default-on, two
+  opt-out branches, skip vs redact); Grafana dashboard panel
+  description for `arq_signal_high_sensitivity_collectors_enabled`
+  updated; `features/arq-signals/traceability.md` R075/R070 rows
+  rewritten; spec entries for the skip-path stats collectors
+  (`pg_stats_array_range_v1.md`, `pg_statistic_ext_data_v1.md`)
+  realigned with the redact-or-skip model. (#20)
+- Final spec cleanup: `pg_stats_extended_v1.md` (+ acceptance) and
+  `pg_policies_v1.md` Status/Invariants/Configuration/Mitigations
+  sections rewritten for the default-on skip-path classification. No
+  stale "opt-in / off-by-default" wording remains in operator-facing
+  markdown. (#22)
+- Snapshot inspection guide and reference example refreshed to the
+  current export shape: `metadata.json` now shows `snapshot_count`,
+  `ingest_mode`, `run_scope`, `high_sensitivity_collectors_enabled`,
+  and `target_identity` (R086/R094); a `collector_status.json`
+  example with `cadence`/`freshness` (R107) is included; the file
+  table lists `snapshots.ndjson` and `collector_status.json`
+  (INV-SIGNALS-11). (#23)
 
 ## [0.9.0] - 2026-05-27
 
