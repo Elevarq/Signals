@@ -710,6 +710,36 @@ the consumer's ability to detect coverage gaps (R107).
 
 ---
 
+## TC-SIG-124: Budget Exhaustion Records Remaining Due Collectors
+
+**Linked Rules:** ARQ-SIGNALS-R108, ARQ-SIGNALS-R072, INV-SIGNALS-19
+**Scenario:** A target's per-cycle time budget elapses after some, but
+not all, due collectors have run.
+**Inputs:**
+- A cycle with M due collectors whose budget expires after the first N
+  (N < M) have been attempted.
+
+**Expected Behavior:**
+- The persisted cycle records exactly M `query_runs` rows — one per due
+  collector (INV-SIGNALS-19).
+- The M-N collectors that never got a turn carry
+  `status=skipped, reason=budget_exhausted`.
+- The cycle's overall status is `partial`.
+- `arq_signal_collectors_skipped_total{reason="budget_exhausted"}`
+  increments by M-N.
+
+**Boundary/unit:** the pure helper that builds the skipped runs from
+the remaining-due slice produces one `skipped`/`budget_exhausted` run
+per remaining collector with the correct `query_id`, `target_id`, and
+`snapshot_id`; the status classifier returns `partial` when any
+`budget_exhausted` skip occurred and `err == nil`.
+
+**Failure Expectation:** A cycle that marks N collectors successful and
+leaves the remaining M-N with no row at all is the R072/INV-SIGNALS-19
+completeness regression this rule closes.
+
+---
+
 ## TC-SIG-100: UpsertTarget Is Idempotent
 
 **Linked Rules:** ARQ-SIGNALS-R089

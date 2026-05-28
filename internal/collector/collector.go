@@ -620,6 +620,51 @@ func (c *Collector) runCycle(ctx context.Context, forceAll bool, req CollectRequ
 	slog.Info("collection cycle completed", "duration_ms", time.Since(start).Milliseconds(), "targets", len(enabled))
 }
 
+// reasonBudgetExhausted marks collectors that were due and eligible but
+// did not get a turn before the target's per-cycle time budget elapsed
+// (R108). Recorded as a skipped run so the status inventory is complete.
+const reasonBudgetExhausted = "budget_exhausted"
+
+// budgetSkippedRuns builds one skipped/budget_exhausted run per
+// remaining due collector when a cycle stops early on budget
+// (R108 / INV-SIGNALS-19). newID supplies run IDs (ULIDs in production;
+// injected so the construction is unit-testable without an entropy
+// source).
+func budgetSkippedRuns(remaining []pgqueries.QueryDef, targetID int64, snapID, collectedAt, versionStr string, newID func() string) []db.QueryRun {
+	if len(remaining) == 0 {
+		return nil
+	}
+	runs := make([]db.QueryRun, 0, len(remaining))
+	for _, q := range remaining {
+		runs = append(runs, db.QueryRun{
+			ID:          newID(),
+			TargetID:    targetID,
+			SnapshotID:  snapID,
+			QueryID:     q.ID,
+			CollectedAt: collectedAt,
+			PGVersion:   versionStr,
+			CreatedAt:   collectedAt,
+			Status:      "skipped",
+			Reason:      reasonBudgetExhausted,
+		})
+	}
+	return runs
+}
+
+// cycleStatus classifies a completed collection cycle (R108). A non-nil
+// err is "failed"; otherwise any failed collector or any
+// budget-exhausted skip makes the cycle "partial"; else "success".
+func cycleStatus(err error, failed, budgetExhausted int) string {
+	switch {
+	case err != nil:
+		return "failed"
+	case failed > 0 || budgetExhausted > 0:
+		return "partial"
+	default:
+		return "success"
+	}
+}
+
 func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, forceAll, force bool, requestID, actor string) (err error) {
 	cycleStart := time.Now()
 
@@ -728,13 +773,9 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 				success++
 			}
 		}
-		status := "success"
-		switch {
-		case err != nil:
-			status = "failed"
-		case failed > 0:
-			status = "partial"
-		}
+		// R108: a budget-exhausted skip makes the cycle partial, same as
+		// a failed collector — the cycle did not complete its full due set.
+		status := cycleStatus(err, failed, skippedByReason[reasonBudgetExhausted])
 		duration := time.Since(cycleStart)
 		completedAttrs := []any{
 			"target", tgt.Name,
@@ -936,12 +977,20 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	data := &SnapshotData{Version: versionStr}
 	var results []db.QueryResult
 
+	newRunID := func() string {
+		return ulid.MustNew(ulid.Timestamp(now), c.entropy).String()
+	}
+
 	// Step 4: Execute each query with budget-aware timeout.
-	for _, q := range queries {
+	for i, q := range queries {
 		// Check if target context is already expired.
 		if ctx.Err() != nil {
-			slog.Warn("target budget exhausted, skipping remaining queries",
-				"target", tgt.Name, "query", q.ID, "remaining", len(queries))
+			// R108: the budget elapsed before this collector (and the
+			// rest) was attempted — record every remaining due collector
+			// as skipped/budget_exhausted so the inventory is complete.
+			runs = append(runs, budgetSkippedRuns(queries[i:], targetID, snapID, collectedAt, versionStr, newRunID)...)
+			slog.Warn("target budget exhausted, remaining due collectors recorded as skipped",
+				"target", tgt.Name, "remaining", len(queries[i:]))
 			break
 		}
 
@@ -1022,8 +1071,11 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			}
 			runs = append(runs, run)
 
-			// If target context expired, stop processing more queries.
+			// If target context expired, stop processing more queries —
+			// but first record the remaining due collectors as skipped so
+			// the status inventory stays complete (R108).
 			if ctx.Err() != nil {
+				runs = append(runs, budgetSkippedRuns(queries[i+1:], targetID, snapID, collectedAt, versionStr, newRunID)...)
 				break
 			}
 			continue
@@ -1057,8 +1109,17 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		populateSnapshotField(data, q.ID, rows)
 	}
 
-	if err := tx.Commit(ctx); err != nil {
-		return fmt.Errorf("commit tx for %s: %w", tgt.Name, err)
+	// Commit the read-only transaction with a fresh, short context.
+	// The per-cycle budget (ctx) governs query execution, not the
+	// bookkeeping commit — committing under the (possibly elapsed)
+	// budget would fail an over-budget cycle and discard the complete
+	// status inventory R108 just recorded. R108: persistence must
+	// survive the exhausted budget.
+	commitCtx, commitCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	cErr := tx.Commit(commitCtx)
+	commitCancel()
+	if cErr != nil {
+		return fmt.Errorf("commit tx for %s: %w", tgt.Name, cErr)
 	}
 
 	// Step 4b: Record gated collectors as skipped runs so

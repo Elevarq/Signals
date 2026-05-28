@@ -20,6 +20,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Collection cycles that exhaust a target's per-cycle time budget now
+  record every remaining due collector as
+  `skipped`/`reason=budget_exhausted` instead of leaving them with no
+  row, so the status inventory is always complete (one run per due
+  collector). Such cycles are reported as `partial`, and the
+  bookkeeping commit/persistence no longer runs under the elapsed
+  budget so an over-budget cycle still persists its full inventory.
+  (R108, #8)
 - Default export no longer drops lower-cadence collectors. The default
   scope now assembles the latest run of **each** collector per active
   target (`latest-per-collector`) instead of only the single most
