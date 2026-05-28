@@ -124,10 +124,11 @@ func init() {
 		WHERE state IN ('idle in transaction', 'idle in transaction (aborted)')
 		  AND pid != pg_backend_pid()
 		ORDER BY xact_start ASC NULLS LAST`,
-		ResultKind:     ResultRowset,
-		RetentionClass: RetentionShort,
-		Timeout:        5 * time.Second,
-		Cadence:        Cadence5m,
+		ResultKind:      ResultRowset,
+		RetentionClass:  RetentionShort,
+		Timeout:         5 * time.Second,
+		Cadence:         Cadence5m,
+		HighSensitivity: true, // R075: emits live pg_stat_activity query text
 	})
 
 	// Database sizes: all non-template databases with sizes, wraparound

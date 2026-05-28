@@ -40,6 +40,13 @@ var highSensitivityCollectors = []string{
 	"pg_policies_v1",
 	// pg_rules_v1 (#219) emits the rewrite-rule action — arbitrary SQL.
 	"pg_rules_v1",
+	// R075 (revised 2026-05, issue #6): live pg_stat_activity statement
+	// text. Default-on with an opt-out — collectors run by default,
+	// `high_sensitivity_collectors_enabled = false` skips them.
+	"long_running_txns_v1",
+	"blocking_locks_v1",
+	"idle_in_txn_offenders_v1",
+	"wraparound_blockers_v1",
 }
 
 // TestHighSensitivityCollectorsAreFlagged verifies all four definition

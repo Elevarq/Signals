@@ -77,9 +77,13 @@ type QueryDef struct {
 	RetentionClass    RetentionClass
 	Timeout           time.Duration
 	Cadence           Cadence
-	// HighSensitivity flags collectors that emit application-authored SQL
-	// text (view/matview/trigger/function definitions). Per R075 these
-	// run only when the operator opts in.
+	// HighSensitivity flags collectors that emit application-authored
+	// SQL text (view/matview/trigger/function definitions) or live
+	// pg_stat_activity statement text (long-running txns, blocking
+	// locks, idle-in-txn, wraparound blockers). Per R075 these run by
+	// default (collect-everything default); operators opt **out** by
+	// setting `high_sensitivity_collectors_enabled = false`, which
+	// skips every collector with this flag.
 	HighSensitivity bool
 }
 

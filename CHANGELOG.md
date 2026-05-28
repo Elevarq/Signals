@@ -18,6 +18,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   eligible-but-never-run collectors as `never_run` so consumers can
   detect missing coverage (R107, #5).
 
+### Changed
+
+- **Sensitivity policy: collect-everything default, privacy opt-out.**
+  The live `pg_stat_activity` query-text collectors
+  (`long_running_txns_v1`, `blocking_locks_v1`,
+  `idle_in_txn_offenders_v1`, `wraparound_blockers_v1`) are now
+  classified `HighSensitivity = true`. The
+  `signals.high_sensitivity_collectors_enabled` default flips from
+  `false` to **`true`**, so high-sensitivity collectors run by default;
+  set the flag (or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED`)
+  to `false` to opt out and skip them entirely.
+  `metadata.json.high_sensitivity_collectors_enabled` reflects the
+  effective state so auditors can tell whether sensitive data may be
+  present. (R075 revised, #6)
+
 ### Fixed
 
 - Disabled or removed targets no longer linger as active. The daemon
