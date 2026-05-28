@@ -4,11 +4,13 @@ on:
   push:
     tags: ['v*']
 
+# Top-level permissions are read-only. Each job that needs a write
+# privilege declares the minimum scope it needs (publish → packages +
+# id-token + attestations; publish-chart → packages + id-token; release
+# → contents:write to create the GitHub release). Closes Scorecard
+# TokenPermissionsID alerts #2 + #3 (issue #27).
 permissions:
-  contents: write
-  packages: write
-  id-token: write
-  attestations: write
+  contents: read
 
 env:
   REGISTRY: ghcr.io
@@ -162,6 +164,11 @@ jobs:
     name: Publish to GHCR
     needs: [validate, test, lint, security-scan]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write      # docker login + push to ghcr.io/elevarq/arq-signals
+      id-token: write      # cosign keyless OIDC + SLSA provenance
+      attestations: write  # buildkit SBOM + SLSA attestations attached to the image
     outputs:
       digest: ${{ steps.push.outputs.digest }}
       tags: ${{ steps.meta.outputs.tags }}
@@ -350,6 +357,10 @@ jobs:
     name: Publish Helm chart (OCI)
     needs: [validate, publish]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write  # helm registry login + push to ghcr.io/elevarq/charts
+      id-token: write  # cosign keyless OIDC for the chart signature
     env:
       CHART_REGISTRY: oci://ghcr.io/elevarq/charts
     steps:
@@ -439,6 +450,8 @@ jobs:
     name: GitHub Release
     needs: [validate, publish, build-binaries]
     runs-on: ubuntu-24.04
+    permissions:
+      contents: write  # softprops/action-gh-release creates the GitHub Release + uploads assets
     steps:
       - uses: actions/checkout@v5
 
