@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.3] - 2026-05-28
+
+**Re-cut after release-pipeline fix.** `v0.10.0-beta.2`'s container
+image and GitHub Release were published successfully, but the
+`publish-chart` job failed to sign the Helm chart with cosign — the
+job authenticated GHCR via `helm registry login` (helm's own config),
+not the docker keychain cosign reads. The fix
+(`docker/login-action` before `Sign chart`) is now on `main`. Same
+data-collection layer as beta.2; this artifact's chart is signed.
+Also fixes the `prerelease` flag on the GitHub Release page that beta.2
+was missing (`action-gh-release@v3` no longer auto-detects from the
+semver suffix). (#50)
+
 ## [0.10.0-beta.2] - 2026-05-28
 
 **Beta cut after Scorecard hardening.** `v0.10.0-beta.1` was tagged but
