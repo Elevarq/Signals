@@ -11,6 +11,7 @@ From [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams.
 [![CI](https://github.com/elevarq/arq-signals/actions/workflows/ci.yml/badge.svg)](https://github.com/elevarq/arq-signals/actions/workflows/ci.yml)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/elevarq/arq-signals)](https://goreportcard.com/report/github.com/elevarq/arq-signals)
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
 
 > **Read-only by design** — three independent enforcement layers prevent
 > any write operations. Unsafe roles (superuser, replication) are blocked

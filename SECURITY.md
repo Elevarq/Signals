@@ -1,5 +1,7 @@
 # Security Policy
 
+[![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
+
 ## Reporting a vulnerability
 
 If you find a vulnerability in Arq Signals, please report it privately.

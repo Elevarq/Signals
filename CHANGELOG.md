@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- OpenSSF Best Practices **passing** badge awarded
+  ([bestpractices.dev/projects/13020](https://www.bestpractices.dev/projects/13020));
+  badge added to README, SECURITY.md, and `docs/release-verification.md`.
+  Clears the last Scorecard `CIIBestPracticesID` finding. (#31)
+
 ## [0.10.0-beta.3] - 2026-05-28
 
 **Re-cut after release-pipeline fix.** `v0.10.0-beta.2`'s container
