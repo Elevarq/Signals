@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Release workflow now publishes the Helm chart as an OCI artifact to
+  `oci://ghcr.io/elevarq/charts/arq-signals`, cosign-signed with the
+  same keyless GitHub OIDC identity as the container image. The chart
+  version is stamped from the release tag at package time. (#3)
+
 ## [0.9.0] - 2026-05-27
 
 ### Added
