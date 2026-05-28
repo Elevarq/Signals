@@ -20,6 +20,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Disabled or removed targets no longer linger as active. The daemon
+  reconciles `targets.enabled` against config on startup and on every
+  reload (soft-disable; snapshots retained), and the default export +
+  `GET /status` now exclude disabled targets. `--all` still surfaces
+  their history for forensics. (R109, #7)
 - Collection cycles that exhaust a target's per-cycle time budget now
   record every remaining due collector as
   `skipped`/`reason=budget_exhausted` instead of leaving them with no

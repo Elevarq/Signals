@@ -355,6 +355,20 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) {
 			safety.AuditLog("config_reload_target_added", "target", name)
 		}
 	}
+
+	// R109: reconcile the persisted `targets.enabled` column so a target
+	// disabled in the new config, or removed from it, stops appearing in
+	// the default export and /status. Soft-disable only — snapshots are
+	// retained for `--all`.
+	enabledNames := make([]string, 0, len(newTargets))
+	for _, t := range newTargets {
+		if t.Enabled {
+			enabledNames = append(enabledNames, t.Name)
+		}
+	}
+	if err := c.db.ReconcileEnabledTargets(enabledNames); err != nil {
+		slog.Warn("reload: reconcile enabled targets failed", "err", err)
+	}
 }
 
 // sameConnection returns true when the network-identity fields of

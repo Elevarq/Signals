@@ -238,6 +238,47 @@ func (d *DB) UpsertTarget(name string, host string, port int, dbname string, use
 	return id, nil
 }
 
+// ReconcileEnabledTargets sets `targets.enabled` to match the given set
+// of currently-enabled target names (R109). Rows named in the list are
+// enabled (1); every other existing row is soft-disabled (0). Snapshots
+// are never deleted — disabled targets' history remains reachable via
+// the `--all` export selector. Idempotent; only rows whose state
+// actually changes are touched (so `updated_at` is not churned).
+//
+// Called on startup and on every reload so the lazy per-collection
+// UpsertTarget (which runs only for enabled targets) cannot leave a
+// disabled or removed target stuck at enabled=1.
+func (d *DB) ReconcileEnabledTargets(enabledNames []string) error {
+	now := time.Now().UTC().Format(time.RFC3339)
+	if len(enabledNames) == 0 {
+		// No enabled targets in config — soft-disable everything.
+		_, err := d.sql.Exec("UPDATE targets SET enabled = 0, updated_at = ? WHERE enabled = 1", now)
+		return err
+	}
+	placeholders := strings.Repeat("?,", len(enabledNames))
+	placeholders = placeholders[:len(placeholders)-1]
+	args := make([]any, 0, len(enabledNames)+1)
+	args = append(args, now)
+	for _, n := range enabledNames {
+		args = append(args, n)
+	}
+	// Soft-disable rows not in the enabled set.
+	if _, err := d.sql.Exec(
+		"UPDATE targets SET enabled = 0, updated_at = ? WHERE enabled = 1 AND name NOT IN ("+placeholders+")",
+		args...,
+	); err != nil {
+		return err
+	}
+	// Re-enable rows in the set that were previously disabled.
+	if _, err := d.sql.Exec(
+		"UPDATE targets SET enabled = 1, updated_at = ? WHERE enabled = 0 AND name IN ("+placeholders+")",
+		args...,
+	); err != nil {
+		return err
+	}
+	return nil
+}
+
 func (d *DB) GetTargets() ([]Target, error) {
 	rows, err := d.sql.Query(`SELECT id, name, host, port, dbname, username, sslmode, secret_type, secret_ref, enabled, created_at, updated_at
 		FROM targets ORDER BY id`)
@@ -383,7 +424,7 @@ func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 	const q = `
 		SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes
 		FROM snapshots s
-		JOIN targets t ON t.id = s.target_id
+		JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		JOIN (
 			SELECT target_id, MAX(collected_at) AS max_at
 			FROM snapshots
@@ -435,7 +476,7 @@ func (d *DB) GetLatestSnapshotForTarget(targetID int64) (*Snapshot, error) {
 	err := d.sql.QueryRow(
 		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes
 		 FROM snapshots s
-		 JOIN targets t ON t.id = s.target_id
+		 JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		 WHERE s.target_id = ?
 		 ORDER BY s.collected_at DESC, s.id DESC LIMIT 1`,
 		targetID,
@@ -544,7 +585,7 @@ func (d *DB) GetLatestRunsPerCollector(targetID int64) ([]QueryRun, error) {
 		       r.pg_version, r.duration_ms, r.row_count, r.error, r.created_at,
 		       r.status, r.reason
 		FROM query_runs r
-		JOIN targets t ON t.id = r.target_id
+		JOIN targets t ON t.id = r.target_id AND t.enabled = 1
 		JOIN (
 			SELECT target_id, query_id, MAX(collected_at) AS max_at
 			FROM query_runs

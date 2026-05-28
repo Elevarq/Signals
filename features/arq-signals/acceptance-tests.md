@@ -740,6 +740,35 @@ completeness regression this rule closes.
 
 ---
 
+## TC-SIG-125: Disabled/Removed Targets Excluded from Default Export and Status
+
+**Linked Rules:** ARQ-SIGNALS-R109, INV-SIGNALS-20, INV-SIGNALS-14
+**Scenario:** A target that previously collected is later disabled in
+config or removed from it. The daemon reloads.
+**Inputs:**
+- Targets A (enabled) and B, each with collected snapshots; B is then
+  disabled (or removed) and a reload occurs.
+
+**Expected Behavior:**
+- After reload, `targets.enabled = 0` for B (`ReconcileEnabledTargets`).
+- The default export (`GetLatestRunsPerCollector`) contains only A's
+  runs/snapshots; B is absent from `snapshots.ndjson`,
+  `query_runs.ndjson`, and `collector_status.json`.
+- `GET /status` lists only A.
+- `arqctl export --all` still includes B's historical snapshots (no
+  deletion).
+
+**Boundary/unit:** `ReconcileEnabledTargets([A])` sets B `enabled = 0`
+and A `enabled = 1`; re-enabling B (`ReconcileEnabledTargets([A,B])`)
+restores it. `GetLatestRunsPerCollector` returns no rows for an
+`enabled = 0` target.
+
+**Failure Expectation:** B appearing as active in the default export or
+`/status` after being disabled is the R109 drift this rule closes. B's
+snapshots being deleted on disable is a regression (soft-disable only).
+
+---
+
 ## TC-SIG-100: UpsertTarget Is Idempotent
 
 **Linked Rules:** ARQ-SIGNALS-R089

@@ -167,6 +167,13 @@ func handleStatus(deps *Deps) http.HandlerFunc {
 
 		var targetInfo []map[string]any
 		for _, t := range targets {
+			// R109 / INV-SIGNALS-14: /status lists only enabled targets so
+			// it agrees with the default export's active-target set. A
+			// disabled or removed target is reconciled to enabled=0 on
+			// startup/reload and is excluded here.
+			if !t.Enabled {
+				continue
+			}
 			tInfo := map[string]any{
 				"id":      t.ID,
 				"name":    t.Name,
