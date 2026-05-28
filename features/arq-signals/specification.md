@@ -514,10 +514,37 @@ Reason categories for non-success statuses:
 - version_unsupported (skipped)
 - extension_missing (skipped)
 - config_disabled (skipped)
+- budget_exhausted (skipped) — the collector was due and eligible but
+  the target's per-cycle time budget elapsed before it was attempted
+  (R108)
 - execution_error (failed)
 - permission_denied (failed)
 - timeout (failed)
 - savepoint_rollback (failed)
+
+**ARQ-SIGNALS-R108**: When a target's per-cycle time budget elapses
+mid-collection, the system shall record a `skipped` run with
+`reason=budget_exhausted` for **every** remaining due collector that
+did not get a turn, so the status inventory is complete. This applies
+at both points the collection loop can stop early on budget: before a
+collector is attempted, and after a collector's own query times out
+against the exhausted budget.
+
+Consequences:
+
+- The cycle's overall status is `partial` whenever any collector was
+  skipped for `budget_exhausted` (in addition to the existing
+  `partial`-on-failure rule).
+- Recording the skipped inventory must survive the exhausted budget:
+  the bookkeeping that persists the cycle (the read transaction's
+  commit and the SQLite write) shall not be governed by the elapsed
+  per-cycle budget context, so an over-budget cycle still persists its
+  complete status inventory rather than discarding the whole cycle.
+
+This closes the gap where an over-budget cycle marked some collectors
+successful while leaving the remaining due collectors with no row at
+all — a consumer could not distinguish "ran clean" from "never got a
+turn" (R072 completeness).
 
 **ARQ-SIGNALS-R073**: The system shall support target-scoped export.
 When exporting for a specific target, query_runs, query_results, and
@@ -673,7 +700,7 @@ The metric set shall be exactly:
 | `arq_signal_collection_duration_seconds` | histogram | `target`, `status` | Wall-clock duration of each cycle. |
 | `arq_signal_collectors_succeeded_total` | counter | `target` | Sum of per-cycle successful collector counts. |
 | `arq_signal_collectors_failed_total` | counter | `target`, `reason` | Sum of per-cycle failed collector counts; `reason` is the same enum used in `collector_status.json` (`permission_denied`, `timeout`, `execution_error`). |
-| `arq_signal_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts; `reason` ∈ `config_disabled`, `version_unsupported`, `extension_missing`. |
+| `arq_signal_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts; `reason` ∈ `config_disabled`, `version_unsupported`, `extension_missing`, `budget_exhausted`. |
 | `arq_signal_export_requests_total` | counter | `status` | All export requests, labelled `success` / `failed`. |
 | `arq_signal_export_failures_total` | counter | `error_category` | Failed exports, keyed by the same category emitted in audit logs. |
 | `arq_signal_export_duration_seconds` | histogram | `status` | Wall-clock duration of each export. |
@@ -2218,6 +2245,12 @@ work) and is intentionally out of scope here.
 - **INV-SIGNALS-18**: `pg_stat_statements_v1` rows do not
   include statements attributed to the Signals collector
   itself (`application_name = 'arq-signals'`).
+- **INV-SIGNALS-19**: A persisted collection cycle records exactly one
+  run per due collector (R108). The number of `query_runs` rows for a
+  cycle equals the number of due collectors for that target — no due
+  collector is silently absent because the per-cycle budget elapsed
+  before it ran. Budget-skipped collectors appear with
+  `status=skipped, reason=budget_exhausted`.
 
 ## Failure Conditions
 
