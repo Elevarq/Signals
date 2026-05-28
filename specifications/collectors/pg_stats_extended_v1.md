@@ -10,11 +10,19 @@ deliberately excludes.
 ## Status
 
 **Active.** Implemented in
-`internal/pgqueries/catalog_schema.go`. Gated off by default
-via the registry's `HighSensitivity` flag (R075); runs only
-when the operator opts in via `HighSensitivityEnabled` on
-`FilterParams`. Configuration plumbing — the
-`signals.collect_histograms` / `ARQ_SIGNALS_COLLECT_HISTOGRAMS`
+`internal/pgqueries/catalog_schema.go`. Classified
+`HighSensitivity = true` on the **skip-path** (no `SensitiveColumns`
+declared) via the registry. Under R075 v2 (revised 2026-05) the
+daemon-wide gate `HighSensitivityEnabled` defaults to **true**
+(collect-everything default) so the collector **runs by default**.
+An operator who opts out via
+`signals.high_sensitivity_collectors_enabled: false` drops the
+collector from the eligible set — it then appears in
+`collector_status.json` as `status=skipped, reason=config_disabled`
+(EA-R001). The collector is on the skip-path because its row (MCV
+and histogram values) IS the sensitive payload; nothing meaningful
+would remain after redacting those columns. Configuration plumbing
+— the `signals.collect_histograms` / `ARQ_SIGNALS_COLLECT_HISTOGRAMS`
 shape described below — is provided by the existing
 high-sensitivity surface.
 
@@ -69,8 +77,12 @@ pg_toast, pg_temp_%, pg_toast_temp_%.
 - Empty result serializes as []
 - Stable output column order (explicit SELECT, no SELECT *)
 - Read-only query, passes linter
-- Disabled by default — requires explicit opt-in
-- When disabled, collector_status reports reason=config_disabled
+- Runs by default under R075 v2 (collect-everything default);
+  skip-path classification means an operator opt-out via
+  `signals.high_sensitivity_collectors_enabled: false` drops the
+  collector entirely.
+- When gated off, collector_status reports `reason=config_disabled`
+  (EA-R001) so the operator's coverage gap is never silent.
 
 ## Configuration
 
@@ -78,9 +90,11 @@ pg_toast, pg_temp_%, pg_toast_temp_%.
 - Cadence: 24h (CadenceDaily)
 - Retention: RetentionShort (sampled values should not persist long)
 - Min PG version: 10
-- **Enabled by default: no**
-- Config key: `signals.collect_histograms: true`
-- Env override: `ARQ_SIGNALS_COLLECT_HISTOGRAMS=true`
+- **Enabled by default: yes** (R075 v2: collect-everything default).
+  Operators opt out with
+  `signals.high_sensitivity_collectors_enabled: false` (or
+  `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`), which
+  skips this collector entirely (skip-path).
 
 ## Sensitivity
 
@@ -94,8 +108,11 @@ For example:
 
 ### Mitigations
 
-1. **Disabled by default.** The collector never runs unless the
-   operator explicitly sets `collect_histograms: true`.
+1. **Skip-path under operator privacy opt-out.** Runs by default
+   (R075 v2: collect-everything default); an operator who needs to
+   keep sampled values out of the artifact sets
+   `signals.high_sensitivity_collectors_enabled: false` to drop the
+   collector entirely (skip-path classification).
 2. **All data stays local.** Arq Signals stores collected data only
    in the local SQLite database and export ZIPs. No external
    transmission occurs.

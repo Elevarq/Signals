@@ -54,7 +54,11 @@ no SELECT *).
 
 **Scenario:** The output contains real customer data
 (most_common_vals, histogram_bounds), so the collector must be
-gated off by default.
+classified `HighSensitivity = true` on the skip-path (no
+`SensitiveColumns` declared). Under R075 v2 (default-on /
+collect-everything default), an operator opt-out via
+`signals.high_sensitivity_collectors_enabled: false` drops it
+entirely with `status=skipped, reason=config_disabled`.
 
 **Given:**
 - The QueryDef.
