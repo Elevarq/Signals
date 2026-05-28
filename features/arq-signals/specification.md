@@ -586,18 +586,40 @@ ordered. Specifically:
 
 ### Collector Sensitivity
 
-**ARQ-SIGNALS-R075**: The system shall classify collectors that emit
-application-authored SQL text — `pg_views_definitions_v1`,
-`pg_matviews_definitions_v1`, `pg_triggers_definitions_v1`,
-`pg_functions_definitions_v1` — as **high-sensitivity** and disable
-them by default. They run only when the operator opts in via
-`signals.high_sensitivity_collectors_enabled: true` (or the
-`ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=true` environment
-variable). When disabled, each shall appear in
-`collector_status.json` with `status=skipped` and
-`reason=config_disabled`. This control exists for local operator
-control over data sensitivity; it is not an exfiltration boundary
-(Arq Signals runs inside the operator's own environment).
+**ARQ-SIGNALS-R075**: The system shall classify as **high-sensitivity**
+the collectors that emit application-authored SQL text or live
+statement text:
+
+- application-authored SQL definitions:
+  `pg_views_definitions_v1`, `pg_matviews_definitions_v1`,
+  `pg_triggers_definitions_v1`, `pg_functions_definitions_v1`;
+- live `pg_stat_activity` statement text: `long_running_txns_v1`,
+  `blocking_locks_v1`, `idle_in_txn_offenders_v1`,
+  `wraparound_blockers_v1`.
+
+High-sensitivity collectors run **by default** (collect-everything
+default). An operator who prefers privacy over diagnostic richness opts
+**out** by setting `signals.high_sensitivity_collectors_enabled: false`
+(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`), which
+skips every high-sensitivity collector entirely — including the
+non-sensitive columns of those collectors. When opted out, each shall
+appear in `collector_status.json` with `status=skipped` and
+`reason=config_disabled`. The toggle is local operator control over
+data sensitivity; it is not an exfiltration boundary (Arq Signals runs
+inside the operator's own environment).
+
+`metadata.json.high_sensitivity_collectors_enabled` records the
+effective state so a consumer or auditor can tell, without parsing the
+body, whether live `pg_stat_activity` query text or SQL definitions may
+be present in the export.
+
+This default was reversed from opt-in to opt-out in 2026-05 (issue #6):
+the live query-text collectors had been default-on without proper
+classification, and gating them off by default lost diagnostically
+valuable signals (long-running transactions, blocking locks,
+idle-in-transaction, wraparound risk). Default-on with classification +
+opt-out keeps the signals available while making the sensitivity
+explicit and giving operators a clean privacy toggle.
 
 ### Configuration Validation
 

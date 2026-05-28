@@ -109,10 +109,11 @@ func init() {
 		  AND state != 'idle'
 		  AND now() - xact_start > interval '5 minutes'
 		ORDER BY xact_start ASC`,
-		ResultKind:     ResultRowset,
-		RetentionClass: RetentionShort,
-		Timeout:        10 * time.Second,
-		Cadence:        Cadence5m,
+		ResultKind:      ResultRowset,
+		RetentionClass:  RetentionShort,
+		Timeout:         10 * time.Second,
+		Cadence:         Cadence5m,
+		HighSensitivity: true, // R075: emits live pg_stat_activity query text
 	})
 
 	// Locks and blocking chains. Uses pg_blocking_pids() which is
@@ -135,10 +136,11 @@ func init() {
 			ON blocking.pid = ANY(pg_blocking_pids(blocked.pid))
 		WHERE cardinality(pg_blocking_pids(blocked.pid)) > 0
 		ORDER BY waiting_seconds DESC`,
-		ResultKind:     ResultRowset,
-		RetentionClass: RetentionShort,
-		Timeout:        10 * time.Second,
-		Cadence:        Cadence5m,
+		ResultKind:      ResultRowset,
+		RetentionClass:  RetentionShort,
+		Timeout:         10 * time.Second,
+		Cadence:         Cadence5m,
+		HighSensitivity: true, // R075: emits live pg_stat_activity query text (blocked/blocking)
 	})
 
 	// Login roles with dangerous privileges.

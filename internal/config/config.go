@@ -274,6 +274,11 @@ func DefaultConfig() Config {
 			MetricsEnabled:       false,
 			MetricsPath:          "/metrics",
 			Mode:                 ModeStandalone,
+			// R075 (revised 2026-05, issue #6): collect-everything default.
+			// High-sensitivity collectors (application-authored SQL
+			// definitions + live pg_stat_activity statement text) run by
+			// default; set this to false to opt OUT for privacy.
+			HighSensitivityCollectorsEnabled: true,
 		},
 		API: APIConfig{
 			ListenAddr:    "127.0.0.1:8081",
