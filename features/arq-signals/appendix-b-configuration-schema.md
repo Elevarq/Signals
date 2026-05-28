@@ -30,11 +30,19 @@ signals:
   max_concurrent_targets: 4  # Max targets collected in parallel
   target_timeout: 60s        # Per-target collection time budget
   query_timeout: 10s         # Per-query execution timeout
-  high_sensitivity_collectors_enabled: false  # Opt-in for collectors
-                              # that emit application-authored SQL text
-                              # (view/matview/trigger definitions and
-                              # function bodies). See "High-sensitivity
-                              # collectors" below. Default: false.
+  high_sensitivity_collectors_enabled: true   # Default: true (collect-
+                              # everything default). High-sensitivity
+                              # collectors run by default; set to
+                              # `false` to opt OUT, which either
+                              # redacts the listed `SensitiveColumns`
+                              # (collectors with mixed sensitive /
+                              # non-sensitive columns — the live
+                              # pg_stat_activity collectors) or skips
+                              # the collector entirely (collectors
+                              # whose row is itself the sensitive
+                              # payload — DDL definitions etc.). See
+                              # "High-sensitivity collectors" below
+                              # (R075 revised 2026-05, issue #6).
   metrics_enabled: false      # Expose the Prometheus /metrics endpoint
                               # on the API listener. Default: false.
                               # The endpoint emits operational metrics
@@ -93,7 +101,7 @@ fields:
 | `ARQ_SIGNALS_MAX_CONCURRENT_TARGETS` | `signals.max_concurrent_targets` | `4` | |
 | `ARQ_SIGNALS_TARGET_TIMEOUT` | `signals.target_timeout` | `60s` | |
 | `ARQ_SIGNALS_QUERY_TIMEOUT` | `signals.query_timeout` | `10s` | |
-| `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED` | `signals.high_sensitivity_collectors_enabled` | `false` | Opt-in for definition/body collectors |
+| `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED` | `signals.high_sensitivity_collectors_enabled` | `true` | Default-on (collect-everything default, R075 revised). Set to `false` to opt out — redact-path collectors run with `SensitiveColumns` nulled, skip-path collectors are skipped. |
 | `ARQ_SIGNALS_METRICS_ENABLED` | `signals.metrics_enabled` | `false` | Enable the Prometheus `/metrics` endpoint (R079) |
 | `ARQ_SIGNALS_METRICS_PATH` | `signals.metrics_path` | `/metrics` | Path for the metrics endpoint when enabled |
 | `ARQ_SIGNALS_EXPORT_PER_COLLECTOR_FILES` | `signals.export_per_collector_files` | `false` | Add `per-collector/<id>.json` files to export ZIPs (R080) |
@@ -150,37 +158,49 @@ rotation without restart.
 
 A subset of collectors emit application-authored SQL text — view
 definitions, materialized view definitions, trigger source, and
-stored procedure bodies. These can include proprietary business
-logic, embedded literals, or commentary the operator may not want
-in every snapshot, even when the snapshot stays inside the operator's
-own environment.
+stored procedure bodies — or live `pg_stat_activity` query text. These
+can include proprietary business logic, embedded literals, or
+commentary the operator may not want in every snapshot, even when the
+snapshot stays inside the operator's own environment.
 
-These collectors are **disabled by default** and require explicit
-opt-in via:
+These collectors are **enabled by default** (collect-everything
+default, R075 revised 2026-05). Operators opt **out** by setting:
 
-- `signals.high_sensitivity_collectors_enabled: true` in the YAML
+- `signals.high_sensitivity_collectors_enabled: false` in the YAML
   config, or
-- `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=true` env var
+- `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false` env var
 
-Collectors classified as high-sensitivity:
+The opt-out behaves per collector based on whether the row carries
+non-sensitive diagnostic columns alongside the sensitive ones:
 
-| Collector | Emits |
-|---|---|
-| `pg_views_definitions_v1` | Full view SQL via `pg_get_viewdef()` |
-| `pg_matviews_definitions_v1` | Full materialized-view SQL |
-| `pg_triggers_definitions_v1` | Full `CREATE TRIGGER` via `pg_get_triggerdef()` |
-| `pg_functions_definitions_v1` | Function/procedure body (`pg_proc.prosrc`) |
+| Collector | Opt-out branch | Emits |
+|---|---|---|
+| `pg_views_definitions_v1` | **skip** | Full view SQL via `pg_get_viewdef()` |
+| `pg_matviews_definitions_v1` | **skip** | Full materialized-view SQL |
+| `pg_triggers_definitions_v1` | **skip** | Full `CREATE TRIGGER` via `pg_get_triggerdef()` |
+| `pg_functions_definitions_v1` | **skip** | Function/procedure body (`pg_proc.prosrc`) |
+| `long_running_txns_v1` | **redact** `query_snippet` | Live txn metadata (pid, wait_event, txn_age) + query text |
+| `blocking_locks_v1` | **redact** `blocked_query`, `blocking_query` | Blocking-lock chain (pid, wait_event, waiting_seconds) + query text |
+| `idle_in_txn_offenders_v1` | **redact** `query_snippet` | Idle-in-txn metadata + query text |
+| `wraparound_blockers_v1` | **redact** `query_snippet` | XID-blocker metadata + query text |
 
-When the opt-in flag is `false` (the default), each high-sensitivity
-collector appears in `collector_status.json` with `status=skipped`
-and `reason=config_disabled`.
+**Skip path** (collectors whose row IS the sensitive payload): the
+collector is dropped from the eligible set and recorded
+`status=skipped, reason=config_disabled` in `collector_status.json`.
+
+**Redact path** (collectors with mixed sensitive / non-sensitive
+columns): the collector still runs; the listed columns are set to
+`NULL` in persisted output. Non-sensitive diagnostic columns survive.
 
 This control is for **local operator control over data sensitivity**,
 not exfiltration prevention — Arq Signals runs inside the customer's
 environment and the snapshot file does not leave the site. The
-default-off posture exists because some operators do not want SQL
-bodies materialized into the snapshot artifact at all, even for
-internal analysis.
+collect-everything default exists because the diagnostic value of
+these collectors is high (long-running transactions, blocking chains,
+DDL inventory) and the export ZIP self-identifies the effective
+sensitivity state via `metadata.json.high_sensitivity_collectors_enabled`
+so an auditor can tell at a glance whether sensitive data may be
+present.
 
 ## TLS validation
 
