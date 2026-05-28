@@ -103,7 +103,13 @@ jobs:
           gitleaks version
 
       - name: Install govulncheck
-        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+        # Pinned to a specific tag (not @latest) so the toolchain in CI is
+        # reproducible and the Scorecard PinnedDependenciesID
+        # `goCommand not pinned by hash` finding clears.
+        # Update via Dependabot (gomod ecosystem doesn't track `go install`
+        # invocations directly; this is bumped manually with a follow-up
+        # check that the new tag is in golang/vuln's releases).
+        run: go install golang.org/x/vuln/cmd/govulncheck@v1.3.0
 
       # #163: Semgrep + OSV-Scanner round out the security bundle.
       # Semgrep ships from PyPI; OSV-Scanner installs via go install
