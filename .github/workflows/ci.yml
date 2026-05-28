@@ -13,10 +13,10 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
 
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
         with:
           go-version: "1.25"
           cache: true
@@ -48,14 +48,14 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd  # v5
 
       # #161: setup-go so the govulncheck install + preflight `vuln`
       # gate runs against the same toolchain as the test job above.
       # The secrets gate doesn't need Go, but co-locating both gates
       # in one job keeps the workflow surface flat.
       - name: Setup Go
-        uses: actions/setup-go@v6
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c  # v6
         with:
           go-version: "1.25"
           cache-dependency-path: go.sum

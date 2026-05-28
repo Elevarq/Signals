@@ -1,5 +1,5 @@
 # Stage 1: Build
-FROM golang:1.25-alpine AS builder
+FROM golang:1.25-alpine@sha256:8d22e29d960bc50cd025d93d5b7c7d220b1ee9aa7a239b3c8f55a57e987e8d45 AS builder
 
 RUN apk add --no-cache git
 
@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 go build \
     -o /out/arqctl ./cmd/arqctl
 
 # Stage 2: Runtime
-FROM alpine:3.21
+FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
 
 RUN apk add --no-cache tini ca-certificates \
     && adduser -D -u 10001 arq
