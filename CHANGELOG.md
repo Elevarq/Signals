@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Diagnostic DSN builder (`collector.BuildSafeDSN`, used by `arqctl
+  doctor` C4 and `arqctl connect test`) now libpq-quotes every
+  string-valued field, so a password or other field value containing
+  whitespace or an embedded `key=value` sequence can no longer inject,
+  override, or remove connection parameters (e.g. silently downgrading
+  TLS or re-targeting the host). `RedactDSN` masks the quoted password
+  form too. New rule ARQ-SIGNALS-R111 / INV-SIGNALS-21. (#69)
+
 ### Added
 
 - OpenSSF Best Practices **passing** badge awarded

@@ -154,8 +154,11 @@ func TestBuildSafeDSNCarriesAppName(t *testing.T) {
 		t.Fatalf("BuildSafeDSN returned error: %v", err)
 	}
 
-	if !strings.Contains(dsn, "application_name="+collector.AppName) {
-		t.Errorf("BuildSafeDSN DSN missing application_name=%s; got: %s",
+	// R111: DSN field values are libpq-quoted, so application_name is
+	// carried as a single-quoted value. R106 only requires that the
+	// fixed AppName is present.
+	if !strings.Contains(dsn, "application_name='"+collector.AppName+"'") {
+		t.Errorf("BuildSafeDSN DSN missing application_name='%s'; got: %s",
 			collector.AppName, dsn)
 	}
 }

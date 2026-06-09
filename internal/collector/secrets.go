@@ -96,8 +96,15 @@ func BuildConnConfig(tgt config.TargetConfig) (*pgx.ConnConfig, error) {
 // uses its own per-target-timeout configuration on the live pool.
 //
 // Password is appended only when ResolvePassword returns a non-empty
-// value (peer/trust auth otherwise). No URL encoding — the key=value
-// format escapes via quoting inside the consumer (pgx.ParseConfig).
+// value (peer/trust auth otherwise).
+//
+// Every string-valued field is quoted per libpq key=value rules
+// (R111): the value is wrapped in single quotes with `\` and `'`
+// escaped. Without this, a field value containing whitespace or an
+// embedded `key=value` sequence (e.g. a password of
+// `x sslmode=disable host=evil`) would be parsed as additional
+// connection options and could re-target the connection or downgrade
+// its TLS posture (INV-SIGNALS-21).
 func BuildSafeDSN(tgt config.TargetConfig) (string, error) {
 	sslmode := tgt.SSLMode
 	if sslmode == "" {
@@ -108,18 +115,37 @@ func BuildSafeDSN(tgt config.TargetConfig) (string, error) {
 		return "", err
 	}
 	parts := []string{
-		"host=" + tgt.Host,
+		"host=" + quoteDSNValue(tgt.Host),
 		"port=" + strconv.Itoa(tgt.Port),
-		"dbname=" + tgt.DBName,
-		"user=" + tgt.User,
-		"sslmode=" + sslmode,
+		"dbname=" + quoteDSNValue(tgt.DBName),
+		"user=" + quoteDSNValue(tgt.User),
+		"sslmode=" + quoteDSNValue(sslmode),
 		"connect_timeout=3",
-		"application_name=" + AppName,
+		"application_name=" + quoteDSNValue(AppName),
 	}
 	if password != "" {
-		parts = append(parts, "password="+password)
+		parts = append(parts, "password="+quoteDSNValue(password))
 	}
 	return strings.Join(parts, " "), nil
+}
+
+// quoteDSNValue quotes a value for the libpq key=value connection
+// string format: the value is wrapped in single quotes, with each
+// backslash and single quote escaped by a preceding backslash. The
+// result is always safe to concatenate as `key=` + quoteDSNValue(v),
+// regardless of what metacharacters v contains (R111).
+func quoteDSNValue(v string) string {
+	var b strings.Builder
+	b.Grow(len(v) + 2)
+	b.WriteByte('\'')
+	for i := 0; i < len(v); i++ {
+		if c := v[i]; c == '\\' || c == '\'' {
+			b.WriteByte('\\')
+		}
+		b.WriteByte(v[i])
+	}
+	b.WriteByte('\'')
+	return b.String()
 }
 
 // ResolvePassword reads the password from the configured secret source.
@@ -268,15 +294,34 @@ func RedactDSN(dsn string) string {
 			}
 		}
 	}
-	// Handle key=value format.
-	if strings.Contains(dsn, "password=") {
-		parts := strings.Fields(dsn)
-		for i, part := range parts {
-			if strings.HasPrefix(part, "password=") {
-				parts[i] = "password=****"
+	// Handle key=value format. The password value may be single-quoted
+	// per libpq rules (R111), so it can contain spaces and escaped
+	// quotes — strings.Fields would split mid-value and leak part of
+	// the secret. Redact from `password=` to the end of its value:
+	// a quoted value runs to the next unescaped `'`, an unquoted value
+	// to the next whitespace.
+	if idx := strings.Index(dsn, "password="); idx != -1 {
+		valStart := idx + len("password=")
+		end := valStart
+		if valStart < len(dsn) && dsn[valStart] == '\'' {
+			end = valStart + 1
+			for end < len(dsn) {
+				if dsn[end] == '\\' {
+					end += 2
+					continue
+				}
+				if dsn[end] == '\'' {
+					end++
+					break
+				}
+				end++
+			}
+		} else {
+			for end < len(dsn) && dsn[end] != ' ' && dsn[end] != '\t' {
+				end++
 			}
 		}
-		return strings.Join(parts, " ")
+		return dsn[:idx] + "password=****" + dsn[end:]
 	}
 	return dsn
 }
