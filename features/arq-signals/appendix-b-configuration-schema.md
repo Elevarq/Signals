@@ -82,6 +82,11 @@ api:
   listen_addr: "127.0.0.1:8081"  # Bind address
   read_timeout: 30s              # HTTP read timeout
   write_timeout: 180s            # HTTP write timeout
+  # Optional daemon-terminated TLS (R113). All-or-nothing: set both to
+  # serve HTTPS (minimum TLS 1.2), neither to serve plain HTTP. Setting
+  # exactly one is a hard config error.
+  tls_cert_file: ""              # PEM certificate path; pairs with tls_key_file
+  tls_key_file: ""               # PEM private-key path; pairs with tls_cert_file
 ```
 
 ## Environment variable overrides
@@ -110,6 +115,8 @@ fields:
 | `ARQ_SIGNALS_DB_PATH` | `database.path` | `/data/arq-signals.db` | |
 | `ARQ_SIGNALS_API_TOKEN` | `api.token` | auto-generated | Bearer token for the local HTTP API. |
 | `ARQ_SIGNALS_API_TOKEN_FILE` | `api.token_file` | — | Path to a file containing the bearer token. Beats `ARQ_SIGNALS_API_TOKEN` when both are set. |
+| `ARQ_SIGNALS_API_TLS_CERT_FILE` | `api.tls_cert_file` | — | PEM certificate for daemon TLS (R113). Must be set together with the key. |
+| `ARQ_SIGNALS_API_TLS_KEY_FILE` | `api.tls_key_file` | — | PEM private key for daemon TLS (R113). Must be set together with the cert. |
 
 Precedence for the resolved API token (low → high, later wins):
 `api.token` → `api.token_file` → `ARQ_SIGNALS_API_TOKEN` →

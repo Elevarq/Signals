@@ -18,6 +18,19 @@
   collector with no outbound network needs beyond Postgres and DNS.
 */}}
 {{- if .Values.networkPolicy.enabled }}
+{{- /*
+  #67 (R113): a NetworkPolicy is one of the two accepted defences for
+  the cleartext bearer-token exposure on the 0.0.0.0 API bind. An
+  egress rule of 0.0.0.0/0 is the values placeholder, not a real
+  target scope — rendering it would silently produce a policy that
+  permits egress to the entire internet, defeating the purpose. Fail
+  the render so the operator sets a real target CIDR.
+*/}}
+{{- range .Values.networkPolicy.targetCIDRs }}
+{{- if eq (. | toString) "0.0.0.0/0" }}
+{{- fail "networkPolicy.enabled is true but networkPolicy.targetCIDRs still contains the 0.0.0.0/0 placeholder. Set the actual Postgres target CIDR(s) (e.g. a /32 host or your pod-network CIDR) before enabling the policy." }}
+{{- end }}
+{{- end }}
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
