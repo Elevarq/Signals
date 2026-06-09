@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/subtle"
+	"crypto/tls"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -55,12 +56,22 @@ type Deps struct {
 	// without restarting the daemon. nil is equivalent to a function
 	// that always returns "" — the standalone-mode default.
 	ArqControlPlaneTokenFn func() string
+	// TLSCertFile / TLSKeyFile enable daemon-terminated TLS for the
+	// API (R113). When both are non-empty the listener serves HTTPS
+	// (minimum TLS 1.2); when both are empty it serves plain HTTP.
+	// Config validation (ValidateStrict) rejects the half-set case, so
+	// by the time these reach the server they are both set or both
+	// empty.
+	TLSCertFile string
+	TLSKeyFile  string
 }
 
 // Server is the Arq Signals HTTP API server.
 type Server struct {
-	httpServer *http.Server
-	deps       *Deps
+	httpServer  *http.Server
+	deps        *Deps
+	tlsCertFile string
+	tlsKeyFile  string
 }
 
 // NewServer creates a new API Server with signals-only endpoints.
@@ -97,14 +108,23 @@ func NewServer(addr string, readTimeout, writeTimeout time.Duration, apiToken st
 		tokenAuthMiddleware(apiToken, deps.ArqControlPlaneTokenFn, tokenLimiter)(mux),
 	))
 
+	httpSrv := &http.Server{
+		Addr:         addr,
+		Handler:      handler,
+		ReadTimeout:  readTimeout,
+		WriteTimeout: writeTimeout,
+	}
+	// R113: when TLS is configured, pin a minimum protocol version of
+	// TLS 1.2. The cert/key themselves are loaded by ServeTLS in Start.
+	if deps.TLSCertFile != "" && deps.TLSKeyFile != "" {
+		httpSrv.TLSConfig = &tls.Config{MinVersion: tls.VersionTLS12}
+	}
+
 	return &Server{
-		httpServer: &http.Server{
-			Addr:         addr,
-			Handler:      handler,
-			ReadTimeout:  readTimeout,
-			WriteTimeout: writeTimeout,
-		},
-		deps: deps,
+		httpServer:  httpSrv,
+		deps:        deps,
+		tlsCertFile: deps.TLSCertFile,
+		tlsKeyFile:  deps.TLSKeyFile,
 	}
 }
 
@@ -114,12 +134,21 @@ func (s *Server) Handler() http.Handler {
 }
 
 // Start begins listening and serving. It blocks until the server stops.
+//
+// When a TLS certificate and key are configured (R113) the listener
+// serves HTTPS (minimum TLS 1.2, set in NewServer); otherwise it
+// serves plain HTTP. There is no cleartext fallback: a configured but
+// unreadable/invalid cert/key makes ServeTLS fail loudly.
 func (s *Server) Start() error {
 	ln, err := net.Listen("tcp", s.httpServer.Addr)
 	if err != nil {
 		return err
 	}
-	slog.Info("API server listening", "addr", s.httpServer.Addr)
+	if s.tlsCertFile != "" && s.tlsKeyFile != "" {
+		slog.Info("API server listening", "addr", s.httpServer.Addr, "tls", true)
+		return s.httpServer.ServeTLS(ln, s.tlsCertFile, s.tlsKeyFile)
+	}
+	slog.Info("API server listening", "addr", s.httpServer.Addr, "tls", false)
 	return s.httpServer.Serve(ln)
 }
 

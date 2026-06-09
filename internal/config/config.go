@@ -247,6 +247,14 @@ type APIConfig struct {
 	Token     string `yaml:"token"`
 	TokenFile string `yaml:"token_file"`
 	APIToken  string `yaml:"-"`
+
+	// TLS (R113). Optional daemon-terminated TLS for the HTTP API.
+	// All-or-nothing: set both to serve HTTPS, neither to serve plain
+	// HTTP (the loopback default). Setting exactly one is a hard
+	// config error. Env overrides: ARQ_SIGNALS_API_TLS_CERT_FILE /
+	// ARQ_SIGNALS_API_TLS_KEY_FILE.
+	TLSCertFile string `yaml:"tls_cert_file"`
+	TLSKeyFile  string `yaml:"tls_key_file"`
 }
 
 type DatabaseConfig struct {
@@ -439,6 +447,12 @@ func applyEnvOverrides(cfg *Config) error {
 	if v := os.Getenv("ARQ_SIGNALS_LISTEN_ADDR"); v != "" {
 		cfg.API.ListenAddr = v
 	}
+	if v := os.Getenv("ARQ_SIGNALS_API_TLS_CERT_FILE"); v != "" {
+		cfg.API.TLSCertFile = v
+	}
+	if v := os.Getenv("ARQ_SIGNALS_API_TLS_KEY_FILE"); v != "" {
+		cfg.API.TLSKeyFile = v
+	}
 	if v := os.Getenv("ARQ_SIGNALS_DB_PATH"); v != "" {
 		cfg.Database.Path = v
 	}
@@ -546,6 +560,11 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	}
 	if cfg.API.ListenAddr == "" {
 		hard = append(hard, "api.listen_addr is empty")
+	}
+	// R113: API TLS is all-or-nothing. A half-configured listener must
+	// never silently fall back to cleartext.
+	if (cfg.API.TLSCertFile == "") != (cfg.API.TLSKeyFile == "") {
+		hard = append(hard, "api.tls_cert_file and api.tls_key_file must both be set or both be empty")
 	}
 	if cfg.Signals.PollInterval <= 0 {
 		hard = append(hard, "signals.poll_interval must be > 0")

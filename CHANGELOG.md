@@ -23,6 +23,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   pause/resume/reload/export. The brute-force throttle on invalid
   attempts is unchanged. New rule ARQ-SIGNALS-R112 /
   INV-SIGNALS-22. (#68)
+- API can now terminate TLS at the daemon (`api.tls_cert_file` /
+  `api.tls_key_file`, env `ARQ_SIGNALS_API_TLS_CERT_FILE` /
+  `ARQ_SIGNALS_API_TLS_KEY_FILE`). Set both to serve HTTPS (minimum
+  TLS 1.2), neither for plain HTTP (loopback default); setting exactly
+  one is a hard config error — no cleartext fallback. Closes the
+  cleartext bearer-token / `/export` exposure when the listener is
+  bound beyond loopback (the Helm `0.0.0.0` bind). The Helm chart adds
+  an `api.tls` value, fails rendering when `networkPolicy.enabled` but
+  `targetCIDRs` still holds the `0.0.0.0/0` placeholder, and warns at
+  install time when the exposed API has neither TLS nor a
+  NetworkPolicy. New rule ARQ-SIGNALS-R113 / INV-SIGNALS-23. (#67)
 
 ### Added
 

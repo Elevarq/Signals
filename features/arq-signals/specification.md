@@ -2349,6 +2349,46 @@ token, then it shall receive `429`.
 | Valid token from a locked-out IP | Authenticated; `recordSuccess` clears the IP's failure counter. |
 | Invalid/missing token from an IP over threshold | `429 Too Many Requests`; counter not further incremented. |
 | Invalid/missing token from an IP under threshold | `401`; failure recorded. |
+### API transport security
+
+**ARQ-SIGNALS-R113**: The HTTP API shall support optional TLS
+termination at the daemon. Two new `api` configuration fields,
+`tls_cert_file` and `tls_key_file` (env overrides
+`ARQ_SIGNALS_API_TLS_CERT_FILE` / `ARQ_SIGNALS_API_TLS_KEY_FILE`),
+select the behaviour:
+
+- Neither set → the API is served over plain HTTP (unchanged default;
+  safe for the loopback default bind `127.0.0.1:8081`).
+- Both set → the API is served over HTTPS using the supplied
+  certificate and key, with a minimum protocol version of TLS 1.2.
+- Exactly one set → a hard configuration error at load
+  (`api.tls_cert_file and api.tls_key_file must both be set or both
+  be empty`). TLS is all-or-nothing; a half-configured listener must
+  never silently fall back to cleartext.
+
+Rationale: the bearer token gates `pause` / `resume` / `reload` and
+the full telemetry `export`. When the listener is bound beyond
+loopback — which the container/Helm deployment necessarily does
+(`0.0.0.0:<port>`) — an on-path observer on the pod network can
+otherwise capture the token and exfiltrate all collected Postgres
+telemetry in cleartext. Enabling TLS closes that exposure at the
+daemon. In-cluster deployments MAY instead terminate TLS at a service
+mesh / sidecar and restrict the listener with a NetworkPolicy; the
+deployment chart MUST NOT present a beyond-loopback HTTP listener as a
+secure default (see deployment guard below).
+
+The local CLI (`arqctl`, default `--api-addr http://127.0.0.1:8081`)
+continues to use plain HTTP against the loopback listener; enabling
+daemon TLS is an exposed-listener concern and does not change the
+loopback default.
+
+### Failure conditions (R113)
+
+| Trigger | Response |
+|---------|----------|
+| Only one of `tls_cert_file` / `tls_key_file` set | Hard config error at load; daemon does not start. |
+| Both set but cert/key unreadable or invalid at listen | `ServeTLS` returns an error; daemon start fails loudly (no cleartext fallback). |
+| Beyond-loopback bind with neither TLS nor a restricting NetworkPolicy (Helm) | Chart emits an explicit insecure-exposure warning; the `0.0.0.0/0` NetworkPolicy placeholder fails chart rendering when the policy is enabled. |
 
 ## Invariants
 
@@ -2429,6 +2469,10 @@ token, then it shall receive `429`.
   independent of the per-IP invalid-attempt counter (R112). The
   lockout limiter can deny only requests that fail token validation;
   it can never deny a request carrying a correct credential.
+- **INV-SIGNALS-23**: API TLS is all-or-nothing (R113). The listener
+  serves either plain HTTP (no TLS files) or HTTPS (both TLS files);
+  a half-configured TLS setup is a hard config error and never
+  degrades to cleartext.
 
 ## Failure Conditions
 

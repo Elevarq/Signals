@@ -278,6 +278,8 @@ func run() error {
 		Targets:                cfg.Targets,
 		ConfigPath:             *configPath, // R100: needed for POST /reload + SIGHUP handler.
 		ArqControlPlaneTokenFn: arqControlPlaneTokenFn,
+		TLSCertFile:            cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
+		TLSKeyFile:             cfg.API.TLSKeyFile,
 	}
 	srv := api.NewServer(cfg.API.ListenAddr, cfg.API.ReadTimeout, cfg.API.WriteTimeout, cfg.API.APIToken, deps)
 

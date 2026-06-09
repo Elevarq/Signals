@@ -45,6 +45,22 @@ api:
   tokenSecretName: ""        # Required for production deployments
   tokenSecretKey: token      # Defaults to `token`
 
+  # Transport security (#67 / R113). The pod binds the API on
+  # 0.0.0.0:<port>, so the bearer token and the full telemetry
+  # /export cross the pod network. Protect that path with EITHER:
+  #   (a) daemon-terminated TLS — set tls.enabled and mount a cert +
+  #       key (the daemon reads ARQ_SIGNALS_API_TLS_CERT_FILE /
+  #       ARQ_SIGNALS_API_TLS_KEY_FILE), OR
+  #   (b) a service mesh / sidecar that terminates TLS, plus a
+  #       restrictive networkPolicy (below).
+  # Leaving both off ships a cleartext, network-exposed control plane;
+  # the chart NOTES will warn about this on install.
+  tls:
+    enabled: false
+    # When enabled, the operator is asserting TLS is terminated for
+    # this listener — either by the daemon (mount a cert/key and set
+    # the env vars in extraEnv) or by a mesh/sidecar in front of it.
+
 # Environment. "dev" / "lab" tolerate weak operator-supplied API
 # tokens with warnings; "prod" hard-fails on weak tokens at
 # startup. Docs: docs/security/access-control.md.

@@ -1,0 +1,41 @@
+Arq Signals has been installed as release "{{ .Release.Name }}".
+
+The collector exposes its HTTP API on 0.0.0.0:{{ .Values.api.port }} inside the pod.
+The bearer token gates pause/resume/reload and the full telemetry /export.
+
+{{- if and (not .Values.api.tls.enabled) (not .Values.networkPolicy.enabled) }}
+
+  ############################################################
+  # SECURITY WARNING (#67 / R113)                            #
+  ############################################################
+  The API is network-exposed in CLEARTEXT with no transport
+  protection: api.tls.enabled is false AND networkPolicy.enabled
+  is false. The bearer token and all collected Postgres telemetry
+  can be read by any on-path observer on the pod network.
+
+  Protect this path with EITHER:
+    - Daemon TLS: set api.tls.enabled=true, mount a certificate +
+      key, and point ARQ_SIGNALS_API_TLS_CERT_FILE /
+      ARQ_SIGNALS_API_TLS_KEY_FILE at them; OR
+    - A service mesh / sidecar that terminates TLS, together with
+      networkPolicy.enabled=true scoped to the monitoring /
+      control-plane pods that need the API.
+  ############################################################
+{{- else }}
+
+Transport protection:
+{{- if .Values.api.tls.enabled }}
+  - api.tls.enabled=true (TLS terminated for the API listener).
+{{- end }}
+{{- if .Values.networkPolicy.enabled }}
+  - networkPolicy.enabled=true (API ingress restricted to the
+    configured pod selectors).
+{{- end }}
+{{- end }}
+
+{{- if and .Values.networkPolicy.enabled (not .Values.networkPolicy.ingressPodSelectors) }}
+
+Note: networkPolicy.enabled is true but networkPolicy.ingressPodSelectors
+is empty, so NO pod can reach the API. Add the monitoring /
+control-plane pod labels that must be allowed in.
+{{- end }}
