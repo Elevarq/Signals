@@ -1,6 +1,6 @@
 module github.com/elevarq/arq-signals
 
-go 1.25.10
+go 1.25.11
 
 require (
 	github.com/jackc/pgx/v5 v5.9.2
