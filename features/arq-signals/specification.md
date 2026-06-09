@@ -2284,6 +2284,38 @@ control-plane boundary that lets Arq narrow the collected set on a
 per-cycle basis — is the subject of a separate spec (R082, future
 work) and is intentionally out of scope here.
 
+### Diagnostic DSN assembly
+
+**ARQ-SIGNALS-R111**: The shared diagnostic DSN builder
+(`collector.BuildSafeDSN`, used by doctor C4 and `arqctl connect
+test` — R095/R096) shall quote every string-valued field per libpq
+key=value conventions before assembly: the value is wrapped in
+single quotes, with backslash (`\`) and single quote (`'`) each
+escaped by a preceding backslash. A field value — including a
+resolved password — shall never be able to introduce, override, or
+remove any other connection parameter of the assembled DSN.
+
+Given a target whose resolved password (or host, dbname, user,
+sslmode) contains DSN metacharacters — whitespace, `'`, `\`, or an
+embedded `key=value` sequence — when the diagnostic DSN is
+assembled and parsed by the connection library, then every field
+shall round-trip to its exact literal value, and the parsed
+configuration shall contain no parameters other than those the
+builder itself emits. In particular, a hostile password value such
+as `x sslmode=disable host=evil` shall not re-target the
+connection or downgrade its TLS posture.
+
+The production connection path (`collector.BuildConnConfig`)
+already satisfies this by construction (`net/url` escaping); R111
+extends the same guarantee to the diagnostic path.
+
+### Failure conditions (R111)
+
+| Trigger | Response |
+|---------|----------|
+| Field value contains `'`, `\`, whitespace, or embedded `key=value` text | Value is quoted/escaped at assembly; parses back to the literal value; no parameter injection occurs. |
+| Assembled DSN fails to parse downstream | The diagnostic attempt fails with an operator-facing config-level error; credentials never appear in the error (R024, INV-SIGNALS-07). |
+
 ## Invariants
 
 - **INV-SIGNALS-01**: Collector output is passive evidence, not interpretation.
@@ -2356,6 +2388,9 @@ work) and is intentionally out of scope here.
   config, or absent from it, has `enabled = 0`; the default export and
   `/status` exclude it. Soft-disabling never deletes its snapshots —
   they remain reachable via `--all`.
+- **INV-SIGNALS-21**: No configuration or secret field value can alter
+  the set of connection parameters of a DSN it is embedded in (R111).
+  Field values are data, never syntax.
 
 ## Failure Conditions
 
