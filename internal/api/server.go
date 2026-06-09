@@ -878,43 +878,55 @@ func tokenAuthMiddleware(apiToken string, controlPlaneTokenFn func() string, lim
 
 			ip := remoteIP(r)
 
-			if !limiter.allow(ip) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusTooManyRequests)
-				json.NewEncoder(w).Encode(map[string]string{"error": "too many invalid token attempts"})
-				return
-			}
-
+			// Validate the token BEFORE consulting the per-IP failure
+			// limiter (R112). A valid bearer token authenticates
+			// regardless of how many invalid attempts have accumulated
+			// for this source IP, so a shared-IP attacker (NAT, proxy,
+			// co-located pod) flooding bad tokens cannot lock the
+			// legitimate operator or control plane out of
+			// pause/resume/export. The limiter (below) gates only
+			// requests that fail token validation.
 			auth := r.Header.Get("Authorization")
 			const prefix = "Bearer "
-			if !strings.HasPrefix(auth, prefix) {
-				limiter.recordFailure(ip)
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{"error": "missing or invalid Authorization header"})
-				return
-			}
+			hasBearer := strings.HasPrefix(auth, prefix)
 
-			provided := []byte(auth[len(prefix):])
-
-			// Compare against api.token first.
 			actor := ""
-			if subtle.ConstantTimeCompare(provided, []byte(apiToken)) == 1 {
-				actor = ActorLocalOperator
-			} else if controlPlaneTokenFn != nil {
-				// Fall through to the control-plane token. The closure
-				// is the per-request file/env re-read.
-				cpt := controlPlaneTokenFn()
-				if cpt != "" && subtle.ConstantTimeCompare(provided, []byte(cpt)) == 1 {
-					actor = ActorArqControlPlane
+			if hasBearer {
+				provided := []byte(auth[len(prefix):])
+
+				// Compare against api.token first.
+				if subtle.ConstantTimeCompare(provided, []byte(apiToken)) == 1 {
+					actor = ActorLocalOperator
+				} else if controlPlaneTokenFn != nil {
+					// Fall through to the control-plane token. The closure
+					// is the per-request file/env re-read.
+					cpt := controlPlaneTokenFn()
+					if cpt != "" && subtle.ConstantTimeCompare(provided, []byte(cpt)) == 1 {
+						actor = ActorArqControlPlane
+					}
 				}
 			}
 
 			if actor == "" {
+				// Authentication failed. Apply the per-IP throttle only
+				// here, on the invalid path: an IP already over the
+				// threshold gets 429 (gate before recording, preserving
+				// the prior brute-force throttle), otherwise record the
+				// failure and return the appropriate 401.
+				if !limiter.allow(ip) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusTooManyRequests)
+					json.NewEncoder(w).Encode(map[string]string{"error": "too many invalid token attempts"})
+					return
+				}
 				limiter.recordFailure(ip)
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusUnauthorized)
-				json.NewEncoder(w).Encode(map[string]string{"error": "invalid API token"})
+				if !hasBearer {
+					json.NewEncoder(w).Encode(map[string]string{"error": "missing or invalid Authorization header"})
+				} else {
+					json.NewEncoder(w).Encode(map[string]string{"error": "invalid API token"})
+				}
 				return
 			}
 

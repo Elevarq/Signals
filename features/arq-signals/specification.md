@@ -2315,6 +2315,40 @@ extends the same guarantee to the diagnostic path.
 |---------|----------|
 | Field value contains `'`, `\`, whitespace, or embedded `key=value` text | Value is quoted/escaped at assembly; parses back to the literal value; no parameter injection occurs. |
 | Assembled DSN fails to parse downstream | The diagnostic attempt fails with an operator-facing config-level error; credentials never appear in the error (R024, INV-SIGNALS-07). |
+### Auth lockout scope
+
+**ARQ-SIGNALS-R112**: The per-IP invalid-token rate limiter (R011 /
+R024 auth middleware) shall never deny a request that presents a
+valid bearer token. Token validity (constant-time comparison against
+`api.token` and, in `arq_managed` mode, `arq_control_plane_token`) is
+evaluated **before** the limiter's lockout decision. The limiter's
+`429 Too Many Requests` response applies only to requests that fail
+token validation.
+
+Rationale: the limiter keys on `RemoteAddr` only (it deliberately
+ignores `X-Forwarded-For`, which cannot be trusted). Behind NAT, a
+reverse proxy that collapses the client address, or a co-located
+attacker pod, many clients share one source IP. If the lockout were
+evaluated before token validation, an unauthenticated peer could
+flood invalid tokens and lock the legitimate operator or Arq control
+plane out of pause/resume/reload/export — a denial of service. Gating
+only the invalid path preserves the existing brute-force throttle
+(an IP over the failure threshold still receives `429` for invalid
+attempts) without ever penalising a valid credential.
+
+Given an IP whose invalid-attempt counter is at or past the lockout
+threshold, when a request from that IP presents a valid bearer token,
+then the request shall authenticate and its failure counter shall be
+cleared; when a request from that IP presents an invalid or missing
+token, then it shall receive `429`.
+
+### Failure conditions (R112)
+
+| Trigger | Response |
+|---------|----------|
+| Valid token from a locked-out IP | Authenticated; `recordSuccess` clears the IP's failure counter. |
+| Invalid/missing token from an IP over threshold | `429 Too Many Requests`; counter not further incremented. |
+| Invalid/missing token from an IP under threshold | `401`; failure recorded. |
 
 ## Invariants
 
@@ -2391,6 +2425,10 @@ extends the same guarantee to the diagnostic path.
 - **INV-SIGNALS-21**: No configuration or secret field value can alter
   the set of connection parameters of a DSN it is embedded in (R111).
   Field values are data, never syntax.
+- **INV-SIGNALS-22**: A valid bearer token always authenticates,
+  independent of the per-IP invalid-attempt counter (R112). The
+  lockout limiter can deny only requests that fail token validation;
+  it can never deny a request carrying a correct credential.
 
 ## Failure Conditions
 
