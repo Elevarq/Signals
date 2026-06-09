@@ -15,6 +15,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   override, or remove connection parameters (e.g. silently downgrading
   TLS or re-targeting the host). `RedactDSN` masks the quoted password
   form too. New rule ARQ-SIGNALS-R111 / INV-SIGNALS-21. (#69)
+- API auth: a valid bearer token now authenticates before the per-IP
+  invalid-attempt limiter is consulted, so the `429` lockout can no
+  longer be weaponised. Previously a shared source IP (NAT, reverse
+  proxy, or co-located pod) flooding invalid tokens could lock the
+  legitimate operator or Arq control plane out of
+  pause/resume/reload/export. The brute-force throttle on invalid
+  attempts is unchanged. New rule ARQ-SIGNALS-R112 /
+  INV-SIGNALS-22. (#68)
 
 ### Added
 
