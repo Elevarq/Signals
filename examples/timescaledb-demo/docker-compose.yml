@@ -1,0 +1,99 @@
+# TimescaleDB demo fixture (LOCAL DEV / DEMO ONLY)
+#
+# A deterministic TimescaleDB workload that produces non-trivial
+# output from every timescaledb_*_v1 collector (R114) — the data
+# substrate for Tiger Data demo material and a reusable development
+# fixture. Issue: #76.
+#
+# Start TimescaleDB (PG 17) + arq-signals:
+#   docker compose -f examples/timescaledb-demo/docker-compose.yml up -d
+#
+# Optional PostgreSQL 18 variant (port 5435, DB only): add
+#   --profile pg18
+# to the same command.
+#
+# Trigger a collection (dev-only token, see examples/docker-compose.yml):
+#   curl -X POST http://localhost:8082/collect/now \
+#     -H "Authorization: Bearer dev-local-only-replace-in-prod-32chars"
+#
+# Export snapshots:
+#   curl -o snapshot.zip http://localhost:8082/export \
+#     -H "Authorization: Bearer dev-local-only-replace-in-prod-32chars"
+#
+# Role variants (see roles.sql + docs/postgres-role.md § TimescaleDB):
+#   arq_monitor        — least-privilege (LOGIN + pg_monitor).
+#                        timescaledb_job_errors_v1 returns ZERO rows;
+#                        that is the documented expected state.
+#   arq_monitor_owner  — + membership in the demo db-owner role;
+#                        sees the failing job's rows in job_errors.
+#
+# The seed plants a deliberately failing background job, so
+# timescaledb_job_stats_v1.total_failures grows over time by design.
+
+services:
+  arq-signals:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    environment:
+      ARQ_SIGNALS_TARGET_HOST: timescaledb
+      ARQ_SIGNALS_TARGET_PORT: "5432"
+      ARQ_SIGNALS_TARGET_USER: arq_monitor
+      ARQ_SIGNALS_TARGET_DBNAME: tsdemo
+      ARQ_SIGNALS_TARGET_PASSWORD_ENV: PG_PASSWORD
+      PG_PASSWORD: monitor_pass
+      ARQ_SIGNALS_POLL_INTERVAL: 1m
+      # Dev-only API token (passes the #135 strength validator and is
+      # obviously a placeholder) — same caveats as the quick-start
+      # compose file. Never use in production.
+      ARQ_SIGNALS_API_TOKEN: dev-local-only-replace-in-prod-32chars
+      ARQ_SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"
+      ARQ_ALLOW_INSECURE_PG_TLS: "true"
+      ARQ_ENV: dev
+    ports:
+      - "8082:8081"
+    volumes:
+      - tsdemo-signals-data:/data
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+
+  timescaledb:
+    # Community (TSL) edition — compression, caggs, retention, and the
+    # job framework are all available. Pinned per the supply-chain
+    # baseline (no :latest).
+    image: timescale/timescaledb:2.27.2-pg17
+    environment:
+      POSTGRES_PASSWORD: postgres_pass
+      POSTGRES_DB: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - ./roles.sql:/docker-entrypoint-initdb.d/900-roles.sql
+      - ./seed.sql:/docker-entrypoint-initdb.d/910-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # Optional PG 18 lane (DB only; point clients at port 5435).
+  timescaledb-pg18:
+    profiles: ["pg18"]
+    image: timescale/timescaledb:2.27.2-pg18
+    environment:
+      POSTGRES_PASSWORD: postgres_pass
+      POSTGRES_DB: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - ./roles.sql:/docker-entrypoint-initdb.d/900-roles.sql
+      - ./seed.sql:/docker-entrypoint-initdb.d/910-seed.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+volumes:
+  tsdemo-signals-data:
