@@ -199,7 +199,7 @@ func TestTimescaleDBFamilyCadenceAndRetention(t *testing.T) {
 		"timescaledb_hypertables_v1":           {pgqueries.Cadence6h, pgqueries.RetentionMedium},
 		"timescaledb_dimensions_v1":            {pgqueries.CadenceDaily, pgqueries.RetentionMedium},
 		"timescaledb_chunks_v1":                {pgqueries.Cadence6h, pgqueries.RetentionMedium},
-		"timescaledb_chunk_summary_v1":         {pgqueries.Cadence1h, pgqueries.RetentionMedium},
+		"timescaledb_chunk_summary_v1":         {pgqueries.Cadence6h, pgqueries.RetentionMedium},
 		"timescaledb_hypertable_sizes_v1":      {pgqueries.Cadence1h, pgqueries.RetentionMedium},
 		"timescaledb_compression_settings_v1":  {pgqueries.CadenceDaily, pgqueries.RetentionMedium},
 		"timescaledb_compression_stats_v1":     {pgqueries.Cadence1h, pgqueries.RetentionMedium},

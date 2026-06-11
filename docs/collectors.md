@@ -225,8 +225,8 @@ permissions: [`postgres-role.md`](postgres-role.md).
 | `timescaledb_extension_v1` | `pg_extension` + `pg_settings` + existence probes | 6h | Version, edition (`timescaledb.license`), telemetry level, capability flags (feature-detected via `to_regclass`) |
 | `timescaledb_hypertables_v1` | `timescaledb_information.hypertables` | 6h | Hypertable inventory (dynamic columns — `primary_dimension` on ≥ 2.20) |
 | `timescaledb_dimensions_v1` | `timescaledb_information.dimensions` | 24h | Time/space partitioning dimensions, chunk intervals |
-| `timescaledb_chunks_v1` | `timescaledb_information.chunks` | 6h | Per-chunk rows, newest range first, capped at 5000 |
-| `timescaledb_chunk_summary_v1` | aggregate over chunks view | 1h | Complete per-hypertable rollup (count, compressed count, range/creation bounds) — makes the chunk cap detectable |
+| `timescaledb_chunks_v1` | `timescaledb_information.chunks` | 6h | Per-chunk rows, newest created first, capped at 5000 |
+| `timescaledb_chunk_summary_v1` | aggregate over chunks view | 6h | Complete per-hypertable rollup (count, compressed count, range/creation bounds) — makes the chunk cap detectable |
 | `timescaledb_hypertable_sizes_v1` | `hypertable_approximate_detailed_size()` | 1h | Approximate table/index/toast/total bytes (monitoring-priced; no per-chunk locks) |
 | `timescaledb_compression_settings_v1` | `timescaledb_information.hypertable_compression_settings` | 24h | segmentby/orderby settings (pre-rename view name, valid 2.14→2.27) |
 | `timescaledb_compression_stats_v1` | `hypertable_compression_stats()` | 1h | Before/after compression bytes per hypertable (recorded at compression time) |

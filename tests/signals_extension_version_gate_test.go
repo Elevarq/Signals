@@ -201,6 +201,32 @@ func TestObjectMissingErrorClassification(t *testing.T) {
 			`ERROR: division by zero (SQLSTATE 22012)`,
 			"execution_error",
 		},
+		// The object_missing match is SQLSTATE-token-only by spec
+		// (42P01/42883). Message-text matching on "does not exist"
+		// would sweep in unrelated error classes — these must keep
+		// their existing classification:
+		{
+			"undefined column (catalog drift) stays execution_error",
+			`ERROR: column "conkey" does not exist (SQLSTATE 42703)`,
+			"execution_error",
+		},
+		{
+			"pooler prepared-statement error stays execution_error",
+			`ERROR: prepared statement "stmtcache_42" does not exist (SQLSTATE 26000)`,
+			"execution_error",
+		},
+		{
+			"legacy row without SQLSTATE token stays execution_error",
+			`ERROR: relation "timescaledb_information.jobs" does not exist`,
+			"execution_error",
+		},
+		// SQLSTATE checks precede the timeout substring so an object
+		// name containing "timeout" cannot misroute a 42P01:
+		{
+			"42P01 with timeout-bearing identifier is object_missing",
+			`ERROR: relation "public.session_timeout_log" does not exist (SQLSTATE 42P01)`,
+			"object_missing",
+		},
 	}
 	for _, tc := range cases {
 		statuses := collector.BuildStatusFromRuns([]db.QueryRun{{

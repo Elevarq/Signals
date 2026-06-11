@@ -153,17 +153,22 @@ func classifyRunError(errMsg string) string {
 	switch {
 	case strings.Contains(lower, "permission denied") || strings.Contains(lower, "42501"):
 		return "permission_denied"
-	case strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout"):
-		return "timeout"
 	// R115: undefined table (42P01) / undefined function (42883) —
 	// an extension surface the gates expected is absent at execution
 	// time (upstream view removal, extension API schema not on the
 	// collector role's search_path). Structured so operators and the
 	// Analyzer completeness model can tell "object vanished" from a
-	// generic execution error.
-	case strings.Contains(lower, "42p01") || strings.Contains(lower, "42883") ||
-		strings.Contains(lower, "does not exist"):
+	// generic execution error. Matched on the SQLSTATE token ONLY —
+	// pgx error strings always embed it ("... (SQLSTATE 42P01)"). A
+	// message-text match like "does not exist" would sweep in
+	// unrelated classes (26000 pooler prepared-statement errors,
+	// 42703 catalog-drift column errors, 3D000/28000 connection
+	// errors). Placed before the timeout substring so a 42P01 whose
+	// quoted identifier contains "timeout" cannot misroute.
+	case strings.Contains(lower, "42p01") || strings.Contains(lower, "42883"):
 		return "object_missing"
+	case strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout"):
+		return "timeout"
 	default:
 		return "execution_error"
 	}

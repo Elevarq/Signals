@@ -115,8 +115,8 @@ plain PostgreSQL via the existing EA-R001 channel,
 | `timescaledb_extension_v1` | `pg_extension` + `pg_settings` (license, telemetry) + `to_regclass`/`to_regnamespace` capability probes | 6h | A, I, capabilities |
 | `timescaledb_hypertables_v1` | `timescaledb_information.hypertables` (`SELECT *`) | 6h | B |
 | `timescaledb_dimensions_v1` | `timescaledb_information.dimensions` | 24h | B |
-| `timescaledb_chunks_v1` | `timescaledb_information.chunks`, newest-first, **LIMIT 5000** | 6h | C |
-| `timescaledb_chunk_summary_v1` | aggregate over the chunks view: per hypertable — chunk count, compressed count, min/max range, min/max creation time | 1h | C, H |
+| `timescaledb_chunks_v1` | `timescaledb_information.chunks`, newest-created-first, **LIMIT 5000** | 6h | C |
+| `timescaledb_chunk_summary_v1` | aggregate over the chunks view: per hypertable — chunk count, compressed count, min/max range, min/max creation time | 6h | C, H |
 | `timescaledb_hypertable_sizes_v1` | hypertables × LATERAL `hypertable_approximate_detailed_size()` | 1h | H |
 | `timescaledb_compression_settings_v1` | `timescaledb_information.hypertable_compression_settings` | 24h | D |
 | `timescaledb_compression_stats_v1` | hypertables × LATERAL `hypertable_compression_stats()` | 1h | D, H |
@@ -262,7 +262,8 @@ is read-only but expensive (scans stats for all relations) and is
   function argument, never as a stored identifier).
 - **Bounded size:** two sources have unbounded cardinality. The
   chunks view (a busy fleet can have 10⁵+ chunks):
-  `timescaledb_chunks_v1` caps at **5000 rows newest-first**;
+  `timescaledb_chunks_v1` caps at **5000 rows, newest creation time
+  first** (uniform across time- and integer-dimension hypertables);
   `timescaledb_chunk_summary_v1` stays complete (one row per
   hypertable) and carries the true counts, so truncation is always
   detectable (`sum(chunk_count) > rows in timescaledb_chunks_v1`).

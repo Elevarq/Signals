@@ -251,5 +251,6 @@ all other collectors in the cycle execute; the snapshot succeeds.
 level assertion of the cap).
 
 **Then:** `timescaledb_chunks_v1` emits at most 5000 rows, newest
-`range_end` first; `timescaledb_chunk_summary_v1.chunk_count`
+`chunk_creation_time` first (uniform across time- and
+integer-dimension hypertables); `timescaledb_chunk_summary_v1.chunk_count`
 reports the true total, making the truncation detectable.

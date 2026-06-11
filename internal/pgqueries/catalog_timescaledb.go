@@ -97,11 +97,14 @@ func init() {
 		Cadence:        CadenceDaily,
 	})
 
-	// timescaledb_chunks_v1: per-chunk rows, newest range first,
+	// timescaledb_chunks_v1: per-chunk rows, newest CREATED first,
 	// bounded at 5000 (TC-TSDB-15). Truncation is always detectable
-	// against timescaledb_chunk_summary_v1.chunk_count. Integer-typed
-	// dimensions populate range_*_integer instead of range_*; both
-	// participate in the newest-first ordering with NULLS LAST.
+	// against timescaledb_chunk_summary_v1.chunk_count. Ordering by
+	// chunk_creation_time (not range_end) keeps the cap uniformly
+	// newest-first across time- AND integer-dimension hypertables —
+	// integer-dimension chunks have NULL range_end, and range-based
+	// NULLS LAST ordering would push every one of them past the cap
+	// whenever 5000+ time-dimension chunks exist.
 	Register(QueryDef{
 		ID:                          "timescaledb_chunks_v1",
 		Category:                    "timescaledb",
@@ -110,8 +113,7 @@ func init() {
 		MinPGVersion:                14,
 		SQL: `SELECT *
 		FROM timescaledb_information.chunks
-		ORDER BY range_end DESC NULLS LAST,
-			range_end_integer DESC NULLS LAST,
+		ORDER BY chunk_creation_time DESC,
 			hypertable_schema, hypertable_name, chunk_name
 		LIMIT 5000`,
 		ResultKind:     ResultRowset,
@@ -122,7 +124,10 @@ func init() {
 
 	// timescaledb_chunk_summary_v1: complete per-hypertable rollup —
 	// one row per hypertable regardless of chunk count, so the
-	// chunks_v1 cap never hides topology (TC-TSDB-05/15).
+	// chunks_v1 cap never hides topology (TC-TSDB-05/15). Cadence
+	// matches chunks_v1 (6h): both fully evaluate the chunks view —
+	// a multi-way catalog join that is seconds-scale at 1e5 chunks —
+	// and chunk counts move at chunk-creation speed (hours).
 	Register(QueryDef{
 		ID:                          "timescaledb_chunk_summary_v1",
 		Category:                    "timescaledb",
@@ -146,14 +151,20 @@ func init() {
 		ResultKind:     ResultRowset,
 		RetentionClass: RetentionMedium,
 		Timeout:        30 * time.Second,
-		Cadence:        Cadence1h,
+		Cadence:        Cadence6h,
 	})
 
 	// timescaledb_hypertable_sizes_v1: approximate sizes via the
 	// monitoring-priced hypertable_approximate_detailed_size()
 	// (smgr-cache backed, introduced 2.14.0 for exactly this use).
-	// LEFT JOIN LATERAL so a hypertable the function cannot resolve
-	// still emits a row with NULL sizes rather than vanishing.
+	// to_regclass() (not a hard ::regclass cast, which would raise
+	// 42P01 and fail the whole collector) degrades a hypertable
+	// dropped between the view read and the resolution to a NULL
+	// argument. Verified against 2.27.2: this helper is NOT strict
+	// and returns one all-NULL row for a NULL argument, while
+	// hypertable_compression_stats below IS strict and returns no
+	// row — either way the LEFT JOIN preserves the hypertable row
+	// with NULL metrics.
 	Register(QueryDef{
 		ID:                          "timescaledb_hypertable_sizes_v1",
 		Category:                    "timescaledb",
@@ -169,7 +180,7 @@ func init() {
 			s.total_bytes
 		FROM timescaledb_information.hypertables h
 		LEFT JOIN LATERAL hypertable_approximate_detailed_size(
-			format('%I.%I', h.hypertable_schema, h.hypertable_name)::regclass
+			to_regclass(format('%I.%I', h.hypertable_schema, h.hypertable_name))
 		) s ON true
 		ORDER BY h.hypertable_schema, h.hypertable_name`,
 		ResultKind:     ResultRowset,
@@ -183,7 +194,11 @@ func init() {
 	// valid across the whole 2.14 → 2.27 window; the 2.18+
 	// columnstore alias is recorded as a capability flag by
 	// timescaledb_extension_v1 (has_columnstore_aliases). Dynamic
-	// columns: `index` appears ≥ 2.22.
+	// columns: `index` appears ≥ 2.22. The upstream view exposes
+	// hypertable identity only as a regclass, whose text rendering
+	// (schema-qualified or not) follows the session search_path; the
+	// collector session uses the server-default search_path, so both
+	// the emitted value and this ORDER BY are stable per target.
 	Register(QueryDef{
 		ID:                          "timescaledb_compression_settings_v1",
 		Category:                    "timescaledb",
@@ -227,7 +242,7 @@ func init() {
 			s.after_compression_total_bytes
 		FROM timescaledb_information.hypertables h
 		LEFT JOIN LATERAL hypertable_compression_stats(
-			format('%I.%I', h.hypertable_schema, h.hypertable_name)::regclass
+			to_regclass(format('%I.%I', h.hypertable_schema, h.hypertable_name))
 		) s ON true
 		ORDER BY h.hypertable_schema, h.hypertable_name`,
 		ResultKind:     ResultRowset,

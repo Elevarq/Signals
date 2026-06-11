@@ -519,6 +519,8 @@ Reason categories for non-success statuses:
   (R108)
 - execution_error (failed)
 - permission_denied (failed)
+- object_missing (failed) — referenced relation/function absent at
+  execution time, SQLSTATE 42P01 / 42883 (R115)
 - timeout (failed)
 - savepoint_rollback (failed)
 

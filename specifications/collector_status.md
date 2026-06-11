@@ -49,11 +49,12 @@ Arq Signals output ZIP.
 | Reason | Status | When used |
 |---|---|---|
 | (empty) | success | No explanation needed |
-| version_unsupported | skipped | PG version below MinPGVersion |
+| version_unsupported | skipped | PG version below MinPGVersion, or required extension installed but below the collector's RequiresExtensionMinVersion (R115) |
 | extension_missing | skipped | Required extension not installed |
 | config_disabled | skipped | Collector disabled in configuration |
 | execution_error | failed | SQL query failed at runtime |
 | permission_denied | failed | Insufficient privileges (SQLSTATE 42501) |
+| object_missing | failed | Referenced relation or function absent at execution (SQLSTATE 42P01 / 42883) — e.g. an extension view removed upstream, or the extension's API schema not on the collector role's search_path (R115) |
 | timeout | failed | Query exceeded timeout |
 | savepoint_rollback | failed | Query failed within savepoint |
 

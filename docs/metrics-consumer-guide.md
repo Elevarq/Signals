@@ -48,7 +48,7 @@ default Go runtime / process metrics are exposed. Names follow
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
 | `arq_signal_collectors_succeeded_total` | Counter | `target` | Sum of per-cycle successful-collector counts. |
-| `arq_signal_collectors_failed_total` | Counter | `target`, `reason` | Failed collectors classified by reason (`execution_error`, `timeout`, `permission_denied`, `savepoint_rollback`). |
+| `arq_signal_collectors_failed_total` | Counter | `target`, `reason` | Failed collectors classified by reason (`execution_error`, `timeout`, `permission_denied`, `object_missing`, `savepoint_rollback`). |
 | `arq_signal_collectors_skipped_total` | Counter | `target`, `reason` | Skipped collectors by reason (`version_unsupported`, `extension_missing`, `config_disabled`). |
 | `arq_signal_eligible_collectors` | Gauge | `target` | **R079 / #79**: number of collectors that would run for this target after every gate is applied (version, extension, sensitivity, profile). Updated at the top of every cycle. |
 

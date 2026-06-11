@@ -48,8 +48,8 @@ registration linter. All except `timescaledb_extension_v1` carry
 | `timescaledb_extension_v1` | pg_extension + pg_settings + existence probes | 6h | Long | 5s | low |
 | `timescaledb_hypertables_v1` | hypertables view (`SELECT *`) | 6h | Medium | 15s | low |
 | `timescaledb_dimensions_v1` | dimensions view (`SELECT *`) | 24h | Medium | 15s | low |
-| `timescaledb_chunks_v1` | chunks view, newest-first, LIMIT 5000 | 6h | Medium | 30s | low |
-| `timescaledb_chunk_summary_v1` | per-hypertable aggregate over chunks view | 1h | Medium | 30s | low |
+| `timescaledb_chunks_v1` | chunks view, newest-created-first (`chunk_creation_time DESC`), LIMIT 5000 | 6h | Medium | 30s | low |
+| `timescaledb_chunk_summary_v1` | per-hypertable aggregate over chunks view | 6h | Medium | 30s | low |
 | `timescaledb_hypertable_sizes_v1` | hypertables × LATERAL `hypertable_approximate_detailed_size` | 1h | Medium | 30s | low |
 | `timescaledb_compression_settings_v1` | hypertable_compression_settings view (`SELECT *`) | 24h | Medium | 15s | low |
 | `timescaledb_compression_stats_v1` | hypertables × LATERAL `hypertable_compression_stats` | 1h | Medium | 30s | low |
@@ -94,6 +94,7 @@ These booleans are the **capability flags** for the Analyzer.
 | `chunk_count` | bigint | total chunks (authoritative even when `timescaledb_chunks_v1` truncates) |
 | `compressed_chunk_count` | bigint | chunks with `is_compressed` |
 | `oldest_range_start` / `newest_range_end` | timestamptz | time coverage (NULL for integer dimensions) |
+| `oldest_range_start_integer` / `newest_range_end_integer` | bigint | coverage for integer-typed dimensions (NULL for time dimensions) |
 | `oldest_chunk_created_at` / `newest_chunk_created_at` | timestamptz | creation-time bounds |
 
 ### timescaledb_hypertable_sizes_v1 (one row per hypertable)
@@ -127,8 +128,12 @@ the collector emits evidence, not the derived ratio.
 - The family is inert on plain PostgreSQL: gated out before any SQL
   executes (`extension_missing`), surfaced per EA-R001
   (INV-SIGNALS-24).
-- Bounded output: `timescaledb_chunks_v1` ≤ 5000 rows (newest-first)
-  with truncation always detectable via
+- Bounded output: `timescaledb_chunks_v1` ≤ 5000 rows, ordered
+  `chunk_creation_time DESC` so the cap is uniformly newest-first
+  across time- and integer-dimension hypertables (range-based
+  ordering would sort every integer-dimension chunk after all
+  time-dimension chunks and starve them out of the cap), with
+  truncation always detectable via
   `timescaledb_chunk_summary_v1` counts, and
   `timescaledb_job_errors_v1` ≤ 1000 rows (newest-first — the
   backing table is per-execution, so a crash-looping job can
@@ -139,7 +144,16 @@ the collector emits evidence, not the derived ratio.
   (`view_definition`, `err_message`).
 - No stored OIDs for Timescale objects: the information views expose
   schema+name identity only; regclass casts appear solely as function
-  arguments.
+  arguments, wrapped in `to_regclass()` so a hypertable dropped
+  between the information-view read and the cast degrades to a NULL
+  argument (verified on 2.27.2: `hypertable_compression_stats` is
+  STRICT and emits no row; `hypertable_approximate_detailed_size`
+  is not strict and emits one all-NULL row — in both cases the
+  LEFT JOIN preserves the hypertable row with NULL metrics) instead
+  of failing the collector. Note: the upstream
+  `hypertable_compression_settings.hypertable` column is a regclass
+  rendered per the session `search_path`; the collector session uses
+  the server-default search_path, so rendering is stable per target.
 
 ## Failure conditions
 
