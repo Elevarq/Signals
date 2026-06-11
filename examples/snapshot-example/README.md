@@ -1,7 +1,7 @@
 This directory shows the structure of an Arq Signals export ZIP. In
 practice, exports are delivered as ZIP archives by `arqctl export` and
 the daemon's `GET /export` endpoint; this expanded view is for
-reference. The values reflect the v0.10.0-beta.3 export shape.
+reference. The values reflect the v0.10.0-beta.4 export shape.
 
 ## Files
 

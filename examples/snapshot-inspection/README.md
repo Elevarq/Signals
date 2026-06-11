@@ -38,7 +38,7 @@ Example output (safe role, single-target export):
   "schema_version": "arq-snapshot.v1",
   "collector_status_schema_version": "1",
   "instance_id": "a1b2c3d4...",
-  "arq_signals_version": "0.10.0-beta.3",
+  "arq_signals_version": "0.10.0-beta.4",
   "collector_commit": "abcdef12",
   "generated_at": "2026-05-28T10:30:00Z",
   "collected_at": "2026-05-28T10:30:00Z",

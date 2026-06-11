@@ -2,7 +2,7 @@
 
 image:
   repository: ghcr.io/elevarq/arq-signals
-  tag: "0.10.0-beta.3"
+  tag: "0.10.0-beta.4"
   pullPolicy: IfNotPresent
 
 # PostgreSQL target configuration
