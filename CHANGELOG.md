@@ -6,6 +6,29 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.4] - 2026-06-11
+
+First release carrying the TimescaleDB / Tiger Data collector family.
+
+### Added
+
+- **TimescaleDB detection and metadata collectors (#73, #75).** Twelve
+  `timescaledb_*_v1` collectors (extension/license detection,
+  hypertables, dimensions, chunk summary + recent chunks, compression
+  settings + stats, continuous aggregates, policies, jobs + job
+  stats, job errors) behind feature detection - safe no-ops on plain
+  PostgreSQL, least-privilege (documented views only), bounded,
+  redaction-aware, with `object_missing` accounting and
+  extension-version gating (R114/R115).
+- TimescaleDB demo fixture `examples/timescaledb-demo/` exercising
+  the full collector family deterministically (#76, #79); consumed by
+  the arq-timeseries-demo product-demo repository.
+
+### Fixed
+
+- Builder image pinned to golang 1.25.11-alpine, matching go.mod
+  (#77, #78) - image builds were broken on main.
+
 ### Security
 
 - Diagnostic DSN builder (`collector.BuildSafeDSN`, used by `arqctl
