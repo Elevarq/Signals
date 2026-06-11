@@ -1,6 +1,6 @@
 # Collector Inventory
 
-Arq Signals includes 73 read-only diagnostic collectors. All
+Arq Signals includes 99 read-only diagnostic collectors. All
 queries execute inside `READ ONLY` transactions with savepoint
 isolation. Collectors requiring unavailable extensions or
 unsupported PostgreSQL versions are silently skipped and surface
@@ -205,6 +205,35 @@ per-pid rows for every cycle.
 | Query ID | PostgreSQL source | Cadence | Notes |
 |----------|-------------------|---------|-------|
 | `pg_prepared_xacts_v1` | `pg_prepared_xacts` | 1h | Prepared (2PC) transactions with server-computed age; orphaned 2PC holds back xmin and blocks vacuum |
+
+## TimescaleDB (Tiger Data)
+
+Collected only when the `timescaledb` extension is installed
+(R114); on plain PostgreSQL every member is skipped with
+`reason=extension_missing`. All members except the detection
+collector additionally require TimescaleDB ≥ 2.14
+(`reason=version_unsupported` below that, R115). Sources are the
+documented PUBLIC-readable `timescaledb_information` views and two
+catalog-priced helper functions — internal `_timescaledb_*`
+catalogs and the exact (per-chunk-locking) size functions are
+deliberately not queried. Design:
+[`timescaledb-collectors-design.md`](timescaledb-collectors-design.md);
+permissions: [`postgres-role.md`](postgres-role.md).
+
+| Query ID | TimescaleDB source | Cadence | Notes |
+|----------|--------------------|---------|-------|
+| `timescaledb_extension_v1` | `pg_extension` + `pg_settings` + existence probes | 6h | Version, edition (`timescaledb.license`), telemetry level, capability flags (feature-detected via `to_regclass`) |
+| `timescaledb_hypertables_v1` | `timescaledb_information.hypertables` | 6h | Hypertable inventory (dynamic columns — `primary_dimension` on ≥ 2.20) |
+| `timescaledb_dimensions_v1` | `timescaledb_information.dimensions` | 24h | Time/space partitioning dimensions, chunk intervals |
+| `timescaledb_chunks_v1` | `timescaledb_information.chunks` | 6h | Per-chunk rows, newest range first, capped at 5000 |
+| `timescaledb_chunk_summary_v1` | aggregate over chunks view | 1h | Complete per-hypertable rollup (count, compressed count, range/creation bounds) — makes the chunk cap detectable |
+| `timescaledb_hypertable_sizes_v1` | `hypertable_approximate_detailed_size()` | 1h | Approximate table/index/toast/total bytes (monitoring-priced; no per-chunk locks) |
+| `timescaledb_compression_settings_v1` | `timescaledb_information.hypertable_compression_settings` | 24h | segmentby/orderby settings (pre-rename view name, valid 2.14→2.27) |
+| `timescaledb_compression_stats_v1` | `hypertable_compression_stats()` | 1h | Before/after compression bytes per hypertable (recorded at compression time) |
+| `timescaledb_continuous_aggregates_v1` | `timescaledb_information.continuous_aggregates` | 6h | Cagg inventory; `view_definition` is high-sensitivity (redact path) |
+| `timescaledb_jobs_v1` | `timescaledb_information.jobs` | 1h | All automation jobs incl. retention/compression/refresh policies (`proc_name` + `config`) |
+| `timescaledb_job_stats_v1` | `timescaledb_information.job_stats` | 15m | Per-job run counters and last-run status — visible for all jobs |
+| `timescaledb_job_errors_v1` | `timescaledb_information.job_errors` | 1h | Failed runs, newest first, capped at 1000; rows visible only with job-owner/db-owner membership (zero rows is the expected least-privilege state); `err_message` is high-sensitivity (redact path) |
 
 ## Version and extension behavior
 

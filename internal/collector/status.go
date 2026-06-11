@@ -155,6 +155,15 @@ func classifyRunError(errMsg string) string {
 		return "permission_denied"
 	case strings.Contains(lower, "deadline exceeded") || strings.Contains(lower, "timeout"):
 		return "timeout"
+	// R115: undefined table (42P01) / undefined function (42883) —
+	// an extension surface the gates expected is absent at execution
+	// time (upstream view removal, extension API schema not on the
+	// collector role's search_path). Structured so operators and the
+	// Analyzer completeness model can tell "object vanished" from a
+	// generic execution error.
+	case strings.Contains(lower, "42p01") || strings.Contains(lower, "42883") ||
+		strings.Contains(lower, "does not exist"):
+		return "object_missing"
 	default:
 		return "execution_error"
 	}

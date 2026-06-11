@@ -1,7 +1,7 @@
 # timescaledb_family_v1 — Collector Family Specification
 
-Status: DRAFT (becomes ACTIVE when the implementation slice of
-issue #73 lands)
+Status: ACTIVE (implemented in `internal/pgqueries/catalog_timescaledb.go`,
+issue #73)
 Rules: R114 (collector family), R115 (extension-version gating)
 Design note: `docs/timescaledb-collectors-design.md`
 Issue: #73
@@ -56,7 +56,7 @@ registration linter. All except `timescaledb_extension_v1` carry
 | `timescaledb_continuous_aggregates_v1` | continuous_aggregates view (`SELECT *`) | 6h | Medium | 15s | HighSensitivity, redact path: `SensitiveColumns: ["view_definition"]` |
 | `timescaledb_jobs_v1` | jobs view (`SELECT *`) | 1h | Medium | 15s | low |
 | `timescaledb_job_stats_v1` | job_stats view (`SELECT *`) | 15m | Short | 15s | low |
-| `timescaledb_job_errors_v1` | job_errors view (`SELECT *`) | 1h | Medium | 15s | HighSensitivity, redact path: `SensitiveColumns: ["err_message"]` |
+| `timescaledb_job_errors_v1` | job_errors view (`SELECT *`), newest-first, LIMIT 1000 | 1h | Medium | 15s | HighSensitivity, redact path: `SensitiveColumns: ["err_message"]` |
 
 ## Output columns
 
@@ -127,9 +127,13 @@ the collector emits evidence, not the derived ratio.
 - The family is inert on plain PostgreSQL: gated out before any SQL
   executes (`extension_missing`), surfaced per EA-R001
   (INV-SIGNALS-24).
-- Bounded output: `timescaledb_chunks_v1` ≤ 5000 rows (newest-first);
-  truncation always detectable via `timescaledb_chunk_summary_v1`
-  counts; all other members are bounded by hypertable/job/dimension
+- Bounded output: `timescaledb_chunks_v1` ≤ 5000 rows (newest-first)
+  with truncation always detectable via
+  `timescaledb_chunk_summary_v1` counts, and
+  `timescaledb_job_errors_v1` ≤ 1000 rows (newest-first — the
+  backing table is per-execution, so a crash-looping job can
+  accumulate rows far faster than the monthly retention job prunes);
+  all other members are bounded by hypertable/job/dimension
   cardinality.
 - No raw application SQL beyond the two redact-path columns
   (`view_definition`, `err_message`).

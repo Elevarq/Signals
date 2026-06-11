@@ -322,6 +322,7 @@ func CheckCollectorPrerequisites(ctx context.Context, tgt config.TargetConfig, r
 	gated := pgqueries.GatedIDsByReason(pgqueries.FilterParams{
 		PGMajorVersion:         probe.MajorVersion,
 		Extensions:             probe.Extensions,
+		ExtensionVersions:      probe.ExtensionVersions, // R115
 		HighSensitivityEnabled: highSensitivityEnabled,
 	})
 	totalRegistered := len(pgqueries.All())

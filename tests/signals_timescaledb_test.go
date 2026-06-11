@@ -175,6 +175,20 @@ func TestTimescaleDBChunksBounded(t *testing.T) {
 	}
 }
 
+// Bounded output, job-errors variant: the backing table is
+// per-execution (a crash-looping job accumulates rows far faster than
+// the monthly retention job prunes), so the rowset is capped
+// newest-first.
+func TestTimescaleDBJobErrorsBounded(t *testing.T) {
+	q := pgqueries.ByID("timescaledb_job_errors_v1")
+	if q == nil {
+		t.Fatal("timescaledb_job_errors_v1 not registered")
+	}
+	if !strings.Contains(strings.ToUpper(q.SQL), "LIMIT 1000") {
+		t.Error("timescaledb_job_errors_v1 SQL does not bound its output at LIMIT 1000")
+	}
+}
+
 // TC-TSDB-13: spec-mandated cadence and retention per member.
 func TestTimescaleDBFamilyCadenceAndRetention(t *testing.T) {
 	expect := map[string]struct {

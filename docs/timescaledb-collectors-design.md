@@ -1,7 +1,8 @@
 # Design note — TimescaleDB / Tiger Data collector family
 
 Issue: [#73](https://github.com/Elevarq/Arq-Signals/issues/73)
-Status: DRAFT (design phase; no collector implementation yet)
+Status: IMPLEMENTED (`internal/pgqueries/catalog_timescaledb.go`;
+spec `specifications/collectors/timescaledb_family_v1.md` is ACTIVE)
 Spec: `specifications/collectors/timescaledb_family_v1.md` (R114),
 `features/arq-signals/specification.md` § TimescaleDB collector family
 (R114) and § Extension-version gating (R115)
@@ -259,14 +260,16 @@ is read-only but expensive (scans stats for all relations) and is
   schema + name as emitted by the information views (the views do not
   expose OIDs; `format('%I.%I', …)::regclass` is used only as a
   function argument, never as a stored identifier).
-- **Bounded size:** the only unbounded-cardinality source is the
-  chunks view (a busy fleet can have 10⁵+ chunks).
+- **Bounded size:** two sources have unbounded cardinality. The
+  chunks view (a busy fleet can have 10⁵+ chunks):
   `timescaledb_chunks_v1` caps at **5000 rows newest-first**;
   `timescaledb_chunk_summary_v1` stays complete (one row per
   hypertable) and carries the true counts, so truncation is always
   detectable (`sum(chunk_count) > rows in timescaledb_chunks_v1`).
-  Everything else is naturally bounded (per-hypertable, per-job,
-  per-dimension rows).
+  And `job_errors`, which is per-execution (a crash-looping job
+  outruns the monthly retention job): `timescaledb_job_errors_v1`
+  caps at **1000 rows newest-first**. Everything else is naturally
+  bounded (per-hypertable, per-job, per-dimension rows).
 - **No raw query text** beyond the two redact-path columns in § 3.
 
 ## 8. Integration-test matrix
