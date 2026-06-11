@@ -31,6 +31,11 @@ type Discovery struct {
 	// Extensions lists the names of installed extensions
 	// (`pg_extension` rows). Drives extension-gated catalog filtering.
 	Extensions []string
+	// ExtensionVersions maps installed extension name → extversion
+	// (`pg_extension` rows). R115: drives the optional
+	// RequiresExtensionMinVersion gate for extension-bound collectors.
+	// Always populated alongside Extensions from the same probe.
+	ExtensionVersions map[string]string
 }
 
 // SupportedMajors enumerates the PG majors with first-class catalog
@@ -82,17 +87,19 @@ func Discover(ctx context.Context, tx pgx.Tx) (Discovery, error) {
 	}
 	d.MajorVersion = d.ServerVersionNum / 10000
 
-	rows, err := tx.Query(ctx, `SELECT extname FROM pg_extension ORDER BY extname`)
+	rows, err := tx.Query(ctx, `SELECT extname, extversion FROM pg_extension ORDER BY extname`)
 	if err != nil {
 		return d, fmt.Errorf("discovery: list extensions: %w", err)
 	}
 	defer rows.Close()
+	d.ExtensionVersions = make(map[string]string)
 	for rows.Next() {
-		var name string
-		if err := rows.Scan(&name); err != nil {
+		var name, version string
+		if err := rows.Scan(&name, &version); err != nil {
 			return d, fmt.Errorf("discovery: scan extension: %w", err)
 		}
 		d.Extensions = append(d.Extensions, name)
+		d.ExtensionVersions[name] = version
 	}
 	if err := rows.Err(); err != nil {
 		return d, fmt.Errorf("discovery: iterate extensions: %w", err)

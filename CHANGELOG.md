@@ -37,6 +37,32 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- TimescaleDB / Tiger Data collector family (R114): 12 new
+  collectors under category `timescaledb` — extension detection with
+  edition + feature-probed capability flags, hypertables, dimensions,
+  chunks (newest-first, capped at 5000, with a complete
+  per-hypertable summary making truncation detectable), approximate
+  hypertable sizes, compression settings and before/after stats,
+  continuous aggregates, and background jobs / job stats / job errors
+  (capped at 1000). Reads only the documented PUBLIC-readable
+  `timescaledb_information` views and the monitoring-priced
+  `hypertable_approximate_detailed_size()` /
+  `hypertable_compression_stats()` functions — no internal
+  `_timescaledb_*` catalogs, no per-chunk-locking exact size
+  functions. Inert on plain PostgreSQL (`extension_missing` skip,
+  INV-SIGNALS-24); `view_definition` / `err_message` follow the R075
+  redact path. Supported: TimescaleDB 2.17–2.27 on PG 14–18
+  (best-effort 2.14–2.16, detection-only below). Docs:
+  `docs/collectors.md`, `docs/postgres-role.md`,
+  `docs/timescaledb-collectors-design.md`,
+  `docs/timescaledb-analyzer-roadmap.md`. (#73)
+- Extension-version gating (R115): discovery now captures
+  `pg_extension.extversion`; collectors may declare
+  `RequiresExtensionMinVersion` (gated as `version_unsupported`,
+  fail-open on unknown/unparsable versions), and SQLSTATE
+  42P01/42883 execution failures are classified as the new
+  structured `object_missing` reason instead of a generic
+  `execution_error`. (#73)
 - OpenSSF Best Practices **passing** badge awarded
   ([bestpractices.dev/projects/13020](https://www.bestpractices.dev/projects/13020));
   badge added to README, SECURITY.md, and `docs/release-verification.md`.

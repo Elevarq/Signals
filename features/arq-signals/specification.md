@@ -519,6 +519,8 @@ Reason categories for non-success statuses:
   (R108)
 - execution_error (failed)
 - permission_denied (failed)
+- object_missing (failed) — referenced relation/function absent at
+  execution time, SQLSTATE 42P01 / 42883 (R115)
 - timeout (failed)
 - savepoint_rollback (failed)
 
@@ -2389,6 +2391,88 @@ loopback default.
 | Only one of `tls_cert_file` / `tls_key_file` set | Hard config error at load; daemon does not start. |
 | Both set but cert/key unreadable or invalid at listen | `ServeTLS` returns an error; daemon start fails loudly (no cleartext fallback). |
 | Beyond-loopback bind with neither TLS nor a restricting NetworkPolicy (Helm) | Chart emits an explicit insecure-exposure warning; the `0.0.0.0/0` NetworkPolicy placeholder fails chart rendering when the policy is enabled. |
+### TimescaleDB collector family
+
+**ARQ-SIGNALS-R114**: Arq Signals shall detect TimescaleDB
+(Tiger Data) on a monitored target and collect its metadata through a
+twelve-member collector family (`Category: "timescaledb"`, IDs
+`timescaledb_extension_v1`, `timescaledb_hypertables_v1`,
+`timescaledb_dimensions_v1`, `timescaledb_chunks_v1`,
+`timescaledb_chunk_summary_v1`, `timescaledb_hypertable_sizes_v1`,
+`timescaledb_compression_settings_v1`,
+`timescaledb_compression_stats_v1`,
+`timescaledb_continuous_aggregates_v1`, `timescaledb_jobs_v1`,
+`timescaledb_job_stats_v1`, `timescaledb_job_errors_v1`), reading
+only documented, PUBLIC-readable surfaces: `pg_extension` /
+`pg_settings`, the `timescaledb_information` views, and the
+catalog-priced API functions `hypertable_approximate_detailed_size()`
+and `hypertable_compression_stats()`.
+
+Given a target without the `timescaledb` extension, when a collection
+cycle runs, then no family query executes and every member is
+recorded `skipped` / `extension_missing` (EA-R001). Given a target
+with TimescaleDB ≥ 2.14 installed, when a collection cycle runs, then
+the family captures extension version + edition + capability flags,
+hypertable/dimension/chunk topology (chunk rows bounded at 5000,
+newest-first, with a complete per-hypertable summary making
+truncation detectable), approximate sizes, compression settings and
+before/after statistics, continuous-aggregate inventory, and
+background-job definitions and run statistics — under the standard
+read-only posture (R013/R017/R021), with savepoint isolation (R038)
+guaranteeing the snapshot never fails because of this family.
+
+Version-variant views are captured with dynamic columns (`SELECT *`,
+R037). Capability differences are feature-detected (existence
+probes recorded by `timescaledb_extension_v1`), never inferred from
+hardcoded version tables. `timescaledb_continuous_aggregates_v1`
+(`view_definition`) and `timescaledb_job_errors_v1` (`err_message`)
+are high-sensitivity redact-path collectors (R075). Least-privilege
+behavior, including the `job_errors` partial-by-design state, is
+specified in `specifications/collectors/timescaledb_family_v1.md`;
+design rationale and the supported TimescaleDB↔PostgreSQL matrix in
+`docs/timescaledb-collectors-design.md`.
+
+### Failure conditions (R114)
+
+| Trigger | Response |
+|---------|----------|
+| Extension absent | Family ineligible before any SQL runs; `skipped` / `extension_missing` per member (EA-R001). |
+| Empty TimescaleDB database / Apache-2 edition | Empty rowsets with `status=success`; `license` capability flag disambiguates edition. |
+| Least-privilege role cannot see other owners' `job_errors` rows | Zero rows, `status=success` (partial by design); failure counters remain visible via `timescaledb_job_stats_v1`. |
+| Permission denied / missing object at execution | Failure isolated to the collector's savepoint; structured reason (`permission_denied` / `object_missing`); snapshot continues. |
+
+### Extension-version gating
+
+**ARQ-SIGNALS-R115**: The query catalog shall support gating a
+collector on a minimum version of the extension it requires.
+Discovery (R081) captures `extversion` for every installed extension;
+`QueryDef` gains an optional `RequiresExtensionMinVersion`
+(dotted-numeric comparison, evaluated only when `RequiresExtension`
+is set). A collector failing this gate is ineligible and surfaces as
+`skipped` / `version_unsupported` through the existing EA-R001
+channel (`collector_status.json`, doctor C5, Analyzer completeness).
+
+First consumer: every R114 member except `timescaledb_extension_v1`
+carries `RequiresExtensionMinVersion: "2.14"` (TimescaleDB < 2.14 is
+multi-node-era and predates the views/functions the family uses;
+detection still runs on any version).
+
+Defense-in-depth: the run-error classifier shall map SQLSTATE 42P01
+(undefined table) and 42883 (undefined function) to a new structured
+reason `object_missing`, so an unexpectedly missing relation or
+function — for example after an upstream view removal, or when the
+extension's API schema is not on the collector role's `search_path` —
+is recorded as a structured warning instead of an opaque
+`execution_error`.
+
+### Failure conditions (R115)
+
+| Trigger | Response |
+|---------|----------|
+| `RequiresExtensionMinVersion` set, installed extension version lower | Ineligible; `skipped` / `version_unsupported`; never executed. |
+| `RequiresExtensionMinVersion` set, extension absent entirely | `extension_missing` takes precedence (existing gate order). |
+| Query fails with SQLSTATE 42P01 / 42883 at execution | `failed` / `object_missing`; savepoint isolation preserves the rest of the cycle. |
+| Extension version string unparsable | Gate treats the version as unknown and does not block (fail-open to collection; the run-time `object_missing` path catches genuinely missing objects). |
 
 ## Invariants
 
@@ -2473,6 +2557,13 @@ loopback default.
   serves either plain HTTP (no TLS files) or HTTPS (both TLS files);
   a half-configured TLS setup is a hard config error and never
   degrades to cleartext.
+- **INV-SIGNALS-24**: Extension-gated collector families are inert on
+  targets without their extension (R114/R115). For a target whose
+  `pg_extension` lacks the required extension (or whose installed
+  version fails the family's minimum), no family SQL executes, zero
+  family rows are persisted, and every member is accounted for in
+  `collector_status.json` with a structured skip reason — never
+  silently absent, never a snapshot failure.
 
 ## Failure Conditions
 

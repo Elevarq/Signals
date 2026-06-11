@@ -378,7 +378,7 @@ INV-SIGNALS-11 / R072 in the main specification). Top-level shape:
       "id": "<collector ID, e.g. pg_stat_statements_v1>",
       "attempted": <boolean>,
       "status": "success | partial | skipped | failed",
-      "reason": "<enum: version_unsupported | extension_missing | config_disabled | execution_error | permission_denied | timeout | savepoint_rollback>",
+      "reason": "<enum: version_unsupported | extension_missing | config_disabled | execution_error | permission_denied | object_missing | timeout | savepoint_rollback>",
       "detail": "<human-readable explanation>",
       "row_count": <integer>,
       "duration_ms": <integer>,

@@ -71,12 +71,20 @@ type QueryDef struct {
 	ID                string
 	Category          string
 	RequiresExtension string
-	SQL               string
-	MinPGVersion      int
-	ResultKind        ResultKind
-	RetentionClass    RetentionClass
-	Timeout           time.Duration
-	Cadence           Cadence
+	// RequiresExtensionMinVersion optionally raises the floor for the
+	// extension named in RequiresExtension (R115). Dotted-numeric
+	// comparison ("2.14" vs installed "2.27.2"); evaluated only when
+	// RequiresExtension is set and installed. Fail-open: when the
+	// installed version is unknown to discovery or unparsable, the
+	// gate does not block — the run-time `object_missing` error class
+	// catches genuinely missing objects instead.
+	RequiresExtensionMinVersion string
+	SQL                         string
+	MinPGVersion                int
+	ResultKind                  ResultKind
+	RetentionClass              RetentionClass
+	Timeout                     time.Duration
+	Cadence                     Cadence
 	// HighSensitivity flags collectors that emit application-authored
 	// SQL text (view/matview/trigger/function definitions) or live
 	// pg_stat_activity statement text (long-running txns, blocking
@@ -99,8 +107,14 @@ type QueryDef struct {
 
 // FilterParams controls which queries are eligible for a given target.
 type FilterParams struct {
-	PGMajorVersion         int
-	Extensions             []string
+	PGMajorVersion int
+	Extensions     []string
+	// ExtensionVersions maps installed extension name → extversion
+	// (from discovery, R115). Consulted only by collectors that set
+	// RequiresExtensionMinVersion. A nil/empty map, or a missing
+	// entry for an installed extension, never blocks eligibility
+	// (fail-open).
+	ExtensionVersions      map[string]string
 	HighSensitivityEnabled bool
 
 	// R098: optional per-target profile overrides. Empty values

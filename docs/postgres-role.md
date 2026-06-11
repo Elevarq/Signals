@@ -157,6 +157,49 @@ Specifically:
   and live query text. Treat the resulting ZIP at the same
   classification level as the underlying schema definitions.
 
+## TimescaleDB targets (R114)
+
+The TimescaleDB collector family needs **no additional grants** on
+top of the default role above. TimescaleDB ships its
+`timescaledb_information` views with `GRANT SELECT TO PUBLIC` and no
+row filtering, and the two helper functions the family calls
+(`hypertable_approximate_detailed_size()`,
+`hypertable_compression_stats()`) perform no table ACL checks — any
+LOGIN role can read the full hypertable/chunk/compression/job
+metadata surface.
+
+The single exception is `timescaledb_information.job_errors` (and
+`job_history`, which Arq Signals does not collect): these are
+security-barrier views that show a row only when the connecting role
+is a member of the **job owner's** role or the **database owner's**
+role. With the standard `arq_signals` role,
+`timescaledb_job_errors_v1` therefore returns **zero rows with
+`status=success` — this is the expected least-privilege state, not a
+failure.** Job failure *counters* remain fully visible to any role
+via `timescaledb_job_stats_v1` (`total_failures`,
+`last_run_status`).
+
+Operators who want fleet-wide per-failure error detail (SQLSTATE +
+message per failed run) can opt in by granting the collector role
+membership in the database-owner role:
+
+```sql
+-- Optional. Widens job_errors visibility to all jobs in the database.
+GRANT <database_owner_role> TO arq_signals;
+```
+
+Weigh this against least-privilege policy: database-owner membership
+grants more than `job_errors` visibility. Most deployments should
+skip it and rely on `job_stats` counters.
+
+One operational caveat: the family calls the two helper functions
+unqualified, so the TimescaleDB extension's API schema (default:
+`public`) must be on the collector role's `search_path`. If the
+extension was installed into a custom schema that the role does not
+resolve, those two collectors fail with the structured
+`reason=object_missing` (R115) while the rest of the family — and
+the snapshot — continue normally.
+
 ## Verifying the role
 
 After creating the role, verify the posture from inside `psql`:

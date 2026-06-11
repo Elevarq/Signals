@@ -28,7 +28,8 @@ appear on counters and histograms are:
 - `status` — fixed enum: `success`, `partial`, `failed`.
 - `reason` — fixed enum drawn from `collector_status.json`:
   `permission_denied`, `timeout`, `execution_error`,
-  `config_disabled`, `version_unsupported`, `extension_missing`.
+  `object_missing`, `config_disabled`, `version_unsupported`,
+  `extension_missing`.
 - `error_category` — fixed enum: `invalid_target_id`, `builder_error`,
   `write_error`.
 

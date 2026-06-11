@@ -3,6 +3,8 @@ package pgqueries
 import (
 	"fmt"
 	"sort"
+	"strconv"
+	"strings"
 )
 
 var registry []QueryDef
@@ -72,6 +74,78 @@ func RegisterOverride(major int, id, sql string) {
 	overrideRegistry[major][id] = sql
 }
 
+// extVersionGateBlocks reports whether q's RequiresExtensionMinVersion
+// gate blocks eligibility under p (R115). It returns true only when:
+// the gate is configured, the required extension is installed, its
+// version is known to discovery, both versions parse as dotted
+// numerics, and installed < minimum. Every uncertain case — no
+// version captured, unparsable string — fails OPEN (does not block):
+// the run-time `object_missing` error classification catches genuinely
+// missing objects instead, and fail-closed would silently drop
+// coverage on exotic-but-working builds.
+func extVersionGateBlocks(q QueryDef, p FilterParams) bool {
+	if q.RequiresExtension == "" || q.RequiresExtensionMinVersion == "" {
+		return false
+	}
+	installed, known := p.ExtensionVersions[q.RequiresExtension]
+	if !known {
+		return false
+	}
+	cmp, ok := compareDottedVersions(installed, q.RequiresExtensionMinVersion)
+	return ok && cmp < 0
+}
+
+// compareDottedVersions compares two dotted-numeric version strings
+// component-wise ("2.14" vs "2.27.2" → -1). Missing components count
+// as zero ("2.14" == "2.14.0"). Each component is parsed as its
+// leading decimal digits, so common suffixes ("2.14.0-dev") compare by
+// their numeric prefix. Returns ok=false when either string yields no
+// digits in some compared component — callers treat that as unknown.
+func compareDottedVersions(a, b string) (cmp int, ok bool) {
+	as := strings.Split(strings.TrimSpace(a), ".")
+	bs := strings.Split(strings.TrimSpace(b), ".")
+	n := len(as)
+	if len(bs) > n {
+		n = len(bs)
+	}
+	for i := 0; i < n; i++ {
+		av, aok := leadingInt(as, i)
+		bv, bok := leadingInt(bs, i)
+		if !aok || !bok {
+			return 0, false
+		}
+		if av != bv {
+			if av < bv {
+				return -1, true
+			}
+			return 1, true
+		}
+	}
+	return 0, true
+}
+
+// leadingInt parses the leading decimal digits of parts[i]; an index
+// past the end is zero (so "2.14" and "2.14.0" compare equal). A
+// present-but-digitless component is not ok.
+func leadingInt(parts []string, i int) (int, bool) {
+	if i >= len(parts) {
+		return 0, true
+	}
+	s := parts[i]
+	j := 0
+	for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+		j++
+	}
+	if j == 0 {
+		return 0, false
+	}
+	v, err := strconv.Atoi(s[:j])
+	if err != nil {
+		return 0, false
+	}
+	return v, true
+}
+
 // resolveSQL returns the effective SQL for `id` against the connected
 // server's major. If a version-specific override exists, that wins;
 // otherwise the default SQL from Register is used.
@@ -125,6 +199,13 @@ func Filter(p FilterParams) []QueryDef {
 			continue
 		}
 		if q.RequiresExtension != "" && !extSet[q.RequiresExtension] {
+			continue
+		}
+		// R115: optional minimum version of the required extension.
+		// Evaluated after presence (extension_missing wins when the
+		// extension is absent entirely); fail-open on unknown or
+		// unparsable versions.
+		if extVersionGateBlocks(q, p) {
 			continue
 		}
 		// R075 (revised 2026-05): when opted out, only collectors whose
@@ -193,6 +274,9 @@ func HighSensitivityIDs(p FilterParams) []string {
 		if q.RequiresExtension != "" && !extSet[q.RequiresExtension] {
 			continue
 		}
+		if extVersionGateBlocks(q, p) {
+			continue
+		}
 		out = append(out, q.ID)
 	}
 	sort.Strings(out)
@@ -214,7 +298,9 @@ const (
 //
 //  1. version_unsupported — MinPGVersion > p.PGMajorVersion
 //  2. extension_missing  — RequiresExtension is not present
-//  3. config_disabled    — HighSensitivity but not enabled
+//  3. version_unsupported — extension present but older than
+//     RequiresExtensionMinVersion (R115)
+//  4. config_disabled    — HighSensitivity but not enabled
 //
 // This drives collector_status.json so the operator sees every
 // registered collector accounted for in each cycle, never silently
@@ -233,6 +319,11 @@ func GatedIDsByReason(p FilterParams) map[string][]string {
 			out[GateReasonVersionUnsupported] = append(out[GateReasonVersionUnsupported], q.ID)
 		case q.RequiresExtension != "" && !extSet[q.RequiresExtension]:
 			out[GateReasonExtensionMissing] = append(out[GateReasonExtensionMissing], q.ID)
+		case extVersionGateBlocks(q, p):
+			// R115: extension installed but older than the collector's
+			// floor. Same operator-facing bucket as the PG-major gate —
+			// the target's version is what makes it ineligible.
+			out[GateReasonVersionUnsupported] = append(out[GateReasonVersionUnsupported], q.ID)
 		case q.HighSensitivity && len(q.SensitiveColumns) == 0 && !p.HighSensitivityEnabled:
 			// R075 revised: only skip-path collectors are reported as
 			// config_disabled. Redact-path collectors keep running.

@@ -82,7 +82,8 @@ complementary, not redundant: `query_results.ndjson` is data;
   - `ConfigDisabled`       — `reason = "config_disabled"`
   - `CollectorFailed`      — `status = "failed"` (any
     runtime-failure reason: `execution_error`,
-    `permission_denied`, `timeout`, `savepoint_rollback`)
+    `permission_denied`, `object_missing`, `timeout`,
+    `savepoint_rollback`)
 
   Existing `available bool` consumers continue to function: a
   gated or failed collector is `available = false` regardless of
@@ -110,11 +111,12 @@ The `reason` field on a non-success entry MUST be one of:
 
 | Reason | Status | When |
 |---|---|---|
-| `version_unsupported` | `skipped` | PG major version below the collector's minimum |
+| `version_unsupported` | `skipped` | PG major version below the collector's minimum, or required extension below `RequiresExtensionMinVersion` (R115) |
 | `extension_missing`   | `skipped` | Required extension not installed in the target database |
 | `config_disabled`     | `skipped` | Collector explicitly disabled via configuration |
 | `execution_error`     | `failed`  | Query parse/plan/execute error returned by PG |
 | `permission_denied`   | `failed`  | Role lacks the privileges the query needs |
+| `object_missing`      | `failed`  | Referenced relation/function absent at execution (SQLSTATE 42P01 / 42883, R115) |
 | `timeout`             | `failed`  | Cancelled by the per-query timeout |
 | `savepoint_rollback`  | `failed`  | Per-query savepoint had to be rolled back |
 

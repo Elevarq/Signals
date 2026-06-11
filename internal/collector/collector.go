@@ -963,6 +963,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	filterParams := pgqueries.FilterParams{
 		PGMajorVersion:              effectiveMajor,
 		Extensions:                  disc.Extensions,
+		ExtensionVersions:           disc.ExtensionVersions, // R115
 		HighSensitivityEnabled:      c.highSensitivityEnabled,
 		CollectArrayRangeHistograms: c.collectArrayRangeHistograms,
 	}
