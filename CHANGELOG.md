@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.5] - 2026-06-11
+
+Re-cut of v0.10.0-beta.4: that tag's publish job died at the Docker
+Hub login (expired mirror token) before the GHCR image, chart, and
+GitHub Release published (#82). Same data-collection layer as
+beta.4 - only the release pipeline changed (Docker Hub login is now
+non-fatal; GHCR-only on mirror-credential failure). beta.4 preserved
+below for history.
+
 ## [0.10.0-beta.4] - 2026-06-11
 
 First release carrying the TimescaleDB / Tiger Data collector family.
