@@ -206,13 +206,23 @@ jobs:
             echo "::notice::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not set — Docker Hub publishing skipped; GHCR still publishes."
           fi
 
+      # #82: continue-on-error so a present-but-expired token degrades
+      # to the same GHCR-only posture as absent credentials, instead
+      # of killing the whole publish job. Steps that need Docker Hub
+      # gate on dockerhub-login.outcome == 'success'.
       - name: Log in to Docker Hub
+        id: dockerhub-login
         if: steps.dockerhub-check.outputs.available == 'true'
+        continue-on-error: true
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee  # v4.2.0
         with:
           registry: docker.io
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Report Docker Hub login outcome
+        if: steps.dockerhub-check.outputs.available == 'true' && steps.dockerhub-login.outcome != 'success'
+        run: echo "::warning::Docker Hub login FAILED (expired/rotated token?) - publishing GHCR-only; rotate DOCKERHUB_TOKEN (#82)."
 
       - name: Docker metadata
         id: meta
@@ -220,7 +230,7 @@ jobs:
         with:
           images: |
             ${{ env.IMAGE_NAME }}
-            ${{ steps.dockerhub-check.outputs.available == 'true' && env.DOCKERHUB_IMAGE || '' }}
+            ${{ steps.dockerhub-login.outcome == 'success' && env.DOCKERHUB_IMAGE || '' }}
           # latest=auto: only the highest non-pre-release semver also
           # gets the floating `latest` tag. Pre-releases (vX.Y.Z-rc.1)
           # never overwrite latest. `latest` is produced by CI only —
@@ -291,7 +301,7 @@ jobs:
         run: cosign sign --yes ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
 
       - name: Sign image in Docker Hub (cosign keyless)
-        if: steps.dockerhub-check.outputs.available == 'true'
+        if: steps.dockerhub-login.outcome == 'success'
         run: cosign sign --yes ${{ env.DOCKERHUB_IMAGE }}@${{ steps.push.outputs.digest }}
 
       # The release also publishes a downloadable SPDX SBOM file as a
@@ -338,7 +348,7 @@ jobs:
             ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
 
       - name: Attest SBOM in Docker Hub (cosign keyless)
-        if: steps.dockerhub-check.outputs.available == 'true'
+        if: steps.dockerhub-login.outcome == 'success'
         run: |
           cosign attest --yes \
             --type spdxjson \
