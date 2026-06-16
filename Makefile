@@ -8,7 +8,7 @@ LDFLAGS  = -X github.com/elevarq/arq-signals/internal/safety.Version=$(VERSION) 
            -X github.com/elevarq/arq-signals/internal/safety.BuildDate=$(DATE)
 
 build:
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/arq-signals ./cmd/arq-signals
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/elevarq-signals ./cmd/arq-signals
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/arqctl ./cmd/arqctl
 
 test:
@@ -27,4 +27,4 @@ clean:
 	rm -rf bin/
 
 docker-build:
-	docker build -t arq-signals:$(VERSION) -f Dockerfile .
+	docker build -t elevarq-signals:$(VERSION) -f Dockerfile .

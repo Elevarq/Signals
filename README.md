@@ -1,6 +1,6 @@
-# Arq Signals
+# Elevarq Signals
 
-Arq Signals is a read-only PostgreSQL diagnostic collector. It runs on
+Elevarq Signals is a read-only PostgreSQL diagnostic collector. It runs on
 your infrastructure, collects statistics from your databases, and
 packages them as portable snapshots. No data leaves your machine. No AI.
 No cloud. Just structured evidence from the views PostgreSQL already
@@ -21,7 +21,7 @@ From [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams.
 > **No cloud, no phone-home** — all data stays on your machine. No
 > telemetry, no analytics, no external network calls.
 >
-> **No AI inside** — Arq Signals is a pure data collector. No language
+> **No AI inside** — Elevarq Signals is a pure data collector. No language
 > models, no scoring, no recommendations. What you collect is what you get.
 >
 > **Built for restricted environments** — runs airgapped, as a non-root
@@ -38,7 +38,7 @@ cd arq-signals
 docker compose -f examples/docker-compose.yml up -d
 ```
 
-This starts Arq Signals alongside PostgreSQL 16 with a pre-configured
+This starts Elevarq Signals alongside PostgreSQL 16 with a pre-configured
 monitoring role. Collection begins automatically.
 
 ```bash
@@ -60,23 +60,23 @@ for what the output looks like.
 
 ---
 
-## Why Arq Signals exists
+## Why Elevarq Signals exists
 
 Every PostgreSQL instance exposes diagnostic data through built-in
 statistics views. But collecting this data consistently, safely, and in
 a format you can actually use takes tooling that most teams end up
 building themselves.
 
-Arq Signals handles the collection part so you don't have to. It
+Elevarq Signals handles the collection part so you don't have to. It
 connects with a read-only role, runs approved SQL queries on a schedule,
 and writes structured results to local storage. When you need the data
 elsewhere, it packages everything as a portable ZIP snapshot.
 
 The project is open source because we think data collection should be
-transparent. You can read every SQL query Arq Signals will run. You can
+transparent. You can read every SQL query Elevarq Signals will run. You can
 audit the binary. You own the output.
 
-## What Arq Signals does
+## What Elevarq Signals does
 
 - Connects to one or more PostgreSQL instances (14+)
 - Runs 73 read-only diagnostic collectors covering:
@@ -150,7 +150,7 @@ Every safety guarantee — read-only enforcement, role validation,
 credential handling — is formally specified, tested, and traceable.
 You can verify the claims without reading the implementation.
 
-## Why DBAs trust Arq Signals
+## Why DBAs trust Elevarq Signals
 
 - All PostgreSQL queries execute inside `READ ONLY` transactions,
   enforced at three independent layers
