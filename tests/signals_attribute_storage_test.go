@@ -19,6 +19,7 @@ func TestAttributeStorageCollectorRegistered(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 is not registered")
+		return
 	}
 	if q.Category != "schema" {
 		t.Errorf("category: got %q, want %q", q.Category, "schema")
@@ -29,6 +30,7 @@ func TestAttributeStorageCollectorPassesLinter(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if err := pgqueries.LintQuery(q.SQL); err != nil {
 		t.Errorf("pg_attribute_storage_v1 failed linter: %v", err)
@@ -39,6 +41,7 @@ func TestAttributeStorageCollectorCadence(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if q.Cadence != pgqueries.CadenceDaily {
 		t.Errorf("cadence: got %v, want CadenceDaily (24h)", q.Cadence)
@@ -49,6 +52,7 @@ func TestAttributeStorageCollectorRetention(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if q.RetentionClass != pgqueries.RetentionMedium {
 		t.Errorf("retention: got %q, want RetentionMedium", q.RetentionClass)
@@ -59,6 +63,7 @@ func TestAttributeStorageCollectorResultKind(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if q.ResultKind != pgqueries.ResultRowset {
 		t.Errorf("ResultKind: got %q, want rowset", q.ResultKind)
@@ -71,6 +76,7 @@ func TestAttributeStorageCollectorMinPGVersion(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if q.MinPGVersion != 14 {
 		t.Errorf("MinPGVersion: got %d, want 14 (attcompression requires PG 14+)", q.MinPGVersion)
@@ -93,6 +99,7 @@ func TestAttributeStorageCollectorExcludesSystemSchemas(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	sql := strings.ToLower(q.SQL)
 	for _, schema := range []string{"pg_catalog", "information_schema", "pg_toast", "pg_temp_"} {
@@ -106,6 +113,7 @@ func TestAttributeStorageCollectorFiltersSystemColumns(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	sql := strings.ToLower(q.SQL)
 	if !strings.Contains(sql, "attnum > 0") {
@@ -117,6 +125,7 @@ func TestAttributeStorageCollectorFiltersDroppedColumns(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	sql := strings.ToLower(q.SQL)
 	if !strings.Contains(sql, "attisdropped") {
@@ -128,6 +137,7 @@ func TestAttributeStorageCollectorHasOrderBy(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if !containsCI(q.SQL, "ORDER BY") {
 		t.Error("pg_attribute_storage_v1 must have ORDER BY for deterministic output")
@@ -138,6 +148,7 @@ func TestAttributeStorageCollectorNoSelectStar(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if strings.Contains(q.SQL, "SELECT *") || strings.Contains(q.SQL, "select *") {
 		t.Error("pg_attribute_storage_v1 must not use SELECT *")
@@ -148,6 +159,7 @@ func TestAttributeStorageCollectorOutputColumns(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	sql := strings.ToLower(q.SQL)
 	required := []string{
@@ -167,6 +179,7 @@ func TestAttributeStorageCollectorUsesPgAttribute(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	if !containsCI(q.SQL, "pg_attribute") {
 		t.Error("pg_attribute_storage_v1 must use pg_attribute")
@@ -178,6 +191,7 @@ func TestAttributeStorageCollectorLeftJoinsStats(t *testing.T) {
 	q := pgqueries.ByID("pg_attribute_storage_v1")
 	if q == nil {
 		t.Fatal("pg_attribute_storage_v1 not registered")
+		return
 	}
 	sql := strings.ToLower(q.SQL)
 	if !strings.Contains(sql, "left join") || !strings.Contains(sql, "pg_stats") {
