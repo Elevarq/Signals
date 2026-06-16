@@ -119,7 +119,7 @@ jobs:
       # google/osv-scanner-action wrapper is not used directly
       # because its setup subpath doesn't ship an action.yml.
       - name: Install Semgrep
-        run: pipx install semgrep || python3 -m pip install --user semgrep
+        run: pip3 install "semgrep==1.166.0"  # pinned — resolves Scorecard PinnedDependenciesID (#45)
 
       - name: Install OSV-Scanner
         run: go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.2.4
