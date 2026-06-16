@@ -1,15 +1,16 @@
 # Feature Specification: Credential Providers (`auth_method`)
 
 - **Spec ID prefix:** `ARQ-SIGNALS-AUTH-`
-- **Lifecycle status:** `DRAFT`
+- **Lifecycle status:** `ACTIVE`
 - **Tracking issue:** [#93](https://github.com/Elevarq/Arq-Signals/issues/93)
   (keystone of epic [#92](https://github.com/Elevarq/Arq-Signals/issues/92))
 - **Type:** Behavioral + Integration-mapping (cloud identity endpoints)
 
-> This is the keystone specification for epic #92. It MUST reach
-> `ACTIVE` before any of the implementation sub-issues (#94–#101) begin.
-> The provider implementations each derive their own behavioral
-> sub-spec from the abstraction defined here.
+> This is the keystone specification for epic #92. It is `ACTIVE`: the
+> implementation sub-issues (#94–#101) derive their behavior from the
+> abstraction, invariants, failure taxonomy, and resolved design
+> decisions defined here. Each provider implementation carries its own
+> derived behavioral sub-spec that MUST conform to this contract.
 
 ## Purpose
 
@@ -80,7 +81,9 @@ conform to the interface, invariants, and failure taxonomy defined here.
     attached service account / Application Default Credentials.
   - `secret_store` — `secret_ref` (ARN / Key Vault secret URI / Secret
     Manager resource name). The provider's own auth to the vault uses
-    ambient workload identity.
+    ambient workload identity. Optional `max_cache_ttl` (duration)
+    bounds how long a fetched secret may be cached when the vault
+    supplies no TTL/lease of its own (see INV004).
   - `mtls` — `sslcert` (client cert path) and `sslkey` (client key
     path); optional key-passphrase source. (Field wiring specified in
     #98.)
@@ -157,19 +160,34 @@ corresponding derived spec; this table is the binding map between
   "credentials never stored, exported, or logged" safety principle to
   tokens and certificate material. Only the SHA-256 fingerprint or the
   method name / expiry timestamp may be logged.
-- **ARQ-SIGNALS-AUTH-INV003 (TLS floor for token methods)**: Any
-  `auth_method` that transmits a bearer token to the server
-  (`aws_rds_iam`, `azure_entra`, `gcp_cloudsql_iam`) MUST use an
-  encrypted connection whose server identity is verified
-  (`verify-full`, or the cloud connector that provides equivalent
-  verification). A token method MUST NOT proceed over a connection that
-  would expose the token (no `disable`/`allow`/`prefer`, and no
-  unverified TLS), in any environment — this is stricter than the
-  general `prod`-only TLS rule.
-- **ARQ-SIGNALS-AUTH-INV004 (rotation on reconnect preserved)**: The
-  credential is re-resolved on every new physical connection. A rotated
-  secret, a refreshed token, or a replaced certificate is picked up on
-  the next reconnect without a daemon restart.
+- **ARQ-SIGNALS-AUTH-INV003 (server-identity verification for token
+  methods)**: Any `auth_method` that transmits a bearer token to the
+  server (`aws_rds_iam`, `azure_entra`, `gcp_cloudsql_iam`) MUST use an
+  encrypted connection whose server identity is verified. A token method
+  MUST NOT proceed over a connection that would expose the token (no
+  `disable`/`allow`/`prefer`, and no unverified TLS), in any environment
+  — this is stricter than the general `prod`-only TLS rule. Two
+  satisfiers are recognised:
+  - **libpq / direct PostgreSQL connections** — `sslmode=verify-full`.
+  - **GCP Cloud SQL IAM** — the Cloud SQL connector/proxy is an approved
+    equivalent **when** it performs Google-supported encrypted transport
+    and server-identity verification for the target instance (CA mode /
+    hostname verification). The derived spec (#96) MUST name the
+    connector path it uses and assert this verification is in effect; a
+    direct libpq connection for `gcp_cloudsql_iam` still requires
+    `verify-full`.
+- **ARQ-SIGNALS-AUTH-INV004 (rotation on reconnect preserved; TTL
+  honoured)**: The credential is re-resolved on every new physical
+  connection — a rotated secret, a refreshed token, or a replaced
+  certificate is picked up on the next reconnect without a daemon
+  restart. In addition, a cached credential MUST NOT be reused past its
+  validity bound:
+  - For minted tokens, the bound is the token's own expiry (see NFR001
+    for the refresh-before-expiry rule).
+  - For `secret_store`, if the vault returns a TTL/lease duration, the
+    cached secret MUST NOT be reused past that TTL. If the vault supplies
+    no TTL, re-fetch on reconnect; an operator-configured `max_cache_ttl`
+    (when set) further bounds reuse between reconnects.
 - **ARQ-SIGNALS-AUTH-INV005 (read-only model untouched)**: The
   credential-provider abstraction changes only how the connection
   authenticates. It does not add write capability, does not relax role
@@ -181,6 +199,16 @@ corresponding derived spec; this table is the binding map between
   configuration block is read. Configuration for a non-selected method
   is ignored (and, where it implies a stored secret on a token method,
   rejected — see FC005).
+- **ARQ-SIGNALS-AUTH-INV007 (credential metadata is observable; the
+  credential is not)**: On every credential resolution, each target MUST
+  emit credential **metadata only** — `auth_method`, provider name,
+  `resolved_at`, and `expires_at` (or a `ttl_present` boolean when no
+  absolute expiry is known), plus a `credential_version` or SHA-256
+  fingerprint **only where deriving it cannot leak the secret**. The
+  token, fetched secret, or private-key material itself MUST NEVER be
+  logged, recorded, or exported (this is the positive-logging counterpart
+  to INV002). This metadata is what makes a rotation/refresh auditable
+  without disclosure.
 
 ## Failure Conditions
 
@@ -220,11 +248,21 @@ corresponding derived spec; this table is the binding map between
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-NFR001 (mint latency budget)**: Credential
-  resolution at `BeforeConnect` MUST complete within the existing
-  per-target connection budget. Token minting SHOULD be cached in memory
-  and refreshed shortly *before* expiry so steady-state reconnects do
-  not pay mint latency on every connection.
+- **ARQ-SIGNALS-AUTH-NFR001 (mint latency budget; per-target cache &
+  refresh skew)**: Credential resolution at `BeforeConnect` MUST complete
+  within the existing per-target connection budget. Minted tokens are
+  cached in memory and refreshed *before* expiry so steady-state
+  reconnects do not pay mint latency on every connection. The cache is
+  **per target, never shared**:
+  - **Cache key** = `target_id` + `auth_method` + `db_user` +
+    host/instance identity. Tokens MUST NOT be shared across targets even
+    when those fields coincide by accident — the key makes the isolation
+    explicit.
+  - **Refresh skew** (how long before expiry the token is re-minted) =
+    `max(60s, min(5m, ttl * 0.20))`. Example: AWS RDS IAM tokens last
+    15 minutes → a 3-minute refresh skew.
+  This default applies across all token providers; a derived spec may
+  tighten but not loosen it.
 - **ARQ-SIGNALS-AUTH-NFR002 (minimal outbound surface)**: A provider's
   only new outbound calls are to its cloud identity / vault endpoint.
   No telemetry, no third-party calls. (Consistent with the "no hidden
@@ -261,6 +299,19 @@ corresponding derived spec; this table is the binding map between
   any output surface (FC003 + INV002). *(failure)*
 - **ARQ-SIGNALS-AUTH-RULE006**: `auth_method` set to a value outside the
   enum aborts startup naming the allowed values (FC001). *(invalid)*
+- **ARQ-SIGNALS-AUTH-RULE007**: A minted token is re-minted before its
+  expiry per `max(60s, min(5m, ttl * 0.20))`, and a token cached for one
+  target is never presented for a different target (distinct cache key).
+  *(boundary — NFR001, INV004)*
+- **ARQ-SIGNALS-AUTH-RULE008**: For `secret_store`, a fetched secret is
+  not reused past a vault-supplied TTL; when no TTL is supplied it is
+  re-fetched on reconnect and, if `max_cache_ttl` is set, not reused
+  beyond it. *(boundary — INV004)*
+- **ARQ-SIGNALS-AUTH-RULE009**: Each resolution emits credential
+  metadata (`auth_method`, provider, `resolved_at`, `expires_at` /
+  `ttl_present`, optional version/fingerprint) and no output surface
+  ever contains the token, secret, or key material. *(normal — INV007,
+  INV002)*
 
 ## Safety Impact
 
@@ -296,20 +347,34 @@ credential-providers.md (this spec, DRAFT)
       #99 arqctl connect, #100 IaC templates, #101 docs
 ```
 
-Acceptance cases for RULE001–RULE006 are added to
-`acceptance-tests.md` and mapped in `traceability.md` when this spec is
-promoted from `DRAFT` to `ACTIVE`.
+Acceptance cases for RULE001–RULE009 are added to
+`acceptance-tests.md` and mapped in `traceability.md` as each derived
+provider spec (#94–#98) lands its tests. The cross-provider rules
+(RULE001, RULE003–RULE009) are exercised by the abstraction's own tests;
+the live-smoke rules (RULE002) are exercised per provider.
 
-## Open questions (resolve before ACTIVE)
+## Resolved design decisions
 
-1. **GCP TLS path** — does INV003 require `verify-full` directly, or is
-   the Cloud SQL Go connector (which provides equivalent server-identity
-   verification) an accepted satisfier? Decide in #96's derived spec and
-   reflect the wording here.
-2. **Token cache scope** — per-target in-memory cache vs. shared; and the
-   refresh-before-expiry skew value (NFR001). Propose a default in #94
-   and adopt it as the cross-provider default.
-3. **`secret_store` rotation signal** — rely solely on
-   reconnect-driven re-fetch (INV004), or also honour a vault-provided
-   TTL to force earlier reconnect? Default to reconnect-driven for the
-   first release unless #97 surfaces a concrete need.
+These were the open questions at `DRAFT`; resolved at promotion to
+`ACTIVE` and folded into the invariants/NFRs above.
+
+1. **GCP TLS path** *(→ INV003)*. Token/IAM methods require server
+   identity verification. For libpq / direct PostgreSQL connections this
+   means `sslmode=verify-full`. For GCP Cloud SQL IAM, the Cloud SQL
+   connector/proxy is an approved equivalent **when** it performs
+   Google-supported encrypted transport and server-identity verification
+   for the target instance (CA mode / hostname verification). #96 names
+   the connector path it uses and asserts that verification is in effect.
+2. **Token cache** *(→ NFR001)*. Per-target in-memory cache, never
+   shared. Cache key = `target_id` + `auth_method` + `db_user` +
+   host/instance identity. Refresh before expiry by
+   `max(60s, min(5m, ttl * 0.20))` (AWS RDS IAM 15-min tokens → 3-min
+   skew). Cross-provider default; derived specs may tighten, not loosen.
+3. **`secret_store` rotation signal** *(→ INV004)*. Both: reconnect-driven
+   re-fetch by default, **and** honour a vault-supplied TTL/lease when
+   present (no reuse past it). With no vault TTL, re-fetch on reconnect
+   and bound reuse by an operator-configured `max_cache_ttl` when set.
+4. **Credential metadata logging** *(→ INV007)*. Every resolution logs
+   metadata only — `auth_method`, provider, `resolved_at`, `expires_at` /
+   `ttl_present`, and a version/fingerprint where safe — and never the
+   token, secret, or key material.
