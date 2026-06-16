@@ -246,7 +246,7 @@ jobs:
           # labels below add the rest of the org.opencontainers.image.*
           # set so consumers can identify the build without pulling.
           labels: |
-            org.opencontainers.image.title=arq-signals
+            org.opencontainers.image.title=elevarq-signals
             org.opencontainers.image.description=Open-source PostgreSQL diagnostic signal collector — local-first, no data egress.
             org.opencontainers.image.licenses=BSD-3-Clause
             org.opencontainers.image.vendor=Elevarq
