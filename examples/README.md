@@ -101,7 +101,7 @@ rotation therefore does not require a restart.
 - Collection runs in a read-only transaction
   (`default_transaction_read_only=on`).
 - The monitoring role must be a member of `pg_monitor` unless
-  `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true` is explicitly set (dev only).
+  `SIGNALS_ALLOW_UNSAFE_ROLE=true` is explicitly set (dev only).
 - Superuser roles are blocked by default.
 - SQL queries pass a static linter that rejects any non-SELECT statement,
   embedded semicolons, and a denylist of side-effect functions

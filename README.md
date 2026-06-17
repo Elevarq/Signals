@@ -175,7 +175,7 @@ For the full safety model, see
 
 | Example | Description |
 |---------|-------------|
-| [Local safe role](examples/local-safe-role/) | Recommended production setup with `arq_signals` monitoring role |
+| [Local safe role](examples/local-safe-role/) | Recommended production setup with `signals` monitoring role |
 | [Local superuser override](examples/local-superuser-override/) | Dev/test setup with postgres superuser (unsafe override) |
 | [Docker](examples/docker/) | Container build, run, and export workflow |
 | [Docker Compose](examples/docker-compose.yml) | Quick start with PostgreSQL 16 |
@@ -290,14 +290,14 @@ docker compose -f examples/docker-compose.yml up -d
 
 ```bash
 docker run -d --name signals \
-  -e ARQ_SIGNALS_TARGET_HOST=host.docker.internal \
-  -e ARQ_SIGNALS_TARGET_USER=arq_monitor \
-  -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
-  -e ARQ_SIGNALS_TARGET_PASSWORD_ENV=PG_PASSWORD \
+  -e SIGNALS_TARGET_HOST=host.docker.internal \
+  -e SIGNALS_TARGET_USER=signals \
+  -e SIGNALS_TARGET_DBNAME=postgres \
+  -e SIGNALS_TARGET_PASSWORD_ENV=PG_PASSWORD \
   -e PG_PASSWORD=your_password \
-  -e ARQ_ALLOW_INSECURE_PG_TLS=true \
-  -e ARQ_ENV=dev \
-  -v arq-data:/data \
+  -e SIGNALS_ALLOW_INSECURE_PG_TLS=true \
+  -e SIGNALS_ENV=dev \
+  -v signals-data:/data \
   -p 8081:8081 \
   ghcr.io/elevarq/signals:latest
 ```
@@ -318,12 +318,12 @@ annotated configuration file.
 
 Elevarq Signals is designed to run using a dedicated monitoring role, not
 the PostgreSQL superuser. For production use, create a role such as
-`arq_signals` and grant the `pg_monitor` predefined role:
+`signals` and grant the `pg_monitor` predefined role:
 
 ```sql
-CREATE ROLE arq_signals LOGIN;
-GRANT pg_monitor TO arq_signals;
-GRANT CONNECT ON DATABASE your_database TO arq_signals;
+CREATE ROLE signals LOGIN;
+GRANT pg_monitor TO signals;
+GRANT CONNECT ON DATABASE your_database TO signals;
 
 -- Optional: enable query-level statistics
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
@@ -331,7 +331,7 @@ CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 
 The default `postgres` role is a superuser and will be rejected by the
 safety model unless the operator explicitly enables unsafe override
-mode (`ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`). This behavior is
+mode (`SIGNALS_ALLOW_UNSAFE_ROLE=true`). This behavior is
 intentional — it prevents accidental execution with elevated
 privileges in production.
 
@@ -362,7 +362,7 @@ signalsctl collect now
 
 # Via API
 curl -X POST http://localhost:8081/collect/now \
-  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+  -H "Authorization: Bearer $SIGNALS_API_TOKEN"
 ```
 
 ### Export snapshots
@@ -373,7 +373,7 @@ signalsctl export --output snapshot.zip
 
 # Via API
 curl -o snapshot.zip http://localhost:8081/export \
-  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+  -H "Authorization: Bearer $SIGNALS_API_TOKEN"
 ```
 
 ### Pre-flight diagnostics
@@ -415,7 +415,7 @@ kill -HUP $(pidof signals)
 
 # HTTP path
 curl -X POST http://localhost:8081/reload \
-  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+  -H "Authorization: Bearer $SIGNALS_API_TOKEN"
 ```
 
 v1 reload scope is the target list — add / remove / modify
@@ -431,7 +431,7 @@ signalsctl status
 
 ## Snapshot format
 
-Elevarq Signals produces snapshots in the `arq-snapshot.v1` format:
+Elevarq Signals produces snapshots in the `signals-snapshot.v1` format:
 
 ```
 snapshot.zip
@@ -446,7 +446,7 @@ Example `metadata.json`:
 
 ```json
 {
-  "schema_version": "arq-snapshot.v1",
+  "schema_version": "signals-snapshot.v1",
   "collector_version": "0.1.0",
   "collector_commit": "abc1234",
   "collected_at": "2026-03-14T10:30:00Z",
@@ -523,7 +523,7 @@ visible in [`internal/pgqueries/`](internal/pgqueries/).
 | `POST` | `/reload` | Bearer | Re-read config file, swap target list (R100). Same as `SIGHUP` |
 | `GET` | `/export` | Bearer | Download snapshot ZIP |
 
-Set `ARQ_SIGNALS_API_TOKEN` to configure the bearer token. If unset, a
+Set `SIGNALS_API_TOKEN` to configure the bearer token. If unset, a
 random token is generated at startup and logged (fingerprint only;
 the value is never logged).
 
@@ -538,17 +538,17 @@ correlation identifier, an optional `reason` label, and an optional
 ```bash
 # 1. No body — collect every enabled target.
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}"
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}"
 
 # 2. Narrow to a subset of configured targets.
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":["prod-main"]}'
 
 # 3. Caller-supplied correlation id and reason.
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
         "targets":    ["prod-main", "prod-reporting"],
@@ -559,7 +559,7 @@ curl -s -X POST http://127.0.0.1:8081/collect/now \
 # 4. Force this cycle to bypass min_snapshot_interval (R091).
 #    Does NOT bypass a paused circuit (R097) — resume the target first.
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":["prod-main"], "force": true}'
 ```
@@ -634,7 +634,7 @@ A single bearer token (`api.token`) authorises every request.
 Matched-token audit events carry `actor=local_operator`. This is
 the only mode every open-source deployment needs to know about.
 
-### Managed mode (`mode: arq_managed`)
+### Managed mode (`mode: managed`)
 
 Adds a second bearer token, the **Elevarq control-plane token**,
 distinct from `api.token`. The matched token determines the audit
@@ -643,11 +643,11 @@ identity:
 | Bearer matched | `actor` |
 |---|---|
 | `api.token` | `local_operator` |
-| `arq_control_plane_token` | `arq_control_plane` |
+| `control_plane_token` | `control_plane` |
 
 The actor is sourced from *which token matched* — it is **never**
 inferred from request shape. A caller holding only `api.token`
-cannot acquire the `arq_control_plane` identity by adding a
+cannot acquire the `control_plane` identity by adding a
 `request_id` or any other body field.
 
 The control-plane token is supplied via file (preferred) or
@@ -655,10 +655,10 @@ environment-variable indirection:
 
 ```yaml
 signals:
-  mode: arq_managed
-  arq_control_plane_token_file: /etc/arq/control-plane.token
+  mode: managed
+  control_plane_token_file: /etc/signals/control-plane.token
   # or:
-  # arq_control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
 ```
 
 The file is re-read on every authentication attempt so rotation is
@@ -705,7 +705,7 @@ hand-curated allow-list overrides the substring match for keys
 that carry only metadata about a configured value (booleans /
 fingerprints), never the secret value itself — as of today the
 allow-list has exactly one entry, the boolean
-`arq_control_plane_token_configured` on the `mode_configured`
+`control_plane_token_configured` on the `mode_configured`
 startup event.
 
 **Correlation by request_id.** When a caller supplies (or the
@@ -756,7 +756,7 @@ details.
 ### API tokens
 
 - Both bearer tokens (the local `api.token` and the optional
-  Mode B `arq_control_plane_token`) are compared in constant time
+  Mode B `control_plane_token`) are compared in constant time
   via `crypto/subtle`.
 - Token values **never appear** in audit logs, metrics, error
   messages, or HTTP responses. The auto-generated `api.token` logs
@@ -767,7 +767,7 @@ details.
   whose key contains a denylisted substring before it leaves the
   process. A small hand-curated allow-list permits a single
   configuration-status boolean
-  (`arq_control_plane_token_configured`) on the `mode_configured`
+  (`control_plane_token_configured`) on the `mode_configured`
   startup event — never a token value.
 - The control-plane token (when configured) is re-read from file
   on every authentication attempt. Rotation is a single file-write;
@@ -795,7 +795,7 @@ so it runs without glibc.
 
 Elevarq Signals reads configuration from (in order):
 1. `--config` flag
-2. `/etc/arq/signals.yaml`
+2. `/etc/signals/signals.yaml`
 3. `./signals.yaml`
 
 Environment variables override file-based config. See
@@ -804,29 +804,29 @@ annotated example.
 
 | Environment variable | Description | Default |
 |---------------------|-------------|---------|
-| `ARQ_ENV` | Environment: dev, lab, prod | dev |
-| `ARQ_ALLOW_INSECURE_PG_TLS` | Allow weak TLS in non-prod | false |
-| `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE` | Allow unsafe role attributes (lab/dev only) | false |
-| `ARQ_SIGNALS_TARGET_HOST` | PostgreSQL host | -- |
-| `ARQ_SIGNALS_TARGET_PORT` | PostgreSQL port | 5432 |
-| `ARQ_SIGNALS_TARGET_DBNAME` | Database name | postgres |
-| `ARQ_SIGNALS_TARGET_USER` | Username | -- |
-| `ARQ_SIGNALS_TARGET_NAME` | Target name | default |
-| `ARQ_SIGNALS_TARGET_PASSWORD_FILE` | Path to password file | -- |
-| `ARQ_SIGNALS_TARGET_PASSWORD_ENV` | Env var containing the password | -- |
-| `ARQ_SIGNALS_TARGET_PGPASS_FILE` | Path to pgpass file | -- |
-| `ARQ_SIGNALS_TARGET_SSLMODE` | TLS mode | -- |
-| `ARQ_SIGNALS_POLL_INTERVAL` | Collection interval | 5m |
-| `ARQ_SIGNALS_RETENTION_DAYS` | Days to retain data | 30 |
-| `ARQ_SIGNALS_LOG_LEVEL` | Log level: debug, info, warn, error | info |
-| `ARQ_SIGNALS_LOG_JSON` | JSON log format | false |
-| `ARQ_SIGNALS_MAX_CONCURRENT_TARGETS` | Max parallel targets | 4 |
-| `ARQ_SIGNALS_TARGET_TIMEOUT` | Per-target timeout | 60s |
-| `ARQ_SIGNALS_QUERY_TIMEOUT` | Per-query timeout | 10s |
-| `ARQ_SIGNALS_LISTEN_ADDR` | API listen address | 127.0.0.1:8081 |
-| `ARQ_SIGNALS_DB_PATH` | SQLite database path | /data/arq-signals.db |
-| `ARQ_SIGNALS_WRITE_TIMEOUT` | API write timeout | 180s |
-| `ARQ_SIGNALS_API_TOKEN` | Bearer token for API auth | auto-generated |
+| `SIGNALS_ENV` | Environment: dev, lab, prod | dev |
+| `SIGNALS_ALLOW_INSECURE_PG_TLS` | Allow weak TLS in non-prod | false |
+| `SIGNALS_ALLOW_UNSAFE_ROLE` | Allow unsafe role attributes (lab/dev only) | false |
+| `SIGNALS_TARGET_HOST` | PostgreSQL host | -- |
+| `SIGNALS_TARGET_PORT` | PostgreSQL port | 5432 |
+| `SIGNALS_TARGET_DBNAME` | Database name | postgres |
+| `SIGNALS_TARGET_USER` | Username | -- |
+| `SIGNALS_TARGET_NAME` | Target name | default |
+| `SIGNALS_TARGET_PASSWORD_FILE` | Path to password file | -- |
+| `SIGNALS_TARGET_PASSWORD_ENV` | Env var containing the password | -- |
+| `SIGNALS_TARGET_PGPASS_FILE` | Path to pgpass file | -- |
+| `SIGNALS_TARGET_SSLMODE` | TLS mode | -- |
+| `SIGNALS_POLL_INTERVAL` | Collection interval | 5m |
+| `SIGNALS_RETENTION_DAYS` | Days to retain data | 30 |
+| `SIGNALS_LOG_LEVEL` | Log level: debug, info, warn, error | info |
+| `SIGNALS_LOG_JSON` | JSON log format | false |
+| `SIGNALS_MAX_CONCURRENT_TARGETS` | Max parallel targets | 4 |
+| `SIGNALS_TARGET_TIMEOUT` | Per-target timeout | 60s |
+| `SIGNALS_QUERY_TIMEOUT` | Per-query timeout | 10s |
+| `SIGNALS_LISTEN_ADDR` | API listen address | 127.0.0.1:8081 |
+| `SIGNALS_DB_PATH` | SQLite database path | /data/signals.db |
+| `SIGNALS_WRITE_TIMEOUT` | API write timeout | 180s |
+| `SIGNALS_API_TOKEN` | Bearer token for API auth | auto-generated |
 
 ## Architecture and scope
 
@@ -852,7 +852,7 @@ It is a complete, standalone tool — not a crippled free tier.
 └───────────────────┘
 ```
 
-The snapshot format (`arq-snapshot.v1`) is the stable contract between
+The snapshot format (`signals-snapshot.v1`) is the stable contract between
 layers. Each layer is independently deployable and separately
 maintained.
 

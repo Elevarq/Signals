@@ -10,7 +10,7 @@ import (
 // TestSnapshotSchemaVersion verifies the schema version constant.
 // Traces: TC-SIG-023
 func TestSnapshotSchemaVersion(t *testing.T) {
-	expected := "arq-snapshot.v1"
+	expected := "signals-snapshot.v1"
 	if snapshot.SchemaVersion != expected {
 		t.Fatalf("SchemaVersion = %q, want %q", snapshot.SchemaVersion, expected)
 	}

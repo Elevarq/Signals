@@ -17,7 +17,7 @@ Elevarq Signals runs in one of two modes; the mode is set by
 | Mode | When to use | Auth surface |
 |---|---|---|
 | `standalone` (default) | Open-source / local-only / community deployments. Operator drives everything via the local API token. | One bearer token (`api.token`). |
-| `arq_managed` | Deployments where the commercial Elevarq control plane drives collection. | Two distinct bearer tokens. The local `api.token` for operator commands; a separate `arq_control_plane_token` for the control plane. |
+| `managed` | Deployments where the commercial Elevarq control plane drives collection. | Two distinct bearer tokens. The local `api.token` for operator commands; a separate `control_plane_token` for the control plane. |
 
 The configured target list in `signals.yaml` is the **authoritative
 ceiling** in both modes. The control plane (or any caller) can only
@@ -33,7 +33,7 @@ optional.** An empty body (or a missing body) keeps the historical
 {
   "targets":    ["prod-main", "prod-reporting"],
   "request_id": "abc_123",
-  "reason":     "scheduled_arq_cycle",
+  "reason":     "scheduled_cycle",
   "force":      false
 }
 ```
@@ -51,14 +51,14 @@ The cycle is **not triggered** when any target was rejected.
 
 ## Examples
 
-The examples below assume `ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars` and the
+The examples below assume `SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars` and the
 daemon listening on `127.0.0.1:8081` (the default).
 
 ### Collect everything (no body)
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}"
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}"
 ```
 
 Response:
@@ -77,7 +77,7 @@ Response:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":["prod-main"]}'
 ```
@@ -96,7 +96,7 @@ Response:
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{
         "targets":    ["prod-main", "prod-reporting"],
@@ -124,7 +124,7 @@ incident and needs back-to-back snapshots inside the interval.
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":["prod-main"], "force": true}'
 ```
@@ -138,7 +138,7 @@ the operator must resume it explicitly. `signalsctl collect now
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":["prod-main","does-not-exist"]}'
 ```
@@ -163,7 +163,7 @@ or supplied).
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"request_id":"abc 123"}'
 ```
@@ -178,7 +178,7 @@ Response (HTTP 400):
 
 ```bash
 curl -s -X POST http://127.0.0.1:8081/collect/now \
-  -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" \
+  -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" \
   -H "Content-Type: application/json" \
   -d '{"targets":[]}'
 ```
@@ -266,7 +266,7 @@ bearer token (R083), never inferred from request shape:
 | Bearer matched | `actor` | Conditions |
 |---|---|---|
 | `api.token` | `local_operator` | Any mode. Default for every operator-driven call. |
-| `arq_control_plane_token` | `arq_control_plane` | Only when `signals.mode: arq_managed`. |
+| `control_plane_token` | `control_plane` | Only when `signals.mode: managed`. |
 | Neither | (request never reaches the handler) | 401, R024 rate limiter records the failure. |
 
 See [`authentication.md`](./authentication.md) for the full Mode B
@@ -282,8 +282,8 @@ auth model, token rotation, and validation rules.
   rate limiter on invalid auth attempts continues to apply.
 - **Phase 2 actor invariant.** `actor` value derives from the
   matched token. R082 Phase 2 always emitted `local_operator`;
-  R083 lifted that to allow `arq_control_plane`.
-- **`arq_control_plane` is reserved for `mode=arq_managed`.** In
+  R083 lifted that to allow `control_plane`.
+- **`control_plane` is reserved for `mode=managed`.** In
   `mode=standalone` even a control-plane-token-shaped header value
   is treated as unknown — 401.
 
@@ -298,7 +298,7 @@ preserves the pause/resume trail across restart.
 ```http
 POST /collect/pause
 Content-Type: application/json
-Authorization: Bearer $ARQ_SIGNALS_API_TOKEN
+Authorization: Bearer $SIGNALS_API_TOKEN
 
 {"target": "prod-db", "reason": "investigating incident #4321"}
 ```
@@ -311,7 +311,7 @@ Authorization: Bearer $ARQ_SIGNALS_API_TOKEN
 ```http
 POST /collect/resume
 Content-Type: application/json
-Authorization: Bearer $ARQ_SIGNALS_API_TOKEN
+Authorization: Bearer $SIGNALS_API_TOKEN
 
 {"target": "prod-db"}
 ```
@@ -357,7 +357,7 @@ kill -HUP $(pidof signals)
 
 # HTTP
 curl -X POST http://localhost:8081/reload \
-  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+  -H "Authorization: Bearer $SIGNALS_API_TOKEN"
 ```
 
 ### v1 scope

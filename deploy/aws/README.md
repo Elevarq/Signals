@@ -35,9 +35,9 @@ full `auth_method` reference.
 Run once against the target database, as a privileged role:
 
 ```sql
-CREATE ROLE arq_signals LOGIN;     -- no password (passwordless)
-GRANT rds_iam TO arq_signals;      -- enables RDS IAM authentication
-GRANT pg_monitor TO arq_signals;   -- least-privilege read-only monitoring
+CREATE ROLE signals LOGIN;     -- no password (passwordless)
+GRANT rds_iam TO signals;      -- enables RDS IAM authentication
+GRANT pg_monitor TO signals;   -- least-privilege read-only monitoring
 ```
 
 See [`docs/postgres-role.md`](../../docs/postgres-role.md) for the role
@@ -97,7 +97,7 @@ rejected for `rds_iam`, re-check Step 1 and that the EC2 role's
 - **`rds-db:connect` is scoped** to exactly `db_user` on this one instance
   (`arn:aws:rds-db:<region>:<acct>:dbuser:<DbiResourceId>/<db_user>`).
 - TLS is **`verify-full`** against the RDS global CA bundle (fetched to
-  `/etc/arq/rds-ca.pem`).
+  `/etc/signals/rds-ca.pem`).
 - IMDSv2 is enforced (`http_tokens = required`); the root volume is encrypted;
   the API listener binds to `127.0.0.1` only.
 

@@ -134,7 +134,7 @@ func TestCollectNowAcceptsValidReason(t *testing.T) {
 	defer cleanup()
 
 	out := captureAuditLogs(t, func() {
-		code, _ := postCollectNow(t, handler, `{"reason":"scheduled_arq_cycle"}`)
+		code, _ := postCollectNow(t, handler, `{"reason":"scheduled_cycle"}`)
 		if code != http.StatusAccepted {
 			t.Fatalf("status = %d, want 202", code)
 		}
@@ -143,7 +143,7 @@ func TestCollectNowAcceptsValidReason(t *testing.T) {
 	if !strings.Contains(out, "audit_event=collect_now_requested") {
 		t.Errorf("missing collect_now_requested:\n%s", out)
 	}
-	if !strings.Contains(out, "reason=scheduled_arq_cycle") {
+	if !strings.Contains(out, "reason=scheduled_cycle") {
 		t.Errorf("audit log missing reason attribute:\n%s", out)
 	}
 }
@@ -186,7 +186,7 @@ func TestCollectNowRejectsInvalidReason(t *testing.T) {
 // TestCollectNowActorAlwaysLocalOperator verifies the Phase 2 actor
 // invariant: every accepted request emits actor=local_operator,
 // regardless of whether request_id was supplied. The
-// arq_control_plane actor value must NEVER be inferred from request
+// control_plane actor value must NEVER be inferred from request
 // shape — that's reserved for Phase 3 once a separate token exists.
 // Traces: ARQ-SIGNALS-R082 / TC-SIG-078
 func TestCollectNowActorAlwaysLocalOperator(t *testing.T) {
@@ -208,8 +208,8 @@ func TestCollectNowActorAlwaysLocalOperator(t *testing.T) {
 		if !strings.Contains(out, "actor=local_operator") {
 			t.Errorf("body %q: missing actor=local_operator", body)
 		}
-		if strings.Contains(out, "actor=arq_control_plane") {
-			t.Errorf("body %q: actor must never be arq_control_plane in Phase 2", body)
+		if strings.Contains(out, "actor=control_plane") {
+			t.Errorf("body %q: actor must never be control_plane in Phase 2", body)
 		}
 	}
 }

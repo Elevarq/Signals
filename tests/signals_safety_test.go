@@ -108,7 +108,7 @@ func TestSafetyResultSuperuserBlocked(t *testing.T) {
 		}
 	}
 	// Remediation guidance.
-	if !strings.Contains(errMsg, "CREATE ROLE arq_monitor") {
+	if !strings.Contains(errMsg, "CREATE ROLE signals") {
 		t.Errorf("Error() missing remediation guidance; got:\n%s", errMsg)
 	}
 }
@@ -345,8 +345,8 @@ func TestSafetyResultErrorContainsRemediation(t *testing.T) {
 	}
 
 	errMsg := r.Error()
-	if !strings.Contains(errMsg, "CREATE ROLE arq_monitor") {
-		t.Errorf("Error() missing 'CREATE ROLE arq_monitor'; got:\n%s", errMsg)
+	if !strings.Contains(errMsg, "CREATE ROLE signals") {
+		t.Errorf("Error() missing 'CREATE ROLE signals'; got:\n%s", errMsg)
 	}
 	if !strings.Contains(errMsg, "GRANT pg_monitor") {
 		t.Errorf("Error() missing 'GRANT pg_monitor'; got:\n%s", errMsg)
@@ -531,24 +531,24 @@ func TestExportUnsafeModeTrue(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestConfigAllowUnsafeRoleEnvVar verifies that setting
-// ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true causes config.Load to set AllowUnsafeRole=true.
+// SIGNALS_ALLOW_UNSAFE_ROLE=true causes config.Load to set AllowUnsafeRole=true.
 // Traces: ARQ-SIGNALS-R026 / TC-SIG-033
 func TestConfigAllowUnsafeRoleEnvVar(t *testing.T) {
-	// Create a minimal config file so Load does not try to open /etc/arq/signals.yaml.
+	// Create a minimal config file so Load does not try to open /etc/signals/signals.yaml.
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "signals.yaml")
 	if err := os.WriteFile(cfgPath, []byte("env: dev\n"), 0644); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
 
-	t.Setenv("ARQ_SIGNALS_ALLOW_UNSAFE_ROLE", "true")
+	t.Setenv("SIGNALS_ALLOW_UNSAFE_ROLE", "true")
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		t.Fatalf("config.Load: %v", err)
 	}
 	if !cfg.AllowUnsafeRole {
-		t.Error("expected AllowUnsafeRole=true after setting ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true")
+		t.Error("expected AllowUnsafeRole=true after setting SIGNALS_ALLOW_UNSAFE_ROLE=true")
 	}
 }
 

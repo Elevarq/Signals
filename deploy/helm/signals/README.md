@@ -39,7 +39,7 @@ Invariants enforced by the chart and the collector:
 target:
   host: db.internal
   dbname: appdb
-  user: arq_signals
+  user: signals
   sslmode: verify-full
   sslRootCertFile: /etc/ssl/db/ca.pem
   passwordSecretName: pg-cred     # Secret holding the password
@@ -65,7 +65,7 @@ serviceAccount:
 target:
   host: mydb.abc123.us-east-1.rds.amazonaws.com
   dbname: appdb
-  user: arq_signals
+  user: signals
   authMethod: aws_rds_iam
   region: us-east-1                 # optional; inferred from AWS_REGION / IMDS
   sslmode: verify-full
@@ -96,7 +96,7 @@ serviceAccount:
 target:
   host: mydb.abc123.us-east-1.rds.amazonaws.com
   dbname: appdb
-  user: arq_signals
+  user: signals
   authMethod: aws_rds_iam
   sslmode: verify-full
   sslRootCertFile: /etc/ssl/db/rds-global-bundle.pem
@@ -148,7 +148,7 @@ podLabels:
 target:
   host: myserver.postgres.database.azure.com
   dbname: appdb
-  user: arq_signals                 # must equal the Entra principal name
+  user: signals                 # must equal the Entra principal name
   authMethod: azure_entra
   azureClientId: <client-id>        # optional; user-assigned MI disambiguation
   sslmode: verify-full
@@ -179,9 +179,9 @@ serviceAccount:
 target:
   host: db.internal
   dbname: appdb
-  user: arq_signals
+  user: signals
   authMethod: secret_store
-  secretRef: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/arq_signals-AbCdEf
+  secretRef: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/signals-AbCdEf
   sslmode: verify-full
   sslRootCertFile: /etc/ssl/db/ca.pem
 # ... extraVolumes / extraVolumeMounts for the CA bundle

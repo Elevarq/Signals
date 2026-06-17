@@ -196,7 +196,7 @@ profiles, R015 cadences, R012 timeouts. Enabled by default.
 
 ## Permissions
 
-Baseline `arq_signals` role (LOGIN + `pg_monitor`,
+Baseline `signals` role (LOGIN + `pg_monitor`,
 `docs/postgres-role.md`) is sufficient for every member.
 `timescaledb_information.*` is PUBLIC-readable without row filtering;
 the size/stats functions perform no table ACL checks. The single

@@ -180,7 +180,7 @@ mtlsProvider implements CredentialProvider:
 - **AC-MTLS-008 (normal — metadata only)**: a successful resolution logs
   `auth_method`, db_user, cert subject/fingerprint, NotAfter, resolved_at —
   never the key (INV-MTLS-001).
-- **AC-MTLS-009 (live smoke, env-gated)**: with `ARQ_SIGNALS_INTEGRATION_LIVE=1`
+- **AC-MTLS-009 (live smoke, env-gated)**: with `SIGNALS_INTEGRATION_LIVE=1`
   against a PostgreSQL configured for client-cert auth (`clientcert=verify-full`
   in `pg_hba.conf`, a `pg_ident` map to the role), the collector connects with a
   client certificate and collects at least one snapshot. Not run in default CI.

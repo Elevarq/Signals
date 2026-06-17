@@ -49,8 +49,8 @@ signals:
 Or via environment variables:
 
 ```
-ARQ_SIGNALS_METRICS_ENABLED=true
-ARQ_SIGNALS_METRICS_PATH=/metrics
+SIGNALS_METRICS_ENABLED=true
+SIGNALS_METRICS_PATH=/metrics
 ```
 
 `metrics_path` must start with `/` and may not be `/health`,

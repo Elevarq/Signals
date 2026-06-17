@@ -36,13 +36,13 @@ targets:
     host: localhost
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     password_file: /path/to/pg_password
     sslmode: prefer
     enabled: true
 ```
 
-The config file is called `signals.yaml`. Elevarq Signals searches for it at `/etc/arq/signals.yaml` and `./signals.yaml` by default, or you can pass `--config <path>`.
+The config file is called `signals.yaml`. Elevarq Signals searches for it at `/etc/signals/signals.yaml` and `./signals.yaml` by default, or you can pass `--config <path>`.
 
 ### 3. Start the daemon
 
@@ -58,7 +58,7 @@ The daemon begins collecting on the configured `poll_interval` (default 5m).
 signalsctl collect now
 ```
 
-`signalsctl` talks to the running Elevarq Signals daemon over its HTTP API. Set `ARQ_SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
+`signalsctl` talks to the running Elevarq Signals daemon over its HTTP API. Set `SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
 
 ### 5. Export
 
@@ -68,7 +68,7 @@ Export the collected data as a snapshot:
 signalsctl export --output snapshot.zip
 ```
 
-The output is a self-contained ZIP archive in `arq-snapshot.v1` format.
+The output is a self-contained ZIP archive in `signals-snapshot.v1` format.
 
 ### 6. Check status
 
@@ -88,8 +88,8 @@ Run Elevarq Signals as a long-lived container:
 ```bash
 docker run -d \
   --name signals \
-  -v /etc/arq/signals.yaml:/etc/arq/signals.yaml:ro \
-  -v arq-data:/data \
+  -v /etc/signals/signals.yaml:/etc/signals/signals.yaml:ro \
+  -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
   ghcr.io/elevarq/signals:latest
 ```
@@ -103,15 +103,15 @@ For simple deployments with a single PostgreSQL target, you can configure everyt
 ```bash
 docker run -d \
   --name signals \
-  -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
-  -e ARQ_SIGNALS_TARGET_PORT=5432 \
-  -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
-  -e ARQ_SIGNALS_TARGET_USER=arq_monitor \
-  -e ARQ_SIGNALS_TARGET_PASSWORD_FILE=/run/secrets/pg_password \
-  -e ARQ_SIGNALS_TARGET_SSLMODE=verify-full \
-  -e ARQ_ENV=prod \
+  -e SIGNALS_TARGET_HOST=db.example.com \
+  -e SIGNALS_TARGET_PORT=5432 \
+  -e SIGNALS_TARGET_DBNAME=postgres \
+  -e SIGNALS_TARGET_USER=signals \
+  -e SIGNALS_TARGET_PASSWORD_FILE=/run/secrets/pg_password \
+  -e SIGNALS_TARGET_SSLMODE=verify-full \
+  -e SIGNALS_ENV=prod \
   -v /run/secrets/pg_password:/run/secrets/pg_password:ro \
-  -v arq-data:/data \
+  -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
   ghcr.io/elevarq/signals:latest
 ```
@@ -120,15 +120,15 @@ The following target-level env vars are supported:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ARQ_SIGNALS_TARGET_HOST` | PostgreSQL host (required to activate env-based target) | -- |
-| `ARQ_SIGNALS_TARGET_PORT` | PostgreSQL port | 5432 |
-| `ARQ_SIGNALS_TARGET_DBNAME` | Database name | postgres |
-| `ARQ_SIGNALS_TARGET_USER` | Username | -- |
-| `ARQ_SIGNALS_TARGET_NAME` | Target name | default |
-| `ARQ_SIGNALS_TARGET_PASSWORD_FILE` | Path to password file | -- |
-| `ARQ_SIGNALS_TARGET_PASSWORD_ENV` | Env var containing the password | -- |
-| `ARQ_SIGNALS_TARGET_PGPASS_FILE` | Path to pgpass file | -- |
-| `ARQ_SIGNALS_TARGET_SSLMODE` | TLS mode | -- |
+| `SIGNALS_TARGET_HOST` | PostgreSQL host (required to activate env-based target) | -- |
+| `SIGNALS_TARGET_PORT` | PostgreSQL port | 5432 |
+| `SIGNALS_TARGET_DBNAME` | Database name | postgres |
+| `SIGNALS_TARGET_USER` | Username | -- |
+| `SIGNALS_TARGET_NAME` | Target name | default |
+| `SIGNALS_TARGET_PASSWORD_FILE` | Path to password file | -- |
+| `SIGNALS_TARGET_PASSWORD_ENV` | Env var containing the password | -- |
+| `SIGNALS_TARGET_PGPASS_FILE` | Path to pgpass file | -- |
+| `SIGNALS_TARGET_SSLMODE` | TLS mode | -- |
 
 ### TLS
 
@@ -140,14 +140,14 @@ targets:
     host: db.example.com
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     password_file: /run/secrets/pg_password
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/pg-ca.crt
     enabled: true
 ```
 
-In production (`env: prod`), weak TLS modes (`disable`, `allow`, `prefer`, `require`) are rejected. In non-production environments, set `ARQ_ALLOW_INSECURE_PG_TLS=true` to allow weak TLS for local development.
+In production (`env: prod`), weak TLS modes (`disable`, `allow`, `prefer`, `require`) are rejected. In non-production environments, set `SIGNALS_ALLOW_INSECURE_PG_TLS=true` to allow weak TLS for local development.
 
 For the HTTP API, place Elevarq Signals behind a TLS-terminating reverse proxy (nginx, Caddy, or a cloud load balancer).
 
@@ -171,7 +171,7 @@ targets:
     host: db.example.com
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     password_file: /run/secrets/pg_password
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/pg-ca.crt
@@ -186,7 +186,7 @@ targets:
     host: db.example.com
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     password_env: PG_PASSWORD_PROD
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/pg-ca.crt
@@ -200,10 +200,10 @@ Credentials are read fresh on each connection attempt. They are never cached in 
 Create a dedicated read-only role for Elevarq Signals. The following works across RDS, Cloud SQL, Aurora, and self-managed PostgreSQL:
 
 ```sql
-CREATE ROLE arq_monitor WITH LOGIN PASSWORD 'your-secure-password';
+CREATE ROLE signals WITH LOGIN PASSWORD 'your-secure-password';
 
 -- Grant read access to statistics views
-GRANT pg_monitor TO arq_monitor;
+GRANT pg_monitor TO signals;
 
 -- Optional: enable query-level statistics
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
@@ -218,14 +218,14 @@ On **Google Cloud SQL**, grant the `cloudsqlsuperuser` role or assign `pg_monito
 Elevarq Signals enforces strict role safety by default. If your monitoring role has superuser, replication, or bypassrls attributes, collection is blocked with an actionable error message. Use the recommended monitoring role setup:
 
 ```sql
-CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
-GRANT pg_monitor TO arq_monitor;
+CREATE ROLE signals WITH LOGIN PASSWORD '...';
+GRANT pg_monitor TO signals;
 -- Do NOT grant superuser, replication, or bypassrls
 ```
 
 For managed databases (RDS, Cloud SQL, Aurora), the equivalent role grants are documented in each provider's documentation for pg_monitor.
 
-An explicit override (`ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev environments only and is not recommended for production.
+An explicit override (`SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev environments only and is not recommended for production.
 
 ---
 
@@ -247,7 +247,7 @@ targets:
     host: primary.db.internal
     port: 5432
     dbname: app
-    user: arq_monitor
+    user: signals
     password_file: /run/secrets/pg_password_primary
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/pg-ca.crt
@@ -257,7 +257,7 @@ targets:
     host: replica.db.internal
     port: 5432
     dbname: app
-    user: arq_monitor
+    user: signals
     password_file: /run/secrets/pg_password_replica
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/pg-ca.crt
@@ -267,12 +267,12 @@ targets:
     host: staging.db.internal
     port: 5432
     dbname: app
-    user: arq_monitor
+    user: signals
     password_env: PG_PASSWORD_STAGING
     sslmode: require
     enabled: true
 database:
-  path: /data/arq-signals.db
+  path: /data/signals.db
   wal: true
 api:
   listen_addr: "127.0.0.1:8081"
@@ -302,13 +302,13 @@ targets:
     host: localhost
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     password_file: /path/to/password    # or password_env or pgpass_file
     sslmode: prefer
     sslrootcert_file: /path/to/ca.crt   # required for verify-ca/verify-full
     enabled: true
 database:
-  path: /data/arq-signals.db
+  path: /data/signals.db
   wal: true
 api:
   listen_addr: "127.0.0.1:8081"
@@ -331,7 +331,7 @@ Run Elevarq Signals as a daemon and export snapshots on a schedule:
 
 ### Feeding Snapshots to Custom Scripts
 
-The `arq-snapshot.v1` format is a ZIP archive containing NDJSON files. Parse it with standard tools:
+The `signals-snapshot.v1` format is a ZIP archive containing NDJSON files. Parse it with standard tools:
 
 ```bash
 # List contents
@@ -356,7 +356,7 @@ aws s3 cp snapshot.zip s3://my-bucket/signals/$(date +%Y/%m/%d)/
 
 ### Snapshot Format Versioning
 
-Snapshot archives include a format version identifier (`arq-snapshot.v1`). When the format changes, the version number increments. Older snapshots remain readable by newer versions of Elevarq Signals.
+Snapshot archives include a format version identifier (`signals-snapshot.v1`). When the format changes, the version number increments. Older snapshots remain readable by newer versions of Elevarq Signals.
 
 ### Binary Upgrades
 
@@ -391,7 +391,7 @@ Replace the binary or container image and restart. Elevarq Signals uses SQLite w
 - The monitoring role does not have `pg_monitor` membership.
 - On RDS/Aurora, the role was not granted the required managed policy role.
 
-**Fix:** Grant the `pg_monitor` role: `GRANT pg_monitor TO arq_monitor;`
+**Fix:** Grant the `pg_monitor` role: `GRANT pg_monitor TO signals;`
 
 ### Role Safety Blocked
 
@@ -402,11 +402,11 @@ Replace the binary or container image and restart. Elevarq Signals uses SQLite w
 
 **Fix:** Create a dedicated monitoring role without those privileges:
 ```sql
-CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
-GRANT pg_monitor TO arq_monitor;
+CREATE ROLE signals WITH LOGIN PASSWORD '...';
+GRANT pg_monitor TO signals;
 ```
 
-For lab/dev environments only, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true` to override.
+For lab/dev environments only, set `SIGNALS_ALLOW_UNSAFE_ROLE=true` to override.
 
 ### TLS Rejected
 
@@ -415,7 +415,7 @@ For lab/dev environments only, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true` to overr
 **Causes:**
 - Production mode (`env: prod`) requires `verify-ca` or `verify-full` with a CA certificate.
 
-**Fix:** Set `sslmode: verify-full` and provide `sslrootcert_file` in your target config. For non-production environments, set `ARQ_ALLOW_INSECURE_PG_TLS=true` to allow weaker TLS modes.
+**Fix:** Set `sslmode: verify-full` and provide `sslrootcert_file` in your target config. For non-production environments, set `SIGNALS_ALLOW_INSECURE_PG_TLS=true` to allow weaker TLS modes.
 
 ### Extension Not Found
 

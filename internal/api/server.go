@@ -49,13 +49,13 @@ type Deps struct {
 	// MetricsPath is the URL path the /metrics endpoint is mounted on.
 	// Ignored when Metrics is nil.
 	MetricsPath string
-	// ArqControlPlaneTokenFn returns the current Elevarq control-plane
+	// ControlPlaneTokenFn returns the current Elevarq control-plane
 	// bearer token (R083), or empty string when control-plane auth
 	// is disabled. The closure is invoked once per authenticated
 	// request so token-file rotation takes effect on the next call
 	// without restarting the daemon. nil is equivalent to a function
 	// that always returns "" — the standalone-mode default.
-	ArqControlPlaneTokenFn func() string
+	ControlPlaneTokenFn func() string
 	// TLSCertFile / TLSKeyFile enable daemon-terminated TLS for the
 	// API (R113). When both are non-empty the listener serves HTTPS
 	// (minimum TLS 1.2); when both are empty it serves plain HTTP.
@@ -105,7 +105,7 @@ func NewServer(addr string, readTimeout, writeTimeout time.Duration, apiToken st
 	// Wrap with middleware: recovery -> logging -> token auth.
 	tokenLimiter := newTokenRateLimiter()
 	handler := recoveryMiddleware(loggingMiddleware(
-		tokenAuthMiddleware(apiToken, deps.ArqControlPlaneTokenFn, tokenLimiter)(mux),
+		tokenAuthMiddleware(apiToken, deps.ControlPlaneTokenFn, tokenLimiter)(mux),
 	))
 
 	httpSrv := &http.Server{
@@ -276,7 +276,7 @@ var reasonPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 //	{
 //	  "targets": ["a", "b"],
 //	  "request_id": "01J5K…",
-//	  "reason": "scheduled_arq_cycle"
+//	  "reason": "scheduled_cycle"
 //	}
 //
 // Validation:
@@ -297,7 +297,7 @@ var reasonPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,64}$`)
 // trail even when the cycle never fires.
 //
 // actor is always `local_operator` in Phase 2. The
-// `arq_control_plane` actor value is reserved for Phase 3.
+// `control_plane` actor value is reserved for Phase 3.
 // collectNowMaxBodyBytes caps the /collect/now request body. The legal
 // payload is three short fields (targets array, request_id ≤32 chars,
 // reason ≤64 chars) — even a few hundred targets stays well under
@@ -501,7 +501,7 @@ func handleCollectNow(deps *Deps) http.HandlerFunc {
 		// Audit: every successful request emits collect_now_requested
 		// before queuing. Phase 2 actor invariant: always
 		// local_operator until Phase 3 introduces a separate
-		// arq_control_plane token (R082).
+		// control_plane token (R082).
 		requestedAttrs := []any{
 			"actor", actorFromCtx(r.Context()),
 			"request_id", requestID,
@@ -860,8 +860,8 @@ func loggingMiddleware(next http.Handler) http.Handler {
 
 // Audit `actor` values (R078 / R083). Stable wire constants.
 const (
-	ActorLocalOperator   = "local_operator"
-	ActorArqControlPlane = "arq_control_plane"
+	ActorLocalOperator = "local_operator"
+	ActorControlPlane  = "control_plane"
 )
 
 // ctxKey is an unexported type so external packages can never set or
@@ -874,7 +874,7 @@ const ctxKeyActor ctxKey = iota
 // request context by tokenAuthMiddleware. Defaults to local_operator
 // when no value is present (e.g. test code that bypasses the
 // middleware) — never returns the more privileged
-// arq_control_plane value by default.
+// control_plane value by default.
 func actorFromCtx(ctx context.Context) string {
 	if v, ok := ctx.Value(ctxKeyActor).(string); ok && v != "" {
 		return v
@@ -931,7 +931,7 @@ func tokenAuthMiddleware(apiToken string, controlPlaneTokenFn func() string, lim
 					// is the per-request file/env re-read.
 					cpt := controlPlaneTokenFn()
 					if cpt != "" && subtle.ConstantTimeCompare(provided, []byte(cpt)) == 1 {
-						actor = ActorArqControlPlane
+						actor = ActorControlPlane
 					}
 				}
 			}

@@ -41,12 +41,12 @@ bug.
 
 | Role | Password | Behavior |
 |---|---|---|
-| `arq_monitor` | `monitor_pass` | Least-privilege (LOGIN + `pg_monitor`). Full hypertable/chunk/compression/jobs surface; **zero rows** in `timescaledb_job_errors_v1` — the documented partial-by-design state (`docs/postgres-role.md` § TimescaleDB targets). |
-| `arq_monitor_owner` | `monitor_owner_pass` | Same + membership in `tsdemo_owner` (the demo database-owner role) → sees the failing job's rows in `job_errors`. |
+| `signals` | `monitor_pass` | Least-privilege (LOGIN + `pg_monitor`). Full hypertable/chunk/compression/jobs surface; **zero rows** in `timescaledb_job_errors_v1` — the documented partial-by-design state (`docs/postgres-role.md` § TimescaleDB targets). |
+| `signals_monitor_owner` | `monitor_owner_pass` | Same + membership in `tsdemo_owner` (the demo database-owner role) → sees the failing job's rows in `job_errors`. |
 
-The compose file wires `signals` to `arq_monitor`. To demo the
+The compose file wires `signals` to `signals`. To demo the
 owner variant, point a second target (or `psql`) at the same database
-as `arq_monitor_owner` and compare `timescaledb_job_errors_v1`.
+as `signals_monitor_owner` and compare `timescaledb_job_errors_v1`.
 
 ## What the fixture produces, collector by collector
 
@@ -60,7 +60,7 @@ as `arq_monitor_owner` and compare `timescaledb_job_errors_v1`.
 | `metrics_daily` continuous aggregate, hourly refresh policy, refreshed once at seed | `timescaledb_continuous_aggregates_v1` | cagg row with materialization hypertable; `view_definition` (redacted when the R075 opt-out is active) | TS-R005 refresh lag |
 | Retention policy (`drop_after => 365 days`) | `timescaledb_jobs_v1` (`proc_name='policy_retention'`, `config`) | policy job with schedule + config JSONB | TS-R006 retention ineffective |
 | All policy + system jobs | `timescaledb_jobs_v1`, `timescaledb_job_stats_v1` | 6+ jobs (telemetry, log retention, compression, retention, cagg refresh, demo job) with run counters | TS-R007 job failures |
-| `demo_failing_job` (raises every minute, no retries) | `timescaledb_job_stats_v1`, `timescaledb_job_errors_v1` | `total_failures` > 0 visible to ANY role; per-failure rows only for `arq_monitor_owner` | TS-R007 |
+| `demo_failing_job` (raises every minute, no retries) | `timescaledb_job_stats_v1`, `timescaledb_job_errors_v1` | `total_failures` > 0 visible to ANY role; per-failure rows only for `signals_monitor_owner` | TS-R007 |
 | `legacy_measurements` (plain, append-only, time-keyed, 52k rows, time-leading btree) | core collectors (`pg_columns_v1`, `pg_indexes_v1`, `largest_relations_v1`, `pg_stat_user_tables_v1`) | the "should be a hypertable" exhibit | TS-R008 hypertable candidate |
 | time-leading index + segmentby settings + size split | `timescaledb_hypertable_sizes_v1` + core index collectors | approximate table/index/toast/total bytes per hypertable | TS-R009 index recommendation |
 

@@ -239,7 +239,7 @@ func TestExportMetadataContainsComplianceFields(t *testing.T) {
 			meta := readMetadataFromExport(t, w.Body.Bytes())
 
 			required := []string{
-				"arq_signals_version",
+				"signals_version",
 				"schema_version",
 				"generated_at",
 				"instance_id",

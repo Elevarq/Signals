@@ -146,7 +146,7 @@ func init() {
 	//      other databases on the same cluster are excluded.
 	//   2. Suppress rows attributable to Signals' own sessions via a
 	//      NOT EXISTS correlated subquery against pg_stat_activity
-	//      where application_name = 'arq-signals', matching on
+	//      where application_name = 'signals', matching on
 	//      (userid ↔ usesysid, dbid ↔ datid). pg_stat_statements does
 	//      not carry application_name directly so the (user, db)
 	//      attribution is the safest available proxy.
@@ -160,7 +160,7 @@ func init() {
 		WHERE d.datname = current_database()
 		  AND NOT EXISTS (
 		    SELECT 1 FROM pg_stat_activity a
-		    WHERE a.application_name = 'arq-signals'
+		    WHERE a.application_name = 'signals'
 		      AND a.usesysid = s.userid
 		      AND a.datid = s.dbid
 		  )`,

@@ -13,7 +13,7 @@ import (
 func TestBuildConnConfigWithCredential_Password(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",
-		User: "arq_monitor", SSLMode: "verify-full",
+		User: "signals", SSLMode: "verify-full",
 	}
 	cfg, err := BuildConnConfigWithCredential(tgt, Credential{Kind: CredKindPassword, Password: "the-token"})
 	if err != nil {
@@ -35,7 +35,7 @@ func TestBuildConnConfigWithCredential_Password(t *testing.T) {
 func TestBuildConnConfigWithCredential_Certificate(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",
-		User: "arq_monitor", SSLMode: "verify-full",
+		User: "signals", SSLMode: "verify-full",
 	}
 	cert := &tls.Certificate{}
 	cfg, err := BuildConnConfigWithCredential(tgt, Credential{Kind: CredKindCertificate, ClientCert: cert})
@@ -55,7 +55,7 @@ func TestBuildConnConfigWithCredential_Certificate(t *testing.T) {
 func TestBuildConnConfigWithCredential_CertRequiresTLS(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",
-		User: "arq_monitor", SSLMode: "disable",
+		User: "signals", SSLMode: "disable",
 	}
 	if _, err := BuildConnConfigWithCredential(tgt, Credential{Kind: CredKindCertificate, ClientCert: &tls.Certificate{}}); err == nil {
 		t.Fatal("expected error for certificate credential without TLS")
@@ -72,8 +72,8 @@ func TestBuildConnConfigWithCredential_MissingHost(t *testing.T) {
 // TestMTLSGuidance is the AC-MTLS-010 guidance: the exact pg_hba clause,
 // the role, and no key material.
 func TestMTLSGuidance(t *testing.T) {
-	g := MTLSGuidance(config.TargetConfig{Name: "prod", DBName: "app", User: "arq_monitor"})
-	for _, want := range []string{"hostssl", "clientcert=verify-full", "arq_monitor", "app", "ssl_ca_file"} {
+	g := MTLSGuidance(config.TargetConfig{Name: "prod", DBName: "app", User: "signals"})
+	for _, want := range []string{"hostssl", "clientcert=verify-full", "signals", "app", "ssl_ca_file"} {
 		if !strings.Contains(g, want) {
 			t.Errorf("guidance missing %q:\n%s", want, g)
 		}

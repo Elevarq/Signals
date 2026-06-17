@@ -1,11 +1,11 @@
 # arq-signals quick start (LOCAL DEV ONLY)
 #
-# This compose file is for local development. ARQ_ENV=dev so the
+# This compose file is for local development. SIGNALS_ENV=dev so the
 # weak-token rule (#135 / config.WeakAPITokenReason) emits a
-# WARNING and lets the deployment start. In ARQ_ENV=prod the same
+# WARNING and lets the deployment start. In SIGNALS_ENV=prod the same
 # token would HARD-FAIL startup. Production deployments MUST mint
 # a strong token (e.g. `openssl rand -base64 32`) and supply it
-# via ARQ_SIGNALS_API_TOKEN_FILE or a Kubernetes Secret — see
+# via SIGNALS_API_TOKEN_FILE or a Kubernetes Secret — see
 # docs/security/access-control.md.
 #
 # Start arq-signals alongside a PostgreSQL 16 instance:
@@ -25,22 +25,22 @@ services:
       context: ..
       dockerfile: Dockerfile
     environment:
-      ARQ_SIGNALS_TARGET_HOST: postgres
-      ARQ_SIGNALS_TARGET_PORT: "5432"
-      ARQ_SIGNALS_TARGET_USER: arq_monitor
-      ARQ_SIGNALS_TARGET_DBNAME: postgres
-      ARQ_SIGNALS_TARGET_PASSWORD_ENV: PG_PASSWORD
+      SIGNALS_TARGET_HOST: postgres
+      SIGNALS_TARGET_PORT: "5432"
+      SIGNALS_TARGET_USER: signals
+      SIGNALS_TARGET_DBNAME: postgres
+      SIGNALS_TARGET_PASSWORD_ENV: PG_PASSWORD
       PG_PASSWORD: monitor_pass
-      ARQ_SIGNALS_POLL_INTERVAL: 1m
+      SIGNALS_POLL_INTERVAL: 1m
       # Dev-only API token. The 39-char value passes the #135 strength
       # validator AND is obviously a placeholder. Replace before any
       # production use — see docs/security/access-control.md.
-      ARQ_SIGNALS_API_TOKEN: dev-local-only-replace-in-prod-32chars
+      SIGNALS_API_TOKEN: dev-local-only-replace-in-prod-32chars
       # Default listen addr is 127.0.0.1 (safe); in the dev stack we
       # need it reachable via the port mapping, hence 0.0.0.0.
-      ARQ_SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"
-      ARQ_ALLOW_INSECURE_PG_TLS: "true"
-      ARQ_ENV: dev
+      SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"
+      SIGNALS_ALLOW_INSECURE_PG_TLS: "true"
+      SIGNALS_ENV: dev
     ports:
       - "8081:8081"
     volumes:

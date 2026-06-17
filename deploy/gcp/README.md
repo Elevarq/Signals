@@ -100,7 +100,7 @@ instance private IP.
 - The VM has **no public IP**, runs **Shielded VM** (secure boot + vTPM +
   integrity monitoring), and the API listener binds to `127.0.0.1` only.
 - TLS is **`verify-full`** against the instance server CA (written to
-  `/etc/arq/cloudsql-ca.pem`).
+  `/etc/signals/cloudsql-ca.pem`).
 
 ## Reusing the identity elsewhere
 

@@ -39,22 +39,22 @@ targets:
     host: localhost
     port: 5432
     dbname: postgres
-    user: arq_monitor
+    user: signals
     enabled: true
 
     # Credential source (choose one):
-    password_file: /etc/arq/pg_password
+    password_file: /etc/signals/pg_password
     # password_env: PG_MONITOR_PASSWORD
-    # pgpass_file: /etc/arq/.pgpass
+    # pgpass_file: /etc/signals/.pgpass
 
     # TLS configuration
     # For production, use verify-full with a CA certificate:
     sslmode: prefer
-    # sslrootcert_file: /etc/arq/server-ca.crt
+    # sslrootcert_file: /etc/signals/server-ca.crt
 
 # Local SQLite storage
 database:
-  path: /data/arq-signals.db
+  path: /data/signals.db
   wal: true
 
 # HTTP API

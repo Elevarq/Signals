@@ -25,17 +25,17 @@ locals {
     apt-get update -y
     apt-get install -y docker.io
     systemctl enable --now docker
-    mkdir -p /etc/arq
+    mkdir -p /etc/signals
     # Cloud SQL instance server CA for sslmode=verify-full (public certificate).
-    cat > /etc/arq/cloudsql-ca.pem <<'PEM'
+    cat > /etc/signals/cloudsql-ca.pem <<'PEM'
     ${var.db_server_ca_cert}
     PEM
-    cat > /etc/arq/signals.yaml <<'YAML'
+    cat > /etc/signals/signals.yaml <<'YAML'
     env: ${var.arq_env}
     signals:
       poll_interval: ${var.poll_interval}
     database:
-      path: /data/arq-signals.db
+      path: /data/signals.db
       wal: true
     api:
       listen_addr: "127.0.0.1:8081"
@@ -47,13 +47,13 @@ locals {
         user: "${local.pg_user}"
         auth_method: gcp_cloudsql_iam${local.impersonate_yaml}
         sslmode: verify-full
-        sslrootcert_file: /etc/arq/cloudsql-ca.pem
+        sslrootcert_file: /etc/signals/cloudsql-ca.pem
     YAML
     docker run -d --name signals --restart=always \
-      -v /etc/arq:/etc/arq:ro \
-      -v arq-data:/data \
+      -v /etc/signals:/etc/signals:ro \
+      -v signals-data:/data \
       -p 127.0.0.1:8081:8081 \
-      ${var.image_uri} --config /etc/arq/signals.yaml
+      ${var.image_uri} --config /etc/signals/signals.yaml
   EOT
 }
 

@@ -17,7 +17,7 @@ import (
 )
 
 // makeR083Handler builds an HTTP handler with R083 Mode B wiring.
-// When mode != arq_managed the controlPlaneToken is ignored and the
+// When mode != managed the controlPlaneToken is ignored and the
 // server only honours the local API token.
 func makeR083Handler(t *testing.T, mode, controlPlaneTokenFile string) http.Handler {
 	t.Helper()
@@ -44,13 +44,13 @@ func makeR083Handler(t *testing.T, mode, controlPlaneTokenFile string) http.Hand
 		Collector: coll,
 		Exporter:  exporter,
 	}
-	if mode == config.ModeArqManaged && controlPlaneTokenFile != "" {
+	if mode == config.ModeManaged && controlPlaneTokenFile != "" {
 		signals := config.SignalsConfig{
-			Mode:                     config.ModeArqManaged,
-			ArqControlPlaneTokenFile: controlPlaneTokenFile,
+			Mode:                  config.ModeManaged,
+			ControlPlaneTokenFile: controlPlaneTokenFile,
 		}
-		deps.ArqControlPlaneTokenFn = func() string {
-			tok, _ := config.ResolveArqControlPlaneToken(signals)
+		deps.ControlPlaneTokenFn = func() string {
+			tok, _ := config.ResolveControlPlaneToken(signals)
 			return tok
 		}
 	}
@@ -103,13 +103,13 @@ func TestR083ModeDefaultsStandalone(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-082
 func TestR083ArqManagedRequiresToken(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Signals.Mode = config.ModeArqManaged
+	cfg.Signals.Mode = config.ModeManaged
 	cfg.Targets = []config.TargetConfig{
 		{Name: "primary", Host: "h", DBName: "d", User: "u", Enabled: true, SSLMode: "verify-full"},
 	}
 	_, err := config.ValidateStrict(cfg)
 	if err == nil {
-		t.Fatal("expected validation error when mode=arq_managed without token source")
+		t.Fatal("expected validation error when mode=managed without token source")
 	}
 	if !strings.Contains(err.Error(), "no control-plane token is configured") {
 		t.Errorf("error wording must point at the missing token: %v", err)
@@ -120,9 +120,9 @@ func TestR083ArqManagedRequiresToken(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-083
 func TestR083TokensMustDiffer(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Signals.Mode = config.ModeArqManaged
-	cfg.Signals.ArqControlPlaneTokenFile = "/dev/null" // any non-empty source
-	apiToken := strings.Repeat("a", 32)                // 32 chars, low entropy
+	cfg.Signals.Mode = config.ModeManaged
+	cfg.Signals.ControlPlaneTokenFile = "/dev/null" // any non-empty source
+	apiToken := strings.Repeat("a", 32)             // 32 chars, low entropy
 	err := config.ValidateModeBTokens(cfg, apiToken, apiToken)
 	if err == nil {
 		t.Fatal("expected error when arq token equals api token")
@@ -136,10 +136,10 @@ func TestR083TokensMustDiffer(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-084
 func TestR083TokenLengthFloor(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Signals.Mode = config.ModeArqManaged
-	cfg.Signals.ArqControlPlaneTokenFile = "/dev/null"
+	cfg.Signals.Mode = config.ModeManaged
+	cfg.Signals.ControlPlaneTokenFile = "/dev/null"
 	apiToken := strings.Repeat("a", 32)
-	short := strings.Repeat("b", config.MinArqControlPlaneTokenLength-1)
+	short := strings.Repeat("b", config.MinControlPlaneTokenLength-1)
 	err := config.ValidateModeBTokens(cfg, apiToken, short)
 	if err == nil {
 		t.Fatal("expected error for short control-plane token")
@@ -153,9 +153,9 @@ func TestR083TokenLengthFloor(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-085
 func TestR083FileAndEnvMutuallyExclusive(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Signals.Mode = config.ModeArqManaged
-	cfg.Signals.ArqControlPlaneTokenFile = "/etc/foo"
-	cfg.Signals.ArqControlPlaneTokenEnv = "BAR"
+	cfg.Signals.Mode = config.ModeManaged
+	cfg.Signals.ControlPlaneTokenFile = "/etc/foo"
+	cfg.Signals.ControlPlaneTokenEnv = "BAR"
 	cfg.Targets = []config.TargetConfig{
 		{Name: "primary", Host: "h", DBName: "d", User: "u", Enabled: true, SSLMode: "verify-full"},
 	}
@@ -176,7 +176,7 @@ func TestR083FileAndEnvMutuallyExclusive(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-086
 func TestR083APITokenStaysLocalOperator(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	out := captureAuditLogs(t, func() {
 		req := httptest.NewRequest("POST", "/collect/now", nil)
@@ -190,8 +190,8 @@ func TestR083APITokenStaysLocalOperator(t *testing.T) {
 	if !strings.Contains(out, "actor=local_operator") {
 		t.Errorf("api token should produce actor=local_operator:\n%s", out)
 	}
-	if strings.Contains(out, "actor=arq_control_plane") {
-		t.Errorf("api token must never produce actor=arq_control_plane:\n%s", out)
+	if strings.Contains(out, "actor=control_plane") {
+		t.Errorf("api token must never produce actor=control_plane:\n%s", out)
 	}
 }
 
@@ -199,7 +199,7 @@ func TestR083APITokenStaysLocalOperator(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-087
 func TestR083ControlPlaneTokenSetsArqActor(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	out := captureAuditLogs(t, func() {
 		req := httptest.NewRequest("POST", "/collect/now", nil)
@@ -210,8 +210,8 @@ func TestR083ControlPlaneTokenSetsArqActor(t *testing.T) {
 			t.Fatalf("status = %d, want 202; body=%s", w.Code, w.Body.String())
 		}
 	})
-	if !strings.Contains(out, "actor=arq_control_plane") {
-		t.Errorf("control-plane token should produce actor=arq_control_plane:\n%s", out)
+	if !strings.Contains(out, "actor=control_plane") {
+		t.Errorf("control-plane token should produce actor=control_plane:\n%s", out)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestR083StandaloneIgnoresControlPlaneToken(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-089
 func TestR083UnknownTokenStill401(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	req := httptest.NewRequest("POST", "/collect/now", nil)
 	req.Header.Set("Authorization", "Bearer "+strings.Repeat("z", 32))
@@ -251,7 +251,7 @@ func TestR083UnknownTokenStill401(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-090
 func TestR083TokenRotation(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	// First request: original token works.
 	req := httptest.NewRequest("POST", "/collect/now", nil)
@@ -290,7 +290,7 @@ func TestR083TokenRotation(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-092
 func TestR083ExportEventsCarryActor(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	out := captureAuditLogs(t, func() {
 		req := httptest.NewRequest("GET", "/export", nil)
@@ -308,10 +308,10 @@ func TestR083ExportEventsCarryActor(t *testing.T) {
 	if !strings.Contains(out, "audit_event=export_completed") {
 		t.Errorf("missing export_completed event:\n%s", out)
 	}
-	// Both should carry actor=arq_control_plane since the call used
+	// Both should carry actor=control_plane since the call used
 	// the control-plane token.
-	if strings.Count(out, "actor=arq_control_plane") < 2 {
-		t.Errorf("expected actor=arq_control_plane on both export events:\n%s", out)
+	if strings.Count(out, "actor=control_plane") < 2 {
+		t.Errorf("expected actor=control_plane on both export events:\n%s", out)
 	}
 }
 
@@ -319,7 +319,7 @@ func TestR083ExportEventsCarryActor(t *testing.T) {
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-091 / INV-SIGNALS-07
 func TestR083AuditLogsContainNoTokenValue(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
-	handler := makeR083Handler(t, config.ModeArqManaged, tokenFile)
+	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 
 	out := captureAuditLogs(t, func() {
 		// One success and one failure to exercise both auth paths.

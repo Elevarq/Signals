@@ -47,7 +47,7 @@ For each attempt the tool classifies the outcome into one of:
 | Flag / arg | Type | Default | Description |
 |------------|------|---------|-------------|
 | `<target-name>` | positional | empty (= all enabled) | Config target to test. |
-| `--config` | path | `$ARQ_SIGNALS_CONFIG` or `/etc/arq/signals.yaml` | Config file location. Ignored when `--dsn` is supplied. |
+| `--config` | path | `$SIGNALS_CONFIG` or `/etc/signals/signals.yaml` | Config file location. Ignored when `--dsn` is supplied. |
 | `--dsn` | string (repeatable `key=value`) | empty | Ad-hoc DSN as space-separated `host=X port=N dbname=D user=U sslmode=S [password_env=ENV \| password_file=PATH \| pgpass_file=PATH]`. Mutually exclusive with `<target-name>`. |
 | `--json` | bool | `false` | Emit a single JSON object instead of human-readable text. |
 | `--verbose` | bool | `false` | Per-phase timing (dns → tcp → tls → auth → role) and the underlying error chain. |
@@ -60,9 +60,9 @@ For each attempt the tool classifies the outcome into one of:
 One line per target.
 
 ```
-OK   prod-db                 connected to prod.example.com:5432/app as arq_signals_ro (PG 16.2) in 47ms
+OK   prod-db                 connected to prod.example.com:5432/app as signals_ro (PG 16.2) in 47ms
 FAIL staging-db   tcp        dial 10.0.0.7:5432: connect: connection refused
-FAIL pii-archive  auth       SQLSTATE 28P01: password authentication failed for user "arq_signals_ro"
+FAIL pii-archive  auth       SQLSTATE 28P01: password authentication failed for user "signals_ro"
 FAIL dev-broken   password_resolve   password_env "DEV_DB_PW" is not set
 ```
 
@@ -85,7 +85,7 @@ FAIL dev-broken   password_resolve   password_env "DEV_DB_PW" is not set
       "host": "prod.example.com",
       "port": 5432,
       "dbname": "app",
-      "username": "arq_signals_ro",
+      "username": "signals_ro",
       "pg_version": "16.2",
       "phases": {
         "dns_ms": 1,

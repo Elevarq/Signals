@@ -2,7 +2,7 @@
 
 Elevarq Signals authenticates HTTP API callers with bearer tokens. This
 document describes both authentication modes — `standalone`
-(default) and `arq_managed` — including how tokens map to audit
+(default) and `managed` — including how tokens map to audit
 `actor` identity and how to rotate the control-plane token without
 restarting the daemon. Specs: ARQ-SIGNALS-R011, R083.
 
@@ -11,10 +11,10 @@ restarting the daemon. Specs: ARQ-SIGNALS-R011, R083.
 | Mode | Tokens recognised | `actor` mapping |
 |---|---|---|
 | `standalone` (default) | `api.token` | matched → `actor = local_operator` |
-| `arq_managed` | `api.token`, `arq_control_plane_token` | `api.token` → `local_operator`; `arq_control_plane_token` → `arq_control_plane` |
+| `managed` | `api.token`, `control_plane_token` | `api.token` → `local_operator`; `control_plane_token` → `control_plane` |
 
 `mode` is set by `signals.mode` in `signals.yaml` or via the
-`ARQ_SIGNALS_MODE` environment variable. Default is `standalone` —
+`SIGNALS_MODE` environment variable. Default is `standalone` —
 operators who don't run the Elevarq control plane don't need to change
 anything.
 
@@ -25,8 +25,8 @@ scripts the operator runs). Configured the same way it always has
 been:
 
 - `api.token` field in `signals.yaml`, **or**
-- `ARQ_SIGNALS_API_TOKEN` environment variable, **or**
-- `ARQ_SIGNALS_API_TOKEN_FILE` pointing at a file containing the
+- `SIGNALS_API_TOKEN` environment variable, **or**
+- `SIGNALS_API_TOKEN_FILE` pointing at a file containing the
   token.
 
 If none of these are set, Elevarq Signals auto-generates a 32-byte
@@ -35,9 +35,9 @@ value) so the operator can confirm which token is active.
 
 ## The Elevarq control-plane token (Mode B only)
 
-When `signals.mode: arq_managed`, the daemon also accepts a second
+When `signals.mode: managed`, the daemon also accepts a second
 bearer token, distinct from `api.token`, identified in audit events
-as `actor = arq_control_plane`.
+as `actor = control_plane`.
 
 ### Configuration
 
@@ -46,25 +46,25 @@ time is a hard startup error.
 
 ```yaml
 signals:
-  mode: arq_managed
+  mode: managed
 
   # Preferred: token file. Re-read on every authentication
   # attempt so rotation does not require restart.
-  arq_control_plane_token_file: /etc/arq/control-plane.token
+  control_plane_token_file: /etc/signals/control-plane.token
 
   # Alternative: env var indirection. Treat the env var as the
   # source of the token value. Same posture as the existing
-  # ARQ_SIGNALS_API_TOKEN_FILE / ARQ_SIGNALS_API_TOKEN pattern.
-  # arq_control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # SIGNALS_API_TOKEN_FILE / SIGNALS_API_TOKEN pattern.
+  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
 ```
 
 Equivalent environment-variable overrides:
 
 | Variable | Maps to |
 |---|---|
-| `ARQ_SIGNALS_MODE` | `signals.mode` |
-| `ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_FILE` | `signals.arq_control_plane_token_file` |
-| `ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_ENV` | `signals.arq_control_plane_token_env` |
+| `SIGNALS_MODE` | `signals.mode` |
+| `SIGNALS_CONTROL_PLANE_TOKEN_FILE` | `signals.control_plane_token_file` |
+| `SIGNALS_CONTROL_PLANE_TOKEN_ENV` | `signals.control_plane_token_env` |
 
 ### Token requirements
 
@@ -74,7 +74,7 @@ The control-plane token must:
    generated `api.token`.)
 2. Be **distinct** from `api.token`. The startup check is constant-
    time. If the two tokens are equal, the daemon refuses to start.
-3. Match the `arq_managed` mode setting. Setting only one of the
+3. Match the `managed` mode setting. Setting only one of the
    two (mode without a token, or token without the mode) aborts
    startup.
 
@@ -103,15 +103,15 @@ The file-based source is re-read on every authentication attempt.
 Rotation is therefore a single file write:
 
 ```bash
-echo "new-token-value-…" > /etc/arq/control-plane.token
-chmod 600 /etc/arq/control-plane.token
+echo "new-token-value-…" > /etc/signals/control-plane.token
+chmod 600 /etc/signals/control-plane.token
 ```
 
 The next request authenticates against the new token. Any client
 still presenting the previous token receives `401 Unauthorized`.
 
 If the file is rotated to an empty value, the daemon emits a
-`slog.Warn` (`arq_control_plane_token resolved to empty value`) and
+`slog.Warn` (`control_plane_token resolved to empty value`) and
 control-plane authentication degrades to "no token" — the
 control-plane caller's requests start receiving 401s. This is
 visible in the daemon log so the rotation breakage is observable.
@@ -126,7 +126,7 @@ operation handled by the operator's secret store / orchestrator.
 | Missing `Authorization` header | 401 | (no audit event) |
 | Bearer token matches neither configured token | 401 + R024 rate limiter records the failure | (no audit event in R083) |
 | Bearer matches `api.token` | 200/202/4xx as the handler decides | event carries `actor=local_operator` |
-| Bearer matches `arq_control_plane_token` (Mode B) | 200/202/4xx as the handler decides | event carries `actor=arq_control_plane` |
+| Bearer matches `control_plane_token` (Mode B) | 200/202/4xx as the handler decides | event carries `actor=control_plane` |
 
 The R024 per-IP rate limiter blocks an IP after a configured number
 of failed attempts in a window. That behaviour is unchanged from
@@ -144,17 +144,17 @@ own rate limiting.
   blocks any audit attribute key containing `password`, `secret`,
   `token`, `dsn`, `connection_string`, `payload`, or `query_result`.
   A small allow-list permits the boolean
-  `arq_control_plane_token_configured` (no value content) on the
+  `control_plane_token_configured` (no value content) on the
   `mode_configured` startup event.
 - **No token in error messages.** Resolution errors carry the
   configured *path* or *env var name*, never the file contents.
-- **No `arq_control_plane` actor without the mode.** In
-  `mode=standalone`, the `arq_control_plane_token` config (if
+- **No `control_plane` actor without the mode.** In
+  `mode=standalone`, the `control_plane_token` config (if
   present) is ignored at auth time. A request that would have
   matched the control-plane token simply gets a 401, identical to
   any other unknown token. There is no way for a request to acquire
   the privileged actor identity except by holding the
-  control-plane token AND running in `arq_managed` mode.
+  control-plane token AND running in `managed` mode.
 
 ## Example: enabling Mode B
 
@@ -162,8 +162,8 @@ own rate limiting.
 
 ```yaml
 signals:
-  mode: arq_managed
-  arq_control_plane_token_file: /etc/arq/control-plane.token
+  mode: managed
+  control_plane_token_file: /etc/signals/control-plane.token
 
 api:
   listen_addr: 127.0.0.1:8081
@@ -172,29 +172,29 @@ api:
 Token file (mode 0600, owned by the daemon user):
 
 ```
-$ cat /etc/arq/control-plane.token
+$ cat /etc/signals/control-plane.token
 01HXY9QZK5T8M3FN6JBPRWADCV7E2GH4
 ```
 
 Startup audit event (token VALUE never logged):
 
 ```
-audit_event=mode_configured mode=arq_managed arq_control_plane_token_configured=true
+audit_event=mode_configured mode=managed control_plane_token_configured=true
 ```
 
 Subsequent requests:
 
 ```bash
 # As the local operator (api.token):
-curl -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" http://127.0.0.1:8081/status
+curl -H "Authorization: Bearer ${SIGNALS_API_TOKEN}" http://127.0.0.1:8081/status
 # audit: actor=local_operator
 
-# As the Elevarq control plane (arq_control_plane_token):
+# As the Elevarq control plane (control_plane_token):
 curl -H "Authorization: Bearer 01HXY9QZK5T8M3FN6JBPRWADCV7E2GH4" \
   -X POST http://127.0.0.1:8081/collect/now \
   -H 'Content-Type: application/json' \
   -d '{"targets":["prod-main"], "request_id":"01J5K…", "reason":"automated"}'
-# audit: actor=arq_control_plane
+# audit: actor=control_plane
 ```
 
 ## What's intentionally not here

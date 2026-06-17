@@ -15,8 +15,8 @@ The bearer token gates pause/resume/reload and the full telemetry /export.
 
   Protect this path with EITHER:
     - Daemon TLS: set api.tls.enabled=true, mount a certificate +
-      key, and point ARQ_SIGNALS_API_TLS_CERT_FILE /
-      ARQ_SIGNALS_API_TLS_KEY_FILE at them; OR
+      key, and point SIGNALS_API_TLS_CERT_FILE /
+      SIGNALS_API_TLS_KEY_FILE at them; OR
     - A service mesh / sidecar that terminates TLS, together with
       networkPolicy.enabled=true scoped to the monitoring /
       control-plane pods that need the API.

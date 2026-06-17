@@ -14,7 +14,7 @@ target:
   host: ""           # Required: PostgreSQL hostname
   port: 5432
   dbname: postgres
-  user: arq_signals
+  user: signals
   sslmode: prefer    # token methods (below) require verify-full (FC006)
 
   # Passwordless cloud auth (#93 credential-providers; recipe:
@@ -60,7 +60,7 @@ api:
   # is declarative.
   #
   # When `tokenSecretName` is set, the deployment injects the value
-  # as `ARQ_SIGNALS_API_TOKEN` via secretKeyRef — the token never
+  # as `SIGNALS_API_TOKEN` via secretKeyRef — the token never
   # lands in a ConfigMap or rendered manifest beyond the Secret
   # reference name.
   #
@@ -75,8 +75,8 @@ api:
   # 0.0.0.0:<port>, so the bearer token and the full telemetry
   # /export cross the pod network. Protect that path with EITHER:
   #   (a) daemon-terminated TLS — set tls.enabled and mount a cert +
-  #       key (the daemon reads ARQ_SIGNALS_API_TLS_CERT_FILE /
-  #       ARQ_SIGNALS_API_TLS_KEY_FILE), OR
+  #       key (the daemon reads SIGNALS_API_TLS_CERT_FILE /
+  #       SIGNALS_API_TLS_KEY_FILE), OR
   #   (b) a service mesh / sidecar that terminates TLS, plus a
   #       restrictive networkPolicy (below).
   # Leaving both off ships a cleartext, network-exposed control plane;

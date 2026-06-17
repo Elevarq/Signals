@@ -165,7 +165,7 @@ awsRDSIAMProvider implements CredentialProvider:
   `auth_method`, region, db_user, resolved_at, expires_at — and never the
   token (INV002/INV007).
 - **AC-AWS-008 (live smoke, env-gated)**: with
-  `ARQ_SIGNALS_INTEGRATION_LIVE=1` against a real RDS/Aurora instance
+  `SIGNALS_INTEGRATION_LIVE=1` against a real RDS/Aurora instance
   whose role has `rds_iam`, the collector connects passwordlessly and
   collects at least one snapshot; the token is re-minted across a
   reconnect that crosses the refresh skew. Not run in default CI.

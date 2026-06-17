@@ -28,8 +28,8 @@ import (
 func seedSingleTargetSnapshot(t *testing.T, store *db.DB) int64 {
 	t.Helper()
 	targetID, err := store.UpsertTarget(
-		"prod-db", "prod.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/prod.pw", true,
+		"prod-db", "prod.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/prod.pw", true,
 	)
 	if err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
@@ -91,8 +91,8 @@ func TestExportMetadataCarriesTargetIdentityForSingleTarget(t *testing.T) {
 	if got := ident["dbname"]; got != "app" {
 		t.Errorf("target_identity.dbname: got %v, want %q", got, "app")
 	}
-	if got := ident["username"]; got != "arq_signals_ro" {
-		t.Errorf("target_identity.username: got %v, want %q", got, "arq_signals_ro")
+	if got := ident["username"]; got != "signals_ro" {
+		t.Errorf("target_identity.username: got %v, want %q", got, "signals_ro")
 	}
 }
 
@@ -104,14 +104,14 @@ func TestExportMetadataOmitsTargetIdentityForUnscopedExport(t *testing.T) {
 	store := openTestDB(t)
 	// Seed two distinct targets so the export is genuinely multi-target.
 	if _, err := store.UpsertTarget(
-		"prod-db", "prod.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/prod.pw", true,
+		"prod-db", "prod.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/prod.pw", true,
 	); err != nil {
 		t.Fatalf("UpsertTarget prod: %v", err)
 	}
 	if _, err := store.UpsertTarget(
-		"staging-db", "staging.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/staging.pw", true,
+		"staging-db", "staging.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/staging.pw", true,
 	); err != nil {
 		t.Fatalf("UpsertTarget staging: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestExportMetadataTargetIdentityCarriesNoAuthMaterial(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-marshal metadata: %v", err)
 	}
-	if containsCI(string(asBytes), "/etc/arq/prod.pw") {
+	if containsCI(string(asBytes), "/etc/signals/prod.pw") {
 		t.Error("metadata.json must not leak the secret reference path")
 	}
 }
@@ -234,15 +234,15 @@ func TestExportSnapshotsCarryPerSnapshotTargetIdentityForMultiTarget(t *testing.
 
 	// Seed two distinct targets, each with one snapshot.
 	prodID, err := store.UpsertTarget(
-		"prod-db", "prod.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/prod.pw", true,
+		"prod-db", "prod.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/prod.pw", true,
 	)
 	if err != nil {
 		t.Fatalf("UpsertTarget prod: %v", err)
 	}
 	stagingID, err := store.UpsertTarget(
-		"staging-db", "staging.example.com", 5433, "app_stg", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/staging.pw", true,
+		"staging-db", "staging.example.com", 5433, "app_stg", "signals_ro",
+		"require", "FILE", "/etc/signals/staging.pw", true,
 	)
 	if err != nil {
 		t.Fatalf("UpsertTarget staging: %v", err)
@@ -277,8 +277,8 @@ func TestExportSnapshotsCarryPerSnapshotTargetIdentityForMultiTarget(t *testing.
 	// Map snapshot id -> expected identity to verify each row carries
 	// the right identity, not just any identity.
 	want := map[string]map[string]any{
-		"snap-prod-001":    {"host": "prod.example.com", "port": float64(5432), "dbname": "app", "username": "arq_signals_ro"},
-		"snap-staging-001": {"host": "staging.example.com", "port": float64(5433), "dbname": "app_stg", "username": "arq_signals_ro"},
+		"snap-prod-001":    {"host": "prod.example.com", "port": float64(5432), "dbname": "app", "username": "signals_ro"},
+		"snap-staging-001": {"host": "staging.example.com", "port": float64(5433), "dbname": "app_stg", "username": "signals_ro"},
 	}
 
 	for _, row := range rows {
@@ -326,8 +326,8 @@ func TestExportSnapshotsFailsOnNonOrphanTargetIdentityError(t *testing.T) {
 	store := openTestDB(t)
 
 	prodID, err := store.UpsertTarget(
-		"prod-db", "prod.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/prod.pw", true,
+		"prod-db", "prod.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/prod.pw", true,
 	)
 	if err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
@@ -367,8 +367,8 @@ func TestExportSnapshotsOmitsTargetIdentityForOrphanRowInMultiTarget(t *testing.
 	// One real target, one orphan snapshot pointing at a target_id
 	// that does not exist.
 	prodID, err := store.UpsertTarget(
-		"prod-db", "prod.example.com", 5432, "app", "arq_signals_ro",
-		"require", "FILE", "/etc/arq/prod.pw", true,
+		"prod-db", "prod.example.com", 5432, "app", "signals_ro",
+		"require", "FILE", "/etc/signals/prod.pw", true,
 	)
 	if err != nil {
 		t.Fatalf("UpsertTarget prod: %v", err)

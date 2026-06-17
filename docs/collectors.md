@@ -249,9 +249,9 @@ permissions: [`postgres-role.md`](postgres-role.md).
   the connected database via `pg_database.datname =
   current_database()`, and rows attributable to Signals' own
   sessions are suppressed via a `NOT EXISTS` correlated subquery
-  against `pg_stat_activity` where `application_name = 'arq-signals'`
+  against `pg_stat_activity` where `application_name = 'signals'`
   (matched on `userid` / `dbid`). The Signals connection sets
-  `application_name = 'arq-signals'` in its startup parameters
+  `application_name = 'signals'` in its startup parameters
   (sourced from the `collector.AppName` constant) so the filter
   works from the very first statement on every session. If a
   non-Signals application sets its own `application_name` to
@@ -263,7 +263,7 @@ permissions: [`postgres-role.md`](postgres-role.md).
 The `pg_stat_statements_v1` self-filter is **best-effort**, not a
 security boundary:
 
-- The filter relies on PostgreSQL `application_name = 'arq-signals'`.
+- The filter relies on PostgreSQL `application_name = 'signals'`.
   `application_name` is a client-set startup parameter and can be
   spoofed by any session. Suppression therefore identifies *intent*,
   not identity. This is fine for the filter's purpose (keep

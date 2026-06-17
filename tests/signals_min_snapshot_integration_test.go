@@ -16,7 +16,7 @@
 //
 // Run with:
 //
-//	ARQ_TEST_PG_DSN="postgres://arq_monitor@localhost/postgres" \
+//	ARQ_TEST_PG_DSN="postgres://signals@localhost/postgres" \
 //	  go test -tags integration ./tests/ -run TestIntegration_MinSnapshotInterval
 //
 // Optional: ARQ_TEST_PG_PASSWORD_ENV=<env-var-name> if the test role

@@ -149,4 +149,4 @@ For real deployments, see the production guidance in
   public address.
 - Rotate the token via the file source so neither side has to be
   restarted (Elevarq Signal re-reads the API token on every request when
-  configured via `ARQ_SIGNALS_API_TOKEN_FILE`).
+  configured via `SIGNALS_API_TOKEN_FILE`).

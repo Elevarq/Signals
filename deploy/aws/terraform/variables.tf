@@ -32,7 +32,7 @@ variable "db_name" {
 variable "db_user" {
   type        = string
   description = "PostgreSQL role granted rds_iam (least-privilege, pg_monitor)."
-  default     = "arq_signals"
+  default     = "signals"
 }
 
 variable "db_resource_id" {

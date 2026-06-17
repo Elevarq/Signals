@@ -40,9 +40,9 @@ func main() {
 		Short: "CLI for Elevarq Signals",
 	}
 
-	defaultToken := os.Getenv("ARQ_SIGNALS_API_TOKEN")
+	defaultToken := os.Getenv("SIGNALS_API_TOKEN")
 	root.PersistentFlags().StringVar(&apiAddr, "api-addr", "http://127.0.0.1:8081", "Elevarq Signals API address")
-	root.PersistentFlags().StringVar(&apiToken, "api-token", defaultToken, "API bearer token (default: $ARQ_SIGNALS_API_TOKEN)")
+	root.PersistentFlags().StringVar(&apiToken, "api-token", defaultToken, "API bearer token (default: $SIGNALS_API_TOKEN)")
 
 	root.AddCommand(versionCmd())
 	root.AddCommand(statusCmd())

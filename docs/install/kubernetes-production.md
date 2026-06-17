@@ -142,7 +142,7 @@ What happens:
 2. Deployment rollout: new pod scheduled, readiness probe waits
    for `/health` → 200, old pod terminated.
 3. PVC unchanged; the new pod re-mounts the existing SQLite store
-   on `/data/arq-signals.db`. Schema migrations run on startup
+   on `/data/signals.db`. Schema migrations run on startup
    per `internal/store::migrate`.
 4. Secrets unchanged; the bearer token survives.
 
@@ -216,11 +216,11 @@ kubectl -n observability get pods -l app.kubernetes.io/name=signals
 
 # Run the operator preflight from inside the pod
 kubectl -n observability exec deploy/signals-signals -- \
-  signalsctl doctor --config /etc/arq-signals/signals.yaml --json
+  signalsctl doctor --config /etc/signals-signals/signals.yaml --json
 
 # Confirm the API token Secret is wired (no token in the rendered manifest):
 helm template signals deploy/helm/signals --values production.yaml | \
-  grep -A 5 ARQ_SIGNALS_API_TOKEN
+  grep -A 5 SIGNALS_API_TOKEN
 ```
 
 The `doctor --json` output is the suitable evidence artefact for

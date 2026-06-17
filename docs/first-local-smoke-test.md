@@ -23,7 +23,7 @@ targets:
     sslmode: disable
     enabled: true
 database:
-  path: /tmp/arq-signals-smoke.db
+  path: /tmp/signals-smoke.db
   wal: true
 api:
   listen_addr: "127.0.0.1:18081"
@@ -31,9 +31,9 @@ api:
 
 Environment variables:
 ```
-ARQ_ALLOW_INSECURE_PG_TLS=true
-ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true
-ARQ_SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars
+SIGNALS_ALLOW_INSECURE_PG_TLS=true
+SIGNALS_ALLOW_UNSAFE_ROLE=true
+SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars
 ```
 
 ## Commands used
@@ -43,9 +43,9 @@ ARQ_SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars
 go build -o /tmp/signals-bin ./cmd/signals
 
 # Start
-ARQ_ALLOW_INSECURE_PG_TLS=true \
-ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true \
-ARQ_SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars \
+SIGNALS_ALLOW_INSECURE_PG_TLS=true \
+SIGNALS_ALLOW_UNSAFE_ROLE=true \
+SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars \
 /tmp/signals-bin --config test-config.yaml
 
 # Check status
@@ -70,7 +70,7 @@ PostgreSQL 18.1 (Postgres.app) on aarch64-apple-darwin23.6.0
 
 The `postgres` role has superuser, replication, and bypassrls
 attributes. These were correctly detected as hard failures and
-bypassed via `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`:
+bypassed via `SIGNALS_ALLOW_UNSAFE_ROLE=true`:
 
 ```
 UNSAFE MODE: bypassing safety checks — not recommended for production

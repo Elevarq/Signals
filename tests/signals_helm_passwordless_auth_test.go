@@ -22,7 +22,7 @@ import (
 
 // targetHost is the minimal --set that makes the chart render a
 // `targets:` block at all (parity with the env builder, which only
-// appended a target when ARQ_SIGNALS_TARGET_HOST was non-empty).
+// appended a target when SIGNALS_TARGET_HOST was non-empty).
 const targetHost = "target.host=db.internal"
 
 func TestHelm_DefaultRenderHasNoTargetsBlock(t *testing.T) {
@@ -122,11 +122,11 @@ func TestHelm_SecretStoreReachesConfig(t *testing.T) {
 		targetHost,
 		"target.authMethod=secret_store",
 		"target.sslmode=verify-full",
-		"target.secretRef=arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/arq_signals-AbCdEf",
+		"target.secretRef=arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/signals-AbCdEf",
 	)
 	for _, want := range []string{
 		"auth_method: secret_store",
-		"secret_ref: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/arq_signals-AbCdEf",
+		"secret_ref: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/signals-AbCdEf",
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("secret_store config missing %q:\n%s", want, out)

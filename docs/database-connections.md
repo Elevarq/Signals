@@ -47,8 +47,8 @@ granted `pg_monitor`. Create it once (see
 [postgres-role.md](postgres-role.md) for the full rationale):
 
 ```sql
-CREATE ROLE arq_signals LOGIN;          -- add PASSWORD only for the password / secret_store methods
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN;          -- add PASSWORD only for the password / secret_store methods
+GRANT pg_monitor TO signals;
 ```
 
 The recipes below add the method-specific binding on top of this role.
@@ -75,8 +75,8 @@ The credential is a password supplied locally via exactly one of
 `password_file`, `password_env`, or `pgpass_file`.
 
 ```sql
-CREATE ROLE arq_signals LOGIN PASSWORD 'use-a-strong-secret';
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN PASSWORD 'use-a-strong-secret';
+GRANT pg_monitor TO signals;
 ```
 
 ```yaml
@@ -85,11 +85,11 @@ targets:
     host: db.internal
     port: 5432
     dbname: appdb
-    user: arq_signals
+    user: signals
     sslmode: verify-full
     sslrootcert_file: /etc/ssl/certs/db-ca.pem
     # auth_method: password   # default — may be omitted
-    password_file: /run/secrets/arq_signals_password
+    password_file: /run/secrets/signals_password
 ```
 
 ---
@@ -104,9 +104,9 @@ password.
 **1. Database — enable IAM auth for the role:**
 
 ```sql
-CREATE ROLE arq_signals LOGIN;     -- no password
-GRANT rds_iam TO arq_signals;      -- enables RDS IAM authentication
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN;     -- no password
+GRANT rds_iam TO signals;      -- enables RDS IAM authentication
+GRANT pg_monitor TO signals;
 ```
 
 **2. AWS IAM — allow the collector's principal to connect.** Attach to
@@ -118,7 +118,7 @@ the instance profile / task role / IRSA role:
   "Statement": [{
     "Effect": "Allow",
     "Action": "rds-db:connect",
-    "Resource": "arn:aws:rds-db:<region>:<account-id>:dbuser:<db-resource-id>/arq_signals"
+    "Resource": "arn:aws:rds-db:<region>:<account-id>:dbuser:<db-resource-id>/signals"
   }]
 }
 ```
@@ -133,7 +133,7 @@ the instance profile / task role / IRSA role:
     host: mydb.abc123.us-east-1.rds.amazonaws.com
     port: 5432
     dbname: appdb
-    user: arq_signals
+    user: signals
     auth_method: aws_rds_iam
     region: us-east-1              # optional; inferred from AWS_REGION / IMDS when omitted
     sslmode: verify-full          # required
@@ -162,8 +162,8 @@ Entra administrator on the server. The PG role name **must match** the
 Entra user / group / service-principal display name:
 
 ```sql
-SELECT * FROM pgaadauth_create_principal('arq_signals', false, false);
-GRANT pg_monitor TO arq_signals;
+SELECT * FROM pgaadauth_create_principal('signals', false, false);
+GRANT pg_monitor TO signals;
 ```
 
 **2. Azure — ensure the collector's Managed Identity exists** and (for
@@ -177,7 +177,7 @@ ID for `azure_client_id`.
     host: myserver.postgres.database.azure.com
     port: 5432
     dbname: appdb
-    user: arq_signals                       # must equal the Entra principal name
+    user: signals                       # must equal the Entra principal name
     auth_method: azure_entra
     azure_client_id: 00000000-0000-0000-0000-000000000000  # optional; user-assigned MI disambiguation
     sslmode: verify-full                    # required
@@ -266,8 +266,8 @@ startup error (FC007).
 stored in the vault:
 
 ```sql
-CREATE ROLE arq_signals LOGIN PASSWORD 'matches-the-vault-value';
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN PASSWORD 'matches-the-vault-value';
+GRANT pg_monitor TO signals;
 ```
 
 **2. Vault — grant the collector's workload identity** the read
@@ -280,9 +280,9 @@ permission from the table above on that one secret.
     host: db.internal
     port: 5432
     dbname: appdb
-    user: arq_signals
+    user: signals
     auth_method: secret_store
-    secret_ref: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/arq_signals-AbCdEf
+    secret_ref: arn:aws:secretsmanager:us-east-1:123456789012:secret:prod/signals-AbCdEf
     secret_json_key: password     # optional; extract one key from a JSON secret
     max_cache_ttl: 15m            # optional; bounds reuse when the vault gives no TTL
     sslmode: verify-full          # required
@@ -308,11 +308,11 @@ the role server-side (`pg_hba.conf` `clientcert=verify-full` +
 **1. Database — trust + map the client cert** (`pg_hba.conf`):
 
 ```
-hostssl  appdb  arq_signals  <collector-cidr>  cert  clientcert=verify-full
+hostssl  appdb  signals  <collector-cidr>  cert  clientcert=verify-full
 ```
 
 Map the certificate's CN to the role in `pg_ident.conf` if the CN differs
-from `arq_signals`, then `GRANT pg_monitor TO arq_signals;`.
+from `signals`, then `GRANT pg_monitor TO signals;`.
 
 **2. Target config:**
 
@@ -321,13 +321,13 @@ from `arq_signals`, then `GRANT pg_monitor TO arq_signals;`.
     host: db.internal
     port: 5432
     dbname: appdb
-    user: arq_signals
+    user: signals
     auth_method: mtls
-    sslcert: /etc/arq/client.crt        # PEM client certificate
-    sslkey: /etc/arq/client.key         # PEM private key
-    sslkey_passphrase_file: /etc/arq/key.pass  # optional; for an encrypted key
+    sslcert: /etc/signals/client.crt        # PEM client certificate
+    sslkey: /etc/signals/client.key         # PEM private key
+    sslkey_passphrase_file: /etc/signals/key.pass  # optional; for an encrypted key
     sslmode: verify-full                # required
-    sslrootcert_file: /etc/arq/ca.pem   # verifies the server
+    sslrootcert_file: /etc/signals/ca.pem   # verifies the server
 ```
 
 The private key is read at connect time and **never logged or exported**;
@@ -341,7 +341,7 @@ required — a client certificate is only presented to a verified server.
 | Methods | Required `sslmode` |
 |---|---|
 | `aws_rds_iam`, `azure_entra`, `gcp_cloudsql_iam`, `secret_store` | `verify-full`, in **every** environment |
-| `password` | `prod`: `verify-ca`/`verify-full` (with `sslrootcert_file`); weaker only in `dev`/`lab` with `ARQ_ALLOW_INSECURE_PG_TLS=true` |
+| `password` | `prod`: `verify-ca`/`verify-full` (with `sslrootcert_file`); weaker only in `dev`/`lab` with `SIGNALS_ALLOW_INSECURE_PG_TLS=true` |
 
 `verify-full` requires `sslrootcert_file` to point at the CA bundle
 that signs the server certificate.

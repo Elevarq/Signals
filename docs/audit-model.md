@@ -16,7 +16,7 @@ ARQ-SIGNALS-R078, R082 (Phase 1 + Phase 2), R083.
 | `config_validated` | `status` (`ok` / `error`), `warnings` count, `hard_errors` count |
 | `high_sensitivity_collectors` | `enabled` (boolean — R075 gate state) |
 | `targets_loaded` | `enabled` count, `disabled` count |
-| `mode_configured` | `mode` (`standalone` / `arq_managed`), `arq_control_plane_token_configured` (boolean) |
+| `mode_configured` | `mode` (`standalone` / `managed`), `control_plane_token_configured` (boolean) |
 
 The `mode_configured` event records the audit posture for Mode B.
 The token VALUE is never logged — only the configured/not-configured
@@ -153,7 +153,7 @@ value is sourced from the bearer token the auth middleware matched —
 | Value | Origin |
 |---|---|
 | `local_operator` | The local API token (`api.token`) matched. |
-| `arq_control_plane` | The Elevarq control-plane token matched (only valid in `mode=arq_managed`). |
+| `control_plane` | The Elevarq control-plane token matched (only valid in `mode=managed`). |
 
 Events that carry `actor`:
 
@@ -216,7 +216,7 @@ specific keys that contain a denylist substring but only carry
 metadata about a configured value (booleans / counts /
 fingerprints), never the secret itself. As of R083 the allow-list
 contains exactly one entry:
-`arq_control_plane_token_configured` (the boolean on
+`control_plane_token_configured` (the boolean on
 `mode_configured`).
 
 This filter sits in `internal/safety/audit.go` and applies to every

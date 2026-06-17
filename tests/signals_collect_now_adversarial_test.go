@@ -184,7 +184,7 @@ func lastN(s string, n int) string {
 
 // TestModeConfiguredEventCarriesAllowlistedKey verifies the R078
 // audit-attribute denylist no longer eats the
-// `arq_control_plane_token_configured` boolean. Before the
+// `control_plane_token_configured` boolean. Before the
 // stabilization patch the substring match on "token" filtered the
 // key out, so the spec-promised attribute never reached the audit
 // stream. The fix added the key to a small, hand-curated allow list.
@@ -192,15 +192,15 @@ func lastN(s string, n int) string {
 func TestModeConfiguredEventCarriesAllowlistedKey(t *testing.T) {
 	out := captureAuditLogs(t, func() {
 		safety.AuditLog("mode_configured",
-			"mode", "arq_managed",
-			"arq_control_plane_token_configured", true,
+			"mode", "managed",
+			"control_plane_token_configured", true,
 		)
 	})
 
 	if !strings.Contains(out, "audit_event=mode_configured") {
 		t.Fatalf("missing mode_configured event:\n%s", out)
 	}
-	if !strings.Contains(out, "arq_control_plane_token_configured=true") {
-		t.Errorf("expected arq_control_plane_token_configured=true to survive the audit denylist; got:\n%s", out)
+	if !strings.Contains(out, "control_plane_token_configured=true") {
+		t.Errorf("expected control_plane_token_configured=true to survive the audit denylist; got:\n%s", out)
 	}
 }

@@ -138,7 +138,7 @@ func TestResult_JSONShape(t *testing.T) {
 	r := Result{
 		Target: "prod-db", Category: CategoryOK, Detail: "connected",
 		Host: "prod.example.com", Port: 5432, DBName: "app",
-		Username: "arq_signals_ro", PGVersion: "16.2",
+		Username: "signals_ro", PGVersion: "16.2",
 		Duration: 47 * time.Millisecond,
 	}
 	raw, err := json.Marshal(r)
@@ -231,7 +231,7 @@ func (e errResolver) Resolve(context.Context, config.TargetConfig) (collector.Cr
 func TestTestConnectionWithResolver_ResolveFailure(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",
-		User: "arq_monitor", SSLMode: "verify-full",
+		User: "signals", SSLMode: "verify-full",
 		AuthMethod: config.AuthMethodAWSRDSIAM,
 	}
 	res := errResolver{err: errors.New("minting RDS IAM auth token failed")}

@@ -213,7 +213,7 @@ func run() error {
 		exporter.SetUnsafeMode(func() []string {
 			checks := coll.GetBypassedChecks()
 			if len(checks) == 0 {
-				return []string{"ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true (no role checks bypassed yet)"}
+				return []string{"SIGNALS_ALLOW_UNSAFE_ROLE=true (no role checks bypassed yet)"}
 			}
 			return checks
 		})
@@ -236,13 +236,13 @@ func run() error {
 	// R083: Mode B opt-in. Resolve the control-plane token at
 	// startup so cross-token rules (length floor, distinctness from
 	// api.token) are validated before serving any traffic. Per-
-	// request rotation is handled by ArqControlPlaneTokenFn below.
+	// request rotation is handled by ControlPlaneTokenFn below.
 	var arqControlPlaneTokenFn func() string
 	controlPlaneTokenConfigured := false
-	if cfg.Signals.Mode == config.ModeArqManaged {
-		startupToken, err := config.ResolveArqControlPlaneToken(cfg.Signals)
+	if cfg.Signals.Mode == config.ModeManaged {
+		startupToken, err := config.ResolveControlPlaneToken(cfg.Signals)
 		if err != nil {
-			return fmt.Errorf("resolve arq_control_plane_token: %w", err)
+			return fmt.Errorf("resolve control_plane_token: %w", err)
 		}
 		if err := config.ValidateModeBTokens(cfg, cfg.API.APIToken, startupToken); err != nil {
 			return fmt.Errorf("R083 cross-token validation: %w", err)
@@ -255,16 +255,16 @@ func run() error {
 			// here returns "" — the bearer comparison fails closed
 			// and the request gets a 401 like any other unknown
 			// token.
-			tok, err := config.ResolveArqControlPlaneToken(cfg.Signals)
+			tok, err := config.ResolveControlPlaneToken(cfg.Signals)
 			if err != nil {
-				slog.Warn("arq_control_plane_token resolve failed", "err", err)
+				slog.Warn("control_plane_token resolve failed", "err", err)
 				return ""
 			}
 			if tok == "" {
 				// Empty file post-rotation: log so an operator can
 				// tell their rotation broke instead of silently
 				// turning into 401s for the control plane.
-				slog.Warn("arq_control_plane_token resolved to empty value — Mode B authentication is degraded until the source is restored")
+				slog.Warn("control_plane_token resolved to empty value — Mode B authentication is degraded until the source is restored")
 			}
 			return tok
 		}
@@ -274,7 +274,7 @@ func run() error {
 	// logged — only the configured/not-configured boolean.
 	safety.AuditLog("mode_configured",
 		"mode", cfg.Signals.Mode,
-		"arq_control_plane_token_configured", controlPlaneTokenConfigured,
+		"control_plane_token_configured", controlPlaneTokenConfigured,
 	)
 
 	// Start HTTP API server.
@@ -283,16 +283,16 @@ func run() error {
 		slog.Info("metrics endpoint enabled", "path", metricsPath)
 	}
 	deps := &api.Deps{
-		DB:                     store,
-		Metrics:                metricsReg,
-		MetricsPath:            metricsPath,
-		Collector:              coll,
-		Exporter:               exporter,
-		Targets:                cfg.Targets,
-		ConfigPath:             *configPath, // R100: needed for POST /reload + SIGHUP handler.
-		ArqControlPlaneTokenFn: arqControlPlaneTokenFn,
-		TLSCertFile:            cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
-		TLSKeyFile:             cfg.API.TLSKeyFile,
+		DB:                  store,
+		Metrics:             metricsReg,
+		MetricsPath:         metricsPath,
+		Collector:           coll,
+		Exporter:            exporter,
+		Targets:             cfg.Targets,
+		ConfigPath:          *configPath, // R100: needed for POST /reload + SIGHUP handler.
+		ControlPlaneTokenFn: arqControlPlaneTokenFn,
+		TLSCertFile:         cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
+		TLSKeyFile:          cfg.API.TLSKeyFile,
 	}
 	srv := api.NewServer(cfg.API.ListenAddr, cfg.API.ReadTimeout, cfg.API.WriteTimeout, cfg.API.APIToken, deps)
 

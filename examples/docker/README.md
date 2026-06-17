@@ -19,15 +19,15 @@ docker build \
 
 ```bash
 docker run -d --name signals \
-  -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
-  -e ARQ_SIGNALS_TARGET_USER=arq_signals \
-  -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
-  -e ARQ_SIGNALS_TARGET_PASSWORD_ENV=PG_PASSWORD \
+  -e SIGNALS_TARGET_HOST=db.example.com \
+  -e SIGNALS_TARGET_USER=signals \
+  -e SIGNALS_TARGET_DBNAME=postgres \
+  -e SIGNALS_TARGET_PASSWORD_ENV=PG_PASSWORD \
   -e PG_PASSWORD=your_password \
-  -e ARQ_ALLOW_INSECURE_PG_TLS=true \
-  -e ARQ_ENV=dev \
-  -e ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
-  -v arq-data:/data \
+  -e SIGNALS_ALLOW_INSECURE_PG_TLS=true \
+  -e SIGNALS_ENV=dev \
+  -e SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
+  -v signals-data:/data \
   -p 8081:8081 \
   signals
 ```
@@ -36,10 +36,10 @@ docker run -d --name signals \
 
 ```bash
 docker run -d --name signals \
-  -v /path/to/signals.yaml:/etc/arq/signals.yaml:ro \
-  -v arq-data:/data \
+  -v /path/to/signals.yaml:/etc/signals/signals.yaml:ro \
+  -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
-  signals --config /etc/arq/signals.yaml
+  signals --config /etc/signals/signals.yaml
 ```
 
 ## Collect and export
@@ -79,7 +79,7 @@ docker compose -f examples/docker-compose.yml up -d
 ## Safe role vs superuser
 
 By default, Elevarq Signals blocks superuser roles. For local Docker
-testing with `postgres`, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`.
-For production, use a dedicated `arq_signals` role with `pg_monitor`.
+testing with `postgres`, set `SIGNALS_ALLOW_UNSAFE_ROLE=true`.
+For production, use a dedicated `signals` role with `pg_monitor`.
 
 See also: [docs/container.md](../../docs/container.md)

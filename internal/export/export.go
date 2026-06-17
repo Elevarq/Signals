@@ -291,7 +291,7 @@ func (b *Builder) writeMetadata(zw *zip.Writer, opts Options) error {
 		"schema_version":                      snapshot.SchemaVersion,
 		"collector_status_schema_version":     CollectorStatusSchemaVersion,
 		"instance_id":                         b.instanceID,
-		"arq_signals_version":                 safety.Version,
+		"signals_version":                     safety.Version,
 		"collector_version":                   safety.Version, // legacy alias
 		"collector_commit":                    safety.Commit,
 		"generated_at":                        now,

@@ -100,7 +100,7 @@ the server's network rules admit the collector subnet.
 - The identity is **user-assigned and dedicated** to the collector; scope its
   database grant to `pg_monitor` only.
 - TLS is **`verify-full`** against the Azure CA bundle (fetched to
-  `/etc/arq/azure-ca.pem`); override `db_ca_cert_url` / `dbCaCertUrl` if your
+  `/etc/signals/azure-ca.pem`); override `db_ca_cert_url` / `dbCaCertUrl` if your
   server chains to a different root.
 - The API listener binds to `127.0.0.1` only.
 - Network egress is governed by the **subnet's NSG** by default. To pin a

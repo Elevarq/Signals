@@ -97,7 +97,7 @@ Runs the closed read-only checks:
 - `config_valid` (passes YAML through `ValidateStrict`)
 - `target_reachable` (TCP-level)
 - `role_safe` (refuses superuser by default;
-  `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=1` for evaluation)
+  `SIGNALS_ALLOW_UNSAFE_ROLE=1` for evaluation)
 - `collector_prerequisites` (extension availability;
   high-sensitivity-collector gating)
 - `snapshot_freshness` (existing daemon, if any)

@@ -14,8 +14,8 @@ import (
 // Config is the top-level configuration for Elevarq Signals.
 type Config struct {
 	Env                string         `yaml:"env"` // "dev" (default), "lab", "prod"
-	AllowInsecurePgTLS bool           `yaml:"-"`   // env-only via ARQ_ALLOW_INSECURE_PG_TLS
-	AllowUnsafeRole    bool           `yaml:"-"`   // env-only via ARQ_SIGNALS_ALLOW_UNSAFE_ROLE
+	AllowInsecurePgTLS bool           `yaml:"-"`   // env-only via SIGNALS_ALLOW_INSECURE_PG_TLS
+	AllowUnsafeRole    bool           `yaml:"-"`   // env-only via SIGNALS_ALLOW_UNSAFE_ROLE
 	Signals            SignalsConfig  `yaml:"signals"`
 	Targets            []TargetConfig `yaml:"targets"`
 	API                APIConfig      `yaml:"api"`
@@ -45,22 +45,22 @@ type SignalsConfig struct {
 	// collector to run. Operators who want the standard MCV /
 	// histogram collector but NOT the per-element array / range
 	// data set this to false while leaving the daemon-wide flag
-	// true. Env: ARQ_SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS.
+	// true. Env: SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS.
 	CollectArrayRangeHistograms bool   `yaml:"collect_array_range_histograms"`
 	MetricsEnabled              bool   `yaml:"metrics_enabled"`
 	MetricsPath                 string `yaml:"metrics_path"`
 	// R091: minimum interval between completed snapshots for the
 	// same logical target. Default 60s. Env override
-	// ARQ_SIGNALS_MIN_SNAPSHOT_INTERVAL accepts the same time-string
+	// SIGNALS_MIN_SNAPSHOT_INTERVAL accepts the same time-string
 	// format as `poll_interval`. FC-10 rejects zero/negative.
 	MinSnapshotInterval  time.Duration `yaml:"-"`
 	MinSnapshotIntervalS string        `yaml:"min_snapshot_interval"`
 	// R083: Mode B opt-in. "standalone" (default) keeps Phase 2
-	// behaviour byte-for-byte. "arq_managed" activates the
-	// arq_control_plane_token check.
-	Mode                     string `yaml:"mode"`
-	ArqControlPlaneTokenFile string `yaml:"arq_control_plane_token_file"`
-	ArqControlPlaneTokenEnv  string `yaml:"arq_control_plane_token_env"`
+	// behaviour byte-for-byte. "managed" activates the
+	// control_plane_token check.
+	Mode                  string `yaml:"mode"`
+	ControlPlaneTokenFile string `yaml:"control_plane_token_file"`
+	ControlPlaneTokenEnv  string `yaml:"control_plane_token_env"`
 
 	// R097: per-target circuit-breaker thresholds.
 	Circuit CircuitConfig `yaml:"circuit"`
@@ -134,13 +134,13 @@ func (r RetentionConfig) MaxDays(defaultDays int) int {
 // R083 mode values.
 const (
 	ModeStandalone = "standalone"
-	ModeArqManaged = "arq_managed"
+	ModeManaged    = "managed"
 )
 
-// MinArqControlPlaneTokenLength is the floor for the R083 control-
+// MinControlPlaneTokenLength is the floor for the R083 control-
 // plane token. 32 chars matches the doc-stated minimum and is
 // sufficient entropy for HMAC-equivalent strength.
-const MinArqControlPlaneTokenLength = 32
+const MinControlPlaneTokenLength = 32
 
 type TargetConfig struct {
 	Name            string `yaml:"name"`
@@ -340,8 +340,8 @@ type APIConfig struct {
 	// Token / TokenFile are operator-supplied YAML inputs. Both
 	// optional. TokenFile, when set, references a file containing the
 	// token (matches the _FILE convention). At Load time the file is
-	// read and folded into APIToken; ENV overrides (ARQ_SIGNALS_API_TOKEN
-	// and ARQ_SIGNALS_API_TOKEN_FILE) apply on top. The resolved value
+	// read and folded into APIToken; ENV overrides (SIGNALS_API_TOKEN
+	// and SIGNALS_API_TOKEN_FILE) apply on top. The resolved value
 	// lives on APIToken; downstream consumers read APIToken only.
 	Token     string `yaml:"token"`
 	TokenFile string `yaml:"token_file"`
@@ -350,8 +350,8 @@ type APIConfig struct {
 	// TLS (R113). Optional daemon-terminated TLS for the HTTP API.
 	// All-or-nothing: set both to serve HTTPS, neither to serve plain
 	// HTTP (the loopback default). Setting exactly one is a hard
-	// config error. Env overrides: ARQ_SIGNALS_API_TLS_CERT_FILE /
-	// ARQ_SIGNALS_API_TLS_KEY_FILE.
+	// config error. Env overrides: SIGNALS_API_TLS_CERT_FILE /
+	// SIGNALS_API_TLS_KEY_FILE.
 	TLSCertFile string `yaml:"tls_cert_file"`
 	TLSKeyFile  string `yaml:"tls_key_file"`
 }
@@ -395,7 +395,7 @@ func DefaultConfig() Config {
 			WriteTimeoutS: "180s",
 		},
 		Database: DatabaseConfig{
-			Path: "/data/arq-signals.db",
+			Path: "/data/signals.db",
 			WAL:  true,
 		},
 	}
@@ -407,7 +407,7 @@ func Load(path string) (Config, error) {
 
 	if path == "" {
 		// Try default locations.
-		for _, p := range []string{"/etc/arq/signals.yaml", "./signals.yaml"} {
+		for _, p := range []string{"/etc/signals/signals.yaml", "./signals.yaml"} {
 			if _, err := os.Stat(p); err == nil {
 				path = p
 				break
@@ -440,7 +440,7 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-// parseEnvInt returns the parsed integer for the given ARQ_SIGNALS_* env
+// parseEnvInt returns the parsed integer for the given SIGNALS_* env
 // variable, or an error if the value is set but not a valid integer.
 // Empty/unset returns ok=false with no error.
 func parseEnvInt(name string) (int, bool, error) {
@@ -497,71 +497,71 @@ func resolveAPITokenFromYAML(cfg *Config) error {
 }
 
 func applyEnvOverrides(cfg *Config) error {
-	if v := os.Getenv("ARQ_ENV"); v != "" {
+	if v := os.Getenv("SIGNALS_ENV"); v != "" {
 		cfg.Env = strings.ToLower(v)
 	}
-	if b, ok, err := parseEnvBool("ARQ_ALLOW_INSECURE_PG_TLS"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_ALLOW_INSECURE_PG_TLS"); err != nil {
 		return err
 	} else if ok {
 		cfg.AllowInsecurePgTLS = b
 	}
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_ALLOW_UNSAFE_ROLE"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_ALLOW_UNSAFE_ROLE"); err != nil {
 		return err
 	} else if ok {
 		cfg.AllowUnsafeRole = b
 	}
-	if v := os.Getenv("ARQ_SIGNALS_POLL_INTERVAL"); v != "" {
+	if v := os.Getenv("SIGNALS_POLL_INTERVAL"); v != "" {
 		cfg.Signals.PollIntervalS = v
 	}
-	if n, ok, err := parseEnvInt("ARQ_SIGNALS_RETENTION_DAYS"); err != nil {
+	if n, ok, err := parseEnvInt("SIGNALS_RETENTION_DAYS"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.RetentionDays = n
 	}
-	if v := os.Getenv("ARQ_SIGNALS_LOG_LEVEL"); v != "" {
+	if v := os.Getenv("SIGNALS_LOG_LEVEL"); v != "" {
 		cfg.Signals.LogLevel = strings.ToLower(v)
 	}
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_LOG_JSON"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_LOG_JSON"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.LogJSON = b
 	}
-	if n, ok, err := parseEnvInt("ARQ_SIGNALS_MAX_CONCURRENT_TARGETS"); err != nil {
+	if n, ok, err := parseEnvInt("SIGNALS_MAX_CONCURRENT_TARGETS"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.MaxConcurrentTargets = n
 	}
-	if v := os.Getenv("ARQ_SIGNALS_TARGET_TIMEOUT"); v != "" {
+	if v := os.Getenv("SIGNALS_TARGET_TIMEOUT"); v != "" {
 		cfg.Signals.TargetTimeoutS = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_QUERY_TIMEOUT"); v != "" {
+	if v := os.Getenv("SIGNALS_QUERY_TIMEOUT"); v != "" {
 		cfg.Signals.QueryTimeoutS = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_MIN_SNAPSHOT_INTERVAL"); v != "" {
+	if v := os.Getenv("SIGNALS_MIN_SNAPSHOT_INTERVAL"); v != "" {
 		// R091: env override. Same time-string format as
 		// poll_interval; validation happens in the post-parse
 		// validator (FC-10).
 		cfg.Signals.MinSnapshotIntervalS = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_LISTEN_ADDR"); v != "" {
+	if v := os.Getenv("SIGNALS_LISTEN_ADDR"); v != "" {
 		cfg.API.ListenAddr = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_API_TLS_CERT_FILE"); v != "" {
+	if v := os.Getenv("SIGNALS_API_TLS_CERT_FILE"); v != "" {
 		cfg.API.TLSCertFile = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_API_TLS_KEY_FILE"); v != "" {
+	if v := os.Getenv("SIGNALS_API_TLS_KEY_FILE"); v != "" {
 		cfg.API.TLSKeyFile = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_DB_PATH"); v != "" {
+	if v := os.Getenv("SIGNALS_DB_PATH"); v != "" {
 		cfg.Database.Path = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_WRITE_TIMEOUT"); v != "" {
+	if v := os.Getenv("SIGNALS_WRITE_TIMEOUT"); v != "" {
 		cfg.API.WriteTimeoutS = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_API_TOKEN"); v != "" {
+	if v := os.Getenv("SIGNALS_API_TOKEN"); v != "" {
 		cfg.API.APIToken = v
 	}
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.HighSensitivityCollectorsEnabled = b
@@ -569,31 +569,31 @@ func applyEnvOverrides(cfg *Config) error {
 	// #128: per-collector opt-in for pg_stats_array_range_v1.
 	// Layered ON TOP of HighSensitivityCollectorsEnabled — both
 	// must be true for the collector to run.
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.CollectArrayRangeHistograms = b
 	}
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_METRICS_ENABLED"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_METRICS_ENABLED"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.MetricsEnabled = b
 	}
-	if v := os.Getenv("ARQ_SIGNALS_METRICS_PATH"); v != "" {
+	if v := os.Getenv("SIGNALS_METRICS_PATH"); v != "" {
 		cfg.Signals.MetricsPath = v
 	}
 	// R083 — Mode B knobs.
-	if v := os.Getenv("ARQ_SIGNALS_MODE"); v != "" {
+	if v := os.Getenv("SIGNALS_MODE"); v != "" {
 		cfg.Signals.Mode = strings.ToLower(v)
 	}
-	if v := os.Getenv("ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_FILE"); v != "" {
-		cfg.Signals.ArqControlPlaneTokenFile = v
+	if v := os.Getenv("SIGNALS_CONTROL_PLANE_TOKEN_FILE"); v != "" {
+		cfg.Signals.ControlPlaneTokenFile = v
 	}
-	if v := os.Getenv("ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_ENV"); v != "" {
-		cfg.Signals.ArqControlPlaneTokenEnv = v
+	if v := os.Getenv("SIGNALS_CONTROL_PLANE_TOKEN_ENV"); v != "" {
+		cfg.Signals.ControlPlaneTokenEnv = v
 	}
 	// R080 — opt-in per-collector export view.
-	if b, ok, err := parseEnvBool("ARQ_SIGNALS_EXPORT_PER_COLLECTOR_FILES"); err != nil {
+	if b, ok, err := parseEnvBool("SIGNALS_EXPORT_PER_COLLECTOR_FILES"); err != nil {
 		return err
 	} else if ok {
 		cfg.Signals.ExportPerCollectorFiles = b
@@ -603,27 +603,27 @@ func applyEnvOverrides(cfg *Config) error {
 	// A missing or unreadable file is a hard error so a deployment
 	// mistake does not silently fall through to the weaker env-based
 	// value.
-	if v := os.Getenv("ARQ_SIGNALS_API_TOKEN_FILE"); v != "" {
+	if v := os.Getenv("SIGNALS_API_TOKEN_FILE"); v != "" {
 		data, err := os.ReadFile(v)
 		if err != nil {
-			return fmt.Errorf("read ARQ_SIGNALS_API_TOKEN_FILE %s: %w", v, err)
+			return fmt.Errorf("read SIGNALS_API_TOKEN_FILE %s: %w", v, err)
 		}
 		cfg.API.APIToken = strings.TrimRight(string(data), "\n\r")
 	}
 
 	// Allow a single target via env (common for containers).
-	if host := os.Getenv("ARQ_SIGNALS_TARGET_HOST"); host != "" {
-		name := os.Getenv("ARQ_SIGNALS_TARGET_NAME")
+	if host := os.Getenv("SIGNALS_TARGET_HOST"); host != "" {
+		name := os.Getenv("SIGNALS_TARGET_NAME")
 		if name == "" {
 			name = "default"
 		}
 		port := 5432
-		if n, ok, err := parseEnvInt("ARQ_SIGNALS_TARGET_PORT"); err != nil {
+		if n, ok, err := parseEnvInt("SIGNALS_TARGET_PORT"); err != nil {
 			return err
 		} else if ok {
 			port = n
 		}
-		dbname := os.Getenv("ARQ_SIGNALS_TARGET_DBNAME")
+		dbname := os.Getenv("SIGNALS_TARGET_DBNAME")
 		if dbname == "" {
 			dbname = "postgres"
 		}
@@ -632,12 +632,12 @@ func applyEnvOverrides(cfg *Config) error {
 			Host:            host,
 			Port:            port,
 			DBName:          dbname,
-			User:            os.Getenv("ARQ_SIGNALS_TARGET_USER"),
-			SSLMode:         os.Getenv("ARQ_SIGNALS_TARGET_SSLMODE"),
-			SSLRootCertFile: os.Getenv("ARQ_SIGNALS_TARGET_SSLROOTCERT_FILE"),
-			PasswordFile:    os.Getenv("ARQ_SIGNALS_TARGET_PASSWORD_FILE"),
-			PasswordEnv:     os.Getenv("ARQ_SIGNALS_TARGET_PASSWORD_ENV"),
-			PgpassFile:      os.Getenv("ARQ_SIGNALS_TARGET_PGPASS_FILE"),
+			User:            os.Getenv("SIGNALS_TARGET_USER"),
+			SSLMode:         os.Getenv("SIGNALS_TARGET_SSLMODE"),
+			SSLRootCertFile: os.Getenv("SIGNALS_TARGET_SSLROOTCERT_FILE"),
+			PasswordFile:    os.Getenv("SIGNALS_TARGET_PASSWORD_FILE"),
+			PasswordEnv:     os.Getenv("SIGNALS_TARGET_PASSWORD_ENV"),
+			PgpassFile:      os.Getenv("SIGNALS_TARGET_PGPASS_FILE"),
 			Enabled:         true,
 		}
 		cfg.Targets = append(cfg.Targets, tgt)
@@ -741,18 +741,18 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	// because they need the resolved api.token, which is generated
 	// after Load returns.
 	switch cfg.Signals.Mode {
-	case "", ModeStandalone, ModeArqManaged:
+	case "", ModeStandalone, ModeManaged:
 		// allowed (empty == standalone via default)
 	default:
-		hard = append(hard, fmt.Sprintf("signals.mode %q must be %q or %q", cfg.Signals.Mode, ModeStandalone, ModeArqManaged))
+		hard = append(hard, fmt.Sprintf("signals.mode %q must be %q or %q", cfg.Signals.Mode, ModeStandalone, ModeManaged))
 	}
-	if cfg.Signals.ArqControlPlaneTokenFile != "" && cfg.Signals.ArqControlPlaneTokenEnv != "" {
-		hard = append(hard, "signals.arq_control_plane_token_file and signals.arq_control_plane_token_env are mutually exclusive — pick one")
+	if cfg.Signals.ControlPlaneTokenFile != "" && cfg.Signals.ControlPlaneTokenEnv != "" {
+		hard = append(hard, "signals.control_plane_token_file and signals.control_plane_token_env are mutually exclusive — pick one")
 	}
-	if cfg.Signals.Mode == ModeArqManaged &&
-		cfg.Signals.ArqControlPlaneTokenFile == "" &&
-		cfg.Signals.ArqControlPlaneTokenEnv == "" {
-		hard = append(hard, `signals.mode is "arq_managed" but no control-plane token is configured (set arq_control_plane_token_file or arq_control_plane_token_env)`)
+	if cfg.Signals.Mode == ModeManaged &&
+		cfg.Signals.ControlPlaneTokenFile == "" &&
+		cfg.Signals.ControlPlaneTokenEnv == "" {
+		hard = append(hard, `signals.mode is "managed" but no control-plane token is configured (set control_plane_token_file or control_plane_token_env)`)
 	}
 
 	seen := make(map[string]int, len(cfg.Targets))
@@ -954,7 +954,7 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	// in dev/lab.
 	if cfg.API.APIToken != "" {
 		if reason := WeakAPITokenReason(cfg.API.APIToken); reason != "" {
-			msg := fmt.Sprintf("api.api_token: %s — supply a strong random secret (e.g. `openssl rand -base64 32`) via api.token / api.token_file in signals.yaml, or ARQ_SIGNALS_API_TOKEN / ARQ_SIGNALS_API_TOKEN_FILE", reason)
+			msg := fmt.Sprintf("api.api_token: %s — supply a strong random secret (e.g. `openssl rand -base64 32`) via api.token / api.token_file in signals.yaml, or SIGNALS_API_TOKEN / SIGNALS_API_TOKEN_FILE", reason)
 			if cfg.Env == "prod" {
 				hard = append(hard, msg)
 			} else {
@@ -1084,7 +1084,7 @@ var weakSSLModes = map[string]bool{
 
 // ValidateProdTLS enforces strict Postgres TLS requirements in production.
 // In prod, all targets must use verify-ca or verify-full with a CA cert.
-// In non-prod, ARQ_ALLOW_INSECURE_PG_TLS=true suppresses the error.
+// In non-prod, SIGNALS_ALLOW_INSECURE_PG_TLS=true suppresses the error.
 // Returns nil if all checks pass.
 func ValidateProdTLS(cfg Config) error {
 	isProd := cfg.Env == "prod"
@@ -1110,47 +1110,47 @@ func ValidateProdTLS(cfg Config) error {
 		// Weak mode detected.
 		if isProd {
 			if cfg.AllowInsecurePgTLS {
-				return fmt.Errorf("target[%d] (%s): ARQ_ALLOW_INSECURE_PG_TLS is not permitted in prod; use verify-ca or verify-full", i, t.Name)
+				return fmt.Errorf("target[%d] (%s): SIGNALS_ALLOW_INSECURE_PG_TLS is not permitted in prod; use verify-ca or verify-full", i, t.Name)
 			}
 			return fmt.Errorf("target[%d] (%s): sslmode=%s is not allowed in prod; set sslmode=verify-full and provide sslrootcert_file", i, t.Name, mode)
 		}
 
 		// Non-prod: allow with override, warn otherwise.
 		if !cfg.AllowInsecurePgTLS {
-			return fmt.Errorf("target[%d] (%s): sslmode=%s is insecure; set ARQ_ALLOW_INSECURE_PG_TLS=true to allow in %s environment", i, t.Name, mode, cfg.Env)
+			return fmt.Errorf("target[%d] (%s): sslmode=%s is insecure; set SIGNALS_ALLOW_INSECURE_PG_TLS=true to allow in %s environment", i, t.Name, mode, cfg.Env)
 		}
 	}
 
 	return nil
 }
 
-// ResolveArqControlPlaneToken reads the configured Elevarq control-plane
+// ResolveControlPlaneToken reads the configured Elevarq control-plane
 // token (R083). It is called per authentication attempt by the auth
 // middleware so rotating the file's contents takes effect on the
 // next request — no daemon restart required. Returns empty string
-// when mode != arq_managed or when no source is configured (caller
+// when mode != managed or when no source is configured (caller
 // treats that as "control-plane auth disabled" without allocation).
 //
 // File source is preferred over env-var source. If both are set the
 // file wins; ValidateStrict already rejects the both-set case at
 // startup so this only matters under a lossy env reload.
-func ResolveArqControlPlaneToken(s SignalsConfig) (string, error) {
-	if s.Mode != ModeArqManaged {
+func ResolveControlPlaneToken(s SignalsConfig) (string, error) {
+	if s.Mode != ModeManaged {
 		return "", nil
 	}
 	switch {
-	case s.ArqControlPlaneTokenFile != "":
-		data, err := os.ReadFile(s.ArqControlPlaneTokenFile)
+	case s.ControlPlaneTokenFile != "":
+		data, err := os.ReadFile(s.ControlPlaneTokenFile)
 		if err != nil {
-			return "", fmt.Errorf("read arq_control_plane_token_file: %w", err)
+			return "", fmt.Errorf("read control_plane_token_file: %w", err)
 		}
 		// Strip a single trailing newline pair — same convention as
 		// the api.token file and pgpass handling.
 		return strings.TrimRight(string(data), "\n\r"), nil
-	case s.ArqControlPlaneTokenEnv != "":
-		v, ok := os.LookupEnv(s.ArqControlPlaneTokenEnv)
+	case s.ControlPlaneTokenEnv != "":
+		v, ok := os.LookupEnv(s.ControlPlaneTokenEnv)
 		if !ok {
-			return "", fmt.Errorf("env var %q referenced by arq_control_plane_token_env is not set", s.ArqControlPlaneTokenEnv)
+			return "", fmt.Errorf("env var %q referenced by control_plane_token_env is not set", s.ControlPlaneTokenEnv)
 		}
 		return v, nil
 	}
@@ -1160,23 +1160,23 @@ func ResolveArqControlPlaneToken(s SignalsConfig) (string, error) {
 // ValidateModeBTokens runs the cross-token checks that depend on the
 // resolved values of both tokens (R083): control-plane token length
 // floor and distinctness from the API token. Called from main.go
-// once both tokens are populated; not called when mode != arq_managed.
+// once both tokens are populated; not called when mode != managed.
 //
-// arqToken is the resolved control-plane token (i.e. the result of
-// ResolveArqControlPlaneToken at startup). apiToken is the
+// controlPlaneToken is the resolved control-plane token (i.e. the result of
+// ResolveControlPlaneToken at startup). apiToken is the
 // effective api.token after auto-generation.
-func ValidateModeBTokens(cfg Config, apiToken, arqToken string) error {
-	if cfg.Signals.Mode != ModeArqManaged {
+func ValidateModeBTokens(cfg Config, apiToken, controlPlaneToken string) error {
+	if cfg.Signals.Mode != ModeManaged {
 		return nil
 	}
-	if arqToken == "" {
-		return fmt.Errorf("signals.arq_control_plane_token resolved to empty string — check the configured file or env var")
+	if controlPlaneToken == "" {
+		return fmt.Errorf("signals.control_plane_token resolved to empty string — check the configured file or env var")
 	}
-	if len(arqToken) < MinArqControlPlaneTokenLength {
-		return fmt.Errorf("signals.arq_control_plane_token must be at least %d characters", MinArqControlPlaneTokenLength)
+	if len(controlPlaneToken) < MinControlPlaneTokenLength {
+		return fmt.Errorf("signals.control_plane_token must be at least %d characters", MinControlPlaneTokenLength)
 	}
-	if subtle.ConstantTimeCompare([]byte(arqToken), []byte(apiToken)) == 1 {
-		return fmt.Errorf("signals.arq_control_plane_token must differ from api.token")
+	if subtle.ConstantTimeCompare([]byte(controlPlaneToken), []byte(apiToken)) == 1 {
+		return fmt.Errorf("signals.control_plane_token must differ from api.token")
 	}
 	return nil
 }

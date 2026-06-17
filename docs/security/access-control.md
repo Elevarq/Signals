@@ -22,8 +22,8 @@ deployments.
 | Source | When to use | Strength enforcement |
 |---|---|---|
 | Auto-generated at startup | Local development; demo containers | Always strong (32 random bytes from `crypto/rand`); 12-char SHA-256 fingerprint logged so operators can confirm rotation |
-| `ARQ_SIGNALS_API_TOKEN` env var | Operator-driven shell scripts | Validated against `config.WeakAPITokenReason`; weak tokens **hard-fail startup** in `env=prod`, **warn** in `env=dev`/`lab` |
-| `ARQ_SIGNALS_API_TOKEN_FILE` env var | Docker secrets, file-backed secret stores | Same validation as the env var |
+| `SIGNALS_API_TOKEN` env var | Operator-driven shell scripts | Validated against `config.WeakAPITokenReason`; weak tokens **hard-fail startup** in `env=prod`, **warn** in `env=dev`/`lab` |
+| `SIGNALS_API_TOKEN_FILE` env var | Docker secrets, file-backed secret stores | Same validation as the env var |
 | Kubernetes `Secret` via Helm | Production / managed deployments | Same validation; declarative rotation; the Helm chart references the Secret by name only — token never lands in a ConfigMap or rendered manifest |
 
 ## Strength requirements
@@ -103,7 +103,7 @@ kubectl rollout restart deployment/signals
 ```
 
 The deployment template injects the token as
-`ARQ_SIGNALS_API_TOKEN` via `valueFrom.secretKeyRef`. The token
+`SIGNALS_API_TOKEN` via `valueFrom.secretKeyRef`. The token
 value NEVER appears in the rendered manifest beyond the Secret
 reference name.
 

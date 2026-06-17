@@ -181,7 +181,7 @@ audience) and is not operator-configurable.
   `auth_method`, db_user, scope, resolved_at, expires_at — and never the
   token (INV002/INV007).
 - **AC-AZURE-008 (live smoke, env-gated)**: with
-  `ARQ_SIGNALS_INTEGRATION_LIVE=1` against a real Azure Database for
+  `SIGNALS_INTEGRATION_LIVE=1` against a real Azure Database for
   PostgreSQL Flexible Server whose role is mapped to the test principal,
   the collector connects passwordlessly and collects at least one
   snapshot; the token is re-acquired across a reconnect that crosses the

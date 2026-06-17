@@ -22,7 +22,7 @@ collector from the eligible set — it then appears in
 (EA-R001). The collector is on the skip-path because its row (MCV
 and histogram values) IS the sensitive payload; nothing meaningful
 would remain after redacting those columns. Configuration plumbing
-— the `signals.collect_histograms` / `ARQ_SIGNALS_COLLECT_HISTOGRAMS`
+— the `signals.collect_histograms` / `SIGNALS_COLLECT_HISTOGRAMS`
 shape described below — is provided by the existing
 high-sensitivity surface.
 
@@ -93,7 +93,7 @@ pg_toast, pg_temp_%, pg_toast_temp_%.
 - **Enabled by default: yes** (R075 v2: collect-everything default).
   Operators opt out with
   `signals.high_sensitivity_collectors_enabled: false` (or
-  `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`), which
+  `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`), which
   skips this collector entirely (skip-path).
 
 ## Sensitivity

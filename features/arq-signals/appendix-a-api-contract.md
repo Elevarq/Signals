@@ -15,7 +15,7 @@ Authorization: Bearer <token>
 
 The token can be configured via any of four sources. Precedence
 (low → high, later wins): YAML `api.token` → YAML `api.token_file`
-→ env `ARQ_SIGNALS_API_TOKEN` → env `ARQ_SIGNALS_API_TOKEN_FILE`.
+→ env `SIGNALS_API_TOKEN` → env `SIGNALS_API_TOKEN_FILE`.
 The two YAML fields are mutually exclusive. If none are supplied,
 the system generates a 32-byte random token at startup and logs its
 SHA-256 fingerprint (never the value).
@@ -301,7 +301,7 @@ The `metadata.json` file in the export ZIP shall contain:
 
 ```json
 {
-  "schema_version": "arq-snapshot.v1",
+  "schema_version": "signals-snapshot.v1",
   "instance_id": "<string>",
   "collector_version": "<semver>",
   "collector_commit": "<git short hash>",

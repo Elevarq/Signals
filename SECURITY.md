@@ -117,7 +117,7 @@ signals:
   high_sensitivity_collectors_enabled: false
 ```
 
-(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). When set
+(or `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). When set
 to `false`, the opt-out branches **per collector** based on whether
 the row carries non-sensitive diagnostic columns:
 

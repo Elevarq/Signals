@@ -48,7 +48,7 @@ spec:
               name: api
               protocol: TCP
           env:
-            - name: ARQ_ENV
+            - name: SIGNALS_ENV
               value: {{ .Values.env | quote }}
             {{- /* #114: the target (host/port/dbname/user/sslmode AND
                   auth_method + cloud params) is delivered through the
@@ -56,15 +56,15 @@ spec:
                   collector only reads auth_method from YAML. Env target
                   vars are intentionally not set here to avoid a
                   duplicate target. */}}
-            - name: ARQ_SIGNALS_POLL_INTERVAL
+            - name: SIGNALS_POLL_INTERVAL
               value: {{ .Values.collector.pollInterval | quote }}
-            - name: ARQ_SIGNALS_RETENTION_DAYS
+            - name: SIGNALS_RETENTION_DAYS
               value: {{ .Values.collector.retentionDays | quote }}
-            - name: ARQ_SIGNALS_TARGET_TIMEOUT
+            - name: SIGNALS_TARGET_TIMEOUT
               value: {{ .Values.collector.targetTimeout | quote }}
-            - name: ARQ_SIGNALS_QUERY_TIMEOUT
+            - name: SIGNALS_QUERY_TIMEOUT
               value: {{ .Values.collector.queryTimeout | quote }}
-            - name: ARQ_SIGNALS_LISTEN_ADDR
+            - name: SIGNALS_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.api.port }}"
             {{- /* #114: password source only for the default (password)
                   method. Token/secret methods are passwordless (FC005) —
@@ -85,7 +85,7 @@ spec:
                   lands in a ConfigMap or rendered manifest beyond
                   the Secret reference name. */ -}}
             {{- if .Values.api.tokenSecretName }}
-            - name: ARQ_SIGNALS_API_TOKEN
+            - name: SIGNALS_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: {{ .Values.api.tokenSecretName }}
@@ -93,7 +93,7 @@ spec:
             {{- end }}
           volumeMounts:
             - name: config
-              mountPath: /etc/arq
+              mountPath: /etc/signals
               readOnly: true
             - name: data
               mountPath: /data

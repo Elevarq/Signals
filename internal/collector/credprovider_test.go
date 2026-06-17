@@ -237,7 +237,7 @@ func TestResolveAWSLogsMetadataNotToken(t *testing.T) {
 // Backward compatibility — an empty auth_method resolves via the existing
 // password source and carries no expiry.
 func TestResolvePasswordPathUnchanged(t *testing.T) {
-	t.Setenv("ARQ_SIGNALS_CREDPROV_TEST_PW", "s3cr3t")
+	t.Setenv("SIGNALS_CREDPROV_TEST_PW", "s3cr3t")
 	clock := &fakeClock{t: time.Unix(1_700_000_000, 0).UTC()}
 	m := &fakeMinter{ttl: 15 * time.Minute, now: clock.now}
 	r := newTestResolver(clock, m, regionFixed("us-east-1"), slog.New(slog.NewTextHandler(&bytes.Buffer{}, nil)))
@@ -248,7 +248,7 @@ func TestResolvePasswordPathUnchanged(t *testing.T) {
 		Port:        5432,
 		DBName:      "appdb",
 		User:        "monitor",
-		PasswordEnv: "ARQ_SIGNALS_CREDPROV_TEST_PW",
+		PasswordEnv: "SIGNALS_CREDPROV_TEST_PW",
 		Enabled:     true,
 	}
 	cred, err := r.Resolve(context.Background(), tgt)

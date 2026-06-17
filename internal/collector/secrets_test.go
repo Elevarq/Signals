@@ -31,14 +31,14 @@ func TestBuildSafeDSNQuotesValues(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			t.Setenv("ARQ_SIGNALS_TEST_PW", tc.password)
+			t.Setenv("SIGNALS_TEST_PW", tc.password)
 			tgt := config.TargetConfig{
 				Name:        "t1",
 				Host:        "db.example.com",
 				Port:        5432,
 				DBName:      tc.dbname,
 				User:        tc.user,
-				PasswordEnv: "ARQ_SIGNALS_TEST_PW",
+				PasswordEnv: "SIGNALS_TEST_PW",
 			}
 
 			dsn, err := BuildSafeDSN(tgt)
@@ -81,14 +81,14 @@ func TestBuildSafeDSNQuotesValues(t *testing.T) {
 // value, even when it contains spaces or escaped quotes (no secret
 // fragment survives the redaction; R024, INV-SIGNALS-07).
 func TestRedactDSNQuotedPassword(t *testing.T) {
-	t.Setenv("ARQ_SIGNALS_TEST_PW", "pa ss '; sslmode=disable")
+	t.Setenv("SIGNALS_TEST_PW", "pa ss '; sslmode=disable")
 	tgt := config.TargetConfig{
 		Name:        "t1",
 		Host:        "db.example.com",
 		Port:        5432,
 		DBName:      "appdb",
 		User:        "monitor",
-		PasswordEnv: "ARQ_SIGNALS_TEST_PW",
+		PasswordEnv: "SIGNALS_TEST_PW",
 	}
 	dsn, err := BuildSafeDSN(tgt)
 	if err != nil {
