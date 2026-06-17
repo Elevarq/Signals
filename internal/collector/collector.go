@@ -79,6 +79,12 @@ type Collector struct {
 	entropy                     io.Reader
 	running                     sync.Mutex
 
+	// credResolver dispatches each connection's credential by
+	// auth_method (credential-providers.md #93): the default password
+	// provider, or the aws_rds_iam token provider (#94). Set once at
+	// construction; invoked from getPool's BeforeConnect hook.
+	credResolver *credentialResolver
+
 	// circuit is the per-target state machine (R097). Always
 	// non-nil after New — defaults to a manager with the
 	// documented thresholds when no override is supplied.
@@ -146,6 +152,9 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 		// daemon overrides via WithCircuitManager when config
 		// supplies different values.
 		circuit: circuit.NewManager(0, 0),
+		// Credential provider dispatch (#93/#94). Default to the
+		// production resolver; tests may override via WithCredentialResolver.
+		credResolver: newCredentialResolver(slog.Default()),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -189,6 +198,17 @@ func WithMinSnapshotInterval(d time.Duration) CollectorOption {
 	return func(c *Collector) {
 		if d > 0 {
 			c.minSnapshotInterval = d
+		}
+	}
+}
+
+// WithCredentialResolver overrides the credential provider dispatch
+// (#93/#94). Tests inject a resolver with a fake AWS token minter and a
+// deterministic clock so no test makes a real AWS call (NFR003).
+func WithCredentialResolver(r *credentialResolver) CollectorOption {
+	return func(c *Collector) {
+		if r != nil {
+			c.credResolver = r
 		}
 	}
 }
@@ -1232,14 +1252,18 @@ func (c *Collector) getPool(ctx context.Context, tgt config.TargetConfig) (*pgxp
 	poolCfg.ConnConfig = connCfg
 	poolCfg.MaxConns = 2
 
-	// Re-resolve password on each new connection to support rotation.
+	// Re-resolve the credential on each new connection: password targets
+	// re-read their secret to support rotation; aws_rds_iam targets mint
+	// or reuse a cached, short-lived IAM token (#93/#94). The resolver
+	// dispatches on auth_method; the resolved value is the connection
+	// password in both cases.
 	poolCfg.BeforeConnect = func(ctx context.Context, cfg *pgx.ConnConfig) error {
-		password, err := ResolvePassword(tgt)
+		cred, err := c.credResolver.Resolve(ctx, tgt)
 		if err != nil {
-			slog.Error("failed to resolve password for target", "target", tgt.Name, "err", redactError(err))
-			return fmt.Errorf("resolve password: %w", redactError(err))
+			slog.Error("failed to resolve credential for target", "target", tgt.Name, "auth_method", tgt.EffectiveAuthMethod(), "err", redactError(err))
+			return fmt.Errorf("resolve credential: %w", redactError(err))
 		}
-		cfg.Password = password
+		cfg.Password = cred.Password
 		return nil
 	}
 
