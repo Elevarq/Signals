@@ -8,6 +8,28 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **GCP Cloud SQL IAM credential provider (`auth_method:
+  gcp_cloudsql_iam`, #93, #96).** Connect passwordlessly to Cloud SQL for
+  PostgreSQL using Cloud SQL IAM database authentication: a short-lived
+  Google OAuth2 access token acquired from the collector's ambient Google
+  identity (Application Default Credentials - environment / GKE workload
+  identity / service-account key / `gcloud auth application-default
+  login`). The token (scope fixed at
+  `https://www.googleapis.com/auth/sqlservice.login`) is the connection
+  password over a direct libpq `verify-full` channel - the token-as-
+  password seam, not the Cloud SQL Go Connector; no secret is stored in
+  Signals' config. Tokens are cached per target and re-acquired ~5 minutes
+  before their ~60 minute expiry, never shared across targets, and never
+  logged or exported (metadata only). Validation enforces the passwordless
+  and `verify-full` TLS floors at startup; an optional
+  `gcp_impersonate_service_account` lets the ambient identity impersonate a
+  per-target service account, and an undiscoverable identity or denied
+  impersonation is a connect-time, target-scoped failure that does not stop
+  collection for other targets. The Google SDK is linked only on the
+  `gcp_cloudsql_iam` path - password targets require no Google credentials.
+  Reuses the shared credential-provider scaffolding from #94. Live
+  behaviour covered by an env-gated smoke
+  (`ARQ_SIGNALS_INTEGRATION_LIVE=1`).
 - **Azure Entra ID credential provider (`auth_method: azure_entra`, #93,
   #95).** Connect passwordlessly to Azure Database for PostgreSQL -
   Flexible Server using a short-lived Microsoft Entra ID access token

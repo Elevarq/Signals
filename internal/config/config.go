@@ -178,6 +178,14 @@ type TargetConfig struct {
 	// Not a secret: a client id is a public GUID.
 	AzureClientID string `yaml:"azure_client_id"`
 
+	// GCPImpersonateServiceAccount is the email of a Google service
+	// account the collector should impersonate when minting Cloud SQL IAM
+	// access tokens, consumed only by the gcp_cloudsql_iam provider
+	// (ARQ-SIGNALS-AUTH-GCP-, #96). Optional; when empty the ambient
+	// Application Default Credentials identity is used directly. Not a
+	// secret: a service-account email is a public identifier.
+	GCPImpersonateServiceAccount string `yaml:"gcp_impersonate_service_account"`
+
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -260,15 +268,16 @@ func (t TargetConfig) ConnIdentity() string {
 // the keystone but not yet built (e.g. gcp_cloudsql_iam) are rejected by
 // ValidateStrict with an actionable error (keystone FC001).
 const (
-	AuthMethodPassword   = "password"
-	AuthMethodAWSRDSIAM  = "aws_rds_iam"
-	AuthMethodAzureEntra = "azure_entra"
+	AuthMethodPassword       = "password"
+	AuthMethodAWSRDSIAM      = "aws_rds_iam"
+	AuthMethodAzureEntra     = "azure_entra"
+	AuthMethodGCPCloudSQLIAM = "gcp_cloudsql_iam"
 )
 
 // SupportedAuthMethods enumerates every auth_method this build can serve.
 // The empty value is equivalent to AuthMethodPassword (see
 // EffectiveAuthMethod) and is always accepted.
-var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra}
+var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM}
 
 // EffectiveAuthMethod returns the target's auth_method, defaulting an
 // empty value to AuthMethodPassword so existing configs keep their
@@ -780,6 +789,23 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			// system-assigned identity), and an undiscoverable or ambiguous
 			// identity is a connect-time, target-scoped failure (FC-AZURE-005),
 			// not a whole-collector startup failure.
+		case AuthMethodGCPCloudSQLIAM:
+			// FC-GCP-003: token auth is passwordless — reject any stored
+			// password source on the target.
+			if secretCount > 0 {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is passwordless — remove password_file, password_env, and pgpass_file", i, t.Name, AuthMethodGCPCloudSQLIAM))
+			}
+			// FC-GCP-004: the Cloud SQL IAM access token must only traverse a
+			// fully verified TLS channel (direct libpq path), in every
+			// environment.
+			if t.SSLMode != "verify-full" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires sslmode=verify-full (got %q)", i, t.Name, AuthMethodGCPCloudSQLIAM, t.SSLMode))
+			}
+			// Identity resolution is deliberately NOT validated at startup:
+			// a missing gcp_impersonate_service_account is the common case
+			// (ambient ADC identity), and an undiscoverable identity or a
+			// denied impersonation is a connect-time, target-scoped failure
+			// (FC-GCP-005), not a whole-collector startup failure.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}

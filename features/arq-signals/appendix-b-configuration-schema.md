@@ -69,19 +69,23 @@ targets:
 
     # Credential provider (credential-providers.md #93). Optional.
     # Default (empty) = password. Token methods (aws_rds_iam,
-    # azure_entra) connect passwordlessly using a short-lived token
-    # minted from the collector's ambient cloud identity.
-    auth_method: <string>    # Optional. "password" (default) |
-                             #   "aws_rds_iam" | "azure_entra".
+    # azure_entra, gcp_cloudsql_iam) connect passwordlessly using a
+    # short-lived token minted from the collector's ambient cloud identity.
+    auth_method: <string>    # Optional. "password" (default) | "aws_rds_iam"
+                             #   | "azure_entra" | "gcp_cloudsql_iam".
     region: <string>         # Optional. AWS region for aws_rds_iam; when
                              #   omitted, resolved from AWS_REGION /
                              #   AWS_DEFAULT_REGION / instance metadata (IMDS).
     azure_client_id: <string> # Optional. User-assigned managed-identity
                              #   client id for azure_entra; when omitted,
                              #   AZURE_CLIENT_ID then the chain default.
+    gcp_impersonate_service_account: <string> # Optional. Service account to
+                             #   impersonate for gcp_cloudsql_iam; when omitted,
+                             #   the ambient ADC identity is used directly.
 
     # Credential source (at most one). MUST be empty when auth_method is
-    # a token method (aws_rds_iam / azure_entra are passwordless).
+    # a token method (aws_rds_iam / azure_entra / gcp_cloudsql_iam are
+    # passwordless).
     password_file: <path>    # Read password from file (newline-trimmed)
     password_env: <string>   # Read password from this env var's value
     pgpass_file: <path>      # Read password from pgpass-format file
@@ -216,6 +220,30 @@ metadata). Validation rules:
 
 The Azure SDK is invoked only on the `azure_entra` path; targets using
 password auth never require Azure credentials at runtime.
+
+### `auth_method: gcp_cloudsql_iam` (#96)
+
+Selects passwordless authentication to Cloud SQL for PostgreSQL using
+Cloud SQL IAM database authentication. A short-lived Google OAuth2 access
+token (scope fixed at `https://www.googleapis.com/auth/sqlservice.login`,
+typically valid ~60 minutes) is acquired from the collector's ambient
+Google identity (Application Default Credentials — environment / GKE
+workload identity / service-account key / `gcloud auth
+application-default login`) and used as the connection password. The
+connection itself is plain direct libpq over `verify-full` TLS (the
+token-as-password seam, not the Cloud SQL Go Connector). The token is
+cached per target and re-acquired ~5 minutes before expiry; it is never
+stored, exported, or logged (only its metadata). Validation rules:
+
+| Rule | Behavior |
+|------|----------|
+| Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-GCP-003). |
+| TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-GCP-004 / INV003). |
+| Identity | The minting identity is the ambient ADC identity, or the service account named by `gcp_impersonate_service_account` (which the ADC identity must hold the Token Creator role on). A missing impersonation account is **not** a startup warning (ambient ADC is the common case); an undiscoverable identity or a denied impersonation is a connect-time, target-scoped failure (FC-GCP-005) that does not stop collection for other targets. |
+| DB role | `user` must be a Cloud SQL IAM database user registered via `gcloud sql users create` (the role name is the IAM principal with the trailing domain stripped). `arqctl` surfaces the exact snippet on auth failure (AC-GCP-009). |
+
+The Google SDK is invoked only on the `gcp_cloudsql_iam` path; targets
+using password auth never require Google credentials at runtime.
 
 ## High-sensitivity collectors
 
