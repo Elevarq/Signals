@@ -144,12 +144,12 @@ func TestValidateWarnsButDoesNotFailOnMissingAWSRegion(t *testing.T) {
 // hard error that names the supported set.
 func TestValidateRejectsUnsupportedAuthMethod(t *testing.T) {
 	tgt := baseValidTarget()
-	tgt.AuthMethod = "gcp_cloudsql_iam" // known in keystone, not implemented in this build
+	tgt.AuthMethod = "secret_store" // known in keystone, not implemented in this build
 	_, err := ValidateStrict(baseValidConfig(tgt))
 	if err == nil {
 		t.Fatalf("expected hard error for unsupported auth_method, got nil")
 	}
-	if !strings.Contains(err.Error(), "gcp_cloudsql_iam") || !strings.Contains(err.Error(), AuthMethodAWSRDSIAM) {
+	if !strings.Contains(err.Error(), "secret_store") || !strings.Contains(err.Error(), AuthMethodAWSRDSIAM) {
 		t.Errorf("error should name the bad method and the supported set; got: %v", err)
 	}
 }

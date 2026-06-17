@@ -54,8 +54,12 @@ type credentialResolver struct {
 	// provider (#95). Like the AWS minter it is a seam so unit tests
 	// inject a fake and make no real Azure call (NFR003).
 	azureMinter entraTokenMinter
-	now         func() time.Time
-	logger      *slog.Logger
+	// gcpMinter acquires Cloud SQL IAM access tokens for the
+	// gcp_cloudsql_iam provider (#96). Like the other minters it is a seam
+	// so unit tests inject a fake and make no real GCP call (NFR003).
+	gcpMinter gcpTokenMinter
+	now       func() time.Time
+	logger    *slog.Logger
 }
 
 // newCredentialResolver builds the production resolver: a real AWS token
@@ -71,6 +75,7 @@ func newCredentialResolver(logger *slog.Logger) *credentialResolver {
 		minter:      awsRDSTokenMinter{},
 		region:      resolveAWSRegion,
 		azureMinter: azureEntraTokenMinter{},
+		gcpMinter:   gcpADCTokenMinter{},
 		now:         time.Now,
 		logger:      logger,
 	}
@@ -86,6 +91,8 @@ func (r *credentialResolver) Resolve(ctx context.Context, tgt config.TargetConfi
 		return r.resolveAWS(ctx, tgt)
 	case config.AuthMethodAzureEntra:
 		return r.resolveAzure(ctx, tgt)
+	case config.AuthMethodGCPCloudSQLIAM:
+		return r.resolveGCP(ctx, tgt)
 	default:
 		password, err := ResolvePassword(tgt)
 		if err != nil {
