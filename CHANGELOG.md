@@ -57,6 +57,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `arq_signal_export_requests_total` -> `signals_export_requests_total`.
   Label names, label-value enums, and metric semantics are unchanged.
 
+### Fixed
+
+- **Example DB monitoring roles renamed to the single `signals` role
+  (#141).** #137's claim that the examples use a single `signals` role
+  was incomplete — the role-creation SQL and the snapshot fixture were
+  missed, leaving the bundled Docker quickstart and TimescaleDB demo
+  broken (their Compose files target user `signals`, but `init.sql` /
+  `roles.sql` created `arq_monitor`, so the collector could never
+  authenticate). Renamed `arq_signals` / `arq_monitor` -> `signals` in
+  `examples/init.sql`, `examples/local-safe-role/signals.yaml.example`,
+  and `examples/snapshot-example/snapshots.ndjson`, and
+  `arq_monitor` / `arq_monitor_owner` -> `signals` /
+  `signals_monitor_owner` in the TimescaleDB demo
+  (`examples/timescaledb-demo/roles.sql`, `seed.sql`) to match the
+  names already wired in those demos' Compose files. Example-only
+  change; no product behaviour is affected.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added
