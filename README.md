@@ -918,6 +918,7 @@ analyzer).
 ## Project resources
 
 - [Collector inventory](docs/collectors.md) — all 73 collectors with sources and cadences
+- [Database connections](docs/database-connections.md) — per-cloud `auth_method` recipes (RDS IAM, Entra, Cloud SQL IAM, secret stores) + grants
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
 - [Adoption guide](docs/adoption-guide.md) — production deployment guidance
 - [FAQ](docs/faq.md) — common questions

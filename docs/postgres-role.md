@@ -8,6 +8,11 @@ the high-sensitivity collectors (R075) are enabled.
 The goal is to give monitoring tooling exactly the visibility it needs
 to gather statistics — and nothing more.
 
+> For how the credential for this role is supplied — local password or
+> passwordless cloud identity (RDS IAM, Entra, Cloud SQL IAM) or a cloud
+> secret store — see
+> [database-connections.md](database-connections.md).
+
 ## Default role (statistics + diagnostics)
 
 For the default collector pack (system catalogs, `pg_stat_*` views,
