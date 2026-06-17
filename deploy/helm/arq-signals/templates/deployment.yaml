@@ -16,6 +16,12 @@ spec:
       labels:
         app.kubernetes.io/name: arq-signals
         app.kubernetes.io/instance: {{ .Release.Name }}
+        {{- /* #114: AKS workload identity needs the pod to carry
+              azure.workload.identity/use: "true" so the webhook injects
+              the projected federated token. */}}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
     spec:
       {{- if .Values.serviceAccount.create }}
       serviceAccountName: {{ .Release.Name }}-arq-signals
@@ -44,16 +50,12 @@ spec:
           env:
             - name: ARQ_ENV
               value: {{ .Values.env | quote }}
-            - name: ARQ_SIGNALS_TARGET_HOST
-              value: {{ .Values.target.host | quote }}
-            - name: ARQ_SIGNALS_TARGET_PORT
-              value: {{ .Values.target.port | quote }}
-            - name: ARQ_SIGNALS_TARGET_DBNAME
-              value: {{ .Values.target.dbname | quote }}
-            - name: ARQ_SIGNALS_TARGET_USER
-              value: {{ .Values.target.user | quote }}
-            - name: ARQ_SIGNALS_TARGET_SSLMODE
-              value: {{ .Values.target.sslmode | quote }}
+            {{- /* #114: the target (host/port/dbname/user/sslmode AND
+                  auth_method + cloud params) is delivered through the
+                  mounted signals.yaml `targets:` block, not env — the
+                  collector only reads auth_method from YAML. Env target
+                  vars are intentionally not set here to avoid a
+                  duplicate target. */}}
             - name: ARQ_SIGNALS_POLL_INTERVAL
               value: {{ .Values.collector.pollInterval | quote }}
             - name: ARQ_SIGNALS_RETENTION_DAYS
@@ -64,9 +66,12 @@ spec:
               value: {{ .Values.collector.queryTimeout | quote }}
             - name: ARQ_SIGNALS_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.api.port }}"
-            {{- if .Values.target.passwordSecretName }}
-            - name: ARQ_SIGNALS_TARGET_PASSWORD_ENV
-              value: PG_PASSWORD
+            {{- /* #114: password source only for the default (password)
+                  method. Token/secret methods are passwordless (FC005) —
+                  no PG_PASSWORD is injected even if a secret name leaks
+                  through values. The configmap renders password_env
+                  under the same guard, so the two stay in lockstep. */}}
+            {{- if and (not .Values.target.authMethod) .Values.target.passwordSecretName }}
             - name: PG_PASSWORD
               valueFrom:
                 secretKeyRef:
@@ -92,6 +97,12 @@ spec:
               readOnly: true
             - name: data
               mountPath: /data
+            {{- /* #114: operator-supplied mounts, e.g. a CA bundle for
+                  sslmode: verify-full (point target.sslRootCertFile at
+                  the mount path). */}}
+            {{- with .Values.extraVolumeMounts }}
+            {{- toYaml . | nindent 12 }}
+            {{- end }}
           livenessProbe:
             httpGet:
               path: /health
@@ -117,3 +128,6 @@ spec:
           {{- else }}
           emptyDir: {}
           {{- end }}
+        {{- with .Values.extraVolumes }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}

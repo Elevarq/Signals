@@ -18,3 +18,44 @@ data:
       wal: true
     api:
       listen_addr: "0.0.0.0:{{ .Values.api.port }}"
+    {{- if .Values.target.host }}
+    {{- /*
+      #114 — single target rendered into the mounted config. The
+      collector reads auth_method and the cloud parameters
+      (region / azure_client_id / gcp_impersonate_service_account /
+      secret_ref) ONLY from this YAML block; the env single-target
+      builder does not populate them (internal/config/config.go).
+      Optional fields render only when set so the default password
+      target stays byte-for-byte minimal.
+    */}}
+    targets:
+      - name: default
+        host: {{ .Values.target.host }}
+        port: {{ .Values.target.port }}
+        dbname: {{ .Values.target.dbname }}
+        user: {{ .Values.target.user }}
+        sslmode: {{ .Values.target.sslmode }}
+        {{- with .Values.target.sslRootCertFile }}
+        sslrootcert_file: {{ . }}
+        {{- end }}
+        {{- with .Values.target.authMethod }}
+        auth_method: {{ . }}
+        {{- end }}
+        {{- with .Values.target.region }}
+        region: {{ . }}
+        {{- end }}
+        {{- with .Values.target.azureClientId }}
+        azure_client_id: {{ . }}
+        {{- end }}
+        {{- with .Values.target.gcpImpersonateServiceAccount }}
+        gcp_impersonate_service_account: {{ . }}
+        {{- end }}
+        {{- with .Values.target.secretRef }}
+        secret_ref: {{ . }}
+        {{- end }}
+        {{- /* Password source only for the default (password) method —
+               token/secret methods are passwordless (FC005). */}}
+        {{- if and (not .Values.target.authMethod) .Values.target.passwordSecretName }}
+        password_env: PG_PASSWORD
+        {{- end }}
+    {{- end }}
