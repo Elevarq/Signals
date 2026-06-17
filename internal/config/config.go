@@ -169,6 +169,15 @@ type TargetConfig struct {
 	// decision.
 	Region string `yaml:"region"`
 
+	// AzureClientID is the client (application) ID of a user-assigned
+	// managed identity, consumed only by the azure_entra provider
+	// (ARQ-SIGNALS-AUTH-AZURE-, #95). Optional; it disambiguates which
+	// identity to use when a host carries more than one. When empty the
+	// AZURE_CLIENT_ID environment variable is consulted, and failing that
+	// the credential chain selects the system-assigned / single identity.
+	// Not a secret: a client id is a public GUID.
+	AzureClientID string `yaml:"azure_client_id"`
+
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -248,17 +257,18 @@ func (t TargetConfig) ConnIdentity() string {
 
 // Auth-method values (credential-providers.md, #93). Only the methods
 // this build implements appear in SupportedAuthMethods; methods named in
-// the keystone but not yet built (e.g. azure_entra) are rejected by
+// the keystone but not yet built (e.g. gcp_cloudsql_iam) are rejected by
 // ValidateStrict with an actionable error (keystone FC001).
 const (
-	AuthMethodPassword  = "password"
-	AuthMethodAWSRDSIAM = "aws_rds_iam"
+	AuthMethodPassword   = "password"
+	AuthMethodAWSRDSIAM  = "aws_rds_iam"
+	AuthMethodAzureEntra = "azure_entra"
 )
 
 // SupportedAuthMethods enumerates every auth_method this build can serve.
 // The empty value is equivalent to AuthMethodPassword (see
 // EffectiveAuthMethod) and is always accepted.
-var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM}
+var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra}
 
 // EffectiveAuthMethod returns the target's auth_method, defaulting an
 // empty value to AuthMethodPassword so existing configs keep their
@@ -754,6 +764,22 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			if t.Region == "" && os.Getenv("AWS_REGION") == "" && os.Getenv("AWS_DEFAULT_REGION") == "" {
 				warnings = append(warnings, fmt.Sprintf("target[%d] (%s): auth_method %q has no region configured and AWS_REGION/AWS_DEFAULT_REGION are unset; region will be resolved from instance metadata at connect time", i, t.Name, AuthMethodAWSRDSIAM))
 			}
+		case AuthMethodAzureEntra:
+			// FC-AZURE-003: token auth is passwordless — reject any stored
+			// password source on the target.
+			if secretCount > 0 {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is passwordless — remove password_file, password_env, and pgpass_file", i, t.Name, AuthMethodAzureEntra))
+			}
+			// FC-AZURE-004: the Entra token must only traverse a fully
+			// verified TLS channel, in every environment.
+			if t.SSLMode != "verify-full" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires sslmode=verify-full (got %q)", i, t.Name, AuthMethodAzureEntra, t.SSLMode))
+			}
+			// Identity resolution is deliberately NOT validated at startup:
+			// a missing azure_client_id is the common case (single /
+			// system-assigned identity), and an undiscoverable or ambiguous
+			// identity is a connect-time, target-scoped failure (FC-AZURE-005),
+			// not a whole-collector startup failure.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}
