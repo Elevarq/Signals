@@ -52,21 +52,21 @@ func New() *Registry {
 		reg: r,
 		collectionCycles: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_collection_cycles_total",
+				Name: "signals_collection_cycles_total",
 				Help: "Per-target collection cycles completed, labelled by outcome.",
 			},
 			[]string{"target", "status"},
 		),
 		collectionFailures: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_collection_failures_total",
+				Name: "signals_collection_failures_total",
 				Help: "Per-target hard collection failures by reason category.",
 			},
 			[]string{"target", "reason"},
 		),
 		collectionDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "arq_signal_collection_duration_seconds",
+				Name:    "signals_collection_duration_seconds",
 				Help:    "Wall-clock duration of each per-target collection cycle.",
 				Buckets: prometheus.ExponentialBuckets(0.05, 2, 10),
 			},
@@ -74,42 +74,42 @@ func New() *Registry {
 		),
 		collectorsSucceeded: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_collectors_succeeded_total",
+				Name: "signals_collectors_succeeded_total",
 				Help: "Sum of per-cycle successful collector counts, by target.",
 			},
 			[]string{"target"},
 		),
 		collectorsFailed: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_collectors_failed_total",
+				Name: "signals_collectors_failed_total",
 				Help: "Sum of per-cycle failed collector counts, by target and reason category.",
 			},
 			[]string{"target", "reason"},
 		),
 		collectorsSkipped: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_collectors_skipped_total",
+				Name: "signals_collectors_skipped_total",
 				Help: "Sum of per-cycle skipped collector counts, by target and reason category.",
 			},
 			[]string{"target", "reason"},
 		),
 		exportRequests: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_export_requests_total",
+				Name: "signals_export_requests_total",
 				Help: "Export requests received, labelled by outcome.",
 			},
 			[]string{"status"},
 		),
 		exportFailures: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
-				Name: "arq_signal_export_failures_total",
+				Name: "signals_export_failures_total",
 				Help: "Export failures, labelled by error category (matches audit log error_category).",
 			},
 			[]string{"error_category"},
 		),
 		exportDuration: prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
-				Name:    "arq_signal_export_duration_seconds",
+				Name:    "signals_export_duration_seconds",
 				Help:    "Wall-clock duration of each export.",
 				Buckets: prometheus.ExponentialBuckets(0.01, 3, 9),
 			},
@@ -117,33 +117,33 @@ func New() *Registry {
 		),
 		sqlitePersistenceFailures: prometheus.NewCounter(
 			prometheus.CounterOpts{
-				Name: "arq_signal_sqlite_persistence_failures_total",
+				Name: "signals_sqlite_persistence_failures_total",
 				Help: "InsertCollectionAtomic transaction rollbacks (R077).",
 			},
 		),
 		lastSuccessfulCollectionTS: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "arq_signal_last_successful_collection_timestamp",
+				Name: "signals_last_successful_collection_timestamp",
 				Help: "Unix seconds of the most recent successful collection per target.",
 			},
 			[]string{"target"},
 		),
 		highSensitivityCollectorsEnabled: prometheus.NewGauge(
 			prometheus.GaugeOpts{
-				Name: "arq_signal_high_sensitivity_collectors_enabled",
+				Name: "signals_high_sensitivity_collectors_enabled",
 				Help: "1 if signals.high_sensitivity_collectors_enabled is true, 0 otherwise (R075).",
 			},
 		),
 		circuitState: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "arq_signal_circuit_state",
+				Name: "signals_circuit_state",
 				Help: "Per-target circuit state (R097). Each target emits one row per state (closed/open/paused); the active row has value 1, others 0.",
 			},
 			[]string{"target", "state"},
 		),
 		eligibleCollectors: prometheus.NewGaugeVec(
 			prometheus.GaugeOpts{
-				Name: "arq_signal_eligible_collectors",
+				Name: "signals_eligible_collectors",
 				Help: "Number of collectors eligible to run for the target after version (R081), extension, daemon-wide sensitivity (R075), and per-target profile (R098) gates. Alert on sudden drops.",
 			},
 			[]string{"target"},
@@ -298,7 +298,7 @@ func (m *Registry) SetCircuitState(target, activeState string, allStates []strin
 }
 
 // CollectionFailureReasons enumerates every value `reason` can take
-// on the `arq_signal_collection_failures_total` counter. Mirrors
+// on the `signals_collection_failures_total` counter. Mirrors
 // the classifier in `internal/collector/collector.go::classifyCollectionFailure`
 // — a constant slice here so the metrics consumer guide and the
 // code reference one source (issue #93).

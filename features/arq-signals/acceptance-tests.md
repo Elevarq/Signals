@@ -725,7 +725,7 @@ not all, due collectors have run.
 - The M-N collectors that never got a turn carry
   `status=skipped, reason=budget_exhausted`.
 - The cycle's overall status is `partial`.
-- `arq_signal_collectors_skipped_total{reason="budget_exhausted"}`
+- `signals_collectors_skipped_total{reason="budget_exhausted"}`
   increments by M-N.
 
 **Boundary/unit:** the pure helper that builds the skipped runs from

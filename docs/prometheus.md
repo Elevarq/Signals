@@ -121,31 +121,31 @@ just samples the same counter values more often.
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `arq_signal_collection_cycles_total` | counter | `target`, `status` | Per-target collection cycles, labelled `success` / `partial` / `failed`. |
-| `arq_signal_collection_failures_total` | counter | `target`, `reason` | Per-target hard failures (`connect_error`, `safety_check`, `persistence`, `internal`). |
-| `arq_signal_collection_duration_seconds` | histogram | `target`, `status` | Wall-clock duration of each cycle. |
-| `arq_signal_collectors_succeeded_total` | counter | `target` | Sum of per-cycle successful collector counts. |
-| `arq_signal_collectors_failed_total` | counter | `target`, `reason` | Sum of per-cycle failed collector counts. |
-| `arq_signal_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts. |
-| `arq_signal_export_requests_total` | counter | `status` | All export requests, labelled `success` / `failed`. |
-| `arq_signal_export_failures_total` | counter | `error_category` | Failed exports keyed by category (matches audit log). |
-| `arq_signal_export_duration_seconds` | histogram | `status` | Wall-clock duration of each export. |
-| `arq_signal_sqlite_persistence_failures_total` | counter | (none) | `InsertCollectionAtomic` rollbacks (R077). |
-| `arq_signal_last_successful_collection_timestamp` | gauge | `target` | Unix seconds of the most recent successful collection per target. |
-| `arq_signal_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
+| `signals_collection_cycles_total` | counter | `target`, `status` | Per-target collection cycles, labelled `success` / `partial` / `failed`. |
+| `signals_collection_failures_total` | counter | `target`, `reason` | Per-target hard failures (`connect_error`, `safety_check`, `persistence`, `internal`). |
+| `signals_collection_duration_seconds` | histogram | `target`, `status` | Wall-clock duration of each cycle. |
+| `signals_collectors_succeeded_total` | counter | `target` | Sum of per-cycle successful collector counts. |
+| `signals_collectors_failed_total` | counter | `target`, `reason` | Sum of per-cycle failed collector counts. |
+| `signals_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts. |
+| `signals_export_requests_total` | counter | `status` | All export requests, labelled `success` / `failed`. |
+| `signals_export_failures_total` | counter | `error_category` | Failed exports keyed by category (matches audit log). |
+| `signals_export_duration_seconds` | histogram | `status` | Wall-clock duration of each export. |
+| `signals_sqlite_persistence_failures_total` | counter | (none) | `InsertCollectionAtomic` rollbacks (R077). |
+| `signals_last_successful_collection_timestamp` | gauge | `target` | Unix seconds of the most recent successful collection per target. |
+| `signals_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
 
 ## Suggested alerts
 
 Starting points for an Elevarq Signals SLO/health alert pack:
 
 - **No successful collection in N intervals** —
-  `time() - arq_signal_last_successful_collection_timestamp > 3 * <poll_interval_seconds>`
+  `time() - signals_last_successful_collection_timestamp > 3 * <poll_interval_seconds>`
 - **Persistent collection failure** —
-  `increase(arq_signal_collection_cycles_total{status="failed"}[1h]) > 5`
+  `increase(signals_collection_cycles_total{status="failed"}[1h]) > 5`
 - **SQLite persistence health regression** —
-  `increase(arq_signal_sqlite_persistence_failures_total[1h]) > 0`
+  `increase(signals_sqlite_persistence_failures_total[1h]) > 0`
 - **Export error rate** —
-  `rate(arq_signal_export_failures_total[10m]) > 0`
+  `rate(signals_export_failures_total[10m]) > 0`
 
 Tune thresholds to your collection cadence and acceptable signal
 delay.

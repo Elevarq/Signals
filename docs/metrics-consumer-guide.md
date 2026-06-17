@@ -33,46 +33,46 @@ labels) holds regardless.
 
 Every metric is published from a dedicated registry — none of the
 default Go runtime / process metrics are exposed. Names follow
-`arq_signal_<concern>_<unit>`.
+`signals_<concern>_<unit>`.
 
 ### Collection cycle
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
-| `arq_signal_collection_cycles_total` | Counter | `target`, `status` | One increment per completed `collectTarget` call. `status` ∈ `{success, partial, failed}`. |
-| `arq_signal_collection_failures_total` | Counter | `target`, `reason` | Hard cycle failures by category. `reason` ∈ `{connect_error, version_unsupported, timeout_setup, safety_check, persistence, internal}` (see `metrics.CollectionFailureReasons`). |
-| `arq_signal_collection_duration_seconds` | Histogram | `target`, `status` | Per-cycle wall-clock duration. Buckets are exponential from 50ms. |
+| `signals_collection_cycles_total` | Counter | `target`, `status` | One increment per completed `collectTarget` call. `status` ∈ `{success, partial, failed}`. |
+| `signals_collection_failures_total` | Counter | `target`, `reason` | Hard cycle failures by category. `reason` ∈ `{connect_error, version_unsupported, timeout_setup, safety_check, persistence, internal}` (see `metrics.CollectionFailureReasons`). |
+| `signals_collection_duration_seconds` | Histogram | `target`, `status` | Per-cycle wall-clock duration. Buckets are exponential from 50ms. |
 
 ### Per-collector outcomes
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
-| `arq_signal_collectors_succeeded_total` | Counter | `target` | Sum of per-cycle successful-collector counts. |
-| `arq_signal_collectors_failed_total` | Counter | `target`, `reason` | Failed collectors classified by reason (`execution_error`, `timeout`, `permission_denied`, `object_missing`, `savepoint_rollback`). |
-| `arq_signal_collectors_skipped_total` | Counter | `target`, `reason` | Skipped collectors by reason (`version_unsupported`, `extension_missing`, `config_disabled`). |
-| `arq_signal_eligible_collectors` | Gauge | `target` | **R079 / #79**: number of collectors that would run for this target after every gate is applied (version, extension, sensitivity, profile). Updated at the top of every cycle. |
+| `signals_collectors_succeeded_total` | Counter | `target` | Sum of per-cycle successful-collector counts. |
+| `signals_collectors_failed_total` | Counter | `target`, `reason` | Failed collectors classified by reason (`execution_error`, `timeout`, `permission_denied`, `object_missing`, `savepoint_rollback`). |
+| `signals_collectors_skipped_total` | Counter | `target`, `reason` | Skipped collectors by reason (`version_unsupported`, `extension_missing`, `config_disabled`). |
+| `signals_eligible_collectors` | Gauge | `target` | **R079 / #79**: number of collectors that would run for this target after every gate is applied (version, extension, sensitivity, profile). Updated at the top of every cycle. |
 
 ### Snapshots
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
-| `arq_signal_last_successful_collection_timestamp` | Gauge | `target` | Unix-seconds of the most recent completed cycle. Use `time() - <metric>` for staleness. |
+| `signals_last_successful_collection_timestamp` | Gauge | `target` | Unix-seconds of the most recent completed cycle. Use `time() - <metric>` for staleness. |
 
 ### Export
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
-| `arq_signal_export_requests_total` | Counter | `status` | One increment per `/export` request. `status` ∈ `{ok, failed}`. |
-| `arq_signal_export_failures_total` | Counter | `error_category` | Failures by category (`invalid_time_format`, `invalid_target_id`, `invalid_time_range`, `snapshot_not_found`, `conflicting_selectors`, `internal`). |
-| `arq_signal_export_duration_seconds` | Histogram | `status` | Per-export wall-clock duration. |
+| `signals_export_requests_total` | Counter | `status` | One increment per `/export` request. `status` ∈ `{ok, failed}`. |
+| `signals_export_failures_total` | Counter | `error_category` | Failures by category (`invalid_time_format`, `invalid_target_id`, `invalid_time_range`, `snapshot_not_found`, `conflicting_selectors`, `internal`). |
+| `signals_export_duration_seconds` | Histogram | `status` | Per-export wall-clock duration. |
 
 ### Daemon state
 
 | Metric | Type | Labels | Notes |
 |--------|------|--------|-------|
-| `arq_signal_sqlite_persistence_failures_total` | Counter | — | `InsertCollectionAtomic` rollbacks (R077). |
-| `arq_signal_high_sensitivity_collectors_enabled` | Gauge | — | 1 if the daemon-wide R075 flag is on, 0 otherwise. |
-| `arq_signal_circuit_state` | Gauge | `target`, `state` | **R097**: per-target circuit state. One row per (target, state); the active row has value 1. `state` ∈ `{closed, open, paused}`. |
+| `signals_sqlite_persistence_failures_total` | Counter | — | `InsertCollectionAtomic` rollbacks (R077). |
+| `signals_high_sensitivity_collectors_enabled` | Gauge | — | 1 if the daemon-wide R075 flag is on, 0 otherwise. |
+| `signals_circuit_state` | Gauge | `target`, `state` | **R097**: per-target circuit state. One row per (target, state); the active row has value 1. `state` ∈ `{closed, open, paused}`. |
 
 ## Label cardinality
 
@@ -101,30 +101,30 @@ on their poll interval and fleet shape.
 # the last 24h. Catches extension uninstalls, version downgrades,
 # accidental profile changes.
 (
-  arq_signal_eligible_collectors
-  / arq_signal_eligible_collectors offset 24h
+  signals_eligible_collectors
+  / signals_eligible_collectors offset 24h
 ) < 0.9
 ```
 
 ```promql
 # Stale data: no completed cycle in 2x poll_interval (60s here).
-time() - arq_signal_last_successful_collection_timestamp > 120
+time() - signals_last_successful_collection_timestamp > 120
 
 # No metric at all = target never collected since daemon start.
-absent(arq_signal_last_successful_collection_timestamp{target="prod-db"})
+absent(signals_last_successful_collection_timestamp{target="prod-db"})
 ```
 
 ### Cycle health
 
 ```promql
 # Failure ratio over the last 15m.
-sum(rate(arq_signal_collection_cycles_total{status="failed"}[15m])) by (target)
-  / sum(rate(arq_signal_collection_cycles_total[15m])) by (target)
+sum(rate(signals_collection_cycles_total{status="failed"}[15m])) by (target)
+  / sum(rate(signals_collection_cycles_total[15m])) by (target)
   > 0.2
 
 # Latency outlier.
 histogram_quantile(0.95,
-  rate(arq_signal_collection_duration_seconds_bucket[15m])
+  rate(signals_collection_duration_seconds_bucket[15m])
 ) > 30
 ```
 
@@ -132,25 +132,25 @@ histogram_quantile(0.95,
 
 ```promql
 # Any target in non-closed circuit state.
-sum by (target, state) (arq_signal_circuit_state{state!="closed"} == 1)
+sum by (target, state) (signals_circuit_state{state!="closed"} == 1)
 
 # Paused for more than an hour — operator may have forgotten.
-arq_signal_circuit_state{state="paused"} == 1
-  unless (arq_signal_circuit_state{state="paused"} offset 1h == 1)
+signals_circuit_state{state="paused"} == 1
+  unless (signals_circuit_state{state="paused"} offset 1h == 1)
 ```
 
 ### Export
 
 ```promql
 # Export error spike.
-sum(rate(arq_signal_export_failures_total[5m])) by (error_category) > 0
+sum(rate(signals_export_failures_total[5m])) by (error_category) > 0
 ```
 
 ### Persistence
 
 ```promql
 # SQLite write failure — should never be > 0.
-sum(rate(arq_signal_sqlite_persistence_failures_total[15m])) > 0
+sum(rate(signals_sqlite_persistence_failures_total[15m])) > 0
 ```
 
 ## What's deliberately NOT exposed
@@ -178,6 +178,6 @@ exported ZIPs, not the metrics endpoint.
 
 ## Changelog
 
-- 2026-05-12 (#79 review): added `arq_signal_eligible_collectors`
+- 2026-05-12 (#79 review): added `signals_eligible_collectors`
   gauge. Audited all label sites; confirmed bounded cardinality
   and no INV-SIGNALS-07 violations.
