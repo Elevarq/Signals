@@ -81,7 +81,7 @@ GRANT pg_monitor TO arq_signals;
 
 ```yaml
 targets:
-  - id: prod-primary
+  - name: prod-primary
     host: db.internal
     port: 5432
     dbname: appdb
@@ -129,7 +129,7 @@ the instance profile / task role / IRSA role:
 **3. Target config:**
 
 ```yaml
-  - id: rds-prod
+  - name: rds-prod
     host: mydb.abc123.us-east-1.rds.amazonaws.com
     port: 5432
     dbname: appdb
@@ -173,7 +173,7 @@ ID for `azure_client_id`.
 **3. Target config:**
 
 ```yaml
-  - id: azure-flex-prod
+  - name: azure-flex-prod
     host: myserver.postgres.database.azure.com
     port: 5432
     dbname: appdb
@@ -227,7 +227,7 @@ GRANT pg_monitor TO "signals-collector@<project>.iam";
 **4. Target config:**
 
 ```yaml
-  - id: cloudsql-prod
+  - name: cloudsql-prod
     host: 10.0.0.5                           # private IP, or the proxy endpoint
     port: 5432
     dbname: appdb
@@ -276,7 +276,7 @@ permission from the table above on that one secret.
 **3. Target config (AWS Secrets Manager example):**
 
 ```yaml
-  - id: selfmanaged-prod
+  - name: selfmanaged-prod
     host: db.internal
     port: 5432
     dbname: appdb
