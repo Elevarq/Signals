@@ -6,6 +6,26 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **AWS RDS/Aurora IAM credential provider (`auth_method: aws_rds_iam`,
+  #93, #94).** Connect passwordlessly to Amazon RDS / Aurora PostgreSQL
+  using a short-lived RDS IAM auth token minted from the collector's
+  ambient AWS identity (SDK default credential chain: env / shared
+  config / EC2 instance profile / ECS task role / EKS IRSA / Pod
+  Identity). The token is the connection password; no secret is stored
+  in Signals' config. Tokens are cached per target and re-minted ~3
+  minutes before their 15-minute expiry, never shared across targets,
+  and never logged or exported (metadata only). Validation enforces the
+  passwordless and `verify-full` TLS floors at startup; a missing region
+  is a startup warning resolved from `AWS_REGION` /
+  `AWS_DEFAULT_REGION` / instance metadata (IMDS) at connect time. The
+  AWS SDK is linked only on the `aws_rds_iam` path - password targets
+  require no AWS credentials. Introduces the shared credential-provider
+  scaffolding (`auth_method` dispatch, per-target token cache,
+  `BeforeConnect` wiring) that sibling providers reuse. Live behaviour
+  covered by an env-gated smoke (`ARQ_SIGNALS_INTEGRATION_LIVE=1`).
+
 ## [0.10.0-beta.5] - 2026-06-11
 
 Re-cut of v0.10.0-beta.4: that tag's publish job died at the Docker

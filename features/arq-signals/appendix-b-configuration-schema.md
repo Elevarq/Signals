@@ -67,7 +67,16 @@ targets:
     sslmode: <string>        # Optional. PostgreSQL sslmode value.
     sslrootcert_file: <path> # Optional. Path to CA certificate.
 
-    # Credential source (at most one):
+    # Credential provider (credential-providers.md #93). Optional.
+    # Default (empty) = password. aws_rds_iam connects passwordlessly
+    # using a short-lived RDS IAM token minted from ambient AWS identity.
+    auth_method: <string>    # Optional. "password" (default) | "aws_rds_iam".
+    region: <string>         # Optional. AWS region for aws_rds_iam; when
+                             #   omitted, resolved from AWS_REGION /
+                             #   AWS_DEFAULT_REGION / instance metadata (IMDS).
+
+    # Credential source (at most one). MUST be empty when
+    # auth_method: aws_rds_iam (the token method is passwordless).
     password_file: <path>    # Read password from file (newline-trimmed)
     password_env: <string>   # Read password from this env var's value
     pgpass_file: <path>      # Read password from pgpass-format file
@@ -160,6 +169,26 @@ error.
 
 Credentials are read fresh on every new connection to support password
 rotation without restart.
+
+### `auth_method: aws_rds_iam` (#94)
+
+Selects passwordless authentication to Amazon RDS / Aurora PostgreSQL.
+A short-lived (15-minute) RDS IAM auth token is minted from the
+collector's ambient AWS identity (SDK default credential chain: env /
+shared config / EC2 instance profile / ECS task role / EKS IRSA / Pod
+Identity) and used as the connection password. The token is cached
+per target and re-minted ~3 minutes before expiry; it is never stored,
+exported, or logged (only its metadata). Validation rules:
+
+| Rule | Behavior |
+|------|----------|
+| Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-AWS-003). |
+| TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-AWS-004 / INV003). |
+| Region | Resolved from `region` → `AWS_REGION` / `AWS_DEFAULT_REGION` → instance metadata (IMDS). A missing config+env region is a startup **warning** only; if it still cannot be resolved at connect time the target fails (FC-AWS-005), without stopping collection for other targets. |
+| DB role | `user` must be a role granted `rds_iam`; the IAM principal must allow `rds-db:connect`. `arqctl` surfaces the exact `GRANT` + IAM action on auth failure (AC-AWS-009). |
+
+The AWS SDK is invoked only on the `aws_rds_iam` path; targets using
+password auth never require AWS credentials at runtime.
 
 ## High-sensitivity collectors
 

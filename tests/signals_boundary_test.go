@@ -74,6 +74,19 @@ func TestNoAnalyzerImports(t *testing.T) {
 		"dashboard",
 	}
 
+	// allowedImports are exact third-party import paths that contain a
+	// forbidden segment by coincidence but are NOT analyzer/product
+	// boundary violations. The guard targets first-party analyzer
+	// packages (github.com/elevarq/arq/...); vetted external SDKs that
+	// happen to use one of the reserved words as a path segment are
+	// exempted here explicitly.
+	allowedImports := map[string]bool{
+		// AWS SDK v2 RDS IAM auth-token builder — the aws_rds_iam
+		// credential provider (#94, ARQ-SIGNALS-AUTH-AWS-). "auth" here
+		// is the SDK's feature package name, not Signals product auth.
+		"github.com/aws/aws-sdk-go-v2/feature/rds/auth": true,
+	}
+
 	fset := token.NewFileSet()
 	for _, path := range allGoFiles(t, root) {
 		f, err := parser.ParseFile(fset, path, nil, parser.ImportsOnly)
@@ -83,6 +96,9 @@ func TestNoAnalyzerImports(t *testing.T) {
 		}
 		for _, imp := range f.Imports {
 			importPath := strings.Trim(imp.Path.Value, `"`)
+			if allowedImports[importPath] {
+				continue
+			}
 			for _, kw := range forbidden {
 				// Check if the keyword appears as a path segment.
 				segments := strings.Split(importPath, "/")

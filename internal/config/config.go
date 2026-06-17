@@ -155,6 +155,20 @@ type TargetConfig struct {
 	PgpassFile      string `yaml:"pgpass_file"`
 	Enabled         bool   `yaml:"enabled"`
 
+	// AuthMethod selects the credential provider for this target
+	// (credential-providers.md, #93). Empty means the default
+	// password provider, preserving existing behavior. Non-empty
+	// values must appear in SupportedAuthMethods or ValidateStrict
+	// rejects the config (keystone FC001).
+	AuthMethod string `yaml:"auth_method"`
+
+	// Region is the AWS region of the target instance, consumed only
+	// by the aws_rds_iam provider (ARQ-SIGNALS-AUTH-AWS-, #94). Optional;
+	// when empty the region is resolved from the environment / instance
+	// metadata at connect time. See the AWS spec's region-resolution
+	// decision.
+	Region string `yaml:"region"`
+
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -230,6 +244,30 @@ func (t TargetConfig) ConnIdentity() string {
 		port = 5432
 	}
 	return fmt.Sprintf("%s:%d/%s@%s", t.Host, port, t.DBName, t.User)
+}
+
+// Auth-method values (credential-providers.md, #93). Only the methods
+// this build implements appear in SupportedAuthMethods; methods named in
+// the keystone but not yet built (e.g. azure_entra) are rejected by
+// ValidateStrict with an actionable error (keystone FC001).
+const (
+	AuthMethodPassword  = "password"
+	AuthMethodAWSRDSIAM = "aws_rds_iam"
+)
+
+// SupportedAuthMethods enumerates every auth_method this build can serve.
+// The empty value is equivalent to AuthMethodPassword (see
+// EffectiveAuthMethod) and is always accepted.
+var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM}
+
+// EffectiveAuthMethod returns the target's auth_method, defaulting an
+// empty value to AuthMethodPassword so existing configs keep their
+// current behavior (keystone NFR003).
+func (t TargetConfig) EffectiveAuthMethod() string {
+	if t.AuthMethod == "" {
+		return AuthMethodPassword
+	}
+	return t.AuthMethod
 }
 
 type APIConfig struct {
@@ -691,6 +729,33 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 		// libpq enum. Empty is allowed — libpq applies its default.
 		if t.SSLMode != "" && !validSSLModes[t.SSLMode] {
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): sslmode %q is not a valid libpq value; use disable, allow, prefer, require, verify-ca, or verify-full", i, t.Name, t.SSLMode))
+		}
+
+		// Credential-provider validation (credential-providers.md #93;
+		// aws_rds_iam #94). Only methods in SupportedAuthMethods are
+		// served by this build.
+		switch t.EffectiveAuthMethod() {
+		case AuthMethodPassword:
+			// Default password provider — existing behavior, no extra rules.
+		case AuthMethodAWSRDSIAM:
+			// FC-AWS-003: token auth is passwordless — reject any stored
+			// password source on the target.
+			if secretCount > 0 {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is passwordless — remove password_file, password_env, and pgpass_file", i, t.Name, AuthMethodAWSRDSIAM))
+			}
+			// FC-AWS-004: the IAM token must only traverse a fully
+			// verified TLS channel, in every environment.
+			if t.SSLMode != "verify-full" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires sslmode=verify-full (got %q)", i, t.Name, AuthMethodAWSRDSIAM, t.SSLMode))
+			}
+			// Region-resolution decision: a missing config+env region is
+			// a startup WARNING only (fail-soft); the target is failed at
+			// connect time (FC-AWS-005) if it still cannot be resolved.
+			if t.Region == "" && os.Getenv("AWS_REGION") == "" && os.Getenv("AWS_DEFAULT_REGION") == "" {
+				warnings = append(warnings, fmt.Sprintf("target[%d] (%s): auth_method %q has no region configured and AWS_REGION/AWS_DEFAULT_REGION are unset; region will be resolved from instance metadata at connect time", i, t.Name, AuthMethodAWSRDSIAM))
+			}
+		default:
+			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}
 	}
 
