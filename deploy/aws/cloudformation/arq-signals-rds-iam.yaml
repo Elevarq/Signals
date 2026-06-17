@@ -1,0 +1,151 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Elevarq Signals — passwordless onboarding for Amazon RDS / Aurora PostgreSQL
+  (#111). Provisions the collector's IAM identity with a minimal rds-db:connect
+  policy scoped to one DB user, and runs the collector on EC2 pre-wired for
+  auth_method: aws_rds_iam over verify-full TLS. No secrets are stored — the
+  credential is a short-lived RDS IAM token minted from this identity at
+  connect time (INV001/INV002). The DB-side grant (GRANT rds_iam / pg_monitor)
+  is a one-time SQL step; see ../README.md.
+
+Parameters:
+  DbHost:
+    Type: String
+    Description: RDS/Aurora endpoint hostname.
+  DbPort:
+    Type: Number
+    Default: 5432
+  DbName:
+    Type: String
+    Description: Database name to connect to.
+  DbUser:
+    Type: String
+    Default: arq_signals
+    Description: PostgreSQL role granted rds_iam + pg_monitor.
+  DbResourceId:
+    Type: String
+    Description: >-
+      RDS instance/cluster DbiResourceId (e.g. db-ABCDEFGH...), NOT the DB
+      identifier. Scopes the rds-db:connect policy.
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet for the collector (must route to the RDS instance).
+  SecurityGroupIds:
+    Type: List<AWS::EC2::SecurityGroup::Id>
+    Description: Security group(s) — must allow egress to the DB on DbPort.
+  InstanceType:
+    Type: String
+    Default: t3.small
+  ImageUri:
+    Type: String
+    Default: ghcr.io/elevarq/arq-signals:0.10.0-beta.5
+    Description: Elevarq Signals container image (pinned tag).
+  ArqEnv:
+    Type: String
+    Default: prod
+    AllowedValues: [prod, lab, dev]
+  PollInterval:
+    Type: String
+    Default: 5m
+  LatestAl2023Ami:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  CollectorRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: rds-iam-connect
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: RDSIAMConnect
+                Effect: Allow
+                Action: rds-db:connect
+                Resource: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DbResourceId}/${DbUser}"
+
+  CollectorInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref CollectorRole
+
+  # IMDSv2 is enforced below via MetadataOptions.HttpTokens=required. Trivy's
+  # CloudFormation adapter for AVD-AWS-0028 does not read MetadataOptions (the
+  # equivalent Terraform in ../terraform passes the same check), so this is a
+  # false positive. Remove when Trivy's CFN adapter reads MetadataOptions.
+  # trivy:ignore:AVD-AWS-0028
+  CollectorInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAl2023Ami
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds: !Ref SecurityGroupIds
+      IamInstanceProfile: !Ref CollectorInstanceProfile
+      MetadataOptions:
+        HttpTokens: required
+        HttpEndpoint: enabled
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            Encrypted: true
+            VolumeSize: 20
+      Tags:
+        - Key: Name
+          Value: arq-signals-collector
+        - Key: app.kubernetes.io/name
+          Value: arq-signals
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euo pipefail
+          dnf install -y docker
+          systemctl enable --now docker
+          mkdir -p /etc/arq
+          curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
+            -o /etc/arq/rds-ca.pem
+          cat > /etc/arq/signals.yaml <<'YAML'
+          env: ${ArqEnv}
+          signals:
+            poll_interval: ${PollInterval}
+          database:
+            path: /data/arq-signals.db
+            wal: true
+          api:
+            listen_addr: "127.0.0.1:8081"
+          targets:
+            - name: ${DbName}-rds
+              host: ${DbHost}
+              port: ${DbPort}
+              dbname: ${DbName}
+              user: ${DbUser}
+              auth_method: aws_rds_iam
+              region: ${AWS::Region}
+              sslmode: verify-full
+              sslrootcert_file: /etc/arq/rds-ca.pem
+          YAML
+          docker run -d --name arq-signals --restart=always \
+            -v /etc/arq:/etc/arq:ro \
+            -v arq-data:/data \
+            -p 127.0.0.1:8081:8081 \
+            ${ImageUri} --config /etc/arq/signals.yaml
+
+Outputs:
+  CollectorRoleArn:
+    Description: IAM role the collector runs under.
+    Value: !GetAtt CollectorRole.Arn
+  RdsConnectResourceArn:
+    Description: The rds-db:connect resource ARN scoped to DbUser on this instance.
+    Value: !Sub "arn:aws:rds-db:${AWS::Region}:${AWS::AccountId}:dbuser:${DbResourceId}/${DbUser}"
+  InstanceId:
+    Description: Collector EC2 instance id.
+    Value: !Ref CollectorInstance
