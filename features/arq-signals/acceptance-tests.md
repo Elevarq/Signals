@@ -1144,3 +1144,108 @@ holds after the self-filter is layered in.
 **Failure Expectation:** Tightening the projection, dropping the
 extension gate, or otherwise narrowing the dynamic-capture
 surface is a regression on R037.
+
+---
+
+## TC-CONNECT-001: Guided connect emits a secret-free target block
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC001, INV001, INV002
+**Scenario:** A correctly-configured passwordless target is taken
+through `connect --auto`: it connects, passes the read-only safety
+check, and the operator is handed a ready-to-paste `targets:` block.
+**Inputs:** A target with a resolvable cloud credential and a
+least-privilege role; faked detector/resolver/diagnoser seams.
+**Expected Behavior:**
+- `Outcome.Success` is true and the rendered block carries
+  `auth_method` and `sslmode: verify-full`.
+- The block contains no password, token, key, or secret reference
+  value.
+**Failure Expectation:** Emitting any credential material, or a
+block missing `verify-full`, regresses INV001/INV002.
+
+---
+
+## TC-CONNECT-002: Detection proposes the documented auth method
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC002, AC003, FC001
+**Scenario:** Confirm the detection table — ambient identity AND a
+matching host pattern proposes the cloud method; identity alone or
+host alone falls back to password; multiple identities with no host
+match is reported ambiguous, never guessed.
+**Inputs:** The spec's environment fixtures (env-only, no network).
+**Expected Behavior:**
+- Each documented (identity, host) pair proposes its method.
+- A host pattern disambiguates when several identities are present.
+- Two identities with a non-cloud host yields `Ambiguous` with notes
+  naming `--auth-method`.
+**Failure Expectation:** Guessing under ambiguity, or a network probe
+during detection, regresses AC002/AC003/FC001/NFR001.
+
+---
+
+## TC-CONNECT-003: No secret is ever printed
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC004, INV001
+**Scenario:** Drive every outcome path — success, resolve failure,
+auth failure, role failure, guidance — and assert no secret value
+appears in any rendered output.
+**Inputs:** Seams that carry a sentinel secret value.
+**Expected Behavior:** The sentinel never appears in the emitted
+block, the failure message, or the guidance; resolve/diagnose detail
+is redacted.
+**Failure Expectation:** Any path echoing the sentinel regresses
+INV001.
+
+---
+
+## TC-CONNECT-004: Missing-grant and over-privileged guidance
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC005, AC006, FC004, FC005
+**Scenario:** A connect that succeeds but is rejected for a missing
+grant returns the exact grant guidance for the detected method; an
+over-privileged role fails the read-only safety check and is reported
+without a config block.
+**Inputs:** Diagnoser returning `auth` then `role` categories across
+all methods.
+**Expected Behavior:**
+- The grant guidance names the method-specific `GRANT`/role step.
+- The role-failure outcome emits no config block.
+**Failure Expectation:** Emitting a block for a failed role, or
+generic non-actionable guidance, regresses AC005/AC006.
+
+---
+
+## TC-CONNECT-005: `--write` append is safe and idempotent-guarded
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC007
+**Scenario:** `--write` is dry-run by default; when set it appends a
+secret-free block to `targets:` (creating the key if absent) and
+refuses a duplicate target `name`.
+**Inputs:** Config files with and without a `targets:` key, and one
+already containing the target name.
+**Expected Behavior:**
+- Dry-run writes nothing.
+- Write appends a secret-free block; the file re-parses; a duplicate
+  name is refused with an actionable error.
+**Failure Expectation:** Overwriting, corrupting, or duplicating a
+target regresses AC007.
+
+---
+
+## TC-CONNECT-006: All methods covered; usage and non-TTY paths
+
+**Linked Rules:** ARQ-SIGNALS-CONNECT-AC008, INV004, FC006, usage
+**Scenario:** Every supported `auth_method` has detection, connection,
+and guidance; an explicit `--auth-method` overrides detection; a
+password method with no TTY and no supplied password is reported (not
+blocked); missing `--user`/`--host` is a usage error.
+**Inputs:** All six methods; override flag; no-TTY/no-password case;
+empty required flags.
+**Expected Behavior:**
+- `GuidanceFor` returns method-specific guidance for each method.
+- Override wins over detection (single method per run).
+- The no-source password path reports FC006 without prompting.
+- Missing required flags map to a usage error before any dial.
+**Failure Expectation:** A method without guidance, a second method
+slipping through, blocking on input, or dialing on a usage error
+regresses AC008/INV004/FC006.

@@ -208,9 +208,84 @@ func TestConnection(ctx context.Context, tgt config.TargetConfig, opts Options) 
 	}
 	defer pool.Close()
 
-	// Force the pool to actually dial. pgxpool.New is lazy — without
-	// an explicit Ping the dial / auth phase only happens on the
-	// first query.
+	return diagnosePool(dialCtx, pool, tgt, start, result)
+}
+
+// TestConnectionWithResolver runs the same classified diagnostic as
+// TestConnection but resolves the connection credential through res rather
+// than reading a password source. This exercises the cloud auth_methods
+// (aws_rds_iam, azure_entra, gcp_cloudsql_iam, secret_store) and mtls over
+// the credential the resolver mints/fetches/loads — the guided-connect
+// orchestrator (#99) drives every method through this single path so it
+// reuses, rather than reimplements, credential resolution and the role
+// check (ARQ-SIGNALS-CONNECT-INV003). The caller sets tgt.SSLMode to
+// verify-full for credential-bearing methods (ARQ-SIGNALS-CONNECT-INV005).
+//
+// A resolve failure is classified as CategoryPasswordResolve with a
+// redacted detail; the credential value never appears in the Result
+// (ARQ-SIGNALS-CONNECT-INV001).
+func TestConnectionWithResolver(ctx context.Context, tgt config.TargetConfig, res collector.CredentialResolver, opts Options) Result {
+	start := time.Now()
+	result := Result{
+		Target: tgt.Name, Host: tgt.Host, Port: tgt.Port,
+		DBName: tgt.DBName, Username: tgt.User,
+	}
+
+	dialCtx, cancel := context.WithTimeout(ctx, opts.connectTimeout())
+	defer cancel()
+
+	cred, err := res.Resolve(dialCtx, tgt)
+	if err != nil {
+		result.Category = CategoryPasswordResolve
+		result.Detail = collector.RedactError(err).Error()
+		result.Duration = time.Since(start)
+		return result
+	}
+
+	connConfig, err := collector.BuildConnConfigWithCredential(tgt, cred)
+	if err != nil {
+		result.Category = CategoryConfig
+		result.Detail = collector.RedactError(err).Error()
+		result.Duration = time.Since(start)
+		return result
+	}
+
+	// pgxpool.NewWithConfig requires a Config produced by ParseConfig for
+	// its pool-level defaults; we replace its ConnConfig with the
+	// credential-bearing one and cap the pool at a single connection — the
+	// diagnostic opens exactly one.
+	poolCfg, err := pgxpool.ParseConfig("postgres://localhost")
+	if err != nil {
+		result.Category = CategoryConfig
+		result.Detail = collector.RedactError(err).Error()
+		result.Duration = time.Since(start)
+		return result
+	}
+	poolCfg.ConnConfig = connConfig
+	poolCfg.MaxConns = 1
+
+	pool, err := pgxpool.NewWithConfig(dialCtx, poolCfg)
+	if err != nil {
+		cat, detail := Classify(err)
+		result.Category = cat
+		result.Detail = collector.RedactDSN(detail)
+		result.Duration = time.Since(start)
+		return result
+	}
+	defer pool.Close()
+
+	return diagnosePool(dialCtx, pool, tgt, start, result)
+}
+
+// diagnosePool runs the shared post-connect diagnostic over an open pool:
+// force a dial (Ping), read the server version, and run the role-safety
+// check. It is the common tail of both TestConnection (password path) and
+// TestConnectionWithResolver (resolver path) so the classification and the
+// role check are defined once (INV-CONN-03). dialCtx already carries the
+// connect timeout; start anchors the reported duration.
+func diagnosePool(dialCtx context.Context, pool *pgxpool.Pool, tgt config.TargetConfig, start time.Time, result Result) Result {
+	// Force the pool to actually dial. pgxpool is lazy — without an
+	// explicit Ping the dial / auth phase only happens on the first query.
 	if err := pool.Ping(dialCtx); err != nil {
 		cat, detail := Classify(err)
 		result.Category = cat

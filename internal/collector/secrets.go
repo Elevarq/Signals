@@ -2,6 +2,7 @@ package collector
 
 import (
 	"bufio"
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -77,6 +78,73 @@ func BuildConnConfig(tgt config.TargetConfig) (*pgx.ConnConfig, error) {
 	}
 	if password != "" {
 		cfg.Password = password
+	}
+
+	cfg.RuntimeParams["application_name"] = AppName
+	cfg.RuntimeParams["default_transaction_read_only"] = "on"
+
+	return cfg, nil
+}
+
+// BuildConnConfigWithCredential builds a pgx.ConnConfig for tgt and applies
+// an already-resolved Credential rather than re-reading a password source.
+// It is used by the guided-connect diagnostic (#99) so cloud auth_methods
+// (aws_rds_iam, azure_entra, gcp_cloudsql_iam, secret_store) and mtls are
+// exercised over the credential the resolver produced, reusing — not
+// reimplementing — credential resolution (ARQ-SIGNALS-CONNECT-INV003).
+//
+// A password-kind credential (a stored password, fetched secret, or minted
+// cloud token) is applied as ConnConfig.Password. A certificate-kind
+// credential is applied as a client certificate in the connection's TLS
+// config. The secret value is never logged or persisted (INV002/INV007);
+// the cred argument carries it only for the duration of the connection.
+func BuildConnConfigWithCredential(tgt config.TargetConfig, cred Credential) (*pgx.ConnConfig, error) {
+	port := tgt.Port
+	if port == 0 {
+		port = 5432
+	}
+	host := tgt.Host
+	if host == "" {
+		return nil, fmt.Errorf("target %s: host is required", tgt.Name)
+	}
+
+	u := &url.URL{
+		Scheme: "postgres",
+		Host:   net.JoinHostPort(host, strconv.Itoa(port)),
+	}
+	if tgt.User != "" {
+		u.User = url.User(tgt.User)
+	}
+	if tgt.DBName != "" {
+		u.Path = "/" + tgt.DBName
+	}
+	q := u.Query()
+	if tgt.SSLMode != "" {
+		q.Set("sslmode", tgt.SSLMode)
+	}
+	if tgt.SSLRootCertFile != "" {
+		q.Set("sslrootcert", tgt.SSLRootCertFile)
+	}
+	u.RawQuery = q.Encode()
+
+	cfg, err := pgx.ParseConfig(u.String())
+	if err != nil {
+		return nil, fmt.Errorf("target %s: parse config: %w", tgt.Name, err)
+	}
+
+	switch cred.Kind {
+	case CredKindCertificate:
+		if cred.ClientCert == nil {
+			return nil, fmt.Errorf("target %s: certificate credential has no client certificate", tgt.Name)
+		}
+		if cfg.TLSConfig == nil {
+			return nil, fmt.Errorf("target %s: certificate credential requires TLS (sslmode must verify the server)", tgt.Name)
+		}
+		cfg.TLSConfig.Certificates = []tls.Certificate{*cred.ClientCert}
+	default:
+		if cred.Password != "" {
+			cfg.Password = cred.Password
+		}
 	}
 
 	cfg.RuntimeParams["application_name"] = AppName

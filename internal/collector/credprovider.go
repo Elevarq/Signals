@@ -50,6 +50,29 @@ type Credential struct {
 	ExpiresAt time.Time
 }
 
+// CredentialResolver resolves a target to its connection credential by
+// dispatching on the effective auth_method. It is the exported seam the
+// guided-connect orchestrator (#99) and any other caller use to obtain a
+// credential without reimplementing provider dispatch
+// (ARQ-SIGNALS-CONNECT-INV003). The production implementation is built by
+// NewCredentialResolver; unit tests supply their own implementation.
+type CredentialResolver interface {
+	// Resolve returns the credential for a single connection attempt,
+	// minting/fetching/loading as the method requires. The secret value is
+	// carried on the returned Credential and must never be logged or
+	// persisted by the caller (INV002/INV007).
+	Resolve(ctx context.Context, tgt config.TargetConfig) (Credential, error)
+}
+
+// NewCredentialResolver builds the production CredentialResolver: real AWS
+// / Azure / GCP token minters, the production secret fetcher, the file cert
+// loader, and the wall clock. A nil logger defaults to slog.Default(). The
+// cloud SDKs are only invoked on their respective auth_method paths, so a
+// password target never requires any cloud credential (NFR001).
+func NewCredentialResolver(logger *slog.Logger) CredentialResolver {
+	return newCredentialResolver(logger)
+}
+
 // credentialResolver dispatches a target to its provider based on the
 // effective auth_method, returning a Credential for the connection. It
 // is the single seam wired into the pgx BeforeConnect hook. The

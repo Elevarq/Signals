@@ -1,6 +1,7 @@
 package conntest
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net"
@@ -9,6 +10,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/elevarq/arq-signals/internal/collector"
+	"github.com/elevarq/arq-signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -210,4 +214,50 @@ func TestTestConnection_PasswordResolveCategory(t *testing.T) {
 	// Stub: implementation pending.
 	// This test will only pass after step 3/3 of #68.
 	t.Skip("pending GREEN implementation in step 3/3 of #68")
+}
+
+// --- TestConnectionWithResolver — resolver-path classification -------------
+
+// errResolver is a CredentialResolver that always fails to resolve.
+type errResolver struct{ err error }
+
+func (e errResolver) Resolve(context.Context, config.TargetConfig) (collector.Credential, error) {
+	return collector.Credential{}, e.err
+}
+
+// TestTestConnectionWithResolver_ResolveFailure verifies a resolver error
+// short-circuits to CategoryPasswordResolve with a redacted detail and no
+// connection attempt (ARQ-SIGNALS-CONNECT-FC002 / INV001). No DB required.
+func TestTestConnectionWithResolver_ResolveFailure(t *testing.T) {
+	tgt := config.TargetConfig{
+		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",
+		User: "arq_monitor", SSLMode: "verify-full",
+		AuthMethod: config.AuthMethodAWSRDSIAM,
+	}
+	res := errResolver{err: errors.New("minting RDS IAM auth token failed")}
+	got := TestConnectionWithResolver(context.Background(), tgt, res, Options{})
+	if got.Category != CategoryPasswordResolve {
+		t.Fatalf("category = %q, want password_resolve", got.Category)
+	}
+	if got.Detail == "" {
+		t.Error("expected a redacted detail")
+	}
+}
+
+// TestTestConnectionWithResolver_BuildFailure verifies a ConnConfig build
+// failure (missing host) is classified as CategoryConfig, not a panic.
+func TestTestConnectionWithResolver_BuildFailure(t *testing.T) {
+	tgt := config.TargetConfig{Name: "t", Port: 5432, User: "u", SSLMode: "verify-full"}
+	res := okPasswordResolver{}
+	got := TestConnectionWithResolver(context.Background(), tgt, res, Options{})
+	if got.Category != CategoryConfig {
+		t.Fatalf("category = %q, want config", got.Category)
+	}
+}
+
+// okPasswordResolver returns a password credential.
+type okPasswordResolver struct{}
+
+func (okPasswordResolver) Resolve(context.Context, config.TargetConfig) (collector.Credential, error) {
+	return collector.Credential{Kind: collector.CredKindPassword, Password: "pw"}, nil
 }
