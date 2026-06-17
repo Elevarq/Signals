@@ -1,7 +1,7 @@
 # Feature Specification: mTLS Client-Certificate Credential Provider
 
 - **Spec ID prefix:** `ARQ-SIGNALS-AUTH-MTLS-`
-- **Lifecycle status:** `DRAFT`
+- **Lifecycle status:** `ACTIVE`
 - **Tracking issue:** [#98](https://github.com/Elevarq/Arq-Signals/issues/98)
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
@@ -217,14 +217,17 @@ Per the repo safety rule, this spec + its derived failing tests land before
 implementation; the spec reaches `ACTIVE` (and acceptance cases are added to
 `acceptance-tests.md` / `traceability.md`) as the tests are committed.
 
-## Open design decisions (to resolve at promotion to ACTIVE)
+## Resolved design decisions
 
-1. **Passphrase source.** Confirm file-only (`sslkey_passphrase_file`), with no
-   inline or env variant — matches the never-store-inline posture. (Proposed:
-   file-only.)
-2. **`ExpiresAt` semantics.** Whether to surface the client cert `NotAfter` as
-   advisory `ExpiresAt` (observability only, no action) or leave it nil.
-   (Proposed: surface it, advisory only — a near-expiry cert is worth logging.)
-3. **Field names.** `sslcert` / `sslkey` mirror libpq's names for operator
-   familiarity; confirm over `client_cert_file` / `client_key_file`.
-   (Proposed: `sslcert` / `sslkey`.)
+_(Confirmed at promotion to `ACTIVE`.)_
+
+1. **Passphrase source — file-only.** `sslkey_passphrase_file` only; no inline
+   or env variant, matching the never-store-inline posture. An encrypted
+   `sslkey` with no passphrase file fails per FC-MTLS-003.
+2. **`ExpiresAt` semantics — surface, advisory only.** The client cert's
+   `NotAfter` is surfaced as `ExpiresAt` for observability (a near-expiry cert
+   is worth logging) but drives no re-minting — there is nothing to re-mint;
+   rotation is file-content-on-reconnect (INV-MTLS-003).
+3. **Field names — `sslcert` / `sslkey`.** Mirror libpq's names for operator
+   familiarity (over `client_cert_file` / `client_key_file`). The optional
+   passphrase source is `sslkey_passphrase_file`.
