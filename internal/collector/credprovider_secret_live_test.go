@@ -39,9 +39,10 @@ import (
 //	ARQ_TEST_SECRET_ROTATE      optional; "1" runs the AC-SECRET-013 opt-in
 //	                            rotation step (see below)
 //
-// The collector's ambient identity must be allowed to read the secret
-// (AWS: secretsmanager:GetSecretValue; the AWS backend is production-grade in
-// this release). Run, for the AWS demo path:
+// The collector's ambient identity must be allowed to read the secret for
+// whichever backend the ref selects (AWS: secretsmanager:GetSecretValue;
+// Azure: Key Vault Secrets User "get"; GCP: secretmanager.versions.access).
+// All three backends are production-wired. Run, for the AWS demo path:
 //
 //	ARQ_SIGNALS_INTEGRATION_LIVE=1 \
 //	ARQ_TEST_SECRET_REF=arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/pg/monitor-AbCdEf \
@@ -104,14 +105,19 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 		t.Fatalf("live target fails startup validation: %v", err)
 	}
 
-	// Real production fetcher (AWS Secrets Manager wired); injectable clock so
-	// the optional rotation step can force a re-fetch deterministically.
+	// Real production fetcher (all three backends wired); the ref shape selects
+	// which one runs. Injectable clock so the optional rotation step can force
+	// a re-fetch deterministically.
 	clock := &fakeClock{t: time.Now().UTC()}
 	r := &credentialResolver{
-		cache:         newTokenCache(),
-		secretFetcher: productionSecretFetcher{aws: awsSecretsManagerFetcher{}},
-		now:           clock.now,
-		logger:        slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
+		cache: newTokenCache(),
+		secretFetcher: productionSecretFetcher{
+			aws:   awsSecretsManagerFetcher{},
+			azure: azureKeyVaultFetcher{},
+			gcp:   gcpSecretManagerFetcher{},
+		},
+		now:    clock.now,
+		logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
