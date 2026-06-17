@@ -45,8 +45,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   Unchanged (tracked separately): the Go module path
   `github.com/elevarq/arq-signals` and the repository URL stay until the
   repository rename (#62); internal `ARQ-SIGNALS-*` requirement IDs are an
-  internal traceability scheme; Prometheus metric names (`arq_signal_*`)
-  are handled separately.
+  internal traceability scheme. Prometheus metric names are renamed in
+  the companion change below (#139).
+
+- **BREAKING — renamed the Prometheus metric prefix `arq_signal_*` ->
+  `signals_*` (#139).** Completes the de-`arq` rename for the `/metrics`
+  endpoint surface. There are no aliases — update dashboards, recording
+  rules, and alert rules before upgrading. All 14 series rename, e.g.
+  `arq_signal_collection_cycles_total` -> `signals_collection_cycles_total`,
+  `arq_signal_circuit_state` -> `signals_circuit_state`,
+  `arq_signal_export_requests_total` -> `signals_export_requests_total`.
+  Label names, label-value enums, and metric semantics are unchanged.
 
 ## [0.10.0-beta.6] - 2026-06-17
 

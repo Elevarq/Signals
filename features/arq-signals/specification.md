@@ -795,18 +795,18 @@ The metric set shall be exactly:
 
 | Metric | Type | Labels | Meaning |
 |---|---|---|---|
-| `arq_signal_collection_cycles_total` | counter | `target`, `status` | Per-target collection cycles, labelled `success` / `partial` / `failed`. |
-| `arq_signal_collection_failures_total` | counter | `target`, `reason` | Per-target hard failures (`reason` ∈ `connect_error`, `safety_check`, `persistence`, `internal`). |
-| `arq_signal_collection_duration_seconds` | histogram | `target`, `status` | Wall-clock duration of each cycle. |
-| `arq_signal_collectors_succeeded_total` | counter | `target` | Sum of per-cycle successful collector counts. |
-| `arq_signal_collectors_failed_total` | counter | `target`, `reason` | Sum of per-cycle failed collector counts; `reason` is the same enum used in `collector_status.json` (`permission_denied`, `timeout`, `execution_error`). |
-| `arq_signal_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts; `reason` ∈ `config_disabled`, `version_unsupported`, `extension_missing`, `budget_exhausted`. |
-| `arq_signal_export_requests_total` | counter | `status` | All export requests, labelled `success` / `failed`. |
-| `arq_signal_export_failures_total` | counter | `error_category` | Failed exports, keyed by the same category emitted in audit logs. |
-| `arq_signal_export_duration_seconds` | histogram | `status` | Wall-clock duration of each export. |
-| `arq_signal_sqlite_persistence_failures_total` | counter | (none) | Count of `InsertCollectionAtomic` failures (R077 rollbacks). |
-| `arq_signal_last_successful_collection_timestamp` | gauge | `target` | Unix seconds of the most recent successful collection per target. |
-| `arq_signal_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
+| `signals_collection_cycles_total` | counter | `target`, `status` | Per-target collection cycles, labelled `success` / `partial` / `failed`. |
+| `signals_collection_failures_total` | counter | `target`, `reason` | Per-target hard failures (`reason` ∈ `connect_error`, `safety_check`, `persistence`, `internal`). |
+| `signals_collection_duration_seconds` | histogram | `target`, `status` | Wall-clock duration of each cycle. |
+| `signals_collectors_succeeded_total` | counter | `target` | Sum of per-cycle successful collector counts. |
+| `signals_collectors_failed_total` | counter | `target`, `reason` | Sum of per-cycle failed collector counts; `reason` is the same enum used in `collector_status.json` (`permission_denied`, `timeout`, `execution_error`). |
+| `signals_collectors_skipped_total` | counter | `target`, `reason` | Sum of per-cycle skipped collector counts; `reason` ∈ `config_disabled`, `version_unsupported`, `extension_missing`, `budget_exhausted`. |
+| `signals_export_requests_total` | counter | `status` | All export requests, labelled `success` / `failed`. |
+| `signals_export_failures_total` | counter | `error_category` | Failed exports, keyed by the same category emitted in audit logs. |
+| `signals_export_duration_seconds` | histogram | `status` | Wall-clock duration of each export. |
+| `signals_sqlite_persistence_failures_total` | counter | (none) | Count of `InsertCollectionAtomic` failures (R077 rollbacks). |
+| `signals_last_successful_collection_timestamp` | gauge | `target` | Unix seconds of the most recent successful collection per target. |
+| `signals_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
 
 Label cardinality is bounded:
 
@@ -1720,7 +1720,7 @@ CLI / API surface:
   same actor decoration as R083).
 - `GET /status` includes `circuit_state` per target plus
   `circuit_paused_reason` / `circuit_paused_at` when paused.
-- `/metrics` (R079) exposes `arq_signal_circuit_state{target,state}`
+- `/metrics` (R079) exposes `signals_circuit_state{target,state}`
   gauge with one row per (target, state) pair.
 
 Configuration:

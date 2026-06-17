@@ -90,16 +90,16 @@ text panel. Every query maps to a metric defined in
 
 | Panel | Metric(s) | What it answers |
 |---|---|---|
-| **High-sensitivity collectors enabled (R075)** | `arq_signal_high_sensitivity_collectors_enabled` | Effective state of the daemon-wide gate. Default `1` (collect-everything default, R075 revised 2026-05); `0` means the operator opted out (redact-path collectors null their `SensitiveColumns`; skip-path collectors are dropped). |
-| **Time since last successful collection (per target)** | `time() - arq_signal_last_successful_collection_timestamp` | Are any targets going stale? |
-| **Collection cycles by status (rate / 5m)** | `arq_signal_collection_cycles_total{status}` | How are per-target cycles trending — success / partial / failed? |
-| **Collection duration (p50 / p95 / p99)** | `arq_signal_collection_duration_seconds_bucket` | Cycle latency profile per target. |
-| **Collector outcomes by status (rate / 5m)** | `arq_signal_collectors_{succeeded,failed,skipped}_total` | Aggregate per-cycle collector counts. |
-| **Collector failed/skipped by reason (rate / 5m)** | `arq_signal_collectors_failed_total{reason}` + `arq_signal_collectors_skipped_total{reason}` | Why are collectors failing or being skipped (`permission_denied`, `timeout`, `config_disabled`, `version_unsupported`, `extension_missing`, …)? |
-| **Export requests by status (rate / 5m)** | `arq_signal_export_requests_total{status}` | Is `/export` healthy? |
-| **Export failures by error_category (rate / 5m)** | `arq_signal_export_failures_total{error_category}` | Why is `/export` failing? |
-| **SQLite persistence failures (R077, last 24h)** | `arq_signal_sqlite_persistence_failures_total` | Has the atomic-cycle commit ever rolled back recently? |
-| **Collection failures by reason (last 1h)** | `arq_signal_collection_failures_total{reason}` | Bounded reason breakdown for hard target failures. |
+| **High-sensitivity collectors enabled (R075)** | `signals_high_sensitivity_collectors_enabled` | Effective state of the daemon-wide gate. Default `1` (collect-everything default, R075 revised 2026-05); `0` means the operator opted out (redact-path collectors null their `SensitiveColumns`; skip-path collectors are dropped). |
+| **Time since last successful collection (per target)** | `time() - signals_last_successful_collection_timestamp` | Are any targets going stale? |
+| **Collection cycles by status (rate / 5m)** | `signals_collection_cycles_total{status}` | How are per-target cycles trending — success / partial / failed? |
+| **Collection duration (p50 / p95 / p99)** | `signals_collection_duration_seconds_bucket` | Cycle latency profile per target. |
+| **Collector outcomes by status (rate / 5m)** | `signals_collectors_{succeeded,failed,skipped}_total` | Aggregate per-cycle collector counts. |
+| **Collector failed/skipped by reason (rate / 5m)** | `signals_collectors_failed_total{reason}` + `signals_collectors_skipped_total{reason}` | Why are collectors failing or being skipped (`permission_denied`, `timeout`, `config_disabled`, `version_unsupported`, `extension_missing`, …)? |
+| **Export requests by status (rate / 5m)** | `signals_export_requests_total{status}` | Is `/export` healthy? |
+| **Export failures by error_category (rate / 5m)** | `signals_export_failures_total{error_category}` | Why is `/export` failing? |
+| **SQLite persistence failures (R077, last 24h)** | `signals_sqlite_persistence_failures_total` | Has the atomic-cycle commit ever rolled back recently? |
+| **Collection failures by reason (last 1h)** | `signals_collection_failures_total{reason}` | Bounded reason breakdown for hard target failures. |
 
 ### Note on `collect_now_dropped`
 
@@ -118,7 +118,7 @@ metric for drop rate can:
   the count into a log-derived metric (e.g. via Loki + recording
   rule, or `mtail`); or
 - file a request to add a counter such as
-  `arq_signal_collect_now_dropped_total{reason_category}` to the
+  `signals_collect_now_dropped_total{reason_category}` to the
   Elevarq Signal metrics package — the audit-event values map cleanly
   onto a bounded label set.
 

@@ -10,7 +10,7 @@ import (
 
 // ---------------------------------------------------------------------------
 // Issue #93 / R079 — guard against documentation drift on the
-// `arq_signal_collection_failures_total` reason label set.
+// `signals_collection_failures_total` reason label set.
 //
 // The metrics consumer guide promises a specific reason enum.
 // `metrics.CollectionFailureReasons` is the constant source of truth.

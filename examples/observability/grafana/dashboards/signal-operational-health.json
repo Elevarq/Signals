@@ -53,7 +53,7 @@
       },
       "targets": [
         {
-          "expr": "arq_signal_high_sensitivity_collectors_enabled",
+          "expr": "signals_high_sensitivity_collectors_enabled",
           "refId": "A",
           "legendFormat": "high_sensitivity"
         }
@@ -89,7 +89,7 @@
       },
       "targets": [
         {
-          "expr": "time() - arq_signal_last_successful_collection_timestamp",
+          "expr": "time() - signals_last_successful_collection_timestamp",
           "refId": "A",
           "legendFormat": "{{target}}"
         }
@@ -128,7 +128,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (target, status) (rate(arq_signal_collection_cycles_total[5m]))",
+          "expr": "sum by (target, status) (rate(signals_collection_cycles_total[5m]))",
           "refId": "A",
           "legendFormat": "{{target}} / {{status}}"
         }
@@ -154,17 +154,17 @@
       },
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.50, sum by (le, target) (rate(signals_collection_duration_seconds_bucket[5m])))",
           "refId": "A",
           "legendFormat": "{{target}} p50"
         },
         {
-          "expr": "histogram_quantile(0.95, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le, target) (rate(signals_collection_duration_seconds_bucket[5m])))",
           "refId": "B",
           "legendFormat": "{{target}} p95"
         },
         {
-          "expr": "histogram_quantile(0.99, sum by (le, target) (rate(arq_signal_collection_duration_seconds_bucket[5m])))",
+          "expr": "histogram_quantile(0.99, sum by (le, target) (rate(signals_collection_duration_seconds_bucket[5m])))",
           "refId": "C",
           "legendFormat": "{{target}} p99"
         }
@@ -198,17 +198,17 @@
       },
       "targets": [
         {
-          "expr": "sum by (target) (rate(arq_signal_collectors_succeeded_total[5m]))",
+          "expr": "sum by (target) (rate(signals_collectors_succeeded_total[5m]))",
           "refId": "A",
           "legendFormat": "{{target}} / succeeded"
         },
         {
-          "expr": "sum by (target) (rate(arq_signal_collectors_failed_total[5m]))",
+          "expr": "sum by (target) (rate(signals_collectors_failed_total[5m]))",
           "refId": "B",
           "legendFormat": "{{target}} / failed"
         },
         {
-          "expr": "sum by (target) (rate(arq_signal_collectors_skipped_total[5m]))",
+          "expr": "sum by (target) (rate(signals_collectors_skipped_total[5m]))",
           "refId": "C",
           "legendFormat": "{{target}} / skipped"
         }
@@ -234,12 +234,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (target, reason) (rate(arq_signal_collectors_failed_total[5m]))",
+          "expr": "sum by (target, reason) (rate(signals_collectors_failed_total[5m]))",
           "refId": "A",
           "legendFormat": "{{target}} failed / {{reason}}"
         },
         {
-          "expr": "sum by (target, reason) (rate(arq_signal_collectors_skipped_total[5m]))",
+          "expr": "sum by (target, reason) (rate(signals_collectors_skipped_total[5m]))",
           "refId": "B",
           "legendFormat": "{{target}} skipped / {{reason}}"
         }
@@ -277,7 +277,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (status) (rate(arq_signal_export_requests_total[5m]))",
+          "expr": "sum by (status) (rate(signals_export_requests_total[5m]))",
           "refId": "A",
           "legendFormat": "{{status}}"
         }
@@ -303,7 +303,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (error_category) (rate(arq_signal_export_failures_total[5m]))",
+          "expr": "sum by (error_category) (rate(signals_export_failures_total[5m]))",
           "refId": "A",
           "legendFormat": "{{error_category}}"
         }
@@ -338,7 +338,7 @@
       },
       "targets": [
         {
-          "expr": "increase(arq_signal_sqlite_persistence_failures_total[24h])",
+          "expr": "increase(signals_sqlite_persistence_failures_total[24h])",
           "refId": "A",
           "legendFormat": "rollbacks (24h)"
         }
@@ -374,7 +374,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (target, reason) (increase(arq_signal_collection_failures_total[1h]))",
+          "expr": "sum by (target, reason) (increase(signals_collection_failures_total[1h]))",
           "refId": "A",
           "legendFormat": "{{target}} / {{reason}}"
         }

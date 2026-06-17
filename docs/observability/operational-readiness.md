@@ -74,15 +74,15 @@ Highlights for triage:
 
 | Metric | What it tells you |
 |---|---|
-| `arq_signals_collection_total{target,collector,outcome}` | Per-target / per-collector counter. `outcome` is the closed enum above. |
-| `arq_signals_collection_duration_seconds` | Histogram. Long-tail latency signals query_timeout pressure. |
-| `arq_signals_circuit_state{target,state}` | Gauge with the closed enum (`closed` / `open` / `half_open`). |
-| `arq_signals_last_snapshot_age_seconds{target}` | Gauge. Compare against `poll_interval`; consistently > 1.5 × signals a problem. |
+| `signals_collection_cycles_total{target,status}` | Per-target cycle counter. `status` is the cycle outcome (`success` / `partial` / `failed`). |
+| `signals_collection_duration_seconds{target,status}` | Histogram. Long-tail latency signals query_timeout pressure. |
+| `signals_circuit_state{target,state}` | Gauge with the closed state enum (`closed` / `open` / `paused`); the active row is 1, the others 0. |
+| `signals_last_successful_collection_timestamp{target}` | Gauge (Unix seconds). Compare `time() - value` against `poll_interval`; a gap consistently > 1.5 × signals a problem. |
 
 INV-SIGNALS-07 holds: **no labels carry credential bytes,
 hostnames-with-passwords, or workload data**. Labels are
-operator-declared identifiers only (target names, collector ids,
-the closed `outcome` enum).
+operator-declared identifiers only (target names, the closed
+`status` / `state` enums, and the failure-reason taxonomy).
 
 ## Operator preflight
 

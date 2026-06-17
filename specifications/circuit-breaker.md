@@ -141,16 +141,16 @@ state is `paused`.
 `/metrics` (R079) exposes:
 
 ```
-# HELP arq_signal_circuit_state Per-target circuit state. 1 = active state, 0 = inactive.
-# TYPE arq_signal_circuit_state gauge
-arq_signal_circuit_state{target="prod-db",state="closed"}    1
-arq_signal_circuit_state{target="prod-db",state="open"}      0
-arq_signal_circuit_state{target="prod-db",state="paused"}    0
-arq_signal_circuit_state{target="staging-db",state="closed"} 0
-arq_signal_circuit_state{target="staging-db",state="paused"} 1
+# HELP signals_circuit_state Per-target circuit state. 1 = active state, 0 = inactive.
+# TYPE signals_circuit_state gauge
+signals_circuit_state{target="prod-db",state="closed"}    1
+signals_circuit_state{target="prod-db",state="open"}      0
+signals_circuit_state{target="prod-db",state="paused"}    0
+signals_circuit_state{target="staging-db",state="closed"} 0
+signals_circuit_state{target="staging-db",state="paused"} 1
 ```
 
-Operators alert on `arq_signal_circuit_state{state=~"open|paused"} == 1`.
+Operators alert on `signals_circuit_state{state=~"open|paused"} == 1`.
 
 ## Invariants
 

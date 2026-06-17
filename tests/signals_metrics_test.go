@@ -120,18 +120,18 @@ func TestMetricsEndpointReturnsPromFormat(t *testing.T) {
 
 	// Every metric in R079 must now appear (HELP line at minimum).
 	required := []string{
-		"arq_signal_collection_cycles_total",
-		"arq_signal_collection_failures_total",
-		"arq_signal_collection_duration_seconds",
-		"arq_signal_collectors_succeeded_total",
-		"arq_signal_collectors_failed_total",
-		"arq_signal_collectors_skipped_total",
-		"arq_signal_export_requests_total",
-		"arq_signal_export_failures_total",
-		"arq_signal_export_duration_seconds",
-		"arq_signal_sqlite_persistence_failures_total",
-		"arq_signal_last_successful_collection_timestamp",
-		"arq_signal_high_sensitivity_collectors_enabled",
+		"signals_collection_cycles_total",
+		"signals_collection_failures_total",
+		"signals_collection_duration_seconds",
+		"signals_collectors_succeeded_total",
+		"signals_collectors_failed_total",
+		"signals_collectors_skipped_total",
+		"signals_export_requests_total",
+		"signals_export_failures_total",
+		"signals_export_duration_seconds",
+		"signals_sqlite_persistence_failures_total",
+		"signals_last_successful_collection_timestamp",
+		"signals_high_sensitivity_collectors_enabled",
 	}
 	for _, m := range required {
 		if !strings.Contains(out, "# HELP "+m) {
@@ -246,11 +246,11 @@ func TestMetricsCountersUpdateOnExport(t *testing.T) {
 	out := string(body)
 
 	for _, want := range []string{
-		`arq_signal_export_requests_total{status="success"} 1`,
-		`arq_signal_export_requests_total{status="failed"} 1`,
-		`arq_signal_export_failures_total{error_category="invalid_target_id"} 1`,
-		`arq_signal_export_duration_seconds_count{status="success"} 1`,
-		`arq_signal_export_duration_seconds_count{status="failed"} 1`,
+		`signals_export_requests_total{status="success"} 1`,
+		`signals_export_requests_total{status="failed"} 1`,
+		`signals_export_failures_total{error_category="invalid_target_id"} 1`,
+		`signals_export_duration_seconds_count{status="success"} 1`,
+		`signals_export_duration_seconds_count{status="failed"} 1`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in metrics output, got:\n%s", want, out)
@@ -285,12 +285,12 @@ func TestMetricsCountersUpdateOnCollection(t *testing.T) {
 	out := string(body)
 
 	for _, want := range []string{
-		`arq_signal_collection_cycles_total{status="success",target="primary"} 1`,
-		`arq_signal_collection_cycles_total{status="failed",target="standby"} 1`,
-		`arq_signal_collection_failures_total{reason="connect_error",target="standby"} 1`,
-		`arq_signal_collectors_succeeded_total{target="primary"} 7`,
-		`arq_signal_collectors_skipped_total{reason="config_disabled",target="primary"} 4`,
-		`arq_signal_last_successful_collection_timestamp{target="primary"} 1.7e+09`,
+		`signals_collection_cycles_total{status="success",target="primary"} 1`,
+		`signals_collection_cycles_total{status="failed",target="standby"} 1`,
+		`signals_collection_failures_total{reason="connect_error",target="standby"} 1`,
+		`signals_collectors_succeeded_total{target="primary"} 7`,
+		`signals_collectors_skipped_total{reason="config_disabled",target="primary"} 4`,
+		`signals_last_successful_collection_timestamp{target="primary"} 1.7e+09`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in metrics output, got:\n%s", want, out)
@@ -308,13 +308,13 @@ func TestMetricsHighSensitivityGauge(t *testing.T) {
 
 	reg.SetHighSensitivityEnabled(true)
 	body := scrapeMetrics(t, handler)
-	if !strings.Contains(body, "arq_signal_high_sensitivity_collectors_enabled 1") {
+	if !strings.Contains(body, "signals_high_sensitivity_collectors_enabled 1") {
 		t.Errorf("expected gauge=1 when enabled, got:\n%s", body)
 	}
 
 	reg.SetHighSensitivityEnabled(false)
 	body = scrapeMetrics(t, handler)
-	if !strings.Contains(body, "arq_signal_high_sensitivity_collectors_enabled 0") {
+	if !strings.Contains(body, "signals_high_sensitivity_collectors_enabled 0") {
 		t.Errorf("expected gauge=0 when disabled, got:\n%s", body)
 	}
 }
