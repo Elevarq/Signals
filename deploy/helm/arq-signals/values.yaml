@@ -5,14 +5,40 @@ image:
   tag: "0.10.0-beta.5"
   pullPolicy: IfNotPresent
 
-# PostgreSQL target configuration
+# PostgreSQL target configuration. Rendered into the mounted
+# signals.yaml ConfigMap as a single `targets:` entry (the collector
+# reads auth_method and the cloud parameters only from that block, not
+# from env — internal/config/config.go). No target block is emitted
+# until `host` is set.
 target:
   host: ""           # Required: PostgreSQL hostname
   port: 5432
   dbname: postgres
   user: arq_signals
-  sslmode: prefer
-  # Credential source (choose one):
+  sslmode: prefer    # token methods (below) require verify-full (FC006)
+
+  # Passwordless cloud auth (#93 credential-providers; recipe:
+  # docs/database-connections.md). Leave authMethod empty for the
+  # default password method. Token/secret methods are passwordless —
+  # do NOT set passwordSecretName with them (FC005) — and require
+  # sslmode: verify-full in every environment (FC006). The collector's
+  # ambient cloud identity (IRSA / Pod Identity / Workload Identity)
+  # mints the credential; see deploy/helm/arq-signals/README.md for
+  # per-platform values snippets.
+  authMethod: ""     # "" | aws_rds_iam | azure_entra | gcp_cloudsql_iam | secret_store
+  region: ""         # aws_rds_iam: optional (also read from AWS_REGION / IMDS)
+  azureClientId: ""  # azure_entra: optional user-assigned MI disambiguation (also AZURE_CLIENT_ID)
+  gcpImpersonateServiceAccount: ""  # gcp_cloudsql_iam: optional impersonation target
+  secretRef: ""      # secret_store: cloud vault reference (NOT a secret — an ARN/URI/name)
+
+  # verify-full needs a CA bundle. Mount it via extraVolumes /
+  # extraVolumeMounts (below) and point this at the mounted path. In
+  # `prod`, verify-ca/verify-full hard-require this (config.go prod-TLS gate).
+  sslRootCertFile: ""
+
+  # Password method only (authMethod empty). The Secret is referenced
+  # by name; the password never lands in a ConfigMap or rendered
+  # manifest beyond the Secret reference (injected as PG_PASSWORD).
   passwordSecretName: ""    # Kubernetes secret containing the password
   passwordSecretKey: password
 
@@ -71,7 +97,34 @@ env: dev
 # affordance. Disable only if your platform mandates a shared SA.
 serviceAccount:
   create: true
-  annotations: {}     # e.g. for IRSA / Workload Identity
+  # Per-platform identity binding (#114). Examples:
+  #   IRSA:        eks.amazonaws.com/role-arn: arn:aws:iam::<acct>:role/<role>
+  #   GKE WI:      iam.gke.io/gcp-service-account: <gsa>@<proj>.iam.gserviceaccount.com
+  #   AKS WI:      azure.workload.identity/client-id: <client-id>
+  #   EKS Pod ID:  (no annotation — the association is created out-of-band)
+  annotations: {}
+
+# Pod template labels (#114). AKS workload identity requires the POD
+# to carry `azure.workload.identity/use: "true"` so the webhook injects
+# the projected federated token. e.g.:
+#   podLabels:
+#     azure.workload.identity/use: "true"
+podLabels: {}
+
+# Extra volumes / mounts (#114). Use to mount a CA bundle for
+# sslmode: verify-full (set target.sslRootCertFile to the mount path),
+# or any other operator-supplied file. No secrets in values — mount a
+# Secret/ConfigMap by reference. e.g.:
+#   extraVolumes:
+#     - name: db-ca
+#       secret:
+#         secretName: db-ca-bundle
+#   extraVolumeMounts:
+#     - name: db-ca
+#       mountPath: /etc/ssl/db
+#       readOnly: true
+extraVolumes: []
+extraVolumeMounts: []
 
 # NetworkPolicy (#140). Opt-in. When enabled, the policy denies
 # all ingress + egress by default and explicitly allows:
