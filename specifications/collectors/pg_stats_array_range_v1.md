@@ -96,7 +96,7 @@ Same as `pg_stats_v1` / `pg_stats_extended_v1`: excludes
   on `pg_stats`)
 - **Enabled by default: NO**
 - Config key: `signals.collect_array_range_histograms: true`
-- Env override: `ARQ_SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS=true`
+- Env override: `SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS=true`
 
 ## Sensitivity
 

@@ -10,8 +10,8 @@ import (
 
 // ---------------------------------------------------------------------------
 // Env-var additions for secret-free-in-env operation:
-//   - ARQ_SIGNALS_API_TOKEN_FILE: API token via file (Docker secret).
-//   - ARQ_SIGNALS_TARGET_SSLROOTCERT_FILE: CA cert path for verify-full TLS.
+//   - SIGNALS_API_TOKEN_FILE: API token via file (Docker secret).
+//   - SIGNALS_TARGET_SSLROOTCERT_FILE: CA cert path for verify-full TLS.
 //
 // Rationale: the single-target-from-env path is the documented container
 // convention; these two additions close the gap where the prod Docker
@@ -29,7 +29,7 @@ func TestConfigAPITokenFromFile(t *testing.T) {
 		t.Fatalf("write token file: %v", err)
 	}
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN_FILE", tokenPath)
+	t.Setenv("SIGNALS_API_TOKEN_FILE", tokenPath)
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -54,7 +54,7 @@ func TestConfigAPITokenFileStripsTrailingNewline(t *testing.T) {
 		t.Fatalf("write token file: %v", err)
 	}
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN_FILE", tokenPath)
+	t.Setenv("SIGNALS_API_TOKEN_FILE", tokenPath)
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -81,8 +81,8 @@ func TestConfigAPITokenFileOverridesEnv(t *testing.T) {
 		t.Fatalf("write token file: %v", err)
 	}
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN", "from-env")
-	t.Setenv("ARQ_SIGNALS_API_TOKEN_FILE", tokenPath)
+	t.Setenv("SIGNALS_API_TOKEN", "from-env")
+	t.Setenv("SIGNALS_API_TOKEN_FILE", tokenPath)
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -95,7 +95,7 @@ func TestConfigAPITokenFileOverridesEnv(t *testing.T) {
 	}
 }
 
-// Baseline: the pre-existing ARQ_SIGNALS_API_TOKEN path must still work
+// Baseline: the pre-existing SIGNALS_API_TOKEN path must still work
 // for backward compatibility.
 func TestConfigAPITokenFromEnvBaseline(t *testing.T) {
 	origDir, _ := os.Getwd()
@@ -103,7 +103,7 @@ func TestConfigAPITokenFromEnvBaseline(t *testing.T) {
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN", "direct-env-token")
+	t.Setenv("SIGNALS_API_TOKEN", "direct-env-token")
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -124,7 +124,7 @@ func TestConfigAPITokenFileMissingIsError(t *testing.T) {
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN_FILE", filepath.Join(dir, "does-not-exist"))
+	t.Setenv("SIGNALS_API_TOKEN_FILE", filepath.Join(dir, "does-not-exist"))
 
 	_, err := config.Load("")
 	if err == nil {
@@ -140,10 +140,10 @@ func TestConfigTargetSSLRootCertFileFromEnv(t *testing.T) {
 
 	// The file does not need to exist — the collector reads it lazily
 	// when it connects. We're only testing the config-surface wiring.
-	t.Setenv("ARQ_SIGNALS_TARGET_HOST", "pg.internal")
-	t.Setenv("ARQ_SIGNALS_TARGET_USER", "monitor")
-	t.Setenv("ARQ_SIGNALS_TARGET_SSLMODE", "verify-full")
-	t.Setenv("ARQ_SIGNALS_TARGET_SSLROOTCERT_FILE", "/etc/arq/ca.crt")
+	t.Setenv("SIGNALS_TARGET_HOST", "pg.internal")
+	t.Setenv("SIGNALS_TARGET_USER", "monitor")
+	t.Setenv("SIGNALS_TARGET_SSLMODE", "verify-full")
+	t.Setenv("SIGNALS_TARGET_SSLROOTCERT_FILE", "/etc/signals/ca.crt")
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -153,9 +153,9 @@ func TestConfigTargetSSLRootCertFileFromEnv(t *testing.T) {
 	if len(cfg.Targets) != 1 {
 		t.Fatalf("Targets: got %d, want 1", len(cfg.Targets))
 	}
-	if cfg.Targets[0].SSLRootCertFile != "/etc/arq/ca.crt" {
+	if cfg.Targets[0].SSLRootCertFile != "/etc/signals/ca.crt" {
 		t.Errorf("SSLRootCertFile: got %q, want %q",
-			cfg.Targets[0].SSLRootCertFile, "/etc/arq/ca.crt")
+			cfg.Targets[0].SSLRootCertFile, "/etc/signals/ca.crt")
 	}
 	if cfg.Targets[0].SSLMode != "verify-full" {
 		t.Errorf("SSLMode: got %q, want %q", cfg.Targets[0].SSLMode, "verify-full")

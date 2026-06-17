@@ -25,7 +25,7 @@ func baseValidTarget() TargetConfig {
 func baseValidConfig(tgt TargetConfig) Config {
 	return Config{
 		Env:      "dev",
-		Database: DatabaseConfig{Path: "/tmp/arq-signals-test.db"},
+		Database: DatabaseConfig{Path: "/tmp/signals-test.db"},
 		API:      APIConfig{ListenAddr: "127.0.0.1:8081"},
 		Signals: SignalsConfig{
 			PollInterval:        time.Minute,

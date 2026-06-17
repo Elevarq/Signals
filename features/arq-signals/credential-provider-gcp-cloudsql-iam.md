@@ -199,7 +199,7 @@ operator-configurable.
   `auth_method`, db_user, scope, resolved_at, expires_at — never the token
   (INV002/INV007).
 - **AC-GCP-008 (live smoke, env-gated)**: with
-  `ARQ_SIGNALS_INTEGRATION_LIVE=1` against a real Cloud SQL for PostgreSQL
+  `SIGNALS_INTEGRATION_LIVE=1` against a real Cloud SQL for PostgreSQL
   instance whose role is mapped to the test principal, the collector
   connects passwordlessly and collects at least one snapshot; the token is
   re-acquired across a reconnect that crosses the refresh skew. Not run in

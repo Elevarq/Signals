@@ -29,7 +29,7 @@ func writeSelfSignedCert(t *testing.T, dir string) (certPath, keyPath string) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "arq-signals-test"},
+		Subject:      pkix.Name{CommonName: "signals-test"},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     time.Now().Add(time.Hour),
 		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,

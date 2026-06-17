@@ -11,11 +11,11 @@ import (
 )
 
 // TestAppNameConstantValue verifies that the exported package constant
-// driving application_name is exactly "arq-signals".
+// driving application_name is exactly "signals".
 // Traces: ARQ-SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
 func TestAppNameConstantValue(t *testing.T) {
-	if collector.AppName != "arq-signals" {
-		t.Fatalf("collector.AppName = %q, want %q", collector.AppName, "arq-signals")
+	if collector.AppName != "signals" {
+		t.Fatalf("collector.AppName = %q, want %q", collector.AppName, "signals")
 	}
 }
 
@@ -64,7 +64,7 @@ func TestPgStatStatementsCollectorFiltersCurrentDatabase(t *testing.T) {
 
 // TestPgStatStatementsCollectorExcludesSelf verifies that the registered
 // SQL for pg_stat_statements_v1 excludes rows attributable to the
-// Signals collector itself (application_name = 'arq-signals').
+// Signals collector itself (application_name = 'signals').
 // Traces: ARQ-SIGNALS-R106 / TC-SIG-119 / INV-SIGNALS-18
 func TestPgStatStatementsCollectorExcludesSelf(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
@@ -81,8 +81,8 @@ func TestPgStatStatementsCollectorExcludesSelf(t *testing.T) {
 		t.Errorf("pg_stat_statements_v1 SQL must reference pg_stat_activity to scope self-filter; got:\n%s", q.SQL)
 	}
 	// Filter must name the actual constant value.
-	if !strings.Contains(sql, "'arq-signals'") {
-		t.Errorf("pg_stat_statements_v1 SQL must filter application_name = 'arq-signals'; got:\n%s", q.SQL)
+	if !strings.Contains(sql, "'signals'") {
+		t.Errorf("pg_stat_statements_v1 SQL must filter application_name = 'signals'; got:\n%s", q.SQL)
 	}
 	if !strings.Contains(sql, "application_name") {
 		t.Errorf("pg_stat_statements_v1 SQL must reference application_name; got:\n%s", q.SQL)
@@ -164,7 +164,7 @@ func TestBuildSafeDSNCarriesAppName(t *testing.T) {
 }
 
 // TestAppNameLiteralUsedOnlyOnce is a defense-in-depth check that the
-// string literal "arq-signals" is not duplicated as an application_name
+// string literal "signals" is not duplicated as an application_name
 // value across the production code base. The constant in
 // internal/collector is the only authoritative source.
 //

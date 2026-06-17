@@ -28,7 +28,7 @@ func genCertKeyPEM(t *testing.T, notAfter time.Time) (certPEM, keyPEM []byte) {
 	}
 	tmpl := &x509.Certificate{
 		SerialNumber: big.NewInt(1),
-		Subject:      pkix.Name{CommonName: "arq_signals"},
+		Subject:      pkix.Name{CommonName: "signals"},
 		NotBefore:    time.Now().Add(-time.Hour),
 		NotAfter:     notAfter,
 	}

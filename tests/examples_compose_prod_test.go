@@ -16,7 +16,7 @@ import (
 //
 // We accept either of two equivalent fixes per the issue body:
 //
-//  1. ARQ_SIGNALS_LISTEN_ADDR=0.0.0.0:8081 set in the service
+//  1. SIGNALS_LISTEN_ADDR=0.0.0.0:8081 set in the service
 //     environment (current fix).
 //  2. A signals.prod.yaml mount whose api.listen_addr resolves
 //     to 0.0.0.0:8081 (future operator-customised variant).
@@ -31,7 +31,7 @@ func TestProdComposeBindsContainerWildcard(t *testing.T) {
 		t.Fatalf("read %s: %v", path, err)
 	}
 	body := string(data)
-	wantEnv := `ARQ_SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"`
+	wantEnv := `SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"`
 	wantConfigMarker := "api.listen_addr"
 	if !strings.Contains(body, wantEnv) &&
 		!strings.Contains(body, wantConfigMarker) {

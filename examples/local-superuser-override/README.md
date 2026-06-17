@@ -19,12 +19,12 @@ privileges on production databases.
 
 ## How to override (local/dev only)
 
-Set the `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE` environment variable:
+Set the `SIGNALS_ALLOW_UNSAFE_ROLE` environment variable:
 
 ```bash
-ARQ_ALLOW_INSECURE_PG_TLS=true \
-ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true \
-ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
+SIGNALS_ALLOW_INSECURE_PG_TLS=true \
+SIGNALS_ALLOW_UNSAFE_ROLE=true \
+SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
 ./bin/signals --config examples/local-superuser-override/signals.yaml
 ```
 
@@ -66,8 +66,8 @@ ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
 Create a proper monitoring role:
 
 ```sql
-CREATE ROLE arq_signals LOGIN;
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN;
+GRANT pg_monitor TO signals;
 ```
 
 Then switch to the [local safe role example](../local-safe-role/).

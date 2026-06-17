@@ -38,7 +38,7 @@ PostgreSQL 14 and later (actively supported versions). Some collectors require s
 
 ## How do I integrate Elevarq Signals with my existing monitoring?
 
-Elevarq Signals exports snapshots as ZIP archives with a documented JSON format (`arq-snapshot.v1`). You can feed these into any downstream tool, script, or pipeline. The format is stable and versioned.
+Elevarq Signals exports snapshots as ZIP archives with a documented JSON format (`signals-snapshot.v1`). You can feed these into any downstream tool, script, or pipeline. The format is stable and versioned.
 
 ## What happens if I connect with a superuser role?
 
@@ -46,7 +46,7 @@ Elevarq Signals will refuse to collect. The system validates the connected
 role's attributes before each collection cycle and blocks collection if
 the role has superuser, replication, or bypass RLS privileges. Create a
 dedicated monitoring role with `pg_monitor` instead. An explicit
-override (`ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev use
+override (`SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev use
 but is not recommended for production.
 
 ## Does pg_stat_statements work across PostgreSQL versions?

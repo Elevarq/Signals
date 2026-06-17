@@ -27,7 +27,7 @@ func TestCheckConfigValid_OKOnGoodConfig(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.yaml")
 	contents := `signals:
-  store_path: /tmp/arq-signals
+  store_path: /tmp/signals
   poll_interval: 5m
   min_snapshot_interval: 60s
 targets:
@@ -96,7 +96,7 @@ func TestCheckStoreWritable_FailOnFileLikePathReportsParentDir(t *testing.T) {
 	// at the *parent* directory — that's where the daemon would
 	// have tried to create the file. The previous behaviour reported
 	// the full file path, masking the actually-missing directory.
-	path := "/nonexistent/parent/path/arq-signals.db"
+	path := "/nonexistent/parent/path/signals.db"
 	r := CheckStoreWritable(path)
 	if r.Status != StatusFail {
 		t.Errorf("status: got %q, want %q (detail=%q)", r.Status, StatusFail, r.Detail)
@@ -104,7 +104,7 @@ func TestCheckStoreWritable_FailOnFileLikePathReportsParentDir(t *testing.T) {
 	if !strings.Contains(r.Detail, "/nonexistent/parent/path") {
 		t.Errorf("detail should reference parent dir, not the file path; got %q", r.Detail)
 	}
-	if strings.Contains(r.Detail, "arq-signals.db") {
+	if strings.Contains(r.Detail, "signals.db") {
 		t.Errorf("detail must not name the missing file itself (operator should look at parent); got %q", r.Detail)
 	}
 }

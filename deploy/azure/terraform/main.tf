@@ -27,15 +27,15 @@ locals {
     apt-get update -y
     apt-get install -y docker.io curl
     systemctl enable --now docker
-    mkdir -p /etc/arq
+    mkdir -p /etc/signals
     # Azure Flexible Server CA bundle for sslmode=verify-full.
-    curl -fsSL ${var.db_ca_cert_url} -o /etc/arq/azure-ca.pem
-    cat > /etc/arq/signals.yaml <<'YAML'
+    curl -fsSL ${var.db_ca_cert_url} -o /etc/signals/azure-ca.pem
+    cat > /etc/signals/signals.yaml <<'YAML'
     env: ${var.arq_env}
     signals:
       poll_interval: ${var.poll_interval}
     database:
-      path: /data/arq-signals.db
+      path: /data/signals.db
       wal: true
     api:
       listen_addr: "127.0.0.1:8081"
@@ -48,14 +48,14 @@ locals {
         auth_method: azure_entra
         azure_client_id: ${azurerm_user_assigned_identity.collector.client_id}
         sslmode: verify-full
-        sslrootcert_file: /etc/arq/azure-ca.pem
+        sslrootcert_file: /etc/signals/azure-ca.pem
     YAML
     docker run -d --name signals --restart=always \
       -e AZURE_CLIENT_ID=${azurerm_user_assigned_identity.collector.client_id} \
-      -v /etc/arq:/etc/arq:ro \
-      -v arq-data:/data \
+      -v /etc/signals:/etc/signals:ro \
+      -v signals-data:/data \
       -p 127.0.0.1:8081:8081 \
-      ${var.image_uri} --config /etc/arq/signals.yaml
+      ${var.image_uri} --config /etc/signals/signals.yaml
   EOT
 }
 

@@ -227,7 +227,7 @@ and view predicates in `sql/views.sql`):
   or ownership required.
 - The **only** privilege-shaped surface is `job_errors` /
   `job_history`: rows are visible only to members of the job-owner or
-  database-owner role. The standard `arq_signals` role (LOGIN +
+  database-owner role. The standard `signals` role (LOGIN +
   `pg_monitor`, per `docs/postgres-role.md`) therefore sees zero
   rows. Operators who want fleet-wide job *error detail* can
   optionally grant the collector role membership in the database
@@ -291,7 +291,7 @@ builds; `timescale/timescaledb` (Alpine) carries
 | Compression settings/stats | same | TC-TSDB-06 |
 | Continuous aggregate (+ refresh policy) | same | TC-TSDB-07 |
 | Retention policy | same | TC-TSDB-08 |
-| Job stats / job errors least-privilege | same, connecting as the `arq_signals` role | TC-TSDB-09/10 |
+| Job stats / job errors least-privilege | same, connecting as the `signals` role | TC-TSDB-09/10 |
 | Apache edition | `timescale/timescaledb:2.27.2-pg17-oss` | `license=apache`; graceful empty TSL surfaces (TC-TSDB-11) |
 | Oldest supported combo | `timescale/timescaledb:2.19.3-pg14` | pre-2.20 column drift absorbed by dynamic capture (TC-TSDB-03 variant) |
 | PG 18 lane (optional) | `timescale/timescaledb-ha:pg18-ts2.27` | smoke |

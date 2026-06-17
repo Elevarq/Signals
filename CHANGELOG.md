@@ -6,6 +6,48 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — removed the residual `arq` branding from every user-facing
+  interface (#137).** Beta intentionally froze these names (see the
+  beta.4 note below); with adoption beginning, this is the last window to
+  rename them without a compatibility shim. There are no aliases for the
+  old names — update configs, environments, and provisioning before
+  upgrading. Renames:
+  - **Environment variables:** the `ARQ_SIGNALS_*` prefix becomes
+    `SIGNALS_*` (e.g. `ARQ_SIGNALS_API_TOKEN` -> `SIGNALS_API_TOKEN`,
+    `ARQ_SIGNALS_CONFIG` -> `SIGNALS_CONFIG`). The two non-prefixed vars
+    follow: `ARQ_ENV` -> `SIGNALS_ENV`, `ARQ_ALLOW_INSECURE_PG_TLS` ->
+    `SIGNALS_ALLOW_INSECURE_PG_TLS`.
+  - **Default config directory:** `/etc/arq/` -> `/etc/signals/` (default
+    search path `/etc/signals/signals.yaml`; control-plane token default
+    `/etc/signals/control-plane.token`).
+  - **Default SQLite store path:** `/data/arq-signals.db` -> `/data/signals.db`.
+  - **PostgreSQL `application_name`:** every collector connection now
+    identifies as `signals` (was `arq-signals`); the pg_stat_activity /
+    pg_stat_statements self-filter matches the new value.
+  - **Snapshot export schema:** `schema_version` is now `signals-snapshot.v1`
+    (was `arq-snapshot.v1`); the export metadata key `arq_signals_version`
+    becomes `signals_version`. **Downstream consumers of the export
+    (Elevarq Analyzer/Insight) must accept the new identifier** — see #137
+    for the cross-repo follow-up.
+  - **Control-plane config:** `signals.mode: arq_managed` -> `managed`;
+    keys `arq_control_plane_token_file` / `arq_control_plane_token_env` ->
+    `control_plane_token_file` / `control_plane_token_env`.
+  - **Audit-log reason value:** `scheduled_arq_cycle` -> `scheduled_cycle`.
+  - **Documented DB monitoring role:** examples now use a single `signals`
+    role (was the inconsistent `arq_signals` / `arq_monitor`); read-only
+    example role `arq_signals_ro` -> `signals_ro`.
+  - **Deploy/example names:** Docker volume `arq-data` -> `signals-data`;
+    example Kubernetes secret names `arq-pg-password` / `arq-db-credentials`
+    / `arq-api-token` -> `signals-*`.
+
+  Unchanged (tracked separately): the Go module path
+  `github.com/elevarq/arq-signals` and the repository URL stay until the
+  repository rename (#62); internal `ARQ-SIGNALS-*` requirement IDs are an
+  internal traceability scheme; Prometheus metric names (`arq_signal_*`)
+  are handled separately.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added

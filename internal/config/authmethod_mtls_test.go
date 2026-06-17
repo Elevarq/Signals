@@ -12,8 +12,8 @@ func mtlsTarget() TargetConfig {
 	tgt.AuthMethod = AuthMethodMTLS
 	tgt.SSLMode = "verify-full"
 	tgt.SSLRootCertFile = "/etc/ca.pem"
-	tgt.SSLCert = "/etc/arq/client.crt"
-	tgt.SSLKey = "/etc/arq/client.key"
+	tgt.SSLCert = "/etc/signals/client.crt"
+	tgt.SSLKey = "/etc/signals/client.key"
 	return tgt
 }
 

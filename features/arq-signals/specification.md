@@ -182,7 +182,7 @@ error messages when safety posture validation fails, including which check
 failed and how to remediate.
 
 **ARQ-SIGNALS-R026**: The system shall support an explicit unsafe override via
-the ARQ_SIGNALS_ALLOW_UNSAFE_ROLE environment variable (default: false). When
+the SIGNALS_ALLOW_UNSAFE_ROLE environment variable (default: false). When
 enabled, blocked role attributes are downgraded to warnings. Unsafe mode shall
 be recorded in export metadata as unsafe_mode: true with the specific bypassed
 checks listed.
@@ -195,11 +195,11 @@ and/or environment variables, with the schema defined in Appendix B
 file-based values.
 
 **ARQ-SIGNALS-R028**: The system shall search for configuration files in
-order: explicit path via CLI flag, then system path `/etc/arq/signals.yaml`,
+order: explicit path via CLI flag, then system path `/etc/signals/signals.yaml`,
 then local path `./signals.yaml`. The first file found is used.
 
 **ARQ-SIGNALS-R029**: The system shall support configuring a single
-PostgreSQL target entirely via environment variables (ARQ_SIGNALS_TARGET_*)
+PostgreSQL target entirely via environment variables (SIGNALS_TARGET_*)
 for containerized deployments. See Appendix B for the full variable list.
 
 **ARQ-SIGNALS-R030**: The system shall validate configuration at startup and
@@ -630,7 +630,7 @@ statement text:
 High-sensitivity collectors run **by default** (collect-everything
 default). An operator who prefers privacy over diagnostic richness opts
 **out** by setting `signals.high_sensitivity_collectors_enabled: false`
-(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). This is a
+(or `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). This is a
 one-time startup configuration, not a per-cycle decision. The opt-out
 behaves per collector, declared on the `QueryDef` via a list of
 sensitive column names (`SensitiveColumns`):
@@ -685,7 +685,7 @@ validation at startup, before any collection begins. Validation
 distinguishes hard errors (abort with actionable message) from
 warnings (log and continue). The full taxonomy is defined in
 `appendix-b-configuration-schema.md` ("Validation rules"). In
-particular: malformed `ARQ_SIGNALS_*` environment variable values
+particular: malformed `SIGNALS_*` environment variable values
 (e.g., non-integer for an integer field) are hard errors, not
 silently dropped.
 
@@ -752,7 +752,7 @@ ZIP) shall include at minimum:
 
 | Field | Purpose |
 |-------|---------|
-| `arq_signals_version` | Build version of the daemon that produced the export. |
+| `signals_version` | Build version of the daemon that produced the export. |
 | `schema_version` | Snapshot/export schema version. |
 | `generated_at` | Timestamp the export was produced (UTC, RFC 3339). |
 | `instance_id` | Stable identifier of the producing daemon instance. |
@@ -777,9 +777,9 @@ own behaviour.
 
 The endpoint is **disabled by default**. It is enabled by setting
 `signals.metrics_enabled: true` (or the equivalent
-`ARQ_SIGNALS_METRICS_ENABLED=true` environment variable). The
+`SIGNALS_METRICS_ENABLED=true` environment variable). The
 serving path defaults to `/metrics` and may be overridden via
-`signals.metrics_path` (or `ARQ_SIGNALS_METRICS_PATH`). Setting the
+`signals.metrics_path` (or `SIGNALS_METRICS_PATH`). Setting the
 path to `/health` is forbidden — the unauthenticated health endpoint
 is reserved for liveness probes.
 
@@ -931,7 +931,7 @@ Content-Type: application/json
 
 {
   "targets": ["prod-main", "prod-reporting"],
-  "reason": "scheduled_arq_cycle",
+  "reason": "scheduled_cycle",
   "request_id": "01J5K6T3HW2A4DGCXV5Z6P0M3R"
 }
 ```
@@ -998,9 +998,9 @@ Field semantics:
 - `reason` — the request's optional `reason` label, surfaced
   verbatim (already charset-validated).
 - `actor` — `local_operator` for every Phase 1 / Phase 2 request,
-  regardless of request shape. The `arq_control_plane` actor value
+  regardless of request shape. The `control_plane` actor value
   is reserved for Phase 3, where a separate
-  `signals.arq_control_plane_token` distinguishes the control-plane
+  `signals.control_plane_token` distinguishes the control-plane
   identity from the operator identity. **Until Phase 3 ships, the
   presence of a `request_id` does not change the actor field** —
   inferring control-plane identity from request shape would let any
@@ -1071,13 +1071,13 @@ remains in Elevarq's analysis layer, not in obscured collector behaviour.
 |---|---|---|
 | 1 | `POST /collect/now` accepts optional JSON body with `targets` field. Empty array, unknown names, or disabled names → 400 with rejected list. Backward compatible with empty-body POSTs. Audit `actor` remains `local_operator`. | Implemented from R082 directly. |
 | 2 | `request_id` (regex `^[A-Za-z0-9_-]+$`, ≤32 chars) + `reason` (≤64 chars) fields. Audit-event extension with `requested_targets` / `accepted_targets` / `rejected_targets`. Correlation id propagated through per-target `collection_started` / `collection_completed` events. Audit `actor` still `local_operator`. | Implemented from R082 directly. |
-| 3 | `signals.mode: standalone \| arq_managed` config flag. Separate `signals.arq_control_plane_token` so the operator can distinguish actor identity in audit events. Mode B requires the flag to be set. **First phase in which the audit `actor` field can carry `arq_control_plane`.** | Implemented per R083 (v0.3.1). |
+| 3 | `signals.mode: standalone \| managed` config flag. Separate `signals.control_plane_token` so the operator can distinguish actor identity in audit events. Mode B requires the flag to be set. **First phase in which the audit `actor` field can carry `control_plane`.** | Implemented per R083 (v0.3.1). |
 | 4 | Collector profiles, entitlement metadata exchange, per-`request_id` outcome lookup endpoint, status callback channel. Optional rate limiting on accepted Mode B requests if real-world abuse patterns appear. | Out of scope for R082 / R083. Separate spec. |
 
 ### Mode B authentication and configuration
 
 **ARQ-SIGNALS-R083**: When the operator opts into Mode B (R082) by
-setting `signals.mode: arq_managed`, the system shall accept
+setting `signals.mode: managed`, the system shall accept
 authenticated requests from the Elevarq control plane via a **separate
 bearer token** distinct from the local API token. The audit `actor`
 field is derived from *which token matched* — never from request
@@ -1096,24 +1096,24 @@ coverage is in `tests/signals_r083_managed_mode_test.go`
 ```yaml
 signals:
   # R083: Mode B opt-in. "standalone" (default) keeps Phase 1 /
-  # Phase 2 behaviour byte-for-byte. "arq_managed" activates the
-  # arq_control_plane_token check.
+  # Phase 2 behaviour byte-for-byte. "managed" activates the
+  # control_plane_token check.
   mode: standalone
 
   # R083: Separate bearer token for the Elevarq control plane.
-  # Used ONLY when mode=arq_managed. Supplied via file (preferred)
+  # Used ONLY when mode=managed. Supplied via file (preferred)
   # or env var; never as a YAML literal — same posture as
   # api.token (R011).
-  arq_control_plane_token_file: /etc/arq/control-plane.token
+  control_plane_token_file: /etc/signals/control-plane.token
   # alternative:
-  # arq_control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
 ```
 
 | Field | Type | Default | Validation |
 |---|---|---|---|
-| `signals.mode` | enum `standalone` \| `arq_managed` | `standalone` | hard error on any other value |
-| `signals.arq_control_plane_token_file` | path | empty | required when `mode: arq_managed`; file is re-read on every authentication attempt to support rotation without restart |
-| `signals.arq_control_plane_token_env` | env-var name | empty | mutually exclusive with `_file` |
+| `signals.mode` | enum `standalone` \| `managed` | `standalone` | hard error on any other value |
+| `signals.control_plane_token_file` | path | empty | required when `mode: managed`; file is re-read on every authentication attempt to support rotation without restart |
+| `signals.control_plane_token_env` | env-var name | empty | mutually exclusive with `_file` |
 
 The token value is **never accepted as a YAML literal** — same
 posture as `api.token`. R078's audit-attribute denylist keeps
@@ -1121,9 +1121,9 @@ the token out of any audit record.
 
 Env-var overrides (consistent with R076 / appendix B):
 
-- `ARQ_SIGNALS_MODE` → `signals.mode`
-- `ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_FILE` → file path
-- `ARQ_SIGNALS_ARQ_CONTROL_PLANE_TOKEN_ENV` → name of the env var
+- `SIGNALS_MODE` → `signals.mode`
+- `SIGNALS_CONTROL_PLANE_TOKEN_FILE` → file path
+- `SIGNALS_CONTROL_PLANE_TOKEN_ENV` → name of the env var
   carrying the token (indirection mirrors `password_env`)
 
 #### Auth behaviour
@@ -1136,8 +1136,8 @@ constant time:
 Authorization: Bearer <token>
        │
        ├─ matches api.token                   → actor = local_operator
-       ├─ matches arq_control_plane_token     → actor = arq_control_plane
-       │  (only when mode=arq_managed)
+       ├─ matches control_plane_token     → actor = control_plane
+       │  (only when mode=managed)
        └─ matches neither                     → 401, rate limiter records failure
 ```
 
@@ -1146,7 +1146,7 @@ context and surfaced on every audit event the request emits.
 The actor never changes mid-request and never depends on request
 body shape (R082 invariant carried forward).
 
-In `mode=standalone`, the `arq_control_plane_token` config (if
+In `mode=standalone`, the `control_plane_token` config (if
 present) is **ignored at auth time** — only `api.token` is
 consulted. A request that would have matched the control-plane
 token simply gets a 401, identical to any other unknown token.
@@ -1160,7 +1160,7 @@ The Phase 2 actor invariant ("always `local_operator`") relaxes:
 | Phase | Audit `actor` source |
 |---|---|
 | 1 / 2 | always `local_operator` (field exists but always carries this value) |
-| 3 | `local_operator` when `api.token` matched; `arq_control_plane` when `arq_control_plane_token` matched, **and only when `mode: arq_managed`** |
+| 3 | `local_operator` when `api.token` matched; `control_plane` when `control_plane_token` matched, **and only when `mode: managed`** |
 
 Audit events whose `actor` value is now sourced from the auth
 match:
@@ -1181,8 +1181,8 @@ logged — only its configured/not-configured boolean status:
 
 ```
 audit_event=mode_configured
-mode=arq_managed
-arq_control_plane_token_configured=true
+mode=managed
+control_plane_token_configured=true
 ```
 
 #### Backward compatibility
@@ -1195,7 +1195,7 @@ arq_control_plane_token_configured=true
   `/export` are unchanged.
 - Phase 1 / Phase 2 audit-event names and attribute schemas are
   unchanged on the wire — only the `actor` value can now carry
-  `arq_control_plane` (and only in Mode B with the control-plane
+  `control_plane` (and only in Mode B with the control-plane
   token).
 - Adding `actor` to `export_requested` / `export_completed` is
   additive: existing parsers that don't read the field continue
@@ -1208,12 +1208,12 @@ aborts startup with an actionable message:
 
 | Failure | Cause |
 |---|---|
-| `signals.mode is "arq_managed" but no control-plane token is configured` | Operator activated Mode B without supplying a token. |
-| `signals.arq_control_plane_token is identical to api.token` | The two tokens must be distinct so `actor` is unambiguous. |
-| `signals.arq_control_plane_token is shorter than 32 characters` | Same length floor as the auto-generated `api.token`. |
-| `signals.arq_control_plane_token_file` does not exist or is unreadable | Symmetric with the existing `api.token_file` handling. |
-| `signals.arq_control_plane_token_file` and `_env` both set | Pick one — same posture as multi-credential rejection on targets. |
-| `signals.mode` is any value other than `standalone` or `arq_managed` | Typo guard. |
+| `signals.mode is "managed" but no control-plane token is configured` | Operator activated Mode B without supplying a token. |
+| `signals.control_plane_token is identical to api.token` | The two tokens must be distinct so `actor` is unambiguous. |
+| `signals.control_plane_token is shorter than 32 characters` | Same length floor as the auto-generated `api.token`. |
+| `signals.control_plane_token_file` does not exist or is unreadable | Symmetric with the existing `api.token_file` handling. |
+| `signals.control_plane_token_file` and `_env` both set | Pick one — same posture as multi-credential rejection on targets. |
+| `signals.mode` is any value other than `standalone` or `managed` | Typo guard. |
 
 Runtime considerations (not startup errors):
 
@@ -1222,7 +1222,7 @@ Runtime considerations (not startup errors):
   daemon.
 - **Cross-actor confusion:** a local operator who guesses or
   steals the Elevarq token would see their requests audited as
-  `actor=arq_control_plane`. This is acceptable — token
+  `actor=control_plane`. This is acceptable — token
   compromise of either token is a separate incident class. The
   audit field reflects reality: whoever sent the request had the
   control-plane token. R024's per-IP rate limiter on invalid
@@ -1242,16 +1242,16 @@ Runtime considerations (not startup errors):
 | TC | Coverage |
 |---|---|
 | TC-SIG-081 | `signals.mode` defaults to `standalone` when unset. |
-| TC-SIG-082 | `mode: arq_managed` without a configured control-plane token → startup error from `ValidateStrict`. |
-| TC-SIG-083 | `arq_control_plane_token` equal to `api.token` → startup error. |
-| TC-SIG-084 | `arq_control_plane_token` shorter than 32 chars → startup error. |
+| TC-SIG-082 | `mode: managed` without a configured control-plane token → startup error from `ValidateStrict`. |
+| TC-SIG-083 | `control_plane_token` equal to `api.token` → startup error. |
+| TC-SIG-084 | `control_plane_token` shorter than 32 chars → startup error. |
 | TC-SIG-085 | Both `_file` and `_env` configured → startup error. |
 | TC-SIG-086 | Request with valid `api.token` in any mode → 2xx with `actor=local_operator` in the corresponding audit event. |
-| TC-SIG-087 | Request with valid `arq_control_plane_token` in `mode=arq_managed` → 2xx with `actor=arq_control_plane`. |
-| TC-SIG-088 | Request with valid `arq_control_plane_token` in `mode=standalone` → 401 (token is ignored, treated as unknown). |
+| TC-SIG-087 | Request with valid `control_plane_token` in `mode=managed` → 2xx with `actor=control_plane`. |
+| TC-SIG-088 | Request with valid `control_plane_token` in `mode=standalone` → 401 (token is ignored, treated as unknown). |
 | TC-SIG-089 | Request with unknown token → 401 + rate-limiter records failure (R024 unchanged). |
 | TC-SIG-090 | Token rotation: replacing the file's contents and re-issuing a request authenticates against the new value within the same process. |
-| TC-SIG-091 | `mode_configured` startup audit event emitted with mode and `arq_control_plane_token_configured` boolean; token value never appears in any audit attribute. |
+| TC-SIG-091 | `mode_configured` startup audit event emitted with mode and `control_plane_token_configured` boolean; token value never appears in any audit attribute. |
 | TC-SIG-092 | `export_requested` / `export_completed` audit events carry the `actor` field, value derived from the matched token. |
 
 #### Non-goals (R083)
@@ -1391,7 +1391,7 @@ combining `--all --target-id=<orphan>`.
 between completed snapshots for the same logical target**. The
 interval is configured via the new top-level
 `signals.min_snapshot_interval` (default: `60s`) and is overridable
-via the environment variable `ARQ_SIGNALS_MIN_SNAPSHOT_INTERVAL`
+via the environment variable `SIGNALS_MIN_SNAPSHOT_INTERVAL`
 (same time-string format as `poll_interval`).
 
 The logical target key for Beta is `targets.name` (R089). Two
@@ -2187,7 +2187,7 @@ The `pg_stat_statements_v1` collector SQL shall:
   datname = current_database())`. Cross-database rows are
   excluded.
 - Exclude rows whose `userid` × `dbid` × `queryid` was last
-  executed by a session whose `application_name = 'arq-signals'`.
+  executed by a session whose `application_name = 'signals'`.
   Because `pg_stat_statements` does not carry `application_name`
   directly, the filter is implemented as a `NOT EXISTS`
   correlated subquery against `pg_stat_activity` for the
@@ -2208,7 +2208,7 @@ contract (`id`, `category`, `result_kind`, `retention_class`,
 Invariants:
 
 - **INV-SIGNALS-16**: Every PostgreSQL connection opened by Elevarq
-  Signals reports `application_name = 'arq-signals'` to the
+  Signals reports `application_name = 'signals'` to the
   server. The application name is sourced from a single Go
   constant; no other string literal in the repository sets the
   value.
@@ -2249,7 +2249,7 @@ view is **derivative**, not authoritative.
 
 The view is **off by default** to keep the ZIP small. It is enabled
 by `signals.export_per_collector_files: true` (or the equivalent
-`ARQ_SIGNALS_EXPORT_PER_COLLECTOR_FILES=true` environment variable).
+`SIGNALS_EXPORT_PER_COLLECTOR_FILES=true` environment variable).
 
 When enabled, the export ZIP contains a `per-collector/` directory
 with one JSON file per collector that has at least one entry in
@@ -2322,7 +2322,7 @@ extends the same guarantee to the diagnostic path.
 **ARQ-SIGNALS-R112**: The per-IP invalid-token rate limiter (R011 /
 R024 auth middleware) shall never deny a request that presents a
 valid bearer token. Token validity (constant-time comparison against
-`api.token` and, in `arq_managed` mode, `arq_control_plane_token`) is
+`api.token` and, in `managed` mode, `control_plane_token`) is
 evaluated **before** the limiter's lockout decision. The limiter's
 `429 Too Many Requests` response applies only to requests that fail
 token validation.
@@ -2356,7 +2356,7 @@ token, then it shall receive `429`.
 **ARQ-SIGNALS-R113**: The HTTP API shall support optional TLS
 termination at the daemon. Two new `api` configuration fields,
 `tls_cert_file` and `tls_key_file` (env overrides
-`ARQ_SIGNALS_API_TLS_CERT_FILE` / `ARQ_SIGNALS_API_TLS_KEY_FILE`),
+`SIGNALS_API_TLS_CERT_FILE` / `SIGNALS_API_TLS_KEY_FILE`),
 select the behaviour:
 
 - Neither set → the API is served over plain HTTP (unchanged default;
@@ -2526,7 +2526,7 @@ is recorded as a structured warning instead of an opaque
   full-history exports remain behind the explicit `--all` selector
   (R085).
 - **INV-SIGNALS-16**: Every PostgreSQL connection opened by Elevarq
-  Signals reports `application_name = 'arq-signals'` to the
+  Signals reports `application_name = 'signals'` to the
   server. The value originates from a single Go constant; no
   other string literal in the repository sets it.
 - **INV-SIGNALS-17**: `pg_stat_statements_v1` rows reflect only
@@ -2534,7 +2534,7 @@ is recorded as a structured warning instead of an opaque
   databases on the same cluster are never collected.
 - **INV-SIGNALS-18**: `pg_stat_statements_v1` rows do not
   include statements attributed to the Signals collector
-  itself (`application_name = 'arq-signals'`).
+  itself (`application_name = 'signals'`).
 - **INV-SIGNALS-19**: A persisted collection cycle records exactly one
   run per due collector (R108). The number of `query_runs` rows for a
   cycle equals the number of due collectors for that target — no due

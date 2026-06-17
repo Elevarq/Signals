@@ -8,7 +8,7 @@ conforming implementation must accept this configuration format.
 Configuration is loaded from (in priority order):
 
 1. **CLI flag**: `--config <path>` (highest priority for file location)
-2. **System path**: `/etc/arq/signals.yaml`
+2. **System path**: `/etc/signals/signals.yaml`
 3. **Local path**: `./signals.yaml`
 
 The first file found is used. Environment variables override file
@@ -107,7 +107,7 @@ targets:
 
 # Local storage
 database:
-  path: /data/arq-signals.db # Path to local database file
+  path: /data/signals.db # Path to local database file
   wal: true                  # Enable write-ahead logging
 
 # HTTP API
@@ -129,31 +129,31 @@ fields:
 
 | Variable | Config field | Default | Notes |
 |----------|-------------|---------|-------|
-| `ARQ_ENV` | `env` | `dev` | |
-| `ARQ_ALLOW_INSECURE_PG_TLS` | (env-only) | `false` | Allows weak sslmode in non-prod |
-| `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE` | (env-only) | `false` | Allows unsafe role attributes |
-| `ARQ_SIGNALS_POLL_INTERVAL` | `signals.poll_interval` | `5m` | |
-| `ARQ_SIGNALS_RETENTION_DAYS` | `signals.retention_days` | `30` | |
-| `ARQ_SIGNALS_LOG_LEVEL` | `signals.log_level` | `info` | |
-| `ARQ_SIGNALS_LOG_JSON` | `signals.log_json` | `false` | |
-| `ARQ_SIGNALS_MAX_CONCURRENT_TARGETS` | `signals.max_concurrent_targets` | `4` | |
-| `ARQ_SIGNALS_TARGET_TIMEOUT` | `signals.target_timeout` | `60s` | |
-| `ARQ_SIGNALS_QUERY_TIMEOUT` | `signals.query_timeout` | `10s` | |
-| `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED` | `signals.high_sensitivity_collectors_enabled` | `true` | Default-on (collect-everything default, R075 revised). Set to `false` to opt out — redact-path collectors run with `SensitiveColumns` nulled, skip-path collectors are skipped. |
-| `ARQ_SIGNALS_METRICS_ENABLED` | `signals.metrics_enabled` | `false` | Enable the Prometheus `/metrics` endpoint (R079) |
-| `ARQ_SIGNALS_METRICS_PATH` | `signals.metrics_path` | `/metrics` | Path for the metrics endpoint when enabled |
-| `ARQ_SIGNALS_EXPORT_PER_COLLECTOR_FILES` | `signals.export_per_collector_files` | `false` | Add `per-collector/<id>.json` files to export ZIPs (R080) |
-| `ARQ_SIGNALS_LISTEN_ADDR` | `api.listen_addr` | `127.0.0.1:8081` | |
-| `ARQ_SIGNALS_WRITE_TIMEOUT` | `api.write_timeout` | `180s` | |
-| `ARQ_SIGNALS_DB_PATH` | `database.path` | `/data/arq-signals.db` | |
-| `ARQ_SIGNALS_API_TOKEN` | `api.token` | auto-generated | Bearer token for the local HTTP API. |
-| `ARQ_SIGNALS_API_TOKEN_FILE` | `api.token_file` | — | Path to a file containing the bearer token. Beats `ARQ_SIGNALS_API_TOKEN` when both are set. |
-| `ARQ_SIGNALS_API_TLS_CERT_FILE` | `api.tls_cert_file` | — | PEM certificate for daemon TLS (R113). Must be set together with the key. |
-| `ARQ_SIGNALS_API_TLS_KEY_FILE` | `api.tls_key_file` | — | PEM private key for daemon TLS (R113). Must be set together with the cert. |
+| `SIGNALS_ENV` | `env` | `dev` | |
+| `SIGNALS_ALLOW_INSECURE_PG_TLS` | (env-only) | `false` | Allows weak sslmode in non-prod |
+| `SIGNALS_ALLOW_UNSAFE_ROLE` | (env-only) | `false` | Allows unsafe role attributes |
+| `SIGNALS_POLL_INTERVAL` | `signals.poll_interval` | `5m` | |
+| `SIGNALS_RETENTION_DAYS` | `signals.retention_days` | `30` | |
+| `SIGNALS_LOG_LEVEL` | `signals.log_level` | `info` | |
+| `SIGNALS_LOG_JSON` | `signals.log_json` | `false` | |
+| `SIGNALS_MAX_CONCURRENT_TARGETS` | `signals.max_concurrent_targets` | `4` | |
+| `SIGNALS_TARGET_TIMEOUT` | `signals.target_timeout` | `60s` | |
+| `SIGNALS_QUERY_TIMEOUT` | `signals.query_timeout` | `10s` | |
+| `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED` | `signals.high_sensitivity_collectors_enabled` | `true` | Default-on (collect-everything default, R075 revised). Set to `false` to opt out — redact-path collectors run with `SensitiveColumns` nulled, skip-path collectors are skipped. |
+| `SIGNALS_METRICS_ENABLED` | `signals.metrics_enabled` | `false` | Enable the Prometheus `/metrics` endpoint (R079) |
+| `SIGNALS_METRICS_PATH` | `signals.metrics_path` | `/metrics` | Path for the metrics endpoint when enabled |
+| `SIGNALS_EXPORT_PER_COLLECTOR_FILES` | `signals.export_per_collector_files` | `false` | Add `per-collector/<id>.json` files to export ZIPs (R080) |
+| `SIGNALS_LISTEN_ADDR` | `api.listen_addr` | `127.0.0.1:8081` | |
+| `SIGNALS_WRITE_TIMEOUT` | `api.write_timeout` | `180s` | |
+| `SIGNALS_DB_PATH` | `database.path` | `/data/signals.db` | |
+| `SIGNALS_API_TOKEN` | `api.token` | auto-generated | Bearer token for the local HTTP API. |
+| `SIGNALS_API_TOKEN_FILE` | `api.token_file` | — | Path to a file containing the bearer token. Beats `SIGNALS_API_TOKEN` when both are set. |
+| `SIGNALS_API_TLS_CERT_FILE` | `api.tls_cert_file` | — | PEM certificate for daemon TLS (R113). Must be set together with the key. |
+| `SIGNALS_API_TLS_KEY_FILE` | `api.tls_key_file` | — | PEM private key for daemon TLS (R113). Must be set together with the cert. |
 
 Precedence for the resolved API token (low → high, later wins):
-`api.token` → `api.token_file` → `ARQ_SIGNALS_API_TOKEN` →
-`ARQ_SIGNALS_API_TOKEN_FILE`. `api.token` and `api.token_file`
+`api.token` → `api.token_file` → `SIGNALS_API_TOKEN` →
+`SIGNALS_API_TOKEN_FILE`. `api.token` and `api.token_file`
 are mutually exclusive in YAML — setting both is a hard error.
 If none of the four are supplied, the daemon generates a 32-byte
 random token at startup and logs the SHA-256 fingerprint (not the
@@ -167,15 +167,15 @@ file-based targets:
 
 | Variable | Default | Required |
 |----------|---------|----------|
-| `ARQ_SIGNALS_TARGET_HOST` | — | Yes (activates container mode) |
-| `ARQ_SIGNALS_TARGET_PORT` | `5432` | No |
-| `ARQ_SIGNALS_TARGET_DBNAME` | `postgres` | No |
-| `ARQ_SIGNALS_TARGET_USER` | — | Yes |
-| `ARQ_SIGNALS_TARGET_NAME` | `default` | No |
-| `ARQ_SIGNALS_TARGET_SSLMODE` | — | No |
-| `ARQ_SIGNALS_TARGET_PASSWORD_FILE` | — | No |
-| `ARQ_SIGNALS_TARGET_PASSWORD_ENV` | — | No |
-| `ARQ_SIGNALS_TARGET_PGPASS_FILE` | — | No |
+| `SIGNALS_TARGET_HOST` | — | Yes (activates container mode) |
+| `SIGNALS_TARGET_PORT` | `5432` | No |
+| `SIGNALS_TARGET_DBNAME` | `postgres` | No |
+| `SIGNALS_TARGET_USER` | — | Yes |
+| `SIGNALS_TARGET_NAME` | `default` | No |
+| `SIGNALS_TARGET_SSLMODE` | — | No |
+| `SIGNALS_TARGET_PASSWORD_FILE` | — | No |
+| `SIGNALS_TARGET_PASSWORD_ENV` | — | No |
+| `SIGNALS_TARGET_PGPASS_FILE` | — | No |
 
 ## Credential sources
 
@@ -319,7 +319,7 @@ default, R075 revised 2026-05). Operators opt **out** by setting:
 
 - `signals.high_sensitivity_collectors_enabled: false` in the YAML
   config, or
-- `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false` env var
+- `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false` env var
 
 The opt-out behaves per collector based on whether the row carries
 non-sensitive diagnostic columns alongside the sensitive ones:
@@ -357,8 +357,8 @@ present.
 
 | Environment | Behavior |
 |-------------|----------|
-| `prod` | Weak sslmode (disable, allow, prefer, require) is rejected. Only verify-ca and verify-full are allowed. `sslrootcert_file` is required. `ARQ_ALLOW_INSECURE_PG_TLS` is not permitted. |
-| `dev`, `lab` | Weak sslmode is allowed only if `ARQ_ALLOW_INSECURE_PG_TLS=true` is set. Otherwise the system rejects weak modes with an actionable error message. |
+| `prod` | Weak sslmode (disable, allow, prefer, require) is rejected. Only verify-ca and verify-full are allowed. `sslrootcert_file` is required. `SIGNALS_ALLOW_INSECURE_PG_TLS` is not permitted. |
+| `dev`, `lab` | Weak sslmode is allowed only if `SIGNALS_ALLOW_INSECURE_PG_TLS=true` is set. Otherwise the system rejects weak modes with an actionable error message. |
 
 ## Validation rules
 
@@ -379,12 +379,12 @@ starting any collection. Validation produces two outcomes:
   warnings below.)
 - Empty `database.path`.
 - Empty `api.listen_addr`.
-- Invalid integer or boolean value in any `ARQ_SIGNALS_*` environment
+- Invalid integer or boolean value in any `SIGNALS_*` environment
   variable. Silent parse failures are no longer accepted; a malformed
   override is treated as operator intent that the system cannot honor.
 - In `prod` env: weak `sslmode` (`disable`, `allow`, `prefer`,
   `require`) on any enabled target; missing `sslrootcert_file` when
-  `sslmode` is `verify-ca` / `verify-full`; `ARQ_ALLOW_INSECURE_PG_TLS`
+  `sslmode` is `verify-ca` / `verify-full`; `SIGNALS_ALLOW_INSECURE_PG_TLS`
   set to true.
 - `signals.metrics_path` does not start with `/`, equals `/health`,
   or collides with an existing API path (`/status`, `/collect/now`,

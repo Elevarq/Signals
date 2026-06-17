@@ -20,7 +20,7 @@ Parameters:
     Description: Database name to connect to.
   DbUser:
     Type: String
-    Default: arq_signals
+    Default: signals
     Description: PostgreSQL role granted rds_iam + pg_monitor.
   DbResourceId:
     Type: String
@@ -110,15 +110,15 @@ Resources:
           set -euo pipefail
           dnf install -y docker
           systemctl enable --now docker
-          mkdir -p /etc/arq
+          mkdir -p /etc/signals
           curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
-            -o /etc/arq/rds-ca.pem
-          cat > /etc/arq/signals.yaml <<'YAML'
+            -o /etc/signals/rds-ca.pem
+          cat > /etc/signals/signals.yaml <<'YAML'
           env: ${ArqEnv}
           signals:
             poll_interval: ${PollInterval}
           database:
-            path: /data/arq-signals.db
+            path: /data/signals.db
             wal: true
           api:
             listen_addr: "127.0.0.1:8081"
@@ -131,13 +131,13 @@ Resources:
               auth_method: aws_rds_iam
               region: ${AWS::Region}
               sslmode: verify-full
-              sslrootcert_file: /etc/arq/rds-ca.pem
+              sslrootcert_file: /etc/signals/rds-ca.pem
           YAML
           docker run -d --name signals --restart=always \
-            -v /etc/arq:/etc/arq:ro \
-            -v arq-data:/data \
+            -v /etc/signals:/etc/signals:ro \
+            -v signals-data:/data \
             -p 127.0.0.1:8081:8081 \
-            ${ImageUri} --config /etc/arq/signals.yaml
+            ${ImageUri} --config /etc/signals/signals.yaml
 
 Outputs:
   CollectorRoleArn:

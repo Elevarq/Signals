@@ -27,16 +27,16 @@ locals {
     set -euo pipefail
     dnf install -y docker
     systemctl enable --now docker
-    mkdir -p /etc/arq
+    mkdir -p /etc/signals
     # RDS server CA bundle for sslmode=verify-full.
     curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
-      -o /etc/arq/rds-ca.pem
-    cat > /etc/arq/signals.yaml <<'YAML'
+      -o /etc/signals/rds-ca.pem
+    cat > /etc/signals/signals.yaml <<'YAML'
     env: ${var.arq_env}
     signals:
       poll_interval: ${var.poll_interval}
     database:
-      path: /data/arq-signals.db
+      path: /data/signals.db
       wal: true
     api:
       listen_addr: "127.0.0.1:8081"
@@ -49,13 +49,13 @@ locals {
         auth_method: aws_rds_iam
         region: ${var.region}
         sslmode: verify-full
-        sslrootcert_file: /etc/arq/rds-ca.pem
+        sslrootcert_file: /etc/signals/rds-ca.pem
     YAML
     docker run -d --name signals --restart=always \
-      -v /etc/arq:/etc/arq:ro \
-      -v arq-data:/data \
+      -v /etc/signals:/etc/signals:ro \
+      -v signals-data:/data \
       -p 127.0.0.1:8081:8081 \
-      ${var.image_uri} --config /etc/arq/signals.yaml
+      ${var.image_uri} --config /etc/signals/signals.yaml
   EOT
 }
 

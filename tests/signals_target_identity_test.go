@@ -39,7 +39,7 @@ const (
 	tHost  = "localhost"
 	tPort  = 5432
 	tDB    = "postgres"
-	tUser  = "arq_monitor"
+	tUser  = "signals"
 	tSSL   = "disable"
 	tSType = "NONE"
 	tSRef  = ""

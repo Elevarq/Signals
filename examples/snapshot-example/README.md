@@ -17,7 +17,7 @@ reference. The values reflect the v0.10.0-beta.5 export shape.
 ## Schema versions
 
 - `metadata.schema_version` identifies the snapshot wire format
-  (`arq-snapshot.v1`).
+  (`signals-snapshot.v1`).
 - `metadata.collector_status_schema_version` identifies the
   `collector_status.json` shape (`"1"`).
 

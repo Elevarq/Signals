@@ -33,8 +33,8 @@ func TestValidateStrict_TLSBothEmptyIsLegal(t *testing.T) {
 
 func TestValidateStrict_TLSBothSetIsLegal(t *testing.T) {
 	cfg := tlsBaseConfig(t)
-	cfg.API.TLSCertFile = "/etc/arq/tls/server.crt"
-	cfg.API.TLSKeyFile = "/etc/arq/tls/server.key"
+	cfg.API.TLSCertFile = "/etc/signals/tls/server.crt"
+	cfg.API.TLSKeyFile = "/etc/signals/tls/server.key"
 
 	if _, err := config.ValidateStrict(cfg); err != nil {
 		if strings.Contains(err.Error(), "tls") {
@@ -45,7 +45,7 @@ func TestValidateStrict_TLSBothSetIsLegal(t *testing.T) {
 
 func TestValidateStrict_TLSOnlyCertIsHardError(t *testing.T) {
 	cfg := tlsBaseConfig(t)
-	cfg.API.TLSCertFile = "/etc/arq/tls/server.crt"
+	cfg.API.TLSCertFile = "/etc/signals/tls/server.crt"
 	cfg.API.TLSKeyFile = ""
 
 	_, err := config.ValidateStrict(cfg)
@@ -60,7 +60,7 @@ func TestValidateStrict_TLSOnlyCertIsHardError(t *testing.T) {
 func TestValidateStrict_TLSOnlyKeyIsHardError(t *testing.T) {
 	cfg := tlsBaseConfig(t)
 	cfg.API.TLSCertFile = ""
-	cfg.API.TLSKeyFile = "/etc/arq/tls/server.key"
+	cfg.API.TLSKeyFile = "/etc/signals/tls/server.key"
 
 	_, err := config.ValidateStrict(cfg)
 	if err == nil {
@@ -74,8 +74,8 @@ func TestValidateStrict_TLSOnlyKeyIsHardError(t *testing.T) {
 // TC-SIG-128 — R113: env overrides populate the TLS fields (exercised
 // through the exported Load path).
 func TestLoad_TLSEnvOverrides(t *testing.T) {
-	t.Setenv("ARQ_SIGNALS_API_TLS_CERT_FILE", "/run/tls/server.crt")
-	t.Setenv("ARQ_SIGNALS_API_TLS_KEY_FILE", "/run/tls/server.key")
+	t.Setenv("SIGNALS_API_TLS_CERT_FILE", "/run/tls/server.crt")
+	t.Setenv("SIGNALS_API_TLS_KEY_FILE", "/run/tls/server.key")
 
 	// Load with no config file: defaults + env overrides only.
 	cfg, err := config.Load("")

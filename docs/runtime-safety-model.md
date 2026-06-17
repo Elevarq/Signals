@@ -45,7 +45,7 @@ Conservative timeouts are applied via `SET LOCAL` inside the collection transact
 ## Unsafe Override
 An explicit override is available for lab/dev environments only:
 ```
-ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true
+SIGNALS_ALLOW_UNSAFE_ROLE=true
 ```
 When enabled:
 - Hard failures are downgraded to warnings
@@ -56,8 +56,8 @@ When enabled:
 ## Recommended Production Setup
 Create a dedicated, least-privilege monitoring role:
 ```sql
-CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
-GRANT pg_monitor TO arq_monitor;
+CREATE ROLE signals WITH LOGIN PASSWORD '...';
+GRANT pg_monitor TO signals;
 -- Do NOT grant superuser, replication, or bypassrls
 ```
 

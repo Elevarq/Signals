@@ -90,10 +90,10 @@ func doctorCmd() *cobra.Command {
 }
 
 func defaultConfigPath() string {
-	if v := os.Getenv("ARQ_SIGNALS_CONFIG"); v != "" {
+	if v := os.Getenv("SIGNALS_CONFIG"); v != "" {
 		return v
 	}
-	return "/etc/arq/signals.yaml"
+	return "/etc/signals/signals.yaml"
 }
 
 // writeJSONReport encodes the report to w. The fail-gate lives in

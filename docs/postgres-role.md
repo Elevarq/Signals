@@ -21,7 +21,7 @@ extension presence, schema inventory without definition text) the
 
 ```sql
 -- Run as a superuser on each target database cluster.
-CREATE ROLE arq_signals LOGIN
+CREATE ROLE signals LOGIN
     PASSWORD '<set-via-secret-store>'
     NOSUPERUSER
     NOCREATEDB
@@ -29,7 +29,7 @@ CREATE ROLE arq_signals LOGIN
     NOREPLICATION
     NOBYPASSRLS;
 
-GRANT pg_monitor TO arq_signals;
+GRANT pg_monitor TO signals;
 ```
 
 `pg_monitor` is a built-in PostgreSQL role (since 10) that aggregates
@@ -107,7 +107,7 @@ signals:
   high_sensitivity_collectors_enabled: false
 ```
 
-(or `ARQ_SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). Group 1
+(or `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED=false`). Group 1
 collectors then skip entirely and appear in `collector_status.json` as
 `status=skipped, reason=config_disabled`; group 2 collectors keep
 running with their listed `SensitiveColumns` set to `NULL` in
@@ -131,7 +131,7 @@ transitively. If your deployment locks down individual schemas with
 ```sql
 -- Optional: only required if specific schemas are locked down and
 -- you need definition coverage for them.
-GRANT USAGE ON SCHEMA <schema> TO arq_signals;
+GRANT USAGE ON SCHEMA <schema> TO signals;
 ```
 
 **There is no need to grant write access, ownership, or membership in
@@ -177,7 +177,7 @@ The single exception is `timescaledb_information.job_errors` (and
 `job_history`, which Elevarq Signals does not collect): these are
 security-barrier views that show a row only when the connecting role
 is a member of the **job owner's** role or the **database owner's**
-role. With the standard `arq_signals` role,
+role. With the standard `signals` role,
 `timescaledb_job_errors_v1` therefore returns **zero rows with
 `status=success` — this is the expected least-privilege state, not a
 failure.** Job failure *counters* remain fully visible to any role
@@ -190,7 +190,7 @@ membership in the database-owner role:
 
 ```sql
 -- Optional. Widens job_errors visibility to all jobs in the database.
-GRANT <database_owner_role> TO arq_signals;
+GRANT <database_owner_role> TO signals;
 ```
 
 Weigh this against least-privilege policy: database-owner membership
@@ -210,14 +210,14 @@ the snapshot — continue normally.
 After creating the role, verify the posture from inside `psql`:
 
 ```sql
-SET ROLE arq_signals;
+SET ROLE signals;
 
 -- Should succeed:
 SELECT count(*) FROM pg_stat_database;
 SELECT count(*) FROM pg_stat_activity;
 
 -- Should ALL fail with permission denied:
-CREATE TABLE _arq_role_check (id int);
+CREATE TABLE _signals_role_check (id int);
 INSERT INTO pg_class VALUES (NULL);
 SELECT pg_terminate_backend(1);
 
@@ -247,7 +247,7 @@ SELECT rolname, rolsuper, rolinherit, rolcreaterole,
           JOIN pg_roles b ON m.roleid = b.oid
          WHERE m.member = r.oid) AS memberships
   FROM pg_roles r
- WHERE rolname = 'arq_signals';
+ WHERE rolname = 'signals';
 ```
 
 Expected:

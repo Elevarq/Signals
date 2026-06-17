@@ -18,14 +18,14 @@ import (
 // AC-SECRET-013 optional rotation, #97).
 //
 // This is the only secret_store test that makes real cloud calls. It is
-// doubly gated: the `integration` build tag AND ARQ_SIGNALS_INTEGRATION_LIVE=1.
+// doubly gated: the `integration` build tag AND SIGNALS_INTEGRATION_LIVE=1.
 // It never runs in default CI. It fetches a real database password from the
 // secret store inferred from ARQ_TEST_SECRET_REF using the collector's
 // ambient workload identity, connects to a self-managed PostgreSQL
 // passwordlessly over verify-full TLS, and runs the read-only discovery probe
 // (the core of a snapshot).
 //
-// Required env (in addition to ARQ_SIGNALS_INTEGRATION_LIVE=1):
+// Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
 //	ARQ_TEST_SECRET_REF         secret reference (AWS ARN / Key Vault URI /
 //	                            GCP Secret Manager resource); shape selects
@@ -44,7 +44,7 @@ import (
 // Azure: Key Vault Secrets User "get"; GCP: secretmanager.versions.access).
 // All three backends are production-wired. Run, for the AWS demo path:
 //
-//	ARQ_SIGNALS_INTEGRATION_LIVE=1 \
+//	SIGNALS_INTEGRATION_LIVE=1 \
 //	ARQ_TEST_SECRET_REF=arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/pg/monitor-AbCdEf \
 //	ARQ_TEST_SECRET_HOST=db.internal ARQ_TEST_SECRET_DBNAME=appdb \
 //	ARQ_TEST_SECRET_USER=monitor ARQ_TEST_SECRET_SSLROOTCERT=/etc/ssl/rds-ca.pem \
@@ -54,8 +54,8 @@ import (
 // Specification: features/arq-signals/credential-provider-secret-store.md
 // ---------------------------------------------------------------------------
 func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
-	if os.Getenv("ARQ_SIGNALS_INTEGRATION_LIVE") != "1" {
-		t.Skip("ARQ_SIGNALS_INTEGRATION_LIVE != 1 — skipping live secret_store smoke")
+	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
+		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live secret_store smoke")
 	}
 	ref := os.Getenv("ARQ_TEST_SECRET_REF")
 	host := os.Getenv("ARQ_TEST_SECRET_HOST")
@@ -92,7 +92,7 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 	// (passwordless + verify-full + a recognised secret_ref).
 	if _, err := config.ValidateStrict(config.Config{
 		Env:      "prod",
-		Database: config.DatabaseConfig{Path: "/tmp/arq-signals-live-secret-smoke.db"},
+		Database: config.DatabaseConfig{Path: "/tmp/signals-live-secret-smoke.db"},
 		API:      config.APIConfig{ListenAddr: "127.0.0.1:8099"},
 		Signals: config.SignalsConfig{
 			PollInterval:        time.Minute,

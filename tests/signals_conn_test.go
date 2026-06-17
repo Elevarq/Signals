@@ -40,7 +40,7 @@ func TestBuildConnConfigValid(t *testing.T) {
 }
 
 // TestBuildConnConfigApplicationName verifies that BuildConnConfig sets application_name
-// to "arq-signals" in the runtime parameters.
+// to "signals" in the runtime parameters.
 // Traces: ARQ-SIGNALS-R001 / TC-SIG-001
 func TestBuildConnConfigApplicationName(t *testing.T) {
 	tgt := config.TargetConfig{
@@ -60,8 +60,8 @@ func TestBuildConnConfigApplicationName(t *testing.T) {
 	if !ok {
 		t.Fatal("application_name not set in RuntimeParams")
 	}
-	if appName != "arq-signals" {
-		t.Errorf("application_name = %q, want %q", appName, "arq-signals")
+	if appName != "signals" {
+		t.Errorf("application_name = %q, want %q", appName, "signals")
 	}
 }
 

@@ -48,7 +48,7 @@ services:
     #   dockerfile: Dockerfile
 
     environment:
-      ARQ_ENV: prod
+      SIGNALS_ENV: prod
 
       # Bind the API to the container's wildcard interface so Docker
       # port-publishing (see `ports:` below) can route host-side
@@ -59,15 +59,15 @@ services:
       # side safety boundary stays in `ports:` — only 127.0.0.1 on
       # the host is published, so the daemon is still loopback-only
       # from the operator's perspective.
-      ARQ_SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"
+      SIGNALS_LISTEN_ADDR: "0.0.0.0:8081"
 
       # Read the API token from a Docker secret (re-read at startup).
       # A missing or unreadable file is a hard error — the process refuses
       # to start rather than silently falling through to an env value.
-      ARQ_SIGNALS_API_TOKEN_FILE: /run/secrets/api_token
+      SIGNALS_API_TOKEN_FILE: /run/secrets/api_token
 
       # Structured logs for aggregation
-      ARQ_SIGNALS_LOG_JSON: "true"
+      SIGNALS_LOG_JSON: "true"
 
     secrets:
       - pg_password
@@ -75,20 +75,20 @@ services:
 
     volumes:
       # YAML config is the source of truth for multi-target / TLS-verify /
-      # non-trivial setups. arq-signals auto-discovers /etc/arq/signals.yaml.
-      - ./signals.prod.yaml:/etc/arq/signals.yaml:ro
+      # non-trivial setups. arq-signals auto-discovers /etc/signals/signals.yaml.
+      - ./signals.prod.yaml:/etc/signals/signals.yaml:ro
 
       # Persistent local SQLite for snapshot retention.
       - signals-data:/data
 
       # If your target uses verify-full TLS, mount the CA cert here and
-      # reference it from signals.yaml (sslrootcert_file: /etc/arq/ca.crt).
-      # - ./secrets/ca.crt:/etc/arq/ca.crt:ro
+      # reference it from signals.yaml (sslrootcert_file: /etc/signals/ca.crt).
+      # - ./secrets/ca.crt:/etc/signals/ca.crt:ro
 
     ports:
       # Bind to host loopback only — the API must not be public.
       # The container-side bind is 0.0.0.0:8081 (set above via
-      # ARQ_SIGNALS_LISTEN_ADDR) so this port mapping has a daemon
+      # SIGNALS_LISTEN_ADDR) so this port mapping has a daemon
       # to forward to. From outside the host the API is unreachable.
       - "127.0.0.1:8081:8081"
 

@@ -319,7 +319,7 @@ func init() {
 	// Partial by design for least-privilege roles: the upstream view
 	// is security_barrier-filtered to job-owner / database-owner role
 	// membership, so zero rows with status=success is the expected
-	// state for the standard arq_signals role (FC-TSDB-05) — never an
+	// state for the standard signals role (FC-TSDB-05) — never an
 	// error. err_message can embed data values → R075 redact path.
 	// Bounded newest-first: the backing table is per-execution (a
 	// crash-looping job can accumulate far more rows than the monthly

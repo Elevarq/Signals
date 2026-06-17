@@ -40,7 +40,7 @@ func TestRun_HappyPath_SecretFreeBlock(t *testing.T) {
 	out, err := Run(context.Background(), Options{
 		Host:   "orders.abc123.us-east-1.rds.amazonaws.com",
 		DBName: "orders",
-		User:   "arq_monitor",
+		User:   "signals",
 		Region: "us-east-1",
 		Getenv: envFunc(map[string]string{"AWS_ACCESS_KEY_ID": "AKIA..."}),
 	}, Deps{Diagnose: fakeDiagnoser(&cap, conntest.CategoryOK, "")})
@@ -80,7 +80,7 @@ func TestRun_NoSecretEverPrinted(t *testing.T) {
 		out, err := Run(context.Background(), Options{
 			Host:       "db.internal",
 			DBName:     "app",
-			User:       "arq_monitor",
+			User:       "signals",
 			AuthMethod: config.AuthMethodPassword,
 			Password:   secret,
 			Getenv:     envFunc(nil),
@@ -116,7 +116,7 @@ func TestRun_MissingGrantGuidance(t *testing.T) {
 			o := tc.opts
 			o.Host = "db.example.com"
 			o.DBName = "app"
-			o.User = "arq_monitor"
+			o.User = "signals"
 			o.AuthMethod = tc.method
 			o.Getenv = envFunc(nil)
 			out, err := Run(context.Background(), o, Deps{Diagnose: fakeDiagnoser(&cap, conntest.CategoryAuth, "SQLSTATE 28000")})
@@ -171,7 +171,7 @@ func TestRun_DryRunWritesNothing(t *testing.T) {
 	}
 	var cap capture
 	out, err := Run(context.Background(), Options{
-		Host: "new.example.com", DBName: "app", User: "arq_monitor",
+		Host: "new.example.com", DBName: "app", User: "signals",
 		AuthMethod: config.AuthMethodPassword, Password: "pw",
 		Getenv: envFunc(nil), // WritePath empty -> dry-run
 	}, Deps{Diagnose: fakeDiagnoser(&cap, conntest.CategoryOK, "")})
@@ -198,7 +198,7 @@ func TestRun_WriteAppendsBlockAndRefusesDuplicate(t *testing.T) {
 		t.Fatal(err)
 	}
 	opts := Options{
-		Host: "new.example.com", DBName: "app", User: "arq_monitor",
+		Host: "new.example.com", DBName: "app", User: "signals",
 		Name: "newtarget", AuthMethod: config.AuthMethodPassword, Password: "pw",
 		WritePath: cfg, Getenv: envFunc(nil),
 	}
@@ -249,7 +249,7 @@ func TestRun_WriteCreatesTargetsKey(t *testing.T) {
 	}
 	var cap capture
 	out, err := Run(context.Background(), Options{
-		Host: "new.example.com", DBName: "app", User: "arq_monitor",
+		Host: "new.example.com", DBName: "app", User: "signals",
 		Name: "t1", AuthMethod: config.AuthMethodPassword, Password: "pw",
 		WritePath: cfg, Getenv: envFunc(nil),
 	}, Deps{Diagnose: fakeDiagnoser(&cap, conntest.CategoryOK, "")})
@@ -272,7 +272,7 @@ func TestRun_WriteCreatesTargetsKey(t *testing.T) {
 // selected and emits a verified, secret-free block with the right method.
 func TestRun_CoversAllMethods(t *testing.T) {
 	base := func(m string) Options {
-		o := Options{Host: "db.example.com", DBName: "app", User: "arq_monitor", AuthMethod: m, Getenv: envFunc(nil)}
+		o := Options{Host: "db.example.com", DBName: "app", User: "signals", AuthMethod: m, Getenv: envFunc(nil)}
 		switch m {
 		case config.AuthMethodPassword:
 			o.Password = "pw"
@@ -308,7 +308,7 @@ func TestRun_AuthMethodOverridesDetection(t *testing.T) {
 	var cap capture
 	// Environment + host would detect aws_rds_iam; the override wins.
 	_, err := Run(context.Background(), Options{
-		Host: "orders.abc123.us-east-1.rds.amazonaws.com", DBName: "orders", User: "arq_monitor",
+		Host: "orders.abc123.us-east-1.rds.amazonaws.com", DBName: "orders", User: "signals",
 		AuthMethod: config.AuthMethodAzureEntra, AzureClientID: "guid",
 		Getenv: envFunc(map[string]string{"AWS_ACCESS_KEY_ID": "AKIA..."}),
 	}, Deps{Diagnose: fakeDiagnoser(&cap, conntest.CategoryOK, "")})
@@ -325,7 +325,7 @@ func TestRun_AuthMethodOverridesDetection(t *testing.T) {
 func TestRun_AmbiguousReported(t *testing.T) {
 	called := false
 	out, err := Run(context.Background(), Options{
-		Host: "db.internal", DBName: "app", User: "arq_monitor",
+		Host: "db.internal", DBName: "app", User: "signals",
 		Getenv: envFunc(map[string]string{"AWS_ACCESS_KEY_ID": "AKIA...", "AZURE_CLIENT_ID": "guid"}),
 	}, Deps{Diagnose: func(_ context.Context, _ config.TargetConfig, _ collector.CredentialResolver) conntest.Result {
 		called = true
@@ -347,7 +347,7 @@ func TestRun_AmbiguousReported(t *testing.T) {
 func TestRun_PasswordFallbackNoSource(t *testing.T) {
 	called := false
 	out, err := Run(context.Background(), Options{
-		Host: "db.internal", DBName: "app", User: "arq_monitor",
+		Host: "db.internal", DBName: "app", User: "signals",
 		AuthMethod: config.AuthMethodPassword, Getenv: envFunc(nil),
 	}, Deps{Diagnose: func(_ context.Context, _ config.TargetConfig, _ collector.CredentialResolver) conntest.Result {
 		called = true

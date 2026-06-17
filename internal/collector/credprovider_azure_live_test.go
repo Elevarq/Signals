@@ -18,14 +18,14 @@ import (
 //
 // This is the only Azure test that makes real Entra + Azure Database for
 // PostgreSQL calls. It is doubly gated: the `integration` build tag AND
-// ARQ_SIGNALS_INTEGRATION_LIVE=1. It never runs in default CI. It acquires
+// SIGNALS_INTEGRATION_LIVE=1. It never runs in default CI. It acquires
 // a real Entra access token from the collector's ambient Azure identity,
 // connects to a real Flexible Server target passwordlessly over
 // verify-full TLS, runs the read-only discovery probe (the core of a
 // snapshot), then forces a real token re-acquire across the refresh skew
 // and reconnects with the new token.
 //
-// Required env (in addition to ARQ_SIGNALS_INTEGRATION_LIVE=1):
+// Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
 //	ARQ_TEST_AZ_HOST          Flexible Server endpoint hostname
 //	ARQ_TEST_AZ_DBNAME        database to connect to
@@ -38,7 +38,7 @@ import (
 // env / workload identity / managed identity / az login) and its principal
 // must be mapped to ARQ_TEST_AZ_USER via pgaadauth_create_principal. Run:
 //
-//	ARQ_SIGNALS_INTEGRATION_LIVE=1 \
+//	SIGNALS_INTEGRATION_LIVE=1 \
 //	ARQ_TEST_AZ_HOST=mydb.postgres.database.azure.com \
 //	ARQ_TEST_AZ_DBNAME=appdb ARQ_TEST_AZ_USER=monitor \
 //	ARQ_TEST_AZ_SSLROOTCERT=/etc/ssl/azure-global-bundle.pem \
@@ -47,8 +47,8 @@ import (
 // Specification: features/arq-signals/credential-provider-azure-entra.md
 // ---------------------------------------------------------------------------
 func TestLive_AzureEntraPasswordlessConnectAndReacquire(t *testing.T) {
-	if os.Getenv("ARQ_SIGNALS_INTEGRATION_LIVE") != "1" {
-		t.Skip("ARQ_SIGNALS_INTEGRATION_LIVE != 1 — skipping live azure_entra smoke")
+	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
+		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live azure_entra smoke")
 	}
 	host := os.Getenv("ARQ_TEST_AZ_HOST")
 	dbname := os.Getenv("ARQ_TEST_AZ_DBNAME")
@@ -83,7 +83,7 @@ func TestLive_AzureEntraPasswordlessConnectAndReacquire(t *testing.T) {
 	// production (passwordless + verify-full).
 	if _, err := config.ValidateStrict(config.Config{
 		Env:      "prod",
-		Database: config.DatabaseConfig{Path: "/tmp/arq-signals-live-azure-smoke.db"},
+		Database: config.DatabaseConfig{Path: "/tmp/signals-live-azure-smoke.db"},
 		API:      config.APIConfig{ListenAddr: "127.0.0.1:8099"},
 		Signals: config.SignalsConfig{
 			PollInterval:        time.Minute,

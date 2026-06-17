@@ -141,15 +141,15 @@ func CheckStoreWritable(storePath string) CheckResult {
 	start := time.Now()
 	result := CheckResult{ID: "C2", Name: "store_writable"}
 
-	// The store path may be a file (e.g. "/var/lib/arq-signals.db")
+	// The store path may be a file (e.g. "/var/lib/signals.db")
 	// rather than a directory. Probe the parent directory, since the
 	// daemon creates the file there. Two cases promote to the parent:
 	//   1. Path exists as a regular file (daemon ran before).
 	//   2. Path does NOT exist and the basename looks file-like
 	//      (has an extension) — typical for the default
-	//      /data/arq-signals.db. Without this, an operator pointing
+	//      /data/signals.db. Without this, an operator pointing
 	//      at a missing-parent path would see "write probe in
-	//      /data/arq-signals.db: ENOENT" instead of the actually
+	//      /data/signals.db: ENOENT" instead of the actually
 	//      missing directory /data.
 	dir := storePath
 	info, statErr := os.Stat(storePath)

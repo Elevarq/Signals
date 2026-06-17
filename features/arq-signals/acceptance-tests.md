@@ -348,7 +348,7 @@ monitoring role")
 ## TC-SIG-033: Unsafe Override Enabled
 
 **Linked Rules:** ARQ-SIGNALS-R026
-**Scenario:** ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true with superuser
+**Scenario:** SIGNALS_ALLOW_UNSAFE_ROLE=true with superuser
 connection
 **Inputs:** Superuser role + override enabled
 **Expected Behavior:** Warning logged, collection proceeds, export
@@ -361,7 +361,7 @@ checks
 
 **Linked Rules:** ARQ-SIGNALS-R026
 **Scenario:** Superuser connection with no override set
-**Inputs:** Superuser role, ARQ_SIGNALS_ALLOW_UNSAFE_ROLE not set
+**Inputs:** Superuser role, SIGNALS_ALLOW_UNSAFE_ROLE not set
 **Expected Behavior:** Collection fails (blocked), same as TC-SIG-026
 
 ---
@@ -422,7 +422,7 @@ The other two targets are collected successfully. The cycle completes.
 **Linked Rules:** ARQ-SIGNALS-R027, ARQ-SIGNALS-R028
 **Scenario:** Load configuration from file and environment
 **Inputs:** A signals.yaml file with poll_interval=10m; env var
-ARQ_SIGNALS_POLL_INTERVAL=2m
+SIGNALS_POLL_INTERVAL=2m
 **Expected Behavior:** The effective poll interval is 2m (env var
 overrides file)
 
@@ -444,7 +444,7 @@ or the path to the password file.
 **Linked Rules:** ARQ-SIGNALS-R035
 **Scenario:** Export with unsafe mode active after collecting from a
 superuser role
-**Inputs:** ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true, superuser role
+**Inputs:** SIGNALS_ALLOW_UNSAFE_ROLE=true, superuser role
 **Expected Behavior:** metadata.json contains unsafe_mode=true and
 unsafe_reasons listing the specific bypassed check (e.g. "role has
 superuser attribute (rolsuper=true)")
@@ -1086,7 +1086,7 @@ those are deferred to a future spec slice.
 
 **Linked Rules:** ARQ-SIGNALS-R106, INV-SIGNALS-16
 **Scenario:** Verify that every PostgreSQL connection opened by
-Signals reports `application_name = 'arq-signals'` and that the
+Signals reports `application_name = 'signals'` and that the
 value originates from one named constant rather than scattered
 string literals.
 **Inputs:** A valid `TargetConfig` passed to
@@ -1116,7 +1116,7 @@ R106 are present.
   `pg_database.datname = current_database()`) to scope rows to
   the connected database.
 - SQL contains a `NOT EXISTS` (or equivalent anti-join) against
-  `pg_stat_activity` filtering `application_name = 'arq-signals'`
+  `pg_stat_activity` filtering `application_name = 'signals'`
   on `userid` + `dbid`.
 - SQL still passes `pgqueries.LintQuery` (read-only, no
   dangerous keywords, no embedded semicolons).

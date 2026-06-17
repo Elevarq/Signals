@@ -34,8 +34,8 @@ func (r SafetyResult) Error() string {
 		b.WriteString("\n")
 	}
 	b.WriteString("\nRemediation: create a dedicated monitoring role:\n")
-	b.WriteString("  CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';\n")
-	b.WriteString("  GRANT pg_monitor TO arq_monitor;\n")
+	b.WriteString("  CREATE ROLE signals WITH LOGIN PASSWORD '...';\n")
+	b.WriteString("  GRANT pg_monitor TO signals;\n")
 	return b.String()
 }
 

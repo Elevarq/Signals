@@ -248,7 +248,7 @@ dependency.
   `auth_method`, backend, `secret_ref`, db_user, resolved_at, ttl_present —
   never the secret value (INV002/INV007).
 - **AC-SECRET-011 (live smoke, env-gated — required content)**: with
-  `ARQ_SIGNALS_INTEGRATION_LIVE=1` against a real secret store and a
+  `SIGNALS_INTEGRATION_LIVE=1` against a real secret store and a
   self-managed PostgreSQL whose role's password is the stored secret, the
   collector **fetches the secret from the vault, connects passwordlessly,
   and collects at least one snapshot**. This is the mandatory live-

@@ -66,9 +66,9 @@ Elevarq Signals is designed to run as a **non-superuser** role.
 
 | Need | Grant |
 |---|---|
-| Connect | `GRANT CONNECT ON DATABASE <db> TO arq_monitor;` |
-| Read public schema | `GRANT USAGE ON SCHEMA public TO arq_monitor;` |
-| Read all tables | `GRANT SELECT ON ALL TABLES IN SCHEMA public TO arq_monitor;` + `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO arq_monitor;` |
+| Connect | `GRANT CONNECT ON DATABASE <db> TO signals;` |
+| Read public schema | `GRANT USAGE ON SCHEMA public TO signals;` |
+| Read all tables | `GRANT SELECT ON ALL TABLES IN SCHEMA public TO signals;` + `ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT ON TABLES TO signals;` |
 | Read pg_stat_statements | Grant membership in `pg_monitor` (or `pg_read_all_stats` + `pg_read_server_files` on PG 14+). |
 
 ### Roles by environment
@@ -83,7 +83,7 @@ Elevarq Signals is designed to run as a **non-superuser** role.
 | Azure Flex | Membership in the `azure_pg_admin_role` group or the dedicated read role. |
 
 The `signalsctl doctor` command's `role_safe` check refuses to run
-as superuser by default (override with `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=1`
+as superuser by default (override with `SIGNALS_ALLOW_UNSAFE_ROLE=1`
 for evaluation only).
 
 ## Network requirements
@@ -96,7 +96,7 @@ for evaluation only).
 - **TLS**: `sslmode=verify-full` recommended in production;
   `verify-ca` acceptable; `prefer` emits a warning (target identity
   not verified). `disable` only with
-  `ARQ_ALLOW_INSECURE_PG_TLS=1` and never in `env=prod`.
+  `SIGNALS_ALLOW_INSECURE_PG_TLS=1` and never in `env=prod`.
 
 ## Container / Kubernetes compatibility
 

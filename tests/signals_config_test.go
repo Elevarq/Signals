@@ -98,8 +98,8 @@ signals:
 		t.Fatal(err)
 	}
 
-	t.Setenv("ARQ_SIGNALS_POLL_INTERVAL", "2m")
-	t.Setenv("ARQ_SIGNALS_RETENTION_DAYS", "3")
+	t.Setenv("SIGNALS_POLL_INTERVAL", "2m")
+	t.Setenv("SIGNALS_RETENTION_DAYS", "3")
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
@@ -150,7 +150,7 @@ func TestConfigDefaultsWithNoFile(t *testing.T) {
 // R029: Single-target container mode via env (TC-SIG-040)
 // ---------------------------------------------------------------------------
 
-// TestConfigSingleTargetFromEnv verifies that setting ARQ_SIGNALS_TARGET_HOST
+// TestConfigSingleTargetFromEnv verifies that setting SIGNALS_TARGET_HOST
 // creates a target from environment variables.
 func TestConfigSingleTargetFromEnv(t *testing.T) {
 	origDir, _ := os.Getwd()
@@ -158,12 +158,12 @@ func TestConfigSingleTargetFromEnv(t *testing.T) {
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_SIGNALS_TARGET_HOST", "pg.internal")
-	t.Setenv("ARQ_SIGNALS_TARGET_PORT", "5433")
-	t.Setenv("ARQ_SIGNALS_TARGET_DBNAME", "myapp")
-	t.Setenv("ARQ_SIGNALS_TARGET_USER", "monitor")
-	t.Setenv("ARQ_SIGNALS_TARGET_NAME", "container-db")
-	t.Setenv("ARQ_SIGNALS_TARGET_PASSWORD_ENV", "PG_PASS")
+	t.Setenv("SIGNALS_TARGET_HOST", "pg.internal")
+	t.Setenv("SIGNALS_TARGET_PORT", "5433")
+	t.Setenv("SIGNALS_TARGET_DBNAME", "myapp")
+	t.Setenv("SIGNALS_TARGET_USER", "monitor")
+	t.Setenv("SIGNALS_TARGET_NAME", "container-db")
+	t.Setenv("SIGNALS_TARGET_PASSWORD_ENV", "PG_PASS")
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -198,14 +198,14 @@ func TestConfigSingleTargetFromEnv(t *testing.T) {
 }
 
 // TestConfigSingleTargetDefaultName verifies that the target name defaults
-// to "default" when ARQ_SIGNALS_TARGET_NAME is not set.
+// to "default" when SIGNALS_TARGET_NAME is not set.
 func TestConfigSingleTargetDefaultName(t *testing.T) {
 	origDir, _ := os.Getwd()
 	dir := t.TempDir()
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_SIGNALS_TARGET_HOST", "localhost")
+	t.Setenv("SIGNALS_TARGET_HOST", "localhost")
 
 	cfg, err := config.Load("")
 	if err != nil {
@@ -372,7 +372,7 @@ func TestValidateStrictRejectsMultipleSecretSources(t *testing.T) {
 }
 
 // TestLoadRejectsMalformedIntEnv verifies that a non-integer in
-// ARQ_SIGNALS_RETENTION_DAYS aborts Load instead of being silently dropped.
+// SIGNALS_RETENTION_DAYS aborts Load instead of being silently dropped.
 // Traces: ARQ-SIGNALS-R076
 func TestLoadRejectsMalformedIntEnv(t *testing.T) {
 	origDir, _ := os.Getwd()
@@ -380,18 +380,18 @@ func TestLoadRejectsMalformedIntEnv(t *testing.T) {
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_SIGNALS_RETENTION_DAYS", "thirty")
+	t.Setenv("SIGNALS_RETENTION_DAYS", "thirty")
 	_, err := config.Load("")
 	if err == nil {
 		t.Fatal("expected error for malformed integer env var")
 	}
-	if !contains(err.Error(), "ARQ_SIGNALS_RETENTION_DAYS") {
+	if !contains(err.Error(), "SIGNALS_RETENTION_DAYS") {
 		t.Errorf("error should name the offending env var, got: %v", err)
 	}
 }
 
 // TestLoadRejectsMalformedBoolEnv verifies that a non-boolean in
-// ARQ_ALLOW_INSECURE_PG_TLS aborts Load. Previously "yes" silently became
+// SIGNALS_ALLOW_INSECURE_PG_TLS aborts Load. Previously "yes" silently became
 // false.
 // Traces: ARQ-SIGNALS-R076
 func TestLoadRejectsMalformedBoolEnv(t *testing.T) {
@@ -400,12 +400,12 @@ func TestLoadRejectsMalformedBoolEnv(t *testing.T) {
 	_ = os.Chdir(dir)
 	defer func() { _ = os.Chdir(origDir) }()
 
-	t.Setenv("ARQ_ALLOW_INSECURE_PG_TLS", "yes")
+	t.Setenv("SIGNALS_ALLOW_INSECURE_PG_TLS", "yes")
 	_, err := config.Load("")
 	if err == nil {
 		t.Fatal("expected error for malformed boolean env var")
 	}
-	if !contains(err.Error(), "ARQ_ALLOW_INSECURE_PG_TLS") {
+	if !contains(err.Error(), "SIGNALS_ALLOW_INSECURE_PG_TLS") {
 		t.Errorf("error should name the offending env var, got: %v", err)
 	}
 }
@@ -470,8 +470,8 @@ targets:
 //
 //   1. YAML api.token
 //   2. YAML api.token_file (path → contents)
-//   3. ENV ARQ_SIGNALS_API_TOKEN
-//   4. ENV ARQ_SIGNALS_API_TOKEN_FILE (path → contents)
+//   3. ENV SIGNALS_API_TOKEN
+//   4. ENV SIGNALS_API_TOKEN_FILE (path → contents)
 //
 // Setting api.token + api.token_file in the same YAML is a hard error.
 // ---------------------------------------------------------------------------
@@ -537,14 +537,14 @@ func TestConfigAPIToken_EnvOverridesYAML(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := writeTokenYAML(t, dir, "  token: \"yaml-token\"\n")
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN", "env-overrides-yaml")
+	t.Setenv("SIGNALS_API_TOKEN", "env-overrides-yaml")
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	if got, want := cfg.API.APIToken, "env-overrides-yaml"; got != want {
-		t.Errorf("APIToken: got %q, want %q (ARQ_SIGNALS_API_TOKEN should override YAML)", got, want)
+		t.Errorf("APIToken: got %q, want %q (SIGNALS_API_TOKEN should override YAML)", got, want)
 	}
 }
 
@@ -556,15 +556,15 @@ func TestConfigAPIToken_EnvFileOverridesEnv(t *testing.T) {
 	}
 	cfgPath := writeTokenYAML(t, dir, "  token: \"yaml-token\"\n")
 
-	t.Setenv("ARQ_SIGNALS_API_TOKEN", "env-raw-loses")
-	t.Setenv("ARQ_SIGNALS_API_TOKEN_FILE", tokenPath)
+	t.Setenv("SIGNALS_API_TOKEN", "env-raw-loses")
+	t.Setenv("SIGNALS_API_TOKEN_FILE", tokenPath)
 
 	cfg, err := config.Load(cfgPath)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
 	if got, want := cfg.API.APIToken, "env-file-wins"; got != want {
-		t.Errorf("APIToken: got %q, want %q (ARQ_SIGNALS_API_TOKEN_FILE must beat raw env)", got, want)
+		t.Errorf("APIToken: got %q, want %q (SIGNALS_API_TOKEN_FILE must beat raw env)", got, want)
 	}
 }
 

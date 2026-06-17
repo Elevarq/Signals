@@ -26,7 +26,7 @@ import (
 // whitespace, single quotes, or backslashes. Otherwise the unquoted
 // key=value DSN parser may misparse the value and break diagnostic
 // connections (doctor C3/C4, conntest).
-const AppName = "arq-signals"
+const AppName = "signals"
 
 // BuildConnConfig creates a pgx.ConnConfig from structured target fields,
 // resolving the password at call time from the configured secret source.

@@ -7,9 +7,9 @@ import (
 )
 
 // #136 — three helm-template assertions:
-//   1. Default values (no tokenSecretName) → no ARQ_SIGNALS_API_TOKEN env in
+//   1. Default values (no tokenSecretName) → no SIGNALS_API_TOKEN env in
 //      the rendered deployment.
-//   2. tokenSecretName set → ARQ_SIGNALS_API_TOKEN injected via
+//   2. tokenSecretName set → SIGNALS_API_TOKEN injected via
 //      secretKeyRef pointing at the named Secret + key.
 //   3. No literal token value reaches the rendered manifest in either
 //      case (the Secret reference is the only token-related string).
@@ -35,8 +35,8 @@ func helmTemplate(t *testing.T, sets ...string) string {
 // #136 — default render carries no API_TOKEN env (binary auto-generates).
 func TestHelm_DefaultRender_NoAPITokenEnv(t *testing.T) {
 	out := helmTemplate(t)
-	if strings.Contains(out, "ARQ_SIGNALS_API_TOKEN") {
-		t.Errorf("default render unexpectedly contains ARQ_SIGNALS_API_TOKEN; rendered manifest:\n%s", out)
+	if strings.Contains(out, "SIGNALS_API_TOKEN") {
+		t.Errorf("default render unexpectedly contains SIGNALS_API_TOKEN; rendered manifest:\n%s", out)
 	}
 }
 
@@ -47,8 +47,8 @@ func TestHelm_TokenSecretName_WiresSecretKeyRef(t *testing.T) {
 	out := helmTemplate(t,
 		"api.tokenSecretName=my-api-secret",
 	)
-	if !strings.Contains(out, "name: ARQ_SIGNALS_API_TOKEN") {
-		t.Errorf("ARQ_SIGNALS_API_TOKEN env not wired; rendered:\n%s", out)
+	if !strings.Contains(out, "name: SIGNALS_API_TOKEN") {
+		t.Errorf("SIGNALS_API_TOKEN env not wired; rendered:\n%s", out)
 	}
 	if !strings.Contains(out, "name: my-api-secret") {
 		t.Errorf("Secret reference name missing; rendered:\n%s", out)
@@ -79,12 +79,12 @@ func TestHelm_TokenSecretName_NoLiteralTokenInRender(t *testing.T) {
 		"api.tokenSecretKey=my-token-key",
 	)
 	// The deployment YAML should NOT have a literal `value:` for
-	// ARQ_SIGNALS_API_TOKEN — only a `valueFrom: secretKeyRef`.
-	// Find the env block for ARQ_SIGNALS_API_TOKEN and confirm it
+	// SIGNALS_API_TOKEN — only a `valueFrom: secretKeyRef`.
+	// Find the env block for SIGNALS_API_TOKEN and confirm it
 	// uses valueFrom, not value.
 	lines := strings.Split(out, "\n")
 	for i, l := range lines {
-		if strings.Contains(l, "name: ARQ_SIGNALS_API_TOKEN") {
+		if strings.Contains(l, "name: SIGNALS_API_TOKEN") {
 			// Look at the next few lines for `value:` vs `valueFrom:`
 			end := i + 5
 			if end > len(lines) {
@@ -92,10 +92,10 @@ func TestHelm_TokenSecretName_NoLiteralTokenInRender(t *testing.T) {
 			}
 			window := strings.Join(lines[i:end], "\n")
 			if strings.Contains(window, "value: ") && !strings.Contains(window, "valueFrom:") {
-				t.Errorf("ARQ_SIGNALS_API_TOKEN appears to use literal 'value:' rather than valueFrom/secretKeyRef:\n%s", window)
+				t.Errorf("SIGNALS_API_TOKEN appears to use literal 'value:' rather than valueFrom/secretKeyRef:\n%s", window)
 			}
 			if !strings.Contains(window, "valueFrom:") {
-				t.Errorf("ARQ_SIGNALS_API_TOKEN missing valueFrom block:\n%s", window)
+				t.Errorf("SIGNALS_API_TOKEN missing valueFrom block:\n%s", window)
 			}
 			break
 		}

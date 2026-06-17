@@ -13,9 +13,9 @@ matches the release version):
 helm install signals oci://ghcr.io/elevarq/charts/signals \
   --version 0.10.0-beta.6 \
   --set target.host=db.example.com \
-  --set target.user=arq_signals \
+  --set target.user=signals \
   --set target.dbname=postgres \
-  --set target.passwordSecretName=arq-pg-password
+  --set target.passwordSecretName=signals-pg-password
 ```
 
 The published chart is cosign-signed (keyless, GitHub OIDC) — the same
@@ -32,9 +32,9 @@ Or install straight from a working-tree checkout:
 ```bash
 helm install signals deploy/helm/signals/ \
   --set target.host=db.example.com \
-  --set target.user=arq_signals \
+  --set target.user=signals \
   --set target.dbname=postgres \
-  --set target.passwordSecretName=arq-pg-password
+  --set target.passwordSecretName=signals-pg-password
 ```
 
 ## Minimal required values
@@ -53,10 +53,10 @@ Create a `my-values.yaml`:
 ```yaml
 target:
   host: db.prod.internal
-  user: arq_signals
+  user: signals
   dbname: myapp
   sslmode: verify-full
-  passwordSecretName: arq-db-credentials
+  passwordSecretName: signals-db-credentials
 
 collector:
   pollInterval: 5m
@@ -76,7 +76,7 @@ helm install signals deploy/helm/signals/ \
 
 - **Deployment** with health/readiness probes on `/health`
 - **Service** (ClusterIP) on port 8081
-- **ConfigMap** with generated `signals.yaml`, mounted into the pod at `/etc/arq/signals.yaml` and consumed by the daemon at startup
+- **ConfigMap** with generated `signals.yaml`, mounted into the pod at `/etc/signals/signals.yaml` and consumed by the daemon at startup
 - **PVC** for persistent SQLite storage
 - Non-root security context (UID 10001)
 
@@ -94,13 +94,13 @@ deployments. For production Kubernetes use, you may want to add:
 The chart renders two sources of configuration:
 
 1. **`signals.yaml`** in the ConfigMap, mounted at
-   `/etc/arq/signals.yaml`. Carries `env`, collector cadences,
+   `/etc/signals/signals.yaml`. Carries `env`, collector cadences,
    database path, and the API listen address.
 2. **Environment variables** on the container — the same
    `.Values.collector.*` / `.Values.env` / `.Values.api.port`
    values plus the single-target overrides
-   (`ARQ_SIGNALS_TARGET_*`) and any secret-backed values
-   (`PG_PASSWORD`, optional `ARQ_SIGNALS_API_TOKEN`).
+   (`SIGNALS_TARGET_*`) and any secret-backed values
+   (`PG_PASSWORD`, optional `SIGNALS_API_TOKEN`).
 
 When both sources set the same field, **environment variables
 win** (this is the documented config-loader precedence). Both
@@ -112,12 +112,12 @@ diverge in a normal `helm install`.
 Create a Kubernetes Secret:
 
 ```bash
-kubectl create secret generic arq-db-credentials \
+kubectl create secret generic signals-db-credentials \
   --from-literal=password='your-pg-password'
 ```
 
 The chart injects this as the `PG_PASSWORD` environment variable via
-`ARQ_SIGNALS_TARGET_PASSWORD_ENV`.
+`SIGNALS_TARGET_PASSWORD_ENV`.
 
 ## API bearer token
 
@@ -136,19 +136,19 @@ the token and reference it from values:
 ```bash
 # 32 bytes is the minimum the binary will accept in env=prod.
 TOKEN=$(openssl rand -base64 32)
-kubectl create secret generic arq-api-token \
+kubectl create secret generic signals-api-token \
   --from-literal=token="${TOKEN}"
 ```
 
 ```yaml
 # my-values.yaml
 api:
-  tokenSecretName: arq-api-token
+  tokenSecretName: signals-api-token
   # tokenSecretKey: token   # default; override only if your Secret
   #                         # uses a different key name.
 ```
 
-The chart projects the value as `ARQ_SIGNALS_API_TOKEN` via
+The chart projects the value as `SIGNALS_API_TOKEN` via
 `secretKeyRef` — the token never lands in a ConfigMap or in any
 rendered manifest beyond the Secret reference name. The daemon's
 weak-token validator runs at startup; weak tokens are warnings in

@@ -48,7 +48,7 @@ func buildExportZIP(t *testing.T, store *db.DB) (*bytes.Buffer, *zip.Reader) {
 	return &buf, zr
 }
 
-// TestExportMetadataSchemaVersion verifies metadata.json contains schema_version == "arq-snapshot.v1".
+// TestExportMetadataSchemaVersion verifies metadata.json contains schema_version == "signals-snapshot.v1".
 // Traces: ARQ-SIGNALS-R005 / TC-SIG-008
 func TestExportMetadataSchemaVersion(t *testing.T) {
 	store := openTestDB(t)

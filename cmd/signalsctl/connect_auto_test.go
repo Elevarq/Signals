@@ -45,7 +45,7 @@ func TestWriteAutoOutcome_Failure(t *testing.T) {
 	if err := writeAutoOutcome(&buf, guidedconnect.Outcome{
 		Success:  false,
 		Category: "auth",
-		Message:  "GRANT rds_iam TO arq_monitor;",
+		Message:  "GRANT rds_iam TO signals;",
 	}); err != nil {
 		t.Fatalf("writeAutoOutcome: %v", err)
 	}

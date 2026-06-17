@@ -6,7 +6,7 @@ This guide explains how to inspect an Elevarq Signals export snapshot.
 
 ```bash
 curl -o snapshot.zip http://localhost:8081/export \
-  -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
+  -H "Authorization: Bearer $SIGNALS_API_TOKEN"
 ```
 
 ## What's inside
@@ -35,10 +35,10 @@ Example output (safe role, single-target export):
 
 ```json
 {
-  "schema_version": "arq-snapshot.v1",
+  "schema_version": "signals-snapshot.v1",
   "collector_status_schema_version": "1",
   "instance_id": "a1b2c3d4...",
-  "arq_signals_version": "0.10.0-beta.5",
+  "signals_version": "0.10.0-beta.5",
   "collector_commit": "abcdef12",
   "generated_at": "2026-05-28T10:30:00Z",
   "collected_at": "2026-05-28T10:30:00Z",
@@ -50,7 +50,7 @@ Example output (safe role, single-target export):
   "target_name": "my-database",
   "target_identity": {
     "host": "db.internal", "port": 5432,
-    "dbname": "myapp", "username": "arq_signals"
+    "dbname": "myapp", "username": "signals"
   }
 }
 ```

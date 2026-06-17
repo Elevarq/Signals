@@ -18,7 +18,7 @@ import (
 //
 // This is the only GCP test that makes real Google OAuth2 + Cloud SQL
 // calls. It is doubly gated: the `integration` build tag AND
-// ARQ_SIGNALS_INTEGRATION_LIVE=1. It never runs in default CI. It acquires
+// SIGNALS_INTEGRATION_LIVE=1. It never runs in default CI. It acquires
 // a real Cloud SQL IAM access token from the collector's ambient Google
 // identity (Application Default Credentials, optionally impersonating a
 // service account), connects to a real Cloud SQL target passwordlessly over
@@ -26,7 +26,7 @@ import (
 // (the core of a snapshot), then forces a real token re-acquire across the
 // refresh skew and reconnects with the new token.
 //
-// Required env (in addition to ARQ_SIGNALS_INTEGRATION_LIVE=1):
+// Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
 //	ARQ_TEST_GCP_HOST          Cloud SQL instance IP / hostname
 //	ARQ_TEST_GCP_DBNAME        database to connect to
@@ -40,7 +40,7 @@ import (
 // a service-account key via GOOGLE_APPLICATION_CREDENTIALS) and the DB role
 // ARQ_TEST_GCP_USER must be a Cloud SQL IAM database user. Run:
 //
-//	ARQ_SIGNALS_INTEGRATION_LIVE=1 \
+//	SIGNALS_INTEGRATION_LIVE=1 \
 //	ARQ_TEST_GCP_HOST=10.10.0.5 \
 //	ARQ_TEST_GCP_DBNAME=appdb ARQ_TEST_GCP_USER=monitor@my-proj.iam \
 //	ARQ_TEST_GCP_SSLROOTCERT=/etc/ssl/gcp-server-ca.pem \
@@ -49,8 +49,8 @@ import (
 // Specification: features/arq-signals/credential-provider-gcp-cloudsql-iam.md
 // ---------------------------------------------------------------------------
 func TestLive_GCPCloudSQLIAMPasswordlessConnectAndReacquire(t *testing.T) {
-	if os.Getenv("ARQ_SIGNALS_INTEGRATION_LIVE") != "1" {
-		t.Skip("ARQ_SIGNALS_INTEGRATION_LIVE != 1 — skipping live gcp_cloudsql_iam smoke")
+	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
+		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live gcp_cloudsql_iam smoke")
 	}
 	host := os.Getenv("ARQ_TEST_GCP_HOST")
 	dbname := os.Getenv("ARQ_TEST_GCP_DBNAME")
@@ -85,7 +85,7 @@ func TestLive_GCPCloudSQLIAMPasswordlessConnectAndReacquire(t *testing.T) {
 	// production (passwordless + verify-full).
 	if _, err := config.ValidateStrict(config.Config{
 		Env:      "prod",
-		Database: config.DatabaseConfig{Path: "/tmp/arq-signals-live-gcp-smoke.db"},
+		Database: config.DatabaseConfig{Path: "/tmp/signals-live-gcp-smoke.db"},
 		API:      config.APIConfig{ListenAddr: "127.0.0.1:8099"},
 		Signals: config.SignalsConfig{
 			PollInterval:        time.Minute,

@@ -20,14 +20,14 @@ import (
 // aws_rds_iam — live passwordless smoke (AC-AWS-008, #94).
 //
 // This is the only test that makes real AWS + RDS calls. It is doubly
-// gated: the `integration` build tag AND ARQ_SIGNALS_INTEGRATION_LIVE=1.
+// gated: the `integration` build tag AND SIGNALS_INTEGRATION_LIVE=1.
 // It never runs in default CI. It mints a real RDS IAM token from the
 // ambient AWS identity, connects to a real RDS/Aurora PostgreSQL target
 // passwordlessly over verify-full TLS, runs the read-only discovery
 // probe (the core of a snapshot), then forces a real token re-mint
 // across the refresh skew and reconnects with the new token.
 //
-// Required env (in addition to ARQ_SIGNALS_INTEGRATION_LIVE=1):
+// Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
 //	ARQ_TEST_RDS_HOST          RDS/Aurora endpoint hostname
 //	ARQ_TEST_RDS_DBNAME        database to connect to
@@ -39,7 +39,7 @@ import (
 // Ambient AWS credentials must be present (SDK default chain) and the
 // principal must allow rds-db:connect for ARQ_TEST_RDS_USER. Run with:
 //
-//	ARQ_SIGNALS_INTEGRATION_LIVE=1 \
+//	SIGNALS_INTEGRATION_LIVE=1 \
 //	ARQ_TEST_RDS_HOST=mydb.abc123.us-east-1.rds.amazonaws.com \
 //	ARQ_TEST_RDS_DBNAME=appdb ARQ_TEST_RDS_USER=monitor \
 //	ARQ_TEST_RDS_SSLROOTCERT=/etc/ssl/rds-global-bundle.pem \
@@ -49,8 +49,8 @@ import (
 // Specification: features/arq-signals/credential-provider-aws-rds-iam.md
 // ---------------------------------------------------------------------------
 func TestLive_AWSRDSIAMPasswordlessConnectAndRemint(t *testing.T) {
-	if os.Getenv("ARQ_SIGNALS_INTEGRATION_LIVE") != "1" {
-		t.Skip("ARQ_SIGNALS_INTEGRATION_LIVE != 1 — skipping live aws_rds_iam smoke")
+	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
+		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live aws_rds_iam smoke")
 	}
 	host := os.Getenv("ARQ_TEST_RDS_HOST")
 	dbname := os.Getenv("ARQ_TEST_RDS_DBNAME")
@@ -85,7 +85,7 @@ func TestLive_AWSRDSIAMPasswordlessConnectAndRemint(t *testing.T) {
 	// production (passwordless + verify-full).
 	if _, err := config.ValidateStrict(config.Config{
 		Env:      "prod",
-		Database: config.DatabaseConfig{Path: "/tmp/arq-signals-live-smoke.db"},
+		Database: config.DatabaseConfig{Path: "/tmp/signals-live-smoke.db"},
 		API:      config.APIConfig{ListenAddr: "127.0.0.1:8099"},
 		Signals: config.SignalsConfig{
 			PollInterval:        time.Minute,
