@@ -38,13 +38,13 @@ syft version              # >= 0.90
 ```bash
 # Image signature.
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 
 # SBOM attestation (#165).
 cosign verify-attestation \
   --type spdxjson \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
   ghcr.io/elevarq/signals:<VERSION>
 ```
@@ -92,7 +92,7 @@ investigate.
 
 ```bash
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
   | jq .
 ```
@@ -197,7 +197,7 @@ Verify with:
 ```bash
 cosign verify-attestation \
   --type spdxjson \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
   ghcr.io/elevarq/signals:<VERSION>
 ```

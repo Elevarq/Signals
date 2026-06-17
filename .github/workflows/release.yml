@@ -520,7 +520,7 @@ jobs:
           Quick signature verification (GHCR):
           \`\`\`bash
           cosign verify ${{ env.IMAGE_NAME }}:${VERSION} \
-            --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+            --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
           \`\`\`
 

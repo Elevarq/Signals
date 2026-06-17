@@ -23,7 +23,7 @@ trust root as the container image. Verify before install:
 
 ```bash
 cosign verify ghcr.io/elevarq/charts/signals:0.10.0-beta.5 \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
 
