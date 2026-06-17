@@ -5,7 +5,7 @@
 # substrate for Tiger Data demo material and a reusable development
 # fixture. Issue: #76.
 #
-# Start TimescaleDB (PG 17) + arq-signals:
+# Start TimescaleDB (PG 17) + Elevarq Signals:
 #   docker compose -f examples/timescaledb-demo/docker-compose.yml up -d
 #
 # Optional PostgreSQL 18 variant (port 5435, DB only): add

@@ -1,4 +1,4 @@
-# Production-style arq-signals deployment.
+# Production-style Elevarq Signals deployment.
 #
 # Connects to an EXISTING PostgreSQL instance. The monitoring-role
 # password is delivered via a Docker secret — mounted at
@@ -75,7 +75,7 @@ services:
 
     volumes:
       # YAML config is the source of truth for multi-target / TLS-verify /
-      # non-trivial setups. arq-signals auto-discovers /etc/signals/signals.yaml.
+      # non-trivial setups. Elevarq Signals auto-discovers /etc/signals/signals.yaml.
       - ./signals.prod.yaml:/etc/signals/signals.yaml:ro
 
       # Persistent local SQLite for snapshot retention.

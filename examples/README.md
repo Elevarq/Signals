@@ -6,7 +6,7 @@ Deployment templates and reference configurations.
 
 | Pattern | File | Use when |
 |---|---|---|
-| Dev quickstart | [`docker-compose.yml`](docker-compose.yml) | Trying arq-signals on a self-contained local PostgreSQL. Bootstraps PG 16 + monitoring role + sample data. |
+| Dev quickstart | [`docker-compose.yml`](docker-compose.yml) | Trying Elevarq Signals on a self-contained local PostgreSQL. Bootstraps PG 16 + monitoring role + sample data. |
 | Production | [`docker-compose.prod.yml`](docker-compose.prod.yml) | Connecting to your real PostgreSQL with a Docker secret for the password. No embedded DB. |
 | Kubernetes | [`helm/`](helm/) | Helm-based deployment on a K8s cluster. |
 
