@@ -99,3 +99,22 @@ func (r *credentialResolver) resolveMTLS(_ context.Context, tgt config.TargetCon
 	}
 	return cred, nil
 }
+
+// MTLSGuidance returns the operator remediation text for an mtls target
+// whose client certificate was rejected because the server does not yet
+// trust it — the certificate is loaded locally but the cluster has no
+// matching pg_hba clientcert mapping or CA trust (AC-MTLS-010). It names
+// the exact pg_hba.conf line and the CA-trust step, and contains no key
+// material or passphrase (INV-MTLS-001).
+func MTLSGuidance(tgt config.TargetConfig) string {
+	return fmt.Sprintf(`mtls connection for target %q was rejected — the server does not trust the presented client certificate.
+Verify both halves of certificate authentication:
+  1. Add a hostssl line to pg_hba.conf that requires and maps the client cert,
+     then reload the server (SELECT pg_reload_conf();):
+       hostssl %s %s 0.0.0.0/0 cert clientcert=verify-full
+     The certificate's Common Name (CN) must equal the database role %q
+     (or add a pg_ident.conf map if they differ).
+  2. Ensure the cluster trusts the certificate's issuing CA — append the CA
+     certificate to the server's ssl_ca_file and reload.`,
+		tgt.Name, tgt.DBName, tgt.User, tgt.User)
+}
