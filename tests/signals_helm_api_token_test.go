@@ -14,14 +14,14 @@ import (
 //   3. No literal token value reaches the rendered manifest in either
 //      case (the Secret reference is the only token-related string).
 
-const helmChartPath = "../deploy/helm/arq-signals"
+const helmChartPath = "../deploy/helm/signals"
 
 func helmTemplate(t *testing.T, sets ...string) string {
 	t.Helper()
 	if _, err := exec.LookPath("helm"); err != nil {
 		t.Skip("helm CLI not on PATH; skipping helm-template assertions")
 	}
-	args := []string{"template", "arq-signals", helmChartPath}
+	args := []string{"template", "signals", helmChartPath}
 	for _, s := range sets {
 		args = append(args, "--set", s)
 	}

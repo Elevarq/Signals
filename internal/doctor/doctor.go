@@ -1,5 +1,5 @@
 // Package doctor implements the read-only operator pre-flight checks
-// surfaced via `arqctl doctor` (R095). The package separates pure
+// surfaced via `signalsctl doctor` (R095). The package separates pure
 // check logic from the CLI shell so individual checks can be unit
 // tested without spinning up a CLI command tree.
 //
@@ -160,7 +160,7 @@ func CheckStoreWritable(storePath string) CheckResult {
 		dir = filepath.Dir(storePath)
 	}
 
-	probe, err := os.CreateTemp(dir, ".arqctl-doctor-probe-*")
+	probe, err := os.CreateTemp(dir, ".signalsctl-doctor-probe-*")
 	if err != nil {
 		result.Status = StatusFail
 		result.Detail = fmt.Sprintf("write probe in %s: %v", dir, err)

@@ -14,13 +14,13 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: ghcr.io/elevarq/arq-signals
+  IMAGE_NAME: ghcr.io/elevarq/signals
   # Docker Hub mirror. Publishing is opt-in: when DOCKERHUB_USERNAME
   # is unset the Docker Hub login + push steps no-op so the release
   # still succeeds (e.g. on forks without the secret configured).
-  # `elevarq/arq-signals` matches the GHCR slug; if a different
+  # `elevarq/signals` matches the GHCR slug; if a different
   # Docker Hub repo name is desired, change DOCKERHUB_IMAGE here.
-  DOCKERHUB_IMAGE: elevarq/arq-signals
+  DOCKERHUB_IMAGE: elevarq/signals
   # Opt every JavaScript-based action into the Node.js 24 runtime
   # ahead of GitHub's 2026-06-02 forced switch (Node 20 is removed
   # 2026-09-16). See #192.
@@ -106,7 +106,7 @@ jobs:
             --build-arg VERSION="${VERSION}" \
             --build-arg COMMIT="${COMMIT}" \
             --build-arg DATE="${DATE}" \
-            -t arq-signals:scan .
+            -t signals:scan .
 
       - name: Trivy filesystem scan
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
@@ -129,7 +129,7 @@ jobs:
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
           scan-type: image
-          image-ref: arq-signals:scan
+          image-ref: signals:scan
           severity: CRITICAL,HIGH
           exit-code: '1'
           ignore-unfixed: true
@@ -166,7 +166,7 @@ jobs:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
-      packages: write      # docker login + push to ghcr.io/elevarq/arq-signals
+      packages: write      # docker login + push to ghcr.io/elevarq/signals
       id-token: write      # cosign keyless OIDC + SLSA provenance
       attestations: write  # buildkit SBOM + SLSA attestations attached to the image
     outputs:
@@ -246,7 +246,7 @@ jobs:
           # labels below add the rest of the org.opencontainers.image.*
           # set so consumers can identify the build without pulling.
           labels: |
-            org.opencontainers.image.title=elevarq-signals
+            org.opencontainers.image.title=signals
             org.opencontainers.image.description=Open-source PostgreSQL diagnostic signal collector — local-first, no data egress.
             org.opencontainers.image.licenses=BSD-3-Clause
             org.opencontainers.image.vendor=Elevarq
@@ -358,7 +358,7 @@ jobs:
   # ── Gate E (chart): Publish Helm chart as an OCI artifact ─────────────
   # Parity with the container image: the chart is pushed to GHCR as an
   # OCI artifact so it installs by reference without a repo checkout:
-  #   helm install arq-signals oci://ghcr.io/elevarq/charts/arq-signals \
+  #   helm install signals oci://ghcr.io/elevarq/charts/signals \
   #     --version <X.Y.Z>
   # The chart version is stamped from the release tag at package time, so
   # the published chart can never drift from the release even if the
@@ -382,7 +382,7 @@ jobs:
           version: v3.16.4
 
       - name: Lint chart
-        run: helm lint deploy/helm/arq-signals
+        run: helm lint deploy/helm/signals
 
       - name: Log in to GHCR (helm registry)
         run: |
@@ -393,11 +393,11 @@ jobs:
         id: package
         run: |
           VERSION="${{ needs.validate.outputs.version }}"
-          helm package deploy/helm/arq-signals \
+          helm package deploy/helm/signals \
             --version "${VERSION}" \
             --app-version "${VERSION}" \
             --destination dist-chart
-          echo "file=dist-chart/arq-signals-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
+          echo "file=dist-chart/signals-${VERSION}.tgz" >> "$GITHUB_OUTPUT"
 
       - name: Push chart to GHCR
         id: push
@@ -428,7 +428,7 @@ jobs:
       - name: Sign chart (cosign keyless)
         run: |
           cosign sign --yes \
-            "ghcr.io/elevarq/charts/arq-signals@${{ steps.push.outputs.digest }}"
+            "ghcr.io/elevarq/charts/signals@${{ steps.push.outputs.digest }}"
 
   # ── Go binary artifacts ───────────────────────────────────────────────
   build-binaries:
@@ -458,8 +458,8 @@ jobs:
           LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.Commit=${GITHUB_SHA::8}"
           LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           mkdir -p dist
-          go build -ldflags "${LDFLAGS}" -o "dist/arq-signals-${GOOS}-${GOARCH}" ./cmd/arq-signals
-          go build -ldflags "${LDFLAGS}" -o "dist/arqctl-${GOOS}-${GOARCH}" ./cmd/arqctl
+          go build -ldflags "${LDFLAGS}" -o "dist/signals-${GOOS}-${GOARCH}" ./cmd/signals
+          go build -ldflags "${LDFLAGS}" -o "dist/signalsctl-${GOOS}-${GOARCH}" ./cmd/signalsctl
 
       - name: Upload binary artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7

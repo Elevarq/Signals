@@ -73,12 +73,12 @@ rotation does not require restart:
     echo -n 'NEW_MONITOR_PASSWORD' > secrets/pg_password
 
 (Existing pooled connections keep the old password until they close;
-to force an immediate refresh, `docker compose restart arq-signals`.)
+to force an immediate refresh, `docker compose restart signals`.)
 
 The API token is read at startup, so rotation requires a restart:
 
     openssl rand -hex 32 > secrets/api_token
-    docker compose -f examples/docker-compose.prod.yml restart arq-signals
+    docker compose -f examples/docker-compose.prod.yml restart signals
 
 ---
 

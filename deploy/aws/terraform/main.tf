@@ -17,7 +17,7 @@ data "aws_ssm_parameter" "al2023" {
 }
 
 locals {
-  tags = merge({ "app.kubernetes.io/name" = "arq-signals", "managed-by" = "terraform" }, var.tags)
+  tags = merge({ "app.kubernetes.io/name" = "signals", "managed-by" = "terraform" }, var.tags)
 
   # rds-db:connect resource ARN for exactly this DB user on this instance.
   rds_connect_arn = "arn:aws:rds-db:${var.region}:${data.aws_caller_identity.current.account_id}:dbuser:${var.db_resource_id}/${var.db_user}"
@@ -51,7 +51,7 @@ locals {
         sslmode: verify-full
         sslrootcert_file: /etc/arq/rds-ca.pem
     YAML
-    docker run -d --name arq-signals --restart=always \
+    docker run -d --name signals --restart=always \
       -v /etc/arq:/etc/arq:ro \
       -v arq-data:/data \
       -p 127.0.0.1:8081:8081 \

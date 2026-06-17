@@ -168,7 +168,7 @@ SQL text, no PII.
 
 ## Operator value (standalone)
 
-A future `arqctl doctor` check (C8-style) can surface the top N
+A future `signalsctl doctor` check (C8-style) can surface the top N
 bloated tables without analyzer integration. Out of scope for
 R104 itself — covered as a follow-up.
 

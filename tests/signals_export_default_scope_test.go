@@ -12,7 +12,7 @@
 // These tests describe the producer-side wire contract any consumer
 // (Elevarq Analyzer, third-party integrations) is entitled to rely on.
 // They run against the in-process SQLite store and the export
-// Builder; no HTTP layer or arqctl process is involved at this
+// Builder; no HTTP layer or signalsctl process is involved at this
 // level.
 
 package tests

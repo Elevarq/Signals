@@ -254,7 +254,7 @@ dependency.
   and collects at least one snapshot**. This is the mandatory live-
   validation path. Documented per backend; not run in default CI.
 - **AC-SECRET-012 (operator guidance)**: when the fetch fails for
-  permission/identity reasons, `arqctl` surfaces the exact IAM grant for
+  permission/identity reasons, `signalsctl` surfaces the exact IAM grant for
   the inferred backend (`secretsmanager:GetSecretValue` / Key Vault Secrets
   User / `secretmanager.versions.access`) and the workload-identity note.
   (UX may be refined alongside #99; the snippet text is owned here.)

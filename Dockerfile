@@ -18,31 +18,37 @@ RUN CGO_ENABLED=0 go build \
     -ldflags "-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION} \
               -X github.com/elevarq/arq-signals/internal/safety.Commit=${COMMIT} \
               -X github.com/elevarq/arq-signals/internal/safety.BuildDate=${DATE}" \
-    -o /out/arq-signals ./cmd/arq-signals
+    -o /out/signals ./cmd/signals
 
 RUN CGO_ENABLED=0 go build \
     -ldflags "-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION} \
               -X github.com/elevarq/arq-signals/internal/safety.Commit=${COMMIT} \
               -X github.com/elevarq/arq-signals/internal/safety.BuildDate=${DATE}" \
-    -o /out/arqctl ./cmd/arqctl
+    -o /out/signalsctl ./cmd/signalsctl
 
 # Stage 2: Runtime
 FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
 
 RUN apk add --no-cache tini ca-certificates \
-    && adduser -D -u 10001 arq
+    && adduser -D -u 10001 signals
 
-COPY --from=builder /out/arq-signals /usr/local/bin/arq-signals
-COPY --from=builder /out/arqctl /usr/local/bin/arqctl
+COPY --from=builder /out/signals /usr/local/bin/signals
+COPY --from=builder /out/signalsctl /usr/local/bin/signalsctl
 
-RUN mkdir -p /data && chown arq:arq /data
+# Deprecation aliases (#62): the old Arq-branded names resolve to the same
+# binaries and emit a stderr deprecation warning on use. Removed one
+# release after launch.
+RUN ln -s signals /usr/local/bin/arq-signals \
+    && ln -s signalsctl /usr/local/bin/arqctl
+
+RUN mkdir -p /data && chown signals:signals /data
 VOLUME /data
 
-USER arq
+USER signals
 EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
   CMD wget -qO /dev/null http://localhost:8081/health || exit 1
 
 ENTRYPOINT ["tini", "--"]
-CMD ["arq-signals"]
+CMD ["signals"]

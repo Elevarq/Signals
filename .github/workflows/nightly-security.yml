@@ -126,14 +126,14 @@ jobs:
         with:
           path: .
           format: spdx-json
-          output-file: arq-signals-source.spdx.json
+          output-file: signals-source.spdx.json
           upload-artifact: false
 
       - name: Upload SBOM artefact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a  # v7
         with:
           name: source-sbom
-          path: arq-signals-source.spdx.json
+          path: signals-source.spdx.json
 
   source-vuln:
     name: Source vuln scan (grype)
@@ -162,7 +162,7 @@ jobs:
         # what syft described.
         uses: anchore/scan-action@e1165082ffb1fe366ebaf02d8526e7c4989ea9d2  # v7
         with:
-          sbom: arq-signals-source.spdx.json
+          sbom: signals-source.spdx.json
           fail-build: true
           severity-cutoff: high
           output-format: sarif

@@ -20,7 +20,7 @@
 #     -H "Authorization: Bearer dev-local-only-replace-in-prod-32chars"
 
 services:
-  arq-signals:
+  signals:
     build:
       context: ..
       dockerfile: Dockerfile

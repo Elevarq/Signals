@@ -19,7 +19,7 @@ import (
 
 // ErrSnapshotNotFound is returned when an export is requested with
 // SnapshotID set to an ID that does not exist in the daemon's
-// store. Callers (HTTP handler / arqctl) translate this to FC-08
+// store. Callers (HTTP handler / signalsctl) translate this to FC-08
 // (HTTP 404 / non-zero exit). Distinct from a generic SQL error so
 // the API layer doesn't have to scrape error strings.
 var ErrSnapshotNotFound = errors.New("snapshot not found")

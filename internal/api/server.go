@@ -362,7 +362,7 @@ func handleCollectNow(deps *Deps) http.HandlerFunc {
 				Reason    *string   `json:"reason,omitempty"`
 				// R092: per-request override of R091's
 				// min_snapshot_interval. Operators set this via
-				// `arqctl collect now --force`. Defaults to false.
+				// `signalsctl collect now --force`. Defaults to false.
 				Force *bool `json:"force,omitempty"`
 			}
 			if err := json.Unmarshal(body, &req); err != nil {
@@ -718,7 +718,7 @@ func handleExport(deps *Deps) http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/zip")
-		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=arq-export-%s.zip",
+		w.Header().Set("Content-Disposition", fmt.Sprintf("attachment; filename=signals-export-%s.zip",
 			time.Now().UTC().Format("20060102-150405")))
 		w.Header().Set("Content-Length", strconv.Itoa(buf.Len()))
 		if _, err := w.Write(buf.Bytes()); err != nil {

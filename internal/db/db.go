@@ -415,7 +415,7 @@ func (d *DB) CountSnapshots() (int, error) {
 // no row matches. Used by the export builder for the --snapshot-id
 // selector (R085); a nil return is the producer-side signal for
 // FC-08 (translated to HTTP 404 by the API layer / non-zero
-// `arqctl` exit).
+// `signalsctl` exit).
 func (d *DB) GetSnapshotByID(id string) (*Snapshot, error) {
 	var s Snapshot
 	var payload string

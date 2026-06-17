@@ -9,7 +9,7 @@ is stored anywhere** (INV001/INV002), and the connection is `verify-full`
 Two equivalent implementations:
 
 - [`terraform/`](terraform/) — `terraform apply`
-- [`cloudformation/arq-signals-rds-iam.yaml`](cloudformation/arq-signals-rds-iam.yaml) — `aws cloudformation deploy`
+- [`cloudformation/signals-rds-iam.yaml`](cloudformation/signals-rds-iam.yaml) — `aws cloudformation deploy`
 
 Both provision the IAM role + minimal `rds-db:connect` policy (scoped to one DB
 user), an instance profile, and an EC2 instance running the collector
@@ -61,8 +61,8 @@ terraform apply \
 
 ```bash
 aws cloudformation deploy \
-  --template-file cloudformation/arq-signals-rds-iam.yaml \
-  --stack-name arq-signals-rds-iam \
+  --template-file cloudformation/signals-rds-iam.yaml \
+  --stack-name signals-rds-iam \
   --capabilities CAPABILITY_IAM \
   --parameter-overrides \
     DbHost=mydb.abc123.us-east-1.rds.amazonaws.com \
@@ -80,9 +80,9 @@ apply/deploy, on the collector instance:
 
 ```bash
 # the collector container should be running and collecting
-docker logs arq-signals 2>&1 | grep -iE "collector|snapshot|connected"
+docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
 # trigger an export to confirm a successful passwordless connection
-docker exec arq-signals arqctl export --output /data/snapshot.zip
+docker exec signals signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
@@ -107,4 +107,4 @@ If you run the collector on ECS or EKS instead of the bundled EC2 instance,
 take the `collector_role_arn` output (Terraform) / `CollectorRoleArn` output
 (CloudFormation) and attach it as the task role / IRSA role; the
 `rds-db:connect` policy is identical. For Kubernetes, see the Helm chart
-(`deploy/helm/arq-signals/`) and #114.
+(`deploy/helm/signals/`) and #114.

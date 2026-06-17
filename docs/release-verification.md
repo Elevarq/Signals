@@ -3,7 +3,7 @@
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
 
 Every Elevarq Signals release publishes a multi-arch container image to
-`ghcr.io/elevarq/arq-signals` along with:
+`ghcr.io/elevarq/signals` along with:
 
 - A **SLSA build provenance** attestation (`mode=max`).
 - An **SPDX SBOM** in three places: attached to the image as an OCI
@@ -37,7 +37,7 @@ syft version              # >= 0.90
 
 ```bash
 # Image signature.
-cosign verify ghcr.io/elevarq/arq-signals:<VERSION> \
+cosign verify ghcr.io/elevarq/signals:<VERSION> \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 
@@ -46,7 +46,7 @@ cosign verify-attestation \
   --type spdxjson \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
-  ghcr.io/elevarq/arq-signals:<VERSION>
+  ghcr.io/elevarq/signals:<VERSION>
 ```
 
 A successful verification prints the signing certificate and exits 0.
@@ -74,7 +74,7 @@ Confirm:
 ### 2. Multi-arch manifest list
 
 ```bash
-docker buildx imagetools inspect ghcr.io/elevarq/arq-signals:<VERSION>
+docker buildx imagetools inspect ghcr.io/elevarq/signals:<VERSION>
 ```
 
 Expect to see two platform entries:
@@ -91,7 +91,7 @@ investigate.
 ### 3. Cosign signature
 
 ```bash
-cosign verify ghcr.io/elevarq/arq-signals:<VERSION> \
+cosign verify ghcr.io/elevarq/signals:<VERSION> \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
   | jq .
@@ -111,7 +111,7 @@ provenance as **BuildKit-native OCI attestation manifests** attached
 to the image index. These are inspected via buildx, not cosign:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/elevarq/arq-signals:<VERSION> \
+docker buildx imagetools inspect ghcr.io/elevarq/signals:<VERSION> \
   --format '{{json .Provenance}}'
 ```
 
@@ -141,7 +141,7 @@ The SBOM is published in two forms:
 (per-platform). Inspect via buildx:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/elevarq/arq-signals:<VERSION> \
+docker buildx imagetools inspect ghcr.io/elevarq/signals:<VERSION> \
   --format '{{json .SBOM}}'
 ```
 
@@ -168,7 +168,7 @@ curl -L \
 ```
 
 The `SHA256SUMS` file on the same release page covers the Go binary
-assets (`arq-signals-*`, `arqctl-*`) — verify those before deploying
+assets (`signals-*`, `signalsctl-*`) — verify those before deploying
 binaries to production hosts.
 
 The two SBOMs (5a and 5b) may differ slightly in tool / ordering but
@@ -186,7 +186,7 @@ itself.
 > field. The in-toto envelope is structurally valid and the
 > signature is OIDC-bound (rekor tlog 1550875004), but
 > `cosign verify-attestation --type spdx[json]` against
-> `ghcr.io/elevarq/arq-signals:0.7.0` returns a proto syntax
+> `ghcr.io/elevarq/signals:0.7.0` returns a proto syntax
 > error. Fall back to inspecting the predicate manually via
 > `docker buildx imagetools inspect --raw` + base64 decode of the
 > in-toto payload to read the SBOM. Releases from v0.8.0 onward
@@ -199,7 +199,7 @@ cosign verify-attestation \
   --type spdxjson \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com' \
-  ghcr.io/elevarq/arq-signals:<VERSION>
+  ghcr.io/elevarq/signals:<VERSION>
 ```
 
 A successful run prints the decoded SBOM payload as in-toto. Pipe to
@@ -220,7 +220,7 @@ locally before deploying as a second-opinion check:
 trivy image \
   --severity CRITICAL,HIGH \
   --ignore-unfixed \
-  ghcr.io/elevarq/arq-signals:<VERSION>
+  ghcr.io/elevarq/signals:<VERSION>
 ```
 
 Expect: `Total: 0 (HIGH: 0, CRITICAL: 0)`. Findings here that the CI
@@ -232,7 +232,7 @@ before shipping.
 ```bash
 docker buildx imagetools inspect \
   --format '{{json .Manifest}}' \
-  ghcr.io/elevarq/arq-signals:<VERSION> \
+  ghcr.io/elevarq/signals:<VERSION> \
   | jq '.manifests[0].annotations // empty'
 ```
 
@@ -254,7 +254,7 @@ labels: `title`, `description`, `licenses=BSD-3-Clause`, `source`,
 
 ## Out of scope (not signed/attested today)
 
-- The downloadable Go binaries (`dist/arq-signals-linux-amd64`, etc.)
+- The downloadable Go binaries (`dist/signals-linux-amd64`, etc.)
   are not signed individually; the SHA256 sums file (`SHA256SUMS`)
   attached to the release lets you verify integrity but not provenance.
   Sign these separately if you ship binaries to production hosts.

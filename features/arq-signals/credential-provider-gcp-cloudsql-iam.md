@@ -205,7 +205,7 @@ operator-configurable.
   re-acquired across a reconnect that crosses the refresh skew. Not run in
   default CI.
 - **AC-GCP-009 (operator guidance)**: when the connection fails because
-  the DB role is not mapped to an IAM principal, `arqctl` surfaces the
+  the DB role is not mapped to an IAM principal, `signalsctl` surfaces the
   exact `gcloud sql users create <user> --instance=<inst> --type=cloud_iam_service_account`
   (or `cloud_iam_user`) guidance and the `GRANT`/role note for the target.
   (UX may be refined alongside #99; the snippet text is owned here.)

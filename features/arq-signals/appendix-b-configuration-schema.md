@@ -209,7 +209,7 @@ exported, or logged (only its metadata). Validation rules:
 | Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-AWS-003). |
 | TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-AWS-004 / INV003). |
 | Region | Resolved from `region` → `AWS_REGION` / `AWS_DEFAULT_REGION` → instance metadata (IMDS). A missing config+env region is a startup **warning** only; if it still cannot be resolved at connect time the target fails (FC-AWS-005), without stopping collection for other targets. |
-| DB role | `user` must be a role granted `rds_iam`; the IAM principal must allow `rds-db:connect`. `arqctl` surfaces the exact `GRANT` + IAM action on auth failure (AC-AWS-009). |
+| DB role | `user` must be a role granted `rds_iam`; the IAM principal must allow `rds-db:connect`. `signalsctl` surfaces the exact `GRANT` + IAM action on auth failure (AC-AWS-009). |
 
 The AWS SDK is invoked only on the `aws_rds_iam` path; targets using
 password auth never require AWS credentials at runtime.
@@ -231,7 +231,7 @@ metadata). Validation rules:
 | Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-AZURE-003). |
 | TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-AZURE-004 / INV003). |
 | Identity | The managed identity is selected by `azure_client_id` → `AZURE_CLIENT_ID` → the chain default. A missing client id is **not** a startup warning (single / system-assigned identity is the common case); an undiscoverable or ambiguous identity is a connect-time, target-scoped failure (FC-AZURE-005) that does not stop collection for other targets. |
-| DB role | `user` must be a role mapped to the Entra principal via `pgaadauth_create_principal`, and the role name must match the principal's display name. `arqctl` surfaces the exact snippet on auth failure (AC-AZURE-009). |
+| DB role | `user` must be a role mapped to the Entra principal via `pgaadauth_create_principal`, and the role name must match the principal's display name. `signalsctl` surfaces the exact snippet on auth failure (AC-AZURE-009). |
 
 The Azure SDK is invoked only on the `azure_entra` path; targets using
 password auth never require Azure credentials at runtime.
@@ -255,7 +255,7 @@ stored, exported, or logged (only its metadata). Validation rules:
 | Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-GCP-003). |
 | TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-GCP-004 / INV003). |
 | Identity | The minting identity is the ambient ADC identity, or the service account named by `gcp_impersonate_service_account` (which the ADC identity must hold the Token Creator role on). A missing impersonation account is **not** a startup warning (ambient ADC is the common case); an undiscoverable identity or a denied impersonation is a connect-time, target-scoped failure (FC-GCP-005) that does not stop collection for other targets. |
-| DB role | `user` must be a Cloud SQL IAM database user registered via `gcloud sql users create` (the role name is the IAM principal with the trailing domain stripped). `arqctl` surfaces the exact snippet on auth failure (AC-GCP-009). |
+| DB role | `user` must be a Cloud SQL IAM database user registered via `gcloud sql users create` (the role name is the IAM principal with the trailing domain stripped). `signalsctl` surfaces the exact snippet on auth failure (AC-GCP-009). |
 
 The Google SDK is invoked only on the `gcp_cloudsql_iam` path; targets
 using password auth never require Google credentials at runtime.

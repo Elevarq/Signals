@@ -171,7 +171,7 @@ awsRDSIAMProvider implements CredentialProvider:
   reconnect that crosses the refresh skew. Not run in default CI.
 - **AC-AWS-009 (operator guidance)**: when the connection fails because
   the DB role lacks `rds_iam` (or the IAM principal is unmapped),
-  `arqctl` surfaces the exact `GRANT rds_iam TO "<user>"` and the minimal
+  `signalsctl` surfaces the exact `GRANT rds_iam TO "<user>"` and the minimal
   IAM `rds-db:connect` policy snippet for the target. (UX detail may be
   refined alongside #99; the grant/policy text is owned here.)
 

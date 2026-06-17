@@ -77,8 +77,8 @@ the only durable record across restart.
 |---|---|---|
 | `circuit_opened` | Auto: `fail_threshold` consecutive cycle errors on this target | `target`, `from` |
 | `circuit_closed` | Auto: `open_cooldown` elapsed after `circuit_opened` | `target` |
-| `circuit_paused` | Manual: `POST /collect/pause` or `arqctl collect pause` | `target`, `from`, optional `actor`, optional `reason` (≤ 256 chars) |
-| `circuit_resumed` | Manual: `POST /collect/resume` or `arqctl collect resume` | `target`, optional `actor` |
+| `circuit_paused` | Manual: `POST /collect/pause` or `signalsctl collect pause` | `target`, `from`, optional `actor`, optional `reason` (≤ 256 chars) |
+| `circuit_resumed` | Manual: `POST /collect/resume` or `signalsctl collect resume` | `target`, optional `actor` |
 | `circuit_pause_noop` | Operator paused an unknown target (permissive no-op) | `target`, `actor`, `reason_category=unknown_target` |
 | `collection_skipped` | A non-`closed` circuit prevents a cycle from running | `target`, `reason_category` ∈ `{circuit_open, circuit_paused, min_interval_not_elapsed}` |
 

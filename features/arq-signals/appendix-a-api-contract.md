@@ -339,7 +339,7 @@ semantics are:
   this ZIP. `1` for `--snapshot-id` and the typical R084 single-target
   default; `N` for `--all` (size of the daemon's store) or for the
   R084 default across N active targets.
-- **`ingest_mode`** — `"analyze"` for the default `arqctl export`
+- **`ingest_mode`** — `"analyze"` for the default `signalsctl export`
   (R084 scope) and for the most recent snapshot of an R087 backlog
   burst; `"history_only"` for every other snapshot of an R087 burst.
   Indicates how the consuming Analyzer should process this export

@@ -38,7 +38,7 @@ Parameters:
     Default: t3.small
   ImageUri:
     Type: String
-    Default: ghcr.io/elevarq/arq-signals:0.10.0-beta.5
+    Default: ghcr.io/elevarq/signals:0.10.0-beta.5
     Description: Elevarq Signals container image (pinned tag).
   ArqEnv:
     Type: String
@@ -101,9 +101,9 @@ Resources:
             VolumeSize: 20
       Tags:
         - Key: Name
-          Value: arq-signals-collector
+          Value: signals-collector
         - Key: app.kubernetes.io/name
-          Value: arq-signals
+          Value: signals
       UserData:
         Fn::Base64: !Sub |
           #!/bin/bash
@@ -133,7 +133,7 @@ Resources:
               sslmode: verify-full
               sslrootcert_file: /etc/arq/rds-ca.pem
           YAML
-          docker run -d --name arq-signals --restart=always \
+          docker run -d --name signals --restart=always \
             -v /etc/arq:/etc/arq:ro \
             -v arq-data:/data \
             -p 127.0.0.1:8081:8081 \

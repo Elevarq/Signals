@@ -9,7 +9,7 @@ distinguishes **supported** (tested + green in CI), **best-effort**
 (works, monitored by support, no SLA), **unsupported** (known
 gaps), and **planned** (on the roadmap, not yet shipped).
 
-The runtime `arqctl doctor` command (and the `--json` form for
+The runtime `signalsctl doctor` command (and the `--json` form for
 automation) reports compatibility gaps against the live target.
 See [§ Operator preflight](#operator-preflight) below.
 
@@ -82,7 +82,7 @@ Elevarq Signals is designed to run as a **non-superuser** role.
 | AlloyDB | `pg_monitor` plus the AlloyDB-specific read role if present. |
 | Azure Flex | Membership in the `azure_pg_admin_role` group or the dedicated read role. |
 
-The `arqctl doctor` command's `role_safe` check refuses to run
+The `signalsctl doctor` command's `role_safe` check refuses to run
 as superuser by default (override with `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=1`
 for evaluation only).
 
@@ -104,7 +104,7 @@ for evaluation only).
 |---|---|
 | Container image (multi-arch: `linux/amd64`, `linux/arm64`) | **Supported**. Distroless base. Non-root UID 65532. |
 | Docker / Docker Compose | **Supported** for local development. See `examples/docker-compose.yml`. |
-| Kubernetes ≥ 1.27 | **Supported**. Helm chart at `deploy/helm/arq-signals/`. Production profile rules in [`docs/install/kubernetes-production.md`](../install/kubernetes-production.md) (filed by #140). |
+| Kubernetes ≥ 1.27 | **Supported**. Helm chart at `deploy/helm/signals/`. Production profile rules in [`docs/install/kubernetes-production.md`](../install/kubernetes-production.md) (filed by #140). |
 | Kubernetes < 1.27 | **Best-effort**. Chart should render but no CI coverage. |
 | Helm 3 | **Supported**. |
 | Helm 2 | **Unsupported**. |
@@ -120,7 +120,7 @@ for evaluation only).
 
 ## Operator preflight
 
-The `arqctl doctor` command runs read-only checks against the
+The `signalsctl doctor` command runs read-only checks against the
 configured target and reports compatibility gaps in the closed
 check-id schema (`config_valid`, `target_reachable`, `role_safe`,
 `collector_prerequisites`, `snapshot_freshness`, `store_writable`).
@@ -128,13 +128,13 @@ check-id schema (`config_valid`, `target_reachable`, `role_safe`,
 Run before deployment:
 
 ```sh
-arqctl doctor --config config.yaml
+signalsctl doctor --config config.yaml
 ```
 
 JSON output for automation:
 
 ```sh
-arqctl doctor --config config.yaml --json
+signalsctl doctor --config config.yaml --json
 ```
 
 A failing check produces a `status: "fail"` entry with a closed

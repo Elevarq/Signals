@@ -53,7 +53,7 @@ conform to the interface, invariants, and failure taxonomy defined here.
 ### Out of Scope
 - The concrete token-minting logic for each cloud (derived specs
   #94–#96), the vault-fetch logic (#97), and the mTLS wiring (#98).
-- The guided `arqctl connect` UX (#99), IaC templates (#100), and
+- The guided `signalsctl connect` UX (#99), IaC templates (#100), and
   end-user docs (#101) — these consume this abstraction but do not
   define it.
 - Any change to which SQL collectors run or to the read-only enforcement
@@ -344,7 +344,7 @@ credential-providers.md (this spec, DRAFT)
       #97 secret_store  → tests → implementation
       #98 mtls          → tests → implementation
   → consumers (no new behavior defined here):
-      #99 arqctl connect, #100 IaC templates, #101 docs
+      #99 signalsctl connect, #100 IaC templates, #101 docs
 ```
 
 Acceptance cases for RULE001–RULE009 are added to

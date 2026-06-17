@@ -170,7 +170,7 @@ func TestValidateStrict_StrongTokenIsLegalInProd(t *testing.T) {
 func TestValidateStrict_EmptyTokenAllowed(t *testing.T) {
 	cfg := strictBaseConfig(t)
 	cfg.Env = "prod"
-	cfg.API.APIToken = "" // empty → cmd/arq-signals/main.go auto-generates
+	cfg.API.APIToken = "" // empty → cmd/signals/main.go auto-generates
 
 	warns, err := config.ValidateStrict(cfg)
 	if err != nil && strings.Contains(err.Error(), "api.api_token") {

@@ -3,7 +3,7 @@
 ## Build the container
 
 ```bash
-docker build -t arq-signals .
+docker build -t signals .
 ```
 
 With version metadata:
@@ -13,7 +13,7 @@ docker build \
   --build-arg VERSION=0.2.0 \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
   --build-arg DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
-  -t arq-signals:0.2.0 .
+  -t signals:0.2.0 .
 ```
 
 ## Run the collector
@@ -21,7 +21,7 @@ docker build \
 ### Minimal example
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
   -e ARQ_SIGNALS_TARGET_USER=arq_signals \
   -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
@@ -31,23 +31,23 @@ docker run -d --name arq-signals \
   -e ARQ_ENV=dev \
   -v arq-data:/data \
   -p 8081:8081 \
-  arq-signals
+  signals
 ```
 
 ### With a config file
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -v /etc/arq/signals.yaml:/etc/arq/signals.yaml:ro \
   -v arq-data:/data \
   -p 127.0.0.1:8081:8081 \
-  arq-signals --config /etc/arq/signals.yaml
+  signals --config /etc/arq/signals.yaml
 ```
 
 ### Production TLS
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -e ARQ_SIGNALS_TARGET_HOST=db.prod.internal \
   -e ARQ_SIGNALS_TARGET_USER=arq_signals \
   -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
@@ -57,7 +57,7 @@ docker run -d --name arq-signals \
   -v arq-data:/data \
   -v /run/secrets:/run/secrets:ro \
   -p 127.0.0.1:8081:8081 \
-  arq-signals
+  signals
 ```
 
 ## Environment variables
@@ -86,7 +86,7 @@ Key variables:
 - **Init:** tini (PID 1 reaping)
 - **Volumes:** `/data` for SQLite storage
 - **Port:** 8081 (HTTP API)
-- **Binaries:** `arq-signals` (daemon), `arqctl` (CLI)
+- **Binaries:** `signals` (daemon), `signalsctl` (CLI)
 
 ## Triggering collection and export
 
@@ -99,6 +99,6 @@ curl -o snapshot.zip http://localhost:8081/export \
   -H "Authorization: Bearer $ARQ_SIGNALS_API_TOKEN"
 
 # From inside the container
-docker exec arq-signals arqctl collect now
-docker exec arq-signals arqctl export --output /data/snapshot.zip
+docker exec signals signalsctl collect now
+docker exec signals signalsctl export --output /data/snapshot.zip
 ```

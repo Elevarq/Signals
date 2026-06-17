@@ -1,5 +1,5 @@
 // Package conntest implements the classified connection diagnostic
-// surfaced via `arqctl connect test` (R096). It is a thin layer over
+// surfaced via `signalsctl connect test` (R096). It is a thin layer over
 // pgx/pgxpool that maps connection failures into one of nine
 // well-defined categories — operator-actionable strings, not raw
 // driver errors.

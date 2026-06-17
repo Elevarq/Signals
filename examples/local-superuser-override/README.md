@@ -25,7 +25,7 @@ Set the `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE` environment variable:
 ARQ_ALLOW_INSECURE_PG_TLS=true \
 ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true \
 ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
-./bin/arq-signals --config examples/local-superuser-override/signals.yaml
+./bin/signals --config examples/local-superuser-override/signals.yaml
 ```
 
 ## What happens with the override

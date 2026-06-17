@@ -1,6 +1,6 @@
-# arq-signals Helm chart
+# signals Helm chart
 
-Deploys the arq-signals collector. The collector reads a single
+Deploys the signals collector. The collector reads a single
 PostgreSQL target from the mounted `signals.yaml` ConfigMap. Set
 `target.host` to render that target; leave it empty and no target
 block is emitted.
@@ -60,7 +60,7 @@ the web-identity token automatically.
 serviceAccount:
   create: true
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/arq-signals-irsa
+    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/signals-irsa
 
 target:
   host: mydb.abc123.us-east-1.rds.amazonaws.com
@@ -174,7 +174,7 @@ the secret. The backend is inferred from the `secretRef` shape.
 serviceAccount:
   create: true
   annotations:
-    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/arq-signals-vault
+    eks.amazonaws.com/role-arn: arn:aws:iam::<account>:role/signals-vault
 
 target:
   host: db.internal

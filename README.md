@@ -114,9 +114,9 @@ audit the binary. You own the output.
 - Packages snapshots as portable ZIP archives
 - Exposes a local HTTP API for triggering collection, pausing /
   resuming targets, and reloading configuration
-- Provides a CLI (`arqctl`) for operations, including pre-flight
-  diagnostics (`arqctl doctor`) and classified connection-test
-  (`arqctl connect test`)
+- Provides a CLI (`signalsctl`) for operations, including pre-flight
+  diagnostics (`signalsctl doctor`) and classified connection-test
+  (`signalsctl connect test`)
 - Per-target sensitivity profiles, per-class retention, and a
   per-target circuit breaker for operator safety during incidents
 
@@ -249,14 +249,14 @@ Elevarq Signals is local-first by design:
 ## Verifying a release
 
 Releases are published as multi-arch container images at
-`ghcr.io/elevarq/arq-signals` with cosign keyless signatures, an
+`ghcr.io/elevarq/signals` with cosign keyless signatures, an
 SPDX SBOM (OCI attestation **and** downloadable file), and a SLSA
 build provenance attestation (`mode=max`).
 
 Quick signature verification:
 
 ```bash
-cosign verify ghcr.io/elevarq/arq-signals:<VERSION> \
+cosign verify ghcr.io/elevarq/signals:<VERSION> \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
@@ -264,13 +264,13 @@ cosign verify ghcr.io/elevarq/arq-signals:<VERSION> \
 Inspect the SBOM (registry attestation):
 
 ```bash
-cosign download sbom ghcr.io/elevarq/arq-signals:<VERSION> > sbom.spdx.json
+cosign download sbom ghcr.io/elevarq/signals:<VERSION> > sbom.spdx.json
 ```
 
 Confirm the image is multi-arch:
 
 ```bash
-docker buildx imagetools inspect ghcr.io/elevarq/arq-signals:<VERSION>
+docker buildx imagetools inspect ghcr.io/elevarq/signals:<VERSION>
 ```
 
 Full operator checklist (provenance, Trivy re-scan, OCI labels, etc.):
@@ -289,7 +289,7 @@ docker compose -f examples/docker-compose.yml up -d
 ### Docker (bring your own PostgreSQL)
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -e ARQ_SIGNALS_TARGET_HOST=host.docker.internal \
   -e ARQ_SIGNALS_TARGET_USER=arq_monitor \
   -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
@@ -299,7 +299,7 @@ docker run -d --name arq-signals \
   -e ARQ_ENV=dev \
   -v arq-data:/data \
   -p 8081:8081 \
-  ghcr.io/elevarq/arq-signals:latest
+  ghcr.io/elevarq/signals:latest
 ```
 
 ### Build from source
@@ -307,8 +307,8 @@ docker run -d --name arq-signals \
 ```bash
 git clone https://github.com/elevarq/arq-signals.git
 cd arq-signals
-make build    # produces bin/arq-signals and bin/arqctl
-./bin/arq-signals --config signals.yaml
+make build    # produces bin/signals and bin/signalsctl
+./bin/signals --config signals.yaml
 ```
 
 See [`examples/signals.yaml`](examples/signals.yaml) for a complete
@@ -358,7 +358,7 @@ recommended alerting rules.
 
 ```bash
 # Via CLI
-arqctl collect now
+signalsctl collect now
 
 # Via API
 curl -X POST http://localhost:8081/collect/now \
@@ -369,7 +369,7 @@ curl -X POST http://localhost:8081/collect/now \
 
 ```bash
 # Via CLI
-arqctl export --output snapshot.zip
+signalsctl export --output snapshot.zip
 
 # Via API
 curl -o snapshot.zip http://localhost:8081/export \
@@ -381,13 +381,13 @@ curl -o snapshot.zip http://localhost:8081/export \
 ```bash
 # Check config, store path, target reachability, role safety,
 # collector prerequisites, and snapshot freshness in one pass.
-arqctl doctor
+signalsctl doctor
 
 # Test one connection (or an ad-hoc DSN) with classified
 # failure reasons: ok / dns / tcp / tls / auth / startup / role /
 # password_resolve / config.
-arqctl connect test prod-db
-arqctl connect test --dsn "host=db.example.com port=5432 dbname=app user=arq sslmode=require password_env=APP_DB_PW"
+signalsctl connect test prod-db
+signalsctl connect test --dsn "host=db.example.com port=5432 dbname=app user=arq sslmode=require password_env=APP_DB_PW"
 ```
 
 ### Pause / resume a target during an incident
@@ -395,10 +395,10 @@ arqctl connect test --dsn "host=db.example.com port=5432 dbname=app user=arq ssl
 ```bash
 # Stop collecting from a target without taking the daemon down.
 # State is in-memory; daemon restart resumes all targets.
-arqctl collect pause --target=prod-db --reason="investigating incident #4321"
+signalsctl collect pause --target=prod-db --reason="investigating incident #4321"
 
 # Bring it back.
-arqctl collect resume --target=prod-db
+signalsctl collect resume --target=prod-db
 ```
 
 The daemon also auto-pauses (state `open`) a target that fails
@@ -411,7 +411,7 @@ for the full state-machine spec.
 
 ```bash
 # SIGHUP path
-kill -HUP $(pidof arq-signals)
+kill -HUP $(pidof signals)
 
 # HTTP path
 curl -X POST http://localhost:8081/reload \
@@ -426,7 +426,7 @@ retention, and circuit thresholds remain set-at-construction
 ### Check status
 
 ```bash
-arqctl status
+signalsctl status
 ```
 
 ## Snapshot format

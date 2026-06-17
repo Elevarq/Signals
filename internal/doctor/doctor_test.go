@@ -15,7 +15,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// R095 / arqctl doctor — per-check unit tests.
+// R095 / signalsctl doctor — per-check unit tests.
 //
 // Spec:        specifications/doctor.md
 // Acceptance:  specifications/doctor.acceptance.md (TC-DOC-01..06)
@@ -384,7 +384,7 @@ func TestNormalizeCheckSelection_C6NoAutoDependencies(t *testing.T) {
 // --- JSON wire shape (TC-DOC-04) -------------------------------------------
 
 // TestReport_JSONShape verifies the documented JSON contract for
-// `arqctl doctor --json` output: top-level keys present, per-check
+// `signalsctl doctor --json` output: top-level keys present, per-check
 // shape correct, summary triple intact. Pins the wire shape so a
 // renamed MarshalJSON field or accidentally exported `Duration`
 // instead of `duration_ms` would surface immediately.

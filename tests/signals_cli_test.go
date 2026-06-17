@@ -11,40 +11,40 @@ import (
 	"go/token"
 )
 
-// TestCLISubcommandsRegistered verifies that the arqctl main.go registers
+// TestCLISubcommandsRegistered verifies that the signalsctl main.go registers
 // the expected subcommands (version, status, collect, export) by inspecting
-// the AST of cmd/arqctl/main.go for AddCommand calls.
+// the AST of cmd/signalsctl/main.go for AddCommand calls.
 // Traces: ARQ-SIGNALS-R010 / TC-SIG-025
 func TestCLISubcommandsRegistered(t *testing.T) {
 	root := repoRoot(t)
-	mainPath := filepath.Join(root, "cmd", "arqctl", "main.go")
+	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")
 
 	data, err := os.ReadFile(mainPath)
 	if err != nil {
-		t.Fatalf("reading cmd/arqctl/main.go: %v", err)
+		t.Fatalf("reading cmd/signalsctl/main.go: %v", err)
 	}
 	content := string(data)
 
 	// Verify the cobra root command is defined.
 	if !strings.Contains(content, `cobra.Command`) {
-		t.Fatal("cmd/arqctl/main.go does not use cobra.Command")
+		t.Fatal("cmd/signalsctl/main.go does not use cobra.Command")
 	}
 
 	// Verify expected subcommands are added via AddCommand.
 	expected := []string{"versionCmd", "statusCmd", "collectCmd", "exportCmd"}
 	for _, cmd := range expected {
 		if !strings.Contains(content, cmd+"()") {
-			t.Errorf("cmd/arqctl/main.go does not call %s()", cmd)
+			t.Errorf("cmd/signalsctl/main.go does not call %s()", cmd)
 		}
 	}
 }
 
-// TestCLIMainImportsCobra verifies that cmd/arqctl/main.go imports the
+// TestCLIMainImportsCobra verifies that cmd/signalsctl/main.go imports the
 // cobra package.
 // Traces: ARQ-SIGNALS-R010 / TC-SIG-025
 func TestCLIMainImportsCobra(t *testing.T) {
 	root := repoRoot(t)
-	mainPath := filepath.Join(root, "cmd", "arqctl", "main.go")
+	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")
 
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, mainPath, nil, parser.ImportsOnly)
@@ -61,16 +61,16 @@ func TestCLIMainImportsCobra(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Error("cmd/arqctl/main.go does not import cobra")
+		t.Error("cmd/signalsctl/main.go does not import cobra")
 	}
 }
 
-// TestCLIMainDefinesFunctions verifies cmd/arqctl/main.go defines the
+// TestCLIMainDefinesFunctions verifies cmd/signalsctl/main.go defines the
 // expected command builder functions.
 // Traces: ARQ-SIGNALS-R010 / TC-SIG-025
 func TestCLIMainDefinesFunctions(t *testing.T) {
 	root := repoRoot(t)
-	mainPath := filepath.Join(root, "cmd", "arqctl", "main.go")
+	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")
 
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, mainPath, nil, 0)
@@ -97,7 +97,7 @@ func TestCLIMainDefinesFunctions(t *testing.T) {
 
 	for name, found := range expectedFuncs {
 		if !found {
-			t.Errorf("expected function %s() not found in cmd/arqctl/main.go", name)
+			t.Errorf("expected function %s() not found in cmd/signalsctl/main.go", name)
 		}
 	}
 }

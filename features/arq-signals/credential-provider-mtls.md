@@ -185,7 +185,7 @@ mtlsProvider implements CredentialProvider:
   in `pg_hba.conf`, a `pg_ident` map to the role), the collector connects with a
   client certificate and collects at least one snapshot. Not run in default CI.
 - **AC-MTLS-010 (operator guidance)**: when the connection fails because the
-  server does not trust / map the client cert, `arqctl` surfaces the expected
+  server does not trust / map the client cert, `signalsctl` surfaces the expected
   `pg_hba.conf` line (`hostssl ... clientcert=verify-full`) and the
   `pg_ident.conf` mapping note for the target. (UX may be refined alongside #99;
   the snippet text is owned here.)

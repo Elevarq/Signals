@@ -8,8 +8,13 @@ LDFLAGS  = -X github.com/elevarq/arq-signals/internal/safety.Version=$(VERSION) 
            -X github.com/elevarq/arq-signals/internal/safety.BuildDate=$(DATE)
 
 build:
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/elevarq-signals ./cmd/arq-signals
-	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/arqctl ./cmd/arqctl
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/signals ./cmd/signals
+	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/signalsctl ./cmd/signalsctl
+	# Deprecation aliases (#62): the old Arq-branded names resolve to the
+	# same binaries and emit a stderr deprecation warning on use. Removed
+	# one release after launch.
+	ln -sf signals bin/arq-signals
+	ln -sf signalsctl bin/arqctl
 
 test:
 	go test -race -count=1 ./...
@@ -27,4 +32,4 @@ clean:
 	rm -rf bin/
 
 docker-build:
-	docker build -t elevarq-signals:$(VERSION) -f Dockerfile .
+	docker build -t signals:$(VERSION) -f Dockerfile .

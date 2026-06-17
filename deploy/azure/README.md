@@ -29,14 +29,14 @@ full `auth_method` reference.
 
 Apply the module first so the managed identity exists, then map it. The PG
 principal name **must equal the managed identity display name**
-(`<name_prefix>-collector`, default `arq-signals-collector`).
+(`<name_prefix>-collector`, default `signals-collector`).
 
 Run once against the target database, **as an Entra administrator**:
 
 ```sql
 -- name MUST equal the managed identity display name
-SELECT * FROM pgaadauth_create_principal('arq-signals-collector', false, false);
-GRANT pg_monitor TO "arq-signals-collector";   -- least-privilege read-only monitoring
+SELECT * FROM pgaadauth_create_principal('signals-collector', false, false);
+GRANT pg_monitor TO "signals-collector";   -- least-privilege read-only monitoring
 ```
 
 See [`docs/postgres-role.md`](../../docs/postgres-role.md) for the role
@@ -81,9 +81,9 @@ apply/deploy, SSH to the collector VM:
 
 ```bash
 # the collector container should be running and collecting
-docker logs arq-signals 2>&1 | grep -iE "collector|snapshot|connected"
+docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
 # trigger an export to confirm a successful passwordless connection
-docker exec arq-signals arqctl export --output /data/snapshot.zip
+docker exec signals signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
@@ -111,5 +111,5 @@ the server's network rules admit the collector subnet.
 
 If you run the collector on AKS instead of the bundled VM, take the
 `collector_identity_client_id` output and wire it through workload identity —
-see the Helm chart (`deploy/helm/arq-signals/`) and its `azure_entra` /
+see the Helm chart (`deploy/helm/signals/`) and its `azure_entra` /
 AKS-workload-identity snippet (#114).

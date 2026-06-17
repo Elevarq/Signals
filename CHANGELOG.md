@@ -91,6 +91,26 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `BeforeConnect` wiring) that sibling providers reuse. Live behaviour
   covered by an env-gated smoke (`ARQ_SIGNALS_INTEGRATION_LIVE=1`).
 
+### Changed
+
+- **Public binaries renamed to `signals` (daemon) and `signalsctl`
+  (CLI) (#125).** The open-source collector now ships under its own
+  unbranded names so it can stand on its own, independent of the
+  commercial Elevarq products. The container image moves to
+  `ghcr.io/elevarq/signals` (Docker Hub mirror `elevarq/signals`), the
+  Helm chart is renamed to `signals`, and the demo/quickstart surface
+  (Dockerfiles, compose files, Helm install commands, Prometheus/Grafana
+  examples, cloud deploy templates, and user-facing help text) now uses
+  the new names throughout. The old names `arq-signals` and `arqctl` are
+  retained as deprecation aliases: invoking either prints a one-line
+  stderr warning and otherwise behaves identically. The aliases are
+  removed one release after launch (tracked in #62). The Go module path
+  (`github.com/elevarq/arq-signals`), the GitHub repository URL, the
+  `ARQ_SIGNALS_*` environment variables, and the PostgreSQL
+  `application_name = 'arq-signals'` collector identity are intentionally
+  unchanged in this phase (config and integration interfaces, not binary
+  branding).
+
 ## [0.10.0-beta.5] - 2026-06-11
 
 Re-cut of v0.10.0-beta.4: that tag's publish job died at the Docker

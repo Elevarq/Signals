@@ -44,7 +44,7 @@ bug.
 | `arq_monitor` | `monitor_pass` | Least-privilege (LOGIN + `pg_monitor`). Full hypertable/chunk/compression/jobs surface; **zero rows** in `timescaledb_job_errors_v1` — the documented partial-by-design state (`docs/postgres-role.md` § TimescaleDB targets). |
 | `arq_monitor_owner` | `monitor_owner_pass` | Same + membership in `tsdemo_owner` (the demo database-owner role) → sees the failing job's rows in `job_errors`. |
 
-The compose file wires `arq-signals` to `arq_monitor`. To demo the
+The compose file wires `signals` to `arq_monitor`. To demo the
 owner variant, point a second target (or `psql`) at the same database
 as `arq_monitor_owner` and compare `timescaledb_job_errors_v1`.
 

@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"time"
 
@@ -21,9 +22,21 @@ var (
 	apiToken string
 )
 
+// warnIfDeprecatedAlias prints a one-line deprecation notice to stderr
+// when the CLI is invoked under its old Arq-branded name. The alias
+// binary (arqctl) is built from this same package and is removed one
+// release after launch (#62).
+func warnIfDeprecatedAlias() {
+	if filepath.Base(os.Args[0]) == "arqctl" {
+		fmt.Fprintln(os.Stderr, "warning: \"arqctl\" is deprecated and will be removed after launch; use \"signalsctl\" instead")
+	}
+}
+
 func main() {
+	warnIfDeprecatedAlias()
+
 	root := &cobra.Command{
-		Use:   "arqctl",
+		Use:   "signalsctl",
 		Short: "CLI for Elevarq Signals",
 	}
 
@@ -43,7 +56,7 @@ func main() {
 		// (exit 1) via typed sentinels. Anything else falls through
 		// to the generic exit-1 path. Keeps RunE handlers pure —
 		// they return errors instead of calling os.Exit themselves
-		// (see internal/doctor and cmd/arqctl/doctor.go for the
+		// (see internal/doctor and cmd/signalsctl/doctor.go for the
 		// usageError / failError types).
 		switch err.(type) {
 		case usageError:
@@ -61,7 +74,7 @@ func versionCmd() *cobra.Command {
 		Use:   "version",
 		Short: "Print version information",
 		Run: func(cmd *cobra.Command, args []string) {
-			fmt.Printf("arqctl %s (%s) built %s\n", safety.Version, safety.Commit, safety.BuildDate)
+			fmt.Printf("signalsctl %s (%s) built %s\n", safety.Version, safety.Commit, safety.BuildDate)
 		},
 	}
 }
@@ -145,7 +158,7 @@ Spec: features/arq-signals/specification.md (R091, R092).`,
 	return cmd
 }
 
-// collectPauseCmd is `arqctl collect pause` (R097). Sets a target's
+// collectPauseCmd is `signalsctl collect pause` (R097). Sets a target's
 // circuit state to `paused` via the daemon API.
 func collectPauseCmd() *cobra.Command {
 	var target, reason string
@@ -154,7 +167,7 @@ func collectPauseCmd() *cobra.Command {
 		Short: "Pause collection for a target (or all enabled targets when --target is omitted)",
 		Long: `Pause collection for one target or every enabled target.
 
-A paused target stays paused until 'arqctl collect resume' is run.
+A paused target stays paused until 'signalsctl collect resume' is run.
 State is in-memory only — a daemon restart resumes all targets.
 The pause/resume events live in the audit log so the operator trail
 survives the restart.
@@ -189,7 +202,7 @@ Spec: features/arq-signals/specification.md (R097).`,
 	return cmd
 }
 
-// collectResumeCmd is `arqctl collect resume` (R097).
+// collectResumeCmd is `signalsctl collect resume` (R097).
 func collectResumeCmd() *cobra.Command {
 	var target string
 	cmd := &cobra.Command{
@@ -241,7 +254,7 @@ func exportCmd() *cobra.Command {
 		Short: "Export collected data as ZIP",
 		Long: `Export the daemon's collected data as a ZIP archive.
 
-By default ('arqctl export' with no flags), the export contains only the
+By default ('signalsctl export' with no flags), the export contains only the
 LATEST completed snapshot per active target — one snapshot per target,
 not the daemon's accumulated history. This is the unit downstream
 consumers (Elevarq Analyzer, third-party integrations) ingest as a single
@@ -297,7 +310,7 @@ Spec: features/arq-signals/specification.md (R084..R086).`,
 			}
 
 			if output == "" {
-				output = fmt.Sprintf("arq-export-%s.zip", time.Now().UTC().Format("20060102-150405"))
+				output = fmt.Sprintf("signals-export-%s.zip", time.Now().UTC().Format("20060102-150405"))
 			}
 
 			f, err := os.Create(output)
@@ -316,7 +329,7 @@ Spec: features/arq-signals/specification.md (R084..R086).`,
 		},
 	}
 
-	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path (default: arq-export-<timestamp>.zip)")
+	cmd.Flags().StringVarP(&output, "output", "o", "", "output file path (default: signals-export-<timestamp>.zip)")
 	cmd.Flags().BoolVar(&all, "all", false, "include every snapshot in local storage (forensic full-history)")
 	cmd.Flags().StringVar(&snapshotID, "snapshot-id", "", "include exactly one snapshot by id")
 	cmd.Flags().StringVar(&since, "since", "", "include snapshots collected at or after this RFC3339 timestamp")

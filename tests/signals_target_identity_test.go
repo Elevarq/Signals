@@ -414,7 +414,7 @@ func TestStatusAndDefaultExportAgreeOnTargetCount(t *testing.T) {
 		exportCount := len(seen)
 
 		if exportCount != statusCount {
-			t.Errorf("INV-SIGNALS-14 violation: arqctl-status target count = %d, default-export distinct target_ids = %d",
+			t.Errorf("INV-SIGNALS-14 violation: signalsctl-status target count = %d, default-export distinct target_ids = %d",
 				statusCount, exportCount)
 		}
 		return

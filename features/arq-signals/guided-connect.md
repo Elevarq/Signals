@@ -1,4 +1,4 @@
-# Feature Specification: Guided onboarding — `arqctl connect --auto`
+# Feature Specification: Guided onboarding — `signalsctl connect --auto`
 
 - **Spec ID prefix:** `ARQ-SIGNALS-CONNECT-`
 - **Lifecycle status:** `ACTIVE`
@@ -12,7 +12,7 @@
 ## Purpose
 
 Deliver the "click-click-click & done" onboarding experience: a single
-`arqctl connect --auto` command that takes an operator from *nothing
+`signalsctl connect --auto` command that takes an operator from *nothing
 configured* to either a **verified, least-privilege, passwordless connection**
 or an **actionable, copy-pasteable fix**. It auto-detects the cloud and ambient
 identity, selects the right `auth_method`, resolves the credential, runs the
@@ -29,7 +29,7 @@ guidance.
 ## Scope
 
 ### In scope
-- A `connect --auto` subcommand of `arqctl`.
+- A `connect --auto` subcommand of `signalsctl`.
 - Auto-detection of the cloud platform + ambient identity and the resulting
   `auth_method` proposal.
 - Orchestration of: select method → resolve credential → connection diagnostic

@@ -211,7 +211,7 @@ run_kube_lint() {
   rendered="$(mktemp)"
   # shellcheck disable=SC2064
   trap "rm -f '${rendered}'" RETURN
-  if ! helm template deploy/helm/arq-signals > "${rendered}"; then
+  if ! helm template deploy/helm/signals > "${rendered}"; then
     log_fail "kube-lint: helm template"
     return 1
   fi

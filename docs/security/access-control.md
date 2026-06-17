@@ -60,7 +60,7 @@ via `subtle.ConstantTimeCompare` (timing-attack-resistant).
 
 - **Token fingerprint (12 chars of SHA-256)** on auto-generation
   so operators can verify rotation across restarts.
-  Implementation: `cmd/arq-signals/main.go::generated-token logging`.
+  Implementation: `cmd/signals/main.go::generated-token logging`.
 - **Validation rejections** in `env=prod` cause a hard startup
   failure with the closed reason string and no token bytes.
 - **Validation warnings** in `env=dev`/`lab` log the same closed
@@ -78,12 +78,12 @@ What never gets logged:
 
 ## Helm deployment
 
-The chart at `deploy/helm/arq-signals/` consumes the token from
+The chart at `deploy/helm/signals/` consumes the token from
 a Kubernetes `Secret`:
 
 ```yaml
 api:
-  tokenSecretName: arq-signals-api      # required for production
+  tokenSecretName: signals-api      # required for production
   tokenSecretKey: token                  # defaults to "token"
 ```
 
@@ -91,15 +91,15 @@ Generation + rotation:
 
 ```sh
 # First-time provision:
-kubectl create secret generic arq-signals-api \
+kubectl create secret generic signals-api \
   --from-literal=token="$(openssl rand -base64 32)"
 
 # Rotate (kubectl creates a new generation; pods reload via
 # regular deployment restart):
-kubectl create secret generic arq-signals-api \
+kubectl create secret generic signals-api \
   --from-literal=token="$(openssl rand -base64 32)" \
   --dry-run=client -o yaml | kubectl apply -f -
-kubectl rollout restart deployment/arq-signals
+kubectl rollout restart deployment/signals
 ```
 
 The deployment template injects the token as

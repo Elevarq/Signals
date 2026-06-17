@@ -14,7 +14,7 @@
 #   - Grafana:          http://localhost:3000  (admin / admin)
 
 services:
-  arq-signals:
+  signals:
     build:
       context: ../..
       dockerfile: Dockerfile
@@ -64,10 +64,10 @@ services:
       - "9090:9090"
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/arq-signals-token:/etc/prometheus/secrets/arq-signals-token:ro
+      - ./prometheus/signals-token:/etc/prometheus/secrets/signals-token:ro
       - prometheus-data:/prometheus
     depends_on:
-      - arq-signals
+      - signals
 
   grafana:
     image: grafana/grafana:11.4.0

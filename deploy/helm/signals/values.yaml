@@ -1,7 +1,7 @@
 # Elevarq Signals Helm chart values
 
 image:
-  repository: ghcr.io/elevarq/arq-signals
+  repository: ghcr.io/elevarq/signals
   tag: "0.10.0-beta.5"
   pullPolicy: IfNotPresent
 
@@ -23,7 +23,7 @@ target:
   # do NOT set passwordSecretName with them (FC005) — and require
   # sslmode: verify-full in every environment (FC006). The collector's
   # ambient cloud identity (IRSA / Pod Identity / Workload Identity)
-  # mints the credential; see deploy/helm/arq-signals/README.md for
+  # mints the credential; see deploy/helm/signals/README.md for
   # per-platform values snippets.
   authMethod: ""     # "" | aws_rds_iam | azure_entra | gcp_cloudsql_iam | secret_store
   region: ""         # aws_rds_iam: optional (also read from AWS_REGION / IMDS)
@@ -66,7 +66,7 @@ api:
   #
   # Token strength (#135): tokens must be at least 32 characters
   # AND carry >= 8 distinct characters. Generate one with:
-  #   kubectl create secret generic arq-signals-api \
+  #   kubectl create secret generic signals-api \
   #     --from-literal=token="$(openssl rand -base64 32)"
   tokenSecretName: ""        # Required for production deployments
   tokenSecretKey: token      # Defaults to `token`
