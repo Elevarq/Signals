@@ -257,7 +257,7 @@ Quick signature verification:
 
 ```bash
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
-  --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
 
