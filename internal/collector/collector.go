@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -1254,16 +1255,30 @@ func (c *Collector) getPool(ctx context.Context, tgt config.TargetConfig) (*pgxp
 
 	// Re-resolve the credential on each new connection: password targets
 	// re-read their secret to support rotation; aws_rds_iam targets mint
-	// or reuse a cached, short-lived IAM token (#93/#94). The resolver
-	// dispatches on auth_method; the resolved value is the connection
-	// password in both cases.
+	// or reuse a cached, short-lived IAM token (#93/#94); mtls targets
+	// re-read the client cert/key so a rotated cert is picked up without a
+	// restart (#98). The resolver dispatches on auth_method; the resolved
+	// value is applied as a password or a TLS client certificate per Kind.
 	poolCfg.BeforeConnect = func(ctx context.Context, cfg *pgx.ConnConfig) error {
 		cred, err := c.credResolver.Resolve(ctx, tgt)
 		if err != nil {
 			slog.Error("failed to resolve credential for target", "target", tgt.Name, "auth_method", tgt.EffectiveAuthMethod(), "err", redactError(err))
 			return fmt.Errorf("resolve credential: %w", redactError(err))
 		}
-		cfg.Password = cred.Password
+		switch cred.Kind {
+		case CredKindCertificate:
+			// mtls (#98): present the client certificate during the TLS
+			// handshake. verify-full is enforced at config validation, so
+			// pgx has built a TLSConfig we extend (never replace).
+			if cfg.TLSConfig == nil {
+				return fmt.Errorf("mtls target %s: connection has no TLS config (sslmode must be verify-full)", tgt.Name)
+			}
+			if cred.ClientCert != nil {
+				cfg.TLSConfig.Certificates = []tls.Certificate{*cred.ClientCert}
+			}
+		default:
+			cfg.Password = cred.Password
+		}
 		return nil
 	}
 

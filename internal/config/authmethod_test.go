@@ -144,12 +144,12 @@ func TestValidateWarnsButDoesNotFailOnMissingAWSRegion(t *testing.T) {
 // hard error that names the supported set.
 func TestValidateRejectsUnsupportedAuthMethod(t *testing.T) {
 	tgt := baseValidTarget()
-	tgt.AuthMethod = "mtls" // known in keystone (#98), not implemented in this build
+	tgt.AuthMethod = "kerberos" // not a recognised auth_method in any build
 	_, err := ValidateStrict(baseValidConfig(tgt))
 	if err == nil {
 		t.Fatalf("expected hard error for unsupported auth_method, got nil")
 	}
-	if !strings.Contains(err.Error(), "mtls") || !strings.Contains(err.Error(), AuthMethodAWSRDSIAM) {
+	if !strings.Contains(err.Error(), "kerberos") || !strings.Contains(err.Error(), AuthMethodAWSRDSIAM) {
 		t.Errorf("error should name the bad method and the supported set; got: %v", err)
 	}
 }
