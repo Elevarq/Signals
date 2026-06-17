@@ -8,7 +8,7 @@ If you find a vulnerability in Elevarq Signals, please report it privately.
 Do **not** open a public GitHub issue.
 
 **Preferred channel — GitHub Private Vulnerability Reporting:**
-[github.com/Elevarq/Arq-Signals/security/advisories/new](https://github.com/Elevarq/Arq-Signals/security/advisories/new).
+[github.com/Elevarq/signals/security/advisories/new](https://github.com/Elevarq/signals/security/advisories/new).
 The thread is end-to-end encrypted to the project maintainers, and we
 can collaborate on a fix and a coordinated disclosure inside the
 advisory.

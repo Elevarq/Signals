@@ -1,5 +1,5 @@
 blank_issues_enabled: false
 contact_links:
   - name: Estimation guide
-    url: https://github.com/Elevarq/Arq-Signals/blob/main/docs/ESTIMATION.md
+    url: https://github.com/Elevarq/signals/blob/main/docs/ESTIMATION.md
     about: How we use Effort, Estimated Hours, and Actual Hours.
