@@ -128,7 +128,7 @@ FROM generate_series(date_trunc('day', now()) - interval '30 days',
 -- demo_failing_job: a user-defined action that fails on every run,
 -- so timescaledb_job_stats_v1 shows total_failures > 0 and
 -- timescaledb_information.job_errors accumulates rows (visible to
--- arq_monitor_owner; arq_monitor correctly sees none).
+-- signals_monitor_owner; signals correctly sees none).
 -- ---------------------------------------------------------------
 CREATE PROCEDURE demo_failing_job(job_id int, config jsonb)
 LANGUAGE plpgsql AS

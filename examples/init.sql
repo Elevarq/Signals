@@ -2,11 +2,11 @@
 -- This script runs automatically when PostgreSQL starts for the first time.
 
 -- Create the monitoring role with login but no superuser privileges
-CREATE ROLE arq_monitor WITH LOGIN PASSWORD 'monitor_pass';
+CREATE ROLE signals WITH LOGIN PASSWORD 'monitor_pass';
 
 -- Grant access to PostgreSQL statistics views
 -- pg_monitor is available in PostgreSQL 10+
-GRANT pg_monitor TO arq_monitor;
+GRANT pg_monitor TO signals;
 
 -- Enable query-level statistics (optional but recommended)
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;

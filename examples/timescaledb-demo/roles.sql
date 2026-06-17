@@ -13,26 +13,26 @@
 --                      a NOLOGIN role ("permission denied to start
 --                      background process"). The password exists only
 --                      to satisfy LOGIN; nothing connects with it.
---   arq_monitor        Least-privilege collector role: LOGIN +
+--   signals        Least-privilege collector role: LOGIN +
 --                      pg_monitor. Sees the full hypertable / chunk /
 --                      compression / jobs / job_stats surface, and
 --                      ZERO rows in timescaledb_information.job_errors
 --                      — the documented partial-by-design state.
---   arq_monitor_owner  Same, plus membership in tsdemo_owner (the
+--   signals_monitor_owner  Same, plus membership in tsdemo_owner (the
 --                      database-owner role), which is what unlocks
 --                      job_errors row visibility.
 
 CREATE ROLE tsdemo_owner LOGIN PASSWORD 'tsdemo_owner_pass'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
 
-CREATE ROLE arq_monitor LOGIN PASSWORD 'monitor_pass'
+CREATE ROLE signals LOGIN PASSWORD 'monitor_pass'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT pg_monitor TO arq_monitor;
+GRANT pg_monitor TO signals;
 
-CREATE ROLE arq_monitor_owner LOGIN PASSWORD 'monitor_owner_pass'
+CREATE ROLE signals_monitor_owner LOGIN PASSWORD 'monitor_owner_pass'
     NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICATION NOBYPASSRLS;
-GRANT pg_monitor TO arq_monitor_owner;
-GRANT tsdemo_owner TO arq_monitor_owner;
+GRANT pg_monitor TO signals_monitor_owner;
+GRANT tsdemo_owner TO signals_monitor_owner;
 
 -- The demo database. The timescale image installs the extension into
 -- template1, so tsdemo inherits it; the explicit CREATE EXTENSION in

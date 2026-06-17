@@ -1,6 +1,6 @@
 # Elevarq Signals — safe monitoring role example
 #
-# This config uses a dedicated arq_signals role with pg_monitor.
+# This config uses a dedicated signals role with pg_monitor.
 # No unsafe override is needed.
 
 env: dev
@@ -17,7 +17,7 @@ targets:
     host: localhost
     port: 5432
     dbname: postgres
-    user: arq_signals
+    user: signals
     sslmode: prefer
     enabled: true
     # For password auth, use one of:
