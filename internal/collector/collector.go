@@ -865,7 +865,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	// Register/update target in DB — store only non-secret metadata.
 	targetID, err := c.db.UpsertTarget(
 		tgt.Name, tgt.Host, tgt.Port, tgt.DBName, tgt.User,
-		tgt.SSLMode, tgt.SecretType(), tgt.SecretRef(), tgt.Enabled,
+		tgt.SSLMode, tgt.SecretType(), tgt.CredentialSourceRef(), tgt.Enabled,
 	)
 	if err != nil {
 		return fmt.Errorf("upsert target %s: %w", tgt.Name, err)
