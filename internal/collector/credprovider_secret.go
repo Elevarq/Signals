@@ -23,10 +23,11 @@ type secretFetcher interface {
 
 // errSecretBackendUnavailable marks a backend that is recognised by the
 // reference shape (so it passes startup validation, per the spec) but whose
-// production SDK wiring is not built into this release. #97 ships the AWS
-// Secrets Manager path production-grade; the Azure Key Vault and GCP Secret
-// Manager fetchers are tracked as follow-ups. The error is surfaced verbatim
-// (not redacted) because it carries no secret material.
+// production SDK wiring is absent from the fetcher it was handed. All three
+// backends are wired in the production construction (#97 AWS, #108 Azure Key
+// Vault + GCP Secret Manager); this is a defensive guard for a
+// partially-constructed fetcher. The error is surfaced verbatim (not
+// redacted) because it carries no secret material.
 var errSecretBackendUnavailable = errors.New("secret_store backend is not available in this build")
 
 // resolveSecretStore fetches the target's database password from the cloud
@@ -216,9 +217,11 @@ Grant the collector's workload identity the read permission for the backend:
 
 // productionSecretFetcher routes a fetch to the SDK for the inferred
 // backend, guaranteeing only that backend's SDK is invoked for a given
-// target (INV005 backend isolation). The AWS Secrets Manager path is
-// production-grade (#97); the Azure and GCP fetchers are deferred behind the
-// same interface and report errSecretBackendUnavailable until wired.
+// target (INV005 backend isolation). All three backends — AWS Secrets
+// Manager (#97), Azure Key Vault and GCP Secret Manager (#108) — are
+// production-wired. The nil guards remain as a defensive seam so a
+// partially-constructed fetcher reports errSecretBackendUnavailable rather
+// than panicking; they are not reached with the production construction.
 type productionSecretFetcher struct {
 	aws   secretFetcher
 	azure secretFetcher
@@ -234,12 +237,12 @@ func (f productionSecretFetcher) Fetch(ctx context.Context, ref config.ParsedSec
 		return f.aws.Fetch(ctx, ref)
 	case config.SecretBackendAzureKeyVault:
 		if f.azure == nil {
-			return "", 0, fmt.Errorf("%w: %s (the AWS Secrets Manager backend is supported in this release)", errSecretBackendUnavailable, ref.Backend)
+			return "", 0, fmt.Errorf("%w: %s", errSecretBackendUnavailable, ref.Backend)
 		}
 		return f.azure.Fetch(ctx, ref)
 	case config.SecretBackendGCPSecretManager:
 		if f.gcp == nil {
-			return "", 0, fmt.Errorf("%w: %s (the AWS Secrets Manager backend is supported in this release)", errSecretBackendUnavailable, ref.Backend)
+			return "", 0, fmt.Errorf("%w: %s", errSecretBackendUnavailable, ref.Backend)
 		}
 		return f.gcp.Fetch(ctx, ref)
 	default:
