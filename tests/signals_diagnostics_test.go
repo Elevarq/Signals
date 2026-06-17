@@ -182,9 +182,9 @@ func containsCI(s, substr string) bool {
 }
 
 // TestSnapshotIdentityFieldsPresent verifies that the snapshot
-// contract includes the fields required by the Arq Analyzer for
+// contract includes the fields required by the Elevarq Analyzer for
 // database key derivation.
-// Spec: Arq specifications/arq-analyzer-v0.1/snapshot-identity.md
+// Spec: Elevarq specifications/arq-analyzer-v0.1/snapshot-identity.md
 func TestSnapshotIdentityFieldsPresent(t *testing.T) {
 	// metadata.json must include instance_id
 	q := pgqueries.ByID("server_identity_v1")
@@ -194,7 +194,7 @@ func TestSnapshotIdentityFieldsPresent(t *testing.T) {
 
 	sql := strings.ToLower(q.SQL)
 	if !strings.Contains(sql, "database_name") {
-		t.Error("server_identity_v1 must include database_name for Arq Analyzer compliance")
+		t.Error("server_identity_v1 must include database_name for Elevarq Analyzer compliance")
 	}
 }
 

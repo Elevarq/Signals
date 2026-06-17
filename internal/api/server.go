@@ -49,7 +49,7 @@ type Deps struct {
 	// MetricsPath is the URL path the /metrics endpoint is mounted on.
 	// Ignored when Metrics is nil.
 	MetricsPath string
-	// ArqControlPlaneTokenFn returns the current Arq control-plane
+	// ArqControlPlaneTokenFn returns the current Elevarq control-plane
 	// bearer token (R083), or empty string when control-plane auth
 	// is disabled. The closure is invoked once per authenticated
 	// request so token-file rotation takes effect on the next call
@@ -66,7 +66,7 @@ type Deps struct {
 	TLSKeyFile  string
 }
 
-// Server is the Arq Signals HTTP API server.
+// Server is the Elevarq Signals HTTP API server.
 type Server struct {
 	httpServer  *http.Server
 	deps        *Deps
@@ -886,7 +886,7 @@ func actorFromCtx(ctx context.Context) string {
 // except /health.
 //
 // R083: in addition to the local API token, the supplied bearer is
-// compared (in constant time) to the Arq control-plane token when
+// compared (in constant time) to the Elevarq control-plane token when
 // `controlPlaneTokenFn` is non-nil and returns a non-empty value.
 // The matched token determines the audit `actor` attached to the
 // request context — never inferred from request shape. The

@@ -4,7 +4,7 @@
 
 Constraint inventory for all user-schema constraints. Emits one row
 per constrained column, enabling multi-column constraint analysis.
-Primary consumer: the Arq first-impression missing-FK-index detector.
+Primary consumer: the Elevarq Analyzer first-impression missing-FK-index detector.
 
 ## Catalog source
 

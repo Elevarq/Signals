@@ -1,7 +1,7 @@
 # Runtime Safety Model
 
 ## Overview
-Arq Signals enforces a fail-closed safety model. Before collecting diagnostic data from a PostgreSQL target, the system validates that the connection meets strict safety requirements. If validation fails, collection is blocked.
+Elevarq Signals enforces a fail-closed safety model. Before collecting diagnostic data from a PostgreSQL target, the system validates that the connection meets strict safety requirements. If validation fails, collection is blocked.
 
 ## Safety Layers
 
@@ -9,7 +9,7 @@ Arq Signals enforces a fail-closed safety model. Before collecting diagnostic da
 Every SQL collector query is validated at process startup. Queries containing DDL (CREATE, ALTER, DROP), DML (INSERT, UPDATE, DELETE), or dangerous functions (pg_terminate_backend, pg_sleep) cause the process to abort immediately. No collector query can be registered without passing the linter.
 
 ### Layer 2: Role Attribute Validation (per-target)
-Before each collection cycle, Arq Signals queries pg_roles for the connected role's attributes. The following attributes are hard blockers:
+Before each collection cycle, Elevarq Signals queries pg_roles for the connected role's attributes. The following attributes are hard blockers:
 - rolsuper=true -- Superuser roles have unrestricted access. Collection requires a least-privilege role.
 - rolreplication=true -- Replication roles can read WAL streams. Not needed for diagnostic collection.
 - rolbypassrls=true -- Bypass Row Level Security is unnecessary and reduces isolation.
@@ -66,7 +66,7 @@ GRANT pg_monitor TO arq_monitor;
 The `/status` endpoint exposes connection metadata (host, port, user, sslmode) but does **not** expose `secret_type` or `secret_ref`. This means the API response does not reveal whether credentials come from a file, environment variable, or pgpass, nor does it reveal the path or variable name used to source them. This minimizes information leakage about the credential management strategy.
 
 ## Error Messages
-When safety validation fails, Arq Signals provides actionable error messages that include:
+When safety validation fails, Elevarq Signals provides actionable error messages that include:
 - Which check failed (e.g., "role has superuser attribute")
 - The attribute value detected
 - Remediation guidance (CREATE ROLE + GRANT pg_monitor)

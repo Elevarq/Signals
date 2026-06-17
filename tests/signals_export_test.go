@@ -116,7 +116,7 @@ func TestExportMetadataInstanceID(t *testing.T) {
 }
 
 // TestExportZIPContainsRequiredFiles verifies the ZIP contains the required files for
-// the Arq Signals export format.
+// the Elevarq Signals export format.
 // Traces: ARQ-SIGNALS-R006 / TC-SIG-009
 func TestExportZIPContainsRequiredFiles(t *testing.T) {
 	store := openTestDB(t)

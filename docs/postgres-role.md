@@ -1,6 +1,6 @@
-# PostgreSQL role for Arq Signals
+# PostgreSQL role for Elevarq Signals
 
-Arq Signals connects to monitored PostgreSQL targets with a single role
+Elevarq Signals connects to monitored PostgreSQL targets with a single role
 per target. This document describes the **least-privilege** role
 recommended for production and the additional privileges required when
 the high-sensitivity collectors (R075) are enabled.
@@ -44,7 +44,7 @@ the read-only monitoring sub-roles:
 
 This grant is **read-only**. It does not allow `INSERT`, `UPDATE`,
 `DELETE`, `CREATE`, schema changes, replication, or row-security
-bypass. Combined with the runtime safety check that Arq Signals
+bypass. Combined with the runtime safety check that Elevarq Signals
 performs on every connection (R005), the role cannot mutate data even
 if a query in the catalog were maliciously rewritten.
 
@@ -63,7 +63,7 @@ schema descriptions.
 
 ### Connection posture enforced by the daemon
 
-Even with `pg_monitor`, Arq Signals applies belt-and-suspenders at
+Even with `pg_monitor`, Elevarq Signals applies belt-and-suspenders at
 runtime on every connection:
 
 - `SET LOCAL default_transaction_read_only = on`
@@ -174,7 +174,7 @@ LOGIN role can read the full hypertable/chunk/compression/job
 metadata surface.
 
 The single exception is `timescaledb_information.job_errors` (and
-`job_history`, which Arq Signals does not collect): these are
+`job_history`, which Elevarq Signals does not collect): these are
 security-barrier views that show a row only when the connecting role
 is a member of the **job owner's** role or the **database owner's**
 role. With the standard `arq_signals` role,
@@ -230,7 +230,7 @@ The next three demonstrate that the role cannot mutate state.
 
 ## Rotation
 
-Arq Signals re-resolves the password on every new pool connection
+Elevarq Signals re-resolves the password on every new pool connection
 (see `BeforeConnect` in the collector). Rotate the password by
 updating the secret store; the next connection picks up the new
 value. The daemon does not need to be restarted.

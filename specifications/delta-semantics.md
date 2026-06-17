@@ -32,7 +32,7 @@ where the delta is computed.
 - Makes the snapshot self-describing: any downstream consumer can
   reconstruct rates without trusting Signals' internal bookkeeping.
 - Preserves the separation-of-concerns principle: Signals collects,
-  Arq analyzes.
+  Elevarq Analyzer analyzes.
 
 ## Requirements
 

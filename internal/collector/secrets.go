@@ -15,7 +15,7 @@ import (
 )
 
 // AppName is the single source of truth for the PostgreSQL
-// `application_name` runtime parameter set by every connection Arq
+// `application_name` runtime parameter set by every connection Elevarq
 // Signals opens. The same value is referenced by the
 // pg_stat_statements_v1 self-filter so the collector's own probe
 // queries do not appear in customer workload analysis (R106).

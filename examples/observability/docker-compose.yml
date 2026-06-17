@@ -1,4 +1,4 @@
-# Local-only Prometheus + Grafana stack for Arq Signal /metrics.
+# Local-only Prometheus + Grafana stack for Elevarq Signal /metrics.
 #
 # This is a developer convenience for kicking the tyres on the
 # operational metrics endpoint described in docs/prometheus.md. It is
@@ -9,7 +9,7 @@
 #   docker compose -f examples/observability/docker-compose.yml up
 #
 # Then browse:
-#   - Arq Signals API:  http://localhost:8081  (bearer: dev-local-only-replace-in-prod-32chars)
+#   - Elevarq Signals API:  http://localhost:8081  (bearer: dev-local-only-replace-in-prod-32chars)
 #   - Prometheus:       http://localhost:9090
 #   - Grafana:          http://localhost:3000  (admin / admin)
 

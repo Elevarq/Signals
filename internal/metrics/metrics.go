@@ -9,7 +9,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 )
 
-// Registry is the dedicated Prometheus registry for Arq Signals
+// Registry is the dedicated Prometheus registry for Elevarq Signals
 // operational metrics. The /metrics endpoint serves from this registry
 // only — it never exports the process, Go runtime, or default
 // collectors. Operators monitoring the daemon process itself can do

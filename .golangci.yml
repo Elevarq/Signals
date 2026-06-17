@@ -1,4 +1,4 @@
-# golangci-lint configuration for Arq Signals.
+# golangci-lint configuration for Elevarq Signals.
 #
 # Pinned by issue #173. The baseline is golangci-lint's default
 # linter set; this file's job is to (a) document the carve-outs we

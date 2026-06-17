@@ -146,7 +146,7 @@ useful remains after redacting the blob).
 must either own the underlying tables (so `pg_statistic_ext_data`
 returns rows for them) or be a superuser. Operators who want
 broad coverage and are not running as superuser should grant
-ownership of the relevant tables to the Arq-Signals role, OR
+ownership of the relevant tables to the Elevarq Signals role, OR
 accept the privilege-degraded path (per-object availability rows
 with `available=false`).
 

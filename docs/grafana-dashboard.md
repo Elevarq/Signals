@@ -1,26 +1,26 @@
-# Grafana dashboard for Arq Signal operational health
+# Grafana dashboard for Elevarq Signal operational health
 
 This document accompanies the local-only example stack at
-`examples/observability/`. The stack runs Arq Signal, a PostgreSQL
+`examples/observability/`. The stack runs Elevarq Signal, a PostgreSQL
 target, Prometheus, and Grafana side-by-side and pre-loads a
-dashboard that surfaces Arq Signal's `/metrics` data.
+dashboard that surfaces Elevarq Signal's `/metrics` data.
 
 ## What this dashboard is — and isn't
 
-This dashboard monitors **the Arq Signal daemon's operational
+This dashboard monitors **the Elevarq Signal daemon's operational
 health**. It tells you whether collection cycles are running, how
 long they take, whether the SQLite store is healthy, and whether
 exports are succeeding.
 
 **It does not monitor PostgreSQL itself.** The collected PostgreSQL
-diagnostic data lives in Arq Signal's local SQLite store and the
-exported snapshot ZIP — not in Prometheus. Arq Signal deliberately
+diagnostic data lives in Elevarq Signal's local SQLite store and the
+exported snapshot ZIP — not in Prometheus. Elevarq Signal deliberately
 does not push collected metrics into Prometheus (see
 [`docs/prometheus.md`](./prometheus.md) for the scope statement and
 the list of things `/metrics` does not emit).
 
 If you want PostgreSQL-side metrics in Grafana, run a separate
-exporter such as `postgres_exporter`. Arq Signal and that exporter
+exporter such as `postgres_exporter`. Elevarq Signal and that exporter
 have different jobs.
 
 ## Scope
@@ -29,7 +29,7 @@ have different jobs.
   hard-coded credentials (`dev-local-only-replace-in-prod-32chars`, `admin/admin`), exposes
   Grafana on `0.0.0.0:3000`, and runs Prometheus without TLS or
   retention tuning. Do not adapt this verbatim for production.
-- **No code changes to Arq Signal** are required to use this stack —
+- **No code changes to Elevarq Signal** are required to use this stack —
   it consumes the existing `/metrics` endpoint described in
   [`docs/prometheus.md`](./prometheus.md).
 - **No production claims.** This is a starting point you can iterate
@@ -45,12 +45,12 @@ range for `8081`, `9090`, and `3000`.
 docker compose -f examples/observability/docker-compose.yml up --build
 ```
 
-The first run builds the Arq Signal image and pulls Prometheus +
+The first run builds the Elevarq Signal image and pulls Prometheus +
 Grafana + PostgreSQL. Once everything is up:
 
 | Service       | URL                       | Credentials               |
 |---------------|---------------------------|---------------------------|
-| Arq Signal    | http://localhost:8081     | bearer `dev-local-only-replace-in-prod-32chars`        |
+| Elevarq Signal    | http://localhost:8081     | bearer `dev-local-only-replace-in-prod-32chars`        |
 | Prometheus    | http://localhost:9090     | none (local, dev-only)    |
 | Grafana       | http://localhost:3000     | `admin` / `admin`         |
 
@@ -68,7 +68,7 @@ Useful sanity checks:
 - Raw metrics:         `curl -s -H "Authorization: Bearer dev-local-only-replace-in-prod-32chars" \
                         http://localhost:8081/metrics | head -30`
 - Dashboard URL:       http://localhost:3000/dashboards →
-  *Arq Signal / Arq Signal Operational Health*
+  *Elevarq Signal / Elevarq Signal Operational Health*
 
 Tear down (volumes preserved):
 
@@ -108,7 +108,7 @@ full at the API handler, or cycle overlap detected in the collector
 goroutine) are emitted as the audit event
 `audit_event=collect_now_dropped` with `reason_category=previous_request_pending`
 or `cycle_overlap_skipped`. **There is no Prometheus counter for
-this signal in the current Arq Signal build.**
+this signal in the current Elevarq Signal build.**
 
 The dashboard surfaces this gap as a Markdown panel rather than
 inventing a panel that would always read zero. Operators who need a
@@ -119,7 +119,7 @@ metric for drop rate can:
   rule, or `mtail`); or
 - file a request to add a counter such as
   `arq_signal_collect_now_dropped_total{reason_category}` to the
-  Arq Signal metrics package — the audit-event values map cleanly
+  Elevarq Signal metrics package — the audit-event values map cleanly
   onto a bounded label set.
 
 ## Updating the dashboard
@@ -135,7 +135,7 @@ file every 30 seconds, so a restart is usually not required.)
 
 ## Bearer token in the scrape config
 
-Prometheus authenticates to Arq Signal using the standard
+Prometheus authenticates to Elevarq Signal using the standard
 `authorization` block with `credentials_file:` pointing at
 `/etc/prometheus/secrets/arq-signals-token`. The token file is
 mounted from `prometheus/arq-signals-token` and is `dev-local-only-replace-in-prod-32chars` in
@@ -145,8 +145,8 @@ For real deployments, see the production guidance in
 [`docs/prometheus.md`](./prometheus.md):
 
 - Mount the token file at mode `0600`, owned by the Prometheus user.
-- Bind the Arq Signal listener to an internal network — never to a
+- Bind the Elevarq Signal listener to an internal network — never to a
   public address.
 - Rotate the token via the file source so neither side has to be
-  restarted (Arq Signal re-reads the API token on every request when
+  restarted (Elevarq Signal re-reads the API token on every request when
   configured via `ARQ_SIGNALS_API_TOKEN_FILE`).

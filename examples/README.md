@@ -1,4 +1,4 @@
-# Arq Signals — Examples
+# Elevarq Signals — Examples
 
 Deployment templates and reference configurations.
 

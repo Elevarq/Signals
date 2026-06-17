@@ -1,4 +1,4 @@
-# Arq Signals — Metrics Consumer Guide
+# Elevarq Signals — Metrics Consumer Guide
 
 Operational metrics exposed under `signals.metrics_path` (default
 `/metrics`) when `signals.metrics_enabled: true`. This guide is the

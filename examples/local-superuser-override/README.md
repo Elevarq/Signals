@@ -1,12 +1,12 @@
 # Local Superuser Override Example
 
-This example shows how to run Arq Signals with the `postgres`
+This example shows how to run Elevarq Signals with the `postgres`
 superuser for **local testing only**. This is not recommended for
 production.
 
 ## Why the superuser is blocked by default
 
-Arq Signals validates the connected role before collecting. If the
+Elevarq Signals validates the connected role before collecting. If the
 role has superuser, replication, or bypassrls attributes, collection
 is blocked with an error:
 

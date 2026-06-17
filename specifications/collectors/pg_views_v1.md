@@ -16,10 +16,10 @@ excluded by default for safety.
 |---|---|---|
 | inventory | schemaname, viewname, viewowner | yes |
 | definition | adds: definition (view SQL text) | no |
-| hash_only | adds: definition_hash (SHA-256, computed by Arq Signals runtime) | no |
+| hash_only | adds: definition_hash (SHA-256, computed by Elevarq Signals runtime) | no |
 
 v1 registers the inventory-mode query. Definition and hash_only
-modes are future configuration options — the Arq Signals runtime
+modes are future configuration options — the Elevarq Signals runtime
 will compute hashes application-side per the finalized plan.
 
 ## Output columns (inventory mode)

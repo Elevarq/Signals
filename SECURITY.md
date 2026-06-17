@@ -4,7 +4,7 @@
 
 ## Reporting a vulnerability
 
-If you find a vulnerability in Arq Signals, please report it privately.
+If you find a vulnerability in Elevarq Signals, please report it privately.
 Do **not** open a public GitHub issue.
 
 **Preferred channel — GitHub Private Vulnerability Reporting:**
@@ -35,7 +35,7 @@ the cadence is the next routine release.
 
 ## Supported versions
 
-Arq Signals is **pre-1.0 / Beta**. Only the **latest tagged release on
+Elevarq Signals is **pre-1.0 / Beta**. Only the **latest tagged release on
 the active line** receives security fixes:
 
 | Version line | Status |
@@ -52,7 +52,7 @@ only Critical fixes for one minor cycle.
 
 ### Read-only PostgreSQL access
 
-Arq Signals enforces read-only access at three independent layers:
+Elevarq Signals enforces read-only access at three independent layers:
 
 1. **Static SQL lint at registration.** Every catalog query is
    validated at process startup; any DDL, DML, or dangerous-function
@@ -80,7 +80,7 @@ the cycle.
 ### Network
 
 - The HTTP API binds to `127.0.0.1:8081` by default.
-- Arq Signals makes **no outbound network connections** other than to
+- Elevarq Signals makes **no outbound network connections** other than to
   the configured PostgreSQL targets. No telemetry, no AI providers,
   no analytics, no auto-update.
 - The optional Prometheus `/metrics` endpoint is **off by default**.
@@ -139,7 +139,7 @@ auditor can tell at a glance whether sensitive data may be present in
 the artifact — without parsing the body.
 
 The toggle is a local operator control over data sensitivity. It is
-not an exfiltration boundary; Arq Signals does not transmit data
+not an exfiltration boundary; Elevarq Signals does not transmit data
 outside the operator's environment regardless of this setting.
 
 ### What is never persisted or exported

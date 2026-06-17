@@ -57,7 +57,7 @@ Traceability is tracked in `features/arq-signals/traceability.md`.
 
 ## Project Safety Principles
 
-For Arq Signals specifically:
+For Elevarq Signals specifically:
 
 - No write operations on PostgreSQL
 - No superuser privileges required

@@ -1,6 +1,6 @@
 # Collector Inventory
 
-Arq Signals includes 99 read-only diagnostic collectors. All
+Elevarq Signals includes 99 read-only diagnostic collectors. All
 queries execute inside `READ ONLY` transactions with savepoint
 isolation. Collectors requiring unavailable extensions or
 unsupported PostgreSQL versions are silently skipped and surface

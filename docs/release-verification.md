@@ -2,7 +2,7 @@
 
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
 
-Every Arq Signals release publishes a multi-arch container image to
+Every Elevarq Signals release publishes a multi-arch container image to
 `ghcr.io/elevarq/arq-signals` along with:
 
 - A **SLSA build provenance** attestation (`mode=max`).

@@ -21,7 +21,7 @@ excluded by default.
 |---|---|---|
 | inventory | identity + tgtype + function + enabled | yes |
 | definition | adds: triggerdef from pg_get_triggerdef() | no |
-| hash_only | adds: definition_hash (SHA-256, computed by Arq Signals runtime) | no |
+| hash_only | adds: definition_hash (SHA-256, computed by Elevarq Signals runtime) | no |
 
 ## Output columns (inventory mode)
 

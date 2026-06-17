@@ -1,6 +1,6 @@
 # Prometheus metrics endpoint
 
-Arq Signals can optionally expose a Prometheus-compatible `/metrics`
+Elevarq Signals can optionally expose a Prometheus-compatible `/metrics`
 endpoint that publishes **operational health metrics about the
 daemon itself**. This document describes what the endpoint emits,
 what it deliberately does not emit, and the recommended way to
@@ -8,7 +8,7 @@ scrape it safely.
 
 ## Scope: daemon health only
 
-The `/metrics` endpoint is for monitoring the **Arq Signals process**:
+The `/metrics` endpoint is for monitoring the **Elevarq Signals process**:
 collection cycle outcomes, export request outcomes, sqlite
 persistence health, the state of the high-sensitivity gate, and
 durations. It does **not** publish any of the following:
@@ -70,7 +70,7 @@ For Prometheus to scrape an authenticated endpoint, use the standard
 
 If you prefer unauthenticated scraping, bind the API listener to
 loopback or to an internal-only network and rely on network-level
-controls. Arq Signals does not relax auth on a per-path basis.
+controls. Elevarq Signals does not relax auth on a per-path basis.
 
 ## Scrape configuration
 
@@ -136,7 +136,7 @@ just samples the same counter values more often.
 
 ## Suggested alerts
 
-Starting points for an Arq Signals SLO/health alert pack:
+Starting points for an Elevarq Signals SLO/health alert pack:
 
 - **No successful collection in N intervals** —
   `time() - arq_signal_last_successful_collection_timestamp > 3 * <poll_interval_seconds>`

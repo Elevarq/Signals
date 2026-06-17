@@ -24,11 +24,11 @@ var (
 func main() {
 	root := &cobra.Command{
 		Use:   "arqctl",
-		Short: "CLI for Arq Signals",
+		Short: "CLI for Elevarq Signals",
 	}
 
 	defaultToken := os.Getenv("ARQ_SIGNALS_API_TOKEN")
-	root.PersistentFlags().StringVar(&apiAddr, "api-addr", "http://127.0.0.1:8081", "Arq Signals API address")
+	root.PersistentFlags().StringVar(&apiAddr, "api-addr", "http://127.0.0.1:8081", "Elevarq Signals API address")
 	root.PersistentFlags().StringVar(&apiToken, "api-token", defaultToken, "API bearer token (default: $ARQ_SIGNALS_API_TOKEN)")
 
 	root.AddCommand(versionCmd())
@@ -244,7 +244,7 @@ func exportCmd() *cobra.Command {
 By default ('arqctl export' with no flags), the export contains only the
 LATEST completed snapshot per active target — one snapshot per target,
 not the daemon's accumulated history. This is the unit downstream
-consumers (Arq Analyzer, third-party integrations) ingest as a single
+consumers (Elevarq Analyzer, third-party integrations) ingest as a single
 analysis.
 
 Use the selector flags below to widen or narrow the scope:

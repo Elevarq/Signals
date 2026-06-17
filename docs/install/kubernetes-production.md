@@ -5,7 +5,7 @@ Related: [`access-control.md`](../security/access-control.md),
 [`operational-readiness.md`](../observability/operational-readiness.md),
 [`support-matrix.md`](../compatibility/support-matrix.md).
 
-This page documents how to deploy Arq Signals on Kubernetes with
+This page documents how to deploy Elevarq Signals on Kubernetes with
 the controls a platform team will want to see before approving
 the workload. Pairs with the chart at
 `deploy/helm/arq-signals/`.

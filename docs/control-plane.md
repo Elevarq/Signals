@@ -2,7 +2,7 @@
 
 This document describes how `POST /collect/now` accepts an optional
 JSON body to narrow the cycle to a subset of configured targets, and
-how an optional Arq control plane can drive that narrowing
+how an optional Elevarq control plane can drive that narrowing
 authenticated as a distinct actor. Specs: ARQ-SIGNALS-R082 (Phase 1
 + Phase 2) and R083.
 
@@ -11,13 +11,13 @@ spec text in `features/arq-signals/specification.md`.
 
 ## Modes
 
-Arq Signals runs in one of two modes; the mode is set by
+Elevarq Signals runs in one of two modes; the mode is set by
 `signals.mode` in the config (default `standalone`).
 
 | Mode | When to use | Auth surface |
 |---|---|---|
 | `standalone` (default) | Open-source / local-only / community deployments. Operator drives everything via the local API token. | One bearer token (`api.token`). |
-| `arq_managed` | Deployments where the commercial Arq control plane drives collection. | Two distinct bearer tokens. The local `api.token` for operator commands; a separate `arq_control_plane_token` for the control plane. |
+| `arq_managed` | Deployments where the commercial Elevarq control plane drives collection. | Two distinct bearer tokens. The local `api.token` for operator commands; a separate `arq_control_plane_token` for the control plane. |
 
 The configured target list in `signals.yaml` is the **authoritative
 ceiling** in both modes. The control plane (or any caller) can only
@@ -41,7 +41,7 @@ optional.** An empty body (or a missing body) keeps the historical
 | Field | Validation | Meaning |
 |---|---|---|
 | `targets` | optional `string[]`; non-empty when present | Subset of configured target names. Absent → collect all enabled targets. Empty array `[]` → 400 (treated as a client bug, never silently coerced). |
-| `request_id` | optional `^[A-Za-z0-9_-]{1,32}$` | Correlation identifier propagated through to per-target audit events. When absent, Arq Signals generates a ULID. |
+| `request_id` | optional `^[A-Za-z0-9_-]{1,32}$` | Correlation identifier propagated through to per-target audit events. When absent, Elevarq Signals generates a ULID. |
 | `reason` | optional `^[A-Za-z0-9_-]{1,64}$` | Short tag-style label surfaced in audit events. Not free-form prose. |
 | `force` | optional `boolean`, default `false` | Bypasses R091's `min_snapshot_interval` for this cycle only. Does **not** bypass a paused circuit (R097) — resume the target first. |
 
