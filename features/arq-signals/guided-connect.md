@@ -1,7 +1,7 @@
 # Feature Specification: Guided onboarding — `arqctl connect --auto`
 
 - **Spec ID prefix:** `ARQ-SIGNALS-CONNECT-`
-- **Lifecycle status:** `DRAFT`
+- **Lifecycle status:** `ACTIVE`
 - **Tracking issue:** [#99](https://github.com/Elevarq/Arq-Signals/issues/99)
 - **Consumes:** `credential-providers.md` (ACTIVE, #93) and its derived
   provider specs (#94–#98). This is a **consumer** spec — it defines the
@@ -226,17 +226,19 @@ Per the repo safety rule, this spec + its derived failing tests land before
 implementation; the spec reaches `ACTIVE` (and acceptance cases are added to
 `acceptance-tests.md` / `traceability.md`) as the tests are committed.
 
-## Open design decisions (to resolve at promotion to ACTIVE)
+## Resolved design decisions
 
-1. **Interactivity.** Whether `connect --auto` is fully non-interactive
-   (flags + detection only, CI-friendly) or may prompt for the `password`
-   fallback. (Proposed: non-interactive by default; prompt only for `password`
-   when attached to a TTY and no source is given.)
-2. **`--write` target shape.** Append to an existing `signals.yaml` `targets:`
-   list vs. emit a standalone fragment. (Proposed: print a fragment by default;
-   `--write` appends to the `targets:` list, refusing to duplicate an existing
-   `name`.)
-3. **Detection confidence threshold.** How strict before proposing a cloud
-   method (host pattern + identity present) vs. falling back to `password`.
-   (Proposed: require both an ambient identity and a matching host pattern;
-   otherwise propose `password` and report what was/wasn't detected.)
+_(Confirmed at promotion to `ACTIVE`.)_
+
+1. **Interactivity — non-interactive by default.** The command runs from flags
+   + detection only (CI-friendly). It prompts **only** for the `password`
+   fallback, and only when attached to a TTY and no credential source is given;
+   otherwise it reports `CONNECT-FC006` and exits.
+2. **`--write` shape — fragment by default, append on `--write`.** Without
+   `--write` it prints a standalone target fragment. With `--write` it appends
+   the (secret-free) block to the config's `targets:` list and **refuses to
+   duplicate an existing `name`** (CONNECT-AC007).
+3. **Detection threshold — identity AND host pattern.** A cloud method is
+   proposed only when both an ambient cloud identity *and* a matching host
+   pattern are present; otherwise the command proposes `password` and reports
+   what was and wasn't detected (CONNECT-FC001 / CONNECT-AC003).
