@@ -31,7 +31,7 @@ locals {
     ${var.db_server_ca_cert}
     PEM
     cat > /etc/signals/signals.yaml <<'YAML'
-    env: ${var.arq_env}
+    env: ${var.env}
     signals:
       poll_interval: ${var.poll_interval}
     database:

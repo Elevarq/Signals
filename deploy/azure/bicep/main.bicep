@@ -52,7 +52,7 @@ param imageUri string = 'ghcr.io/elevarq/signals:0.10.0-beta.5'
 param dbCaCertUrl string = 'https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem'
 
 @description('Signals environment (prod enforces verify-full TLS).')
-param arqEnv string = 'prod'
+param env string = 'prod'
 
 @description('Collection interval.')
 param pollInterval string = '5m'
@@ -74,7 +74,7 @@ resource collectorIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@202
 
 // cloud-init for the collector VM. Bicep multi-line strings do not interpolate,
 // so this is a single interpolated string with \n line breaks.
-var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl\nsystemctl enable --now docker\nmkdir -p /etc/arq\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/arq/azure-ca.pem\ncat > /etc/arq/signals.yaml <<\'YAML\'\nenv: ${arqEnv}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/arq-signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/arq/azure-ca.pem\nYAML\ndocker run -d --name signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -v /etc/arq:/etc/arq:ro -v arq-data:/data -p 127.0.0.1:8081:8081 ${imageUri} --config /etc/arq/signals.yaml\n'
+var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl\nsystemctl enable --now docker\nmkdir -p /etc/signals\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/signals/azure-ca.pem\ncat > /etc/signals/signals.yaml <<\'YAML\'\nenv: ${env}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/signals/azure-ca.pem\nYAML\ndocker run -d --name signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -v /etc/signals:/etc/signals:ro -v signals-data:/data -p 127.0.0.1:8081:8081 ${imageUri} --config /etc/signals/signals.yaml\n'
 
 resource nic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
   name: '${namePrefix}-collector-nic'

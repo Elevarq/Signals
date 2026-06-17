@@ -40,7 +40,7 @@ Parameters:
     Type: String
     Default: ghcr.io/elevarq/signals:0.10.0-beta.6
     Description: Elevarq Signals container image (pinned tag).
-  ArqEnv:
+  Env:
     Type: String
     Default: prod
     AllowedValues: [prod, lab, dev]
@@ -114,7 +114,7 @@ Resources:
           curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
             -o /etc/signals/rds-ca.pem
           cat > /etc/signals/signals.yaml <<'YAML'
-          env: ${ArqEnv}
+          env: ${Env}
           signals:
             poll_interval: ${PollInterval}
           database:

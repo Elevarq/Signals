@@ -32,7 +32,7 @@ locals {
     curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
       -o /etc/signals/rds-ca.pem
     cat > /etc/signals/signals.yaml <<'YAML'
-    env: ${var.arq_env}
+    env: ${var.env}
     signals:
       poll_interval: ${var.poll_interval}
     database:
