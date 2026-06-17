@@ -208,3 +208,17 @@ Spec: `features/arq-signals/credential-provider-secret-store.md` (ACTIVE), deriv
 | ARQ-SIGNALS-AUTH-SECRET-AC-013 | Live rotation validation (optional, opt-in): rotate the stored secret, force a re-fetch, reconnect with the new value | `TestLive_SecretStorePasswordlessConnect` | COVERED | INTEGRATION | Opt-in via `ARQ_TEST_SECRET_ROTATE=1`; rotation-on-reconnect fully covered in default CI by AC-004's unit cache test. |
 | ARQ-SIGNALS-AUTH-SECRET-INV004 (empty secret) | Empty fetched value (or extracted key) is a hard failure, not an empty password | `TestResolveSecretStoreEmptySecretFails` | COVERED | BEHAVIORAL | FC-SECRET-004. |
 | ARQ-SIGNALS-AUTH-SECRET-INV005 (backend isolation) | Only the inferred backend's SDK is invoked for a target; deferred Azure/GCP backends report `errSecretBackendUnavailable` (not redacted, carries no secret) | `TestProductionSecretFetcherRouting` | COVERED | BEHAVIORAL | `productionSecretFetcher` routes on `ref.Backend`; AWS wired, Azure/GCP nil → unavailable. |
+
+## Credential providers — `mtls` (#98)
+
+Spec: `features/arq-signals/credential-provider-mtls.md` (ACTIVE), deriving from `credential-providers.md` (keystone, #93). The only certificate-kind credential: `Credential.ClientCert` applied to `cfg.TLSConfig.Certificates` in the `BeforeConnect` hook (`internal/collector/collector.go`). Provider + cert loader in `internal/collector/credprovider_mtls.go`; `sslcert`/`sslkey`/`sslkey_passphrase_file` config + validation in `internal/config/config.go`. Unit tests `internal/collector/credprovider_mtls_test.go` + `internal/config/authmethod_mtls_test.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| ARQ-SIGNALS-AUTH-MTLS-AC-001 | Valid cert/key pair loads, applied as certificate kind, `ExpiresAt` = cert `NotAfter`; no password | `TestFileCertLoaderLoadsValidPair`, `TestResolveMTLSCertKindAndExpiry` | COVERED | BEHAVIORAL | In-test self-signed cert; no operator material (NFR003). |
+| ARQ-SIGNALS-AUTH-MTLS-AC-002 | Encrypted key + correct passphrase loads; wrong passphrase fails without echoing passphrase/key | `TestFileCertLoaderEncryptedKey` | COVERED | BEHAVIORAL | FC-MTLS-003; stdlib legacy-PEM decryption (NFR001). |
+| ARQ-SIGNALS-AUTH-MTLS-AC-003 | Loader re-reads files each call; rotated cert/key picked up without restart (no cache) | `TestFileCertLoaderRotation` | COVERED | BEHAVIORAL | INV-MTLS-003. |
+| ARQ-SIGNALS-AUTH-MTLS-AC-004 | `mtls` without `sslcert`/`sslkey` → hard startup error naming both fields | `TestValidateRejectsMTLSWithoutCertOrKey` | COVERED | BEHAVIORAL | FC-MTLS-001. |
+| ARQ-SIGNALS-AUTH-MTLS-AC-005 | `mtls` requires `verify-full` in every env; rejects weaker; accepts verify-full | `TestValidateRejectsMTLSWithoutVerifyFull`, `TestValidateAcceptsMTLS` | COVERED | BEHAVIORAL | FC-MTLS-004 / INV-MTLS-004. |
+| ARQ-SIGNALS-AUTH-MTLS-AC-006 | `mtls` + any inline password source → hard startup error (auth is by certificate) | `TestValidateRejectsMTLSWithPasswordSource` | COVERED | BEHAVIORAL | FC-MTLS-005. |
+| ARQ-SIGNALS-AUTH-MTLS-AC-007 | Mismatched pair / non-PEM key → redacted error; key material never in the error | `TestFileCertLoaderMismatchedPair`, `TestFileCertLoaderNonPEMKey` | COVERED | BEHAVIORAL | FC-MTLS-002 + INV-MTLS-001. |

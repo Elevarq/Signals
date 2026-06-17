@@ -209,6 +209,20 @@ type TargetConfig struct {
 	MaxCacheTTL  time.Duration `yaml:"-"`
 	MaxCacheTTLS string        `yaml:"max_cache_ttl"`
 
+	// SSLCert / SSLKey are filesystem paths to the PEM client certificate and
+	// private key for the mtls provider (ARQ-SIGNALS-AUTH-MTLS-, #98). Both are
+	// required when auth_method is mtls (FC-MTLS-001). The cert is presented
+	// during the TLS handshake (certificate-kind credential); the key material
+	// is never logged or exported (INV-MTLS-001).
+	SSLCert string `yaml:"sslcert"`
+	SSLKey  string `yaml:"sslkey"`
+
+	// SSLKeyPassphraseFile is an optional path to a file holding the passphrase
+	// for an encrypted SSLKey (mtls only, #98). File-only — never an inline or
+	// env value. When the key is encrypted and this is unset, resolution fails
+	// (FC-MTLS-003).
+	SSLKeyPassphraseFile string `yaml:"sslkey_passphrase_file"`
+
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -299,12 +313,13 @@ const (
 	AuthMethodAzureEntra     = "azure_entra"
 	AuthMethodGCPCloudSQLIAM = "gcp_cloudsql_iam"
 	AuthMethodSecretStore    = "secret_store"
+	AuthMethodMTLS           = "mtls"
 )
 
 // SupportedAuthMethods enumerates every auth_method this build can serve.
 // The empty value is equivalent to AuthMethodPassword (see
 // EffectiveAuthMethod) and is always accepted.
-var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM, AuthMethodSecretStore}
+var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM, AuthMethodSecretStore, AuthMethodMTLS}
 
 // EffectiveAuthMethod returns the target's auth_method, defaulting an
 // empty value to AuthMethodPassword so existing configs keep their
@@ -855,6 +870,25 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			// an undiscoverable workload identity for the vault is a
 			// connect-time, target-scoped failure (FC-SECRET-002), not a
 			// whole-collector startup failure.
+		case AuthMethodMTLS:
+			// FC-MTLS-005: mTLS authenticates by certificate — reject any
+			// inline password source on the target.
+			if secretCount > 0 {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q authenticates by client certificate — remove password_file, password_env, and pgpass_file", i, t.Name, AuthMethodMTLS))
+			}
+			// FC-MTLS-004: a client certificate must only be presented over a
+			// fully verified TLS channel, in every environment (presenting it
+			// to an unverified server risks disclosing it to an impostor).
+			if t.SSLMode != "verify-full" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires sslmode=verify-full (got %q)", i, t.Name, AuthMethodMTLS, t.SSLMode))
+			}
+			// FC-MTLS-001: both sslcert and sslkey are required.
+			if t.SSLCert == "" || t.SSLKey == "" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires both sslcert and sslkey", i, t.Name, AuthMethodMTLS))
+			}
+			// The optional sslkey_passphrase_file and a wrong/missing passphrase
+			// for an encrypted key are connect-time failures (FC-MTLS-003), not
+			// startup failures — the key is not read until connect time.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}

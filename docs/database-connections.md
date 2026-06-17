@@ -62,7 +62,7 @@ The recipes below add the method-specific binding on top of this role.
 | `azure_entra` | Azure Database for PostgreSQL — Flexible Server | Entra OAuth2 token (~75 min) | Shipped (#95) |
 | `gcp_cloudsql_iam` | Google Cloud SQL for PostgreSQL | Google OAuth2 token (~60 min) | Shipped (#96) |
 | `secret_store` | Self-managed PostgreSQL whose password lives in a cloud vault | Password fetched from AWS/Azure/GCP vault | Shipped (#97) |
-| `mtls` | Client-certificate auth | Client cert + key | Planned (#98) |
+| `mtls` | Client-certificate auth (on-prem / self-managed) | Client cert + key | Shipped (#98) |
 
 Omitting `auth_method` keeps the existing password behaviour exactly —
 no migration is required for current deployments (NFR003).
@@ -297,12 +297,42 @@ a rotation is picked up immediately.
 
 ---
 
-## `mtls` — client-certificate auth (planned)
+## `mtls` — client-certificate auth (self-managed)
 
-Client-certificate authentication (`sslcert` / `sslkey` target fields)
-is specified in #98 and **not yet available**. Until it ships, use one
-of the methods above. This page will gain a recipe when the provider
-lands.
+For on-prem / self-managed PostgreSQL that mandates mutual TLS: the
+collector presents a client X.509 certificate instead of a password or
+token. The cert/key are local PEM files; the database maps the cert to
+the role server-side (`pg_hba.conf` `clientcert=verify-full` +
+`pg_ident.conf`).
+
+**1. Database — trust + map the client cert** (`pg_hba.conf`):
+
+```
+hostssl  appdb  arq_signals  <collector-cidr>  cert  clientcert=verify-full
+```
+
+Map the certificate's CN to the role in `pg_ident.conf` if the CN differs
+from `arq_signals`, then `GRANT pg_monitor TO arq_signals;`.
+
+**2. Target config:**
+
+```yaml
+  - name: onprem-mtls
+    host: db.internal
+    port: 5432
+    dbname: appdb
+    user: arq_signals
+    auth_method: mtls
+    sslcert: /etc/arq/client.crt        # PEM client certificate
+    sslkey: /etc/arq/client.key         # PEM private key
+    sslkey_passphrase_file: /etc/arq/key.pass  # optional; for an encrypted key
+    sslmode: verify-full                # required
+    sslrootcert_file: /etc/arq/ca.pem   # verifies the server
+```
+
+The private key is read at connect time and **never logged or exported**;
+a rotated cert/key is picked up on the next reconnect. `verify-full` is
+required — a client certificate is only presented to a verified server.
 
 ---
 

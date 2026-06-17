@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"crypto/tls"
 	"log/slog"
 	"sync"
 	"time"
@@ -22,6 +23,10 @@ const (
 	// Both the default password provider and aws_rds_iam produce this
 	// kind — for AWS the password value is the short-lived IAM token.
 	CredKindPassword CredKind = iota
+	// CredKindCertificate is a credential applied as a client certificate
+	// in the connection's TLS config (the mtls provider, #98). The cert is
+	// presented during the TLS handshake; there is no password.
+	CredKindCertificate
 )
 
 // Credential is the resolved authentication material for one connection
@@ -32,9 +37,16 @@ type Credential struct {
 	Kind CredKind
 	// Password is the secret value (a stored password, or for
 	// aws_rds_iam the minted IAM token). Never logged or persisted.
+	// Set when Kind == CredKindPassword.
 	Password string
+	// ClientCert is the parsed client certificate + private key, applied to
+	// the connection's TLS config. Set when Kind == CredKindCertificate
+	// (mtls, #98). The private key material is never logged or persisted
+	// (INV-MTLS-001).
+	ClientCert *tls.Certificate
 	// ExpiresAt is the credential's expiry. Zero means "no expiry"
-	// (a static password); a non-zero value drives cache refresh.
+	// (a static password); a non-zero value drives cache refresh. For mtls
+	// it is the client cert's NotAfter (advisory only — no re-mint).
 	ExpiresAt time.Time
 }
 
@@ -62,8 +74,12 @@ type credentialResolver struct {
 	// the secret_store provider (#97). Like the minters it is a seam so unit
 	// tests inject a fake and make no real cloud call (NFR003).
 	secretFetcher secretFetcher
-	now           func() time.Time
-	logger        *slog.Logger
+	// certLoader loads + validates the client cert/key for the mtls provider
+	// (#98). A seam so unit tests inject in-memory fixtures and read no
+	// operator key material (NFR003).
+	certLoader certLoader
+	now        func() time.Time
+	logger     *slog.Logger
 }
 
 // newCredentialResolver builds the production resolver: a real AWS token
@@ -84,6 +100,7 @@ func newCredentialResolver(logger *slog.Logger) *credentialResolver {
 		// fetchers are deferred behind the same seam and report
 		// errSecretBackendUnavailable until wired.
 		secretFetcher: productionSecretFetcher{aws: awsSecretsManagerFetcher{}},
+		certLoader:    fileCertLoader{},
 		now:           time.Now,
 		logger:        logger,
 	}
@@ -103,6 +120,8 @@ func (r *credentialResolver) Resolve(ctx context.Context, tgt config.TargetConfi
 		return r.resolveGCP(ctx, tgt)
 	case config.AuthMethodSecretStore:
 		return r.resolveSecretStore(ctx, tgt)
+	case config.AuthMethodMTLS:
+		return r.resolveMTLS(ctx, tgt)
 	default:
 		password, err := ResolvePassword(tgt)
 		if err != nil {
