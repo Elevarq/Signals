@@ -11,7 +11,7 @@ matches the release version):
 
 ```bash
 helm install signals oci://ghcr.io/elevarq/charts/signals \
-  --version 0.10.0-beta.5 \
+  --version 0.10.0-beta.6 \
   --set target.host=db.example.com \
   --set target.user=arq_signals \
   --set target.dbname=postgres \
@@ -22,7 +22,7 @@ The published chart is cosign-signed (keyless, GitHub OIDC) — the same
 trust root as the container image. Verify before install:
 
 ```bash
-cosign verify ghcr.io/elevarq/charts/signals:0.10.0-beta.5 \
+cosign verify ghcr.io/elevarq/charts/signals:0.10.0-beta.6 \
   --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```

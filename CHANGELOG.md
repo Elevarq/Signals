@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.6] - 2026-06-17
+
 ### Added
 
 - **Secret-store credential provider (`auth_method: secret_store`, #93,
@@ -17,12 +19,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   secret URI, or a GCP Secret Manager resource name; a reference matching
   none is a hard startup error naming the three accepted forms. **The AWS
   Secrets Manager path is production-grade** (region taken authoritatively
-  from the ARN, never `AWS_REGION` / the SDK default chain / IMDS); Azure
-  Key Vault and GCP Secret Manager references are validated at startup but
-  their production fetchers are deferred behind the same interface and fail
-  at connect time with a clear "backend not available in this build" error
-  (backend support scaffolded; production fetchers tracked separately in
-  #108) without stopping collection for other targets.
+  from the ARN, never `AWS_REGION` / the SDK default chain / IMDS). **Azure
+  Key Vault and GCP Secret Manager are now production-wired as well (#108):**
+  each `secret_ref` is routed to exactly its inferred backend's SDK - Azure
+  via the `DefaultAzureCredential` chain + `azsecrets.GetSecret`, GCP via
+  Application Default Credentials + `AccessSecretVersion` - and no other
+  backend's SDK is ever invoked (INV005). A backend the collector's ambient
+  identity cannot reach is a connect-time, target-scoped failure that does
+  not stop collection for other targets.
   An optional `secret_json_key` extracts a named key from a JSON secret
   (raw value otherwise); extraction failures never echo the raw secret. The
   fetched secret is cached per target with a reuse bound of `min(vault TTL,
@@ -110,6 +114,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `application_name = 'arq-signals'` collector identity are intentionally
   unchanged in this phase (config and integration interfaces, not binary
   branding).
+- **Release signature verification is forward-compatible with the repo
+  rename (#131).** The `cosign verify` `--certificate-identity-regexp` in
+  the README, `SECURITY.md`, the release notes, and the release workflow
+  now matches both the current `Elevarq/Arq-Signals` and the future
+  `Elevarq/signals` workflow identity, so signature verification keeps
+  working across the planned GitHub repository rename (#62) without a
+  flag-day change.
 
 ## [0.10.0-beta.5] - 2026-06-11
 

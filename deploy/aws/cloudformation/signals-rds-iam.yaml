@@ -38,7 +38,7 @@ Parameters:
     Default: t3.small
   ImageUri:
     Type: String
-    Default: ghcr.io/elevarq/signals:0.10.0-beta.5
+    Default: ghcr.io/elevarq/signals:0.10.0-beta.6
     Description: Elevarq Signals container image (pinned tag).
   ArqEnv:
     Type: String
