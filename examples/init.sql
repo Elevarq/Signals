@@ -1,4 +1,4 @@
--- arq-signals monitoring role setup
+-- Elevarq Signals monitoring role setup
 -- This script runs automatically when PostgreSQL starts for the first time.
 
 -- Create the monitoring role with login but no superuser privileges

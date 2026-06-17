@@ -1,6 +1,6 @@
-# arq-signals configuration
+# Elevarq Signals configuration
 #
-# This file configures the arq-signals collector. All values shown are
+# This file configures the Elevarq Signals collector. All values shown are
 # defaults unless noted otherwise.
 #
 # Environment variables override file values. See README.md for the

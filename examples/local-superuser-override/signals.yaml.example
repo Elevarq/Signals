@@ -22,7 +22,7 @@ targets:
     enabled: true
 
 database:
-  path: ./arq-signals-test.db
+  path: ./signals-test.db
   wal: true
 
 api:

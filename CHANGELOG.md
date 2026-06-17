@@ -74,6 +74,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   names already wired in those demos' Compose files. Example-only
   change; no product behaviour is affected.
 
+- **Cleared remaining hyphenated `arq-signals` references from the
+  examples (#143).** Follow-up to #137/#127. Renamed the example SQLite
+  store paths `./arq-signals.db` / `./arq-signals-test.db` ->
+  `./signals.db` / `./signals-test.db`
+  (`examples/local-safe-role/signals.yaml.example`,
+  `examples/local-superuser-override/signals.yaml.example`) and the
+  residual prose use of "arq-signals" as the product name ->
+  "Elevarq Signals" in example comments and headers
+  (`examples/README.md`, `examples/docker-compose.yml`,
+  `examples/docker-compose.prod.yml`, `examples/signals.yaml`,
+  `examples/init.sql`, `examples/timescaledb-demo/docker-compose.yml`).
+  Service identifiers were already named `signals`; this is prose and
+  example-path only, with no product behaviour impact.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added

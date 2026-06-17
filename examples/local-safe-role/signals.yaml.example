@@ -25,7 +25,7 @@ targets:
     # password_env: PG_PASSWORD
 
 database:
-  path: ./arq-signals.db
+  path: ./signals.db
   wal: true
 
 api:

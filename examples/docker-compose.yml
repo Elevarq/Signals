@@ -1,4 +1,4 @@
-# arq-signals quick start (LOCAL DEV ONLY)
+# Elevarq Signals quick start (LOCAL DEV ONLY)
 #
 # This compose file is for local development. SIGNALS_ENV=dev so the
 # weak-token rule (#135 / config.WeakAPITokenReason) emits a
@@ -8,7 +8,7 @@
 # via SIGNALS_API_TOKEN_FILE or a Kubernetes Secret — see
 # docs/security/access-control.md.
 #
-# Start arq-signals alongside a PostgreSQL 16 instance:
+# Start Elevarq Signals alongside a PostgreSQL 16 instance:
 #   docker compose -f examples/docker-compose.yml up -d
 #
 # Trigger a collection (dev-only token shown):
@@ -52,7 +52,7 @@ services:
   postgres:
     image: postgres:16-alpine
     # Preload pg_stat_statements so init.sql's CREATE EXTENSION works
-    # and the arq-signals pg_stat_statements_v1 / pgss_reset_check_v1
+    # and the Elevarq Signals pg_stat_statements_v1 / pgss_reset_check_v1
     # collectors can actually read the view.
     command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements"]
     environment:
