@@ -50,8 +50,12 @@ type credentialResolver struct {
 	cache  *tokenCache
 	minter rdsTokenMinter
 	region func(ctx context.Context, tgt config.TargetConfig) (string, error)
-	now    func() time.Time
-	logger *slog.Logger
+	// azureMinter acquires Entra access tokens for the azure_entra
+	// provider (#95). Like the AWS minter it is a seam so unit tests
+	// inject a fake and make no real Azure call (NFR003).
+	azureMinter entraTokenMinter
+	now         func() time.Time
+	logger      *slog.Logger
 }
 
 // newCredentialResolver builds the production resolver: a real AWS token
@@ -63,11 +67,12 @@ func newCredentialResolver(logger *slog.Logger) *credentialResolver {
 		logger = slog.Default()
 	}
 	return &credentialResolver{
-		cache:  newTokenCache(),
-		minter: awsRDSTokenMinter{},
-		region: resolveAWSRegion,
-		now:    time.Now,
-		logger: logger,
+		cache:       newTokenCache(),
+		minter:      awsRDSTokenMinter{},
+		region:      resolveAWSRegion,
+		azureMinter: azureEntraTokenMinter{},
+		now:         time.Now,
+		logger:      logger,
 	}
 }
 
@@ -79,6 +84,8 @@ func (r *credentialResolver) Resolve(ctx context.Context, tgt config.TargetConfi
 	switch tgt.EffectiveAuthMethod() {
 	case config.AuthMethodAWSRDSIAM:
 		return r.resolveAWS(ctx, tgt)
+	case config.AuthMethodAzureEntra:
+		return r.resolveAzure(ctx, tgt)
 	default:
 		password, err := ResolvePassword(tgt)
 		if err != nil {

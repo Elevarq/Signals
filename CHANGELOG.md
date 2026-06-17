@@ -8,6 +8,25 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Azure Entra ID credential provider (`auth_method: azure_entra`, #93,
+  #95).** Connect passwordlessly to Azure Database for PostgreSQL -
+  Flexible Server using a short-lived Microsoft Entra ID access token
+  acquired from the collector's ambient Azure identity (the
+  `DefaultAzureCredential` chain: environment / AKS workload identity /
+  managed identity / Azure CLI). The token (scope fixed at
+  `https://ossrdbms-aad.database.windows.net/.default`) is the connection
+  password; no secret is stored in Signals' config. Tokens are cached per
+  target and re-acquired ~5 minutes before their ~60-90 minute expiry,
+  never shared across targets, and never logged or exported (metadata
+  only). Validation enforces the passwordless and `verify-full` TLS
+  floors at startup; a user-assigned managed identity is disambiguated by
+  the optional `azure_client_id` (then `AZURE_CLIENT_ID`), and an
+  undiscoverable or ambiguous identity is a connect-time, target-scoped
+  failure that does not stop collection for other targets. The Azure SDK
+  is linked only on the `azure_entra` path - password targets require no
+  Azure credentials. Reuses the shared credential-provider scaffolding
+  from #94. Live behaviour covered by an env-gated smoke
+  (`ARQ_SIGNALS_INTEGRATION_LIVE=1`).
 - **AWS RDS/Aurora IAM credential provider (`auth_method: aws_rds_iam`,
   #93, #94).** Connect passwordlessly to Amazon RDS / Aurora PostgreSQL
   using a short-lived RDS IAM auth token minted from the collector's

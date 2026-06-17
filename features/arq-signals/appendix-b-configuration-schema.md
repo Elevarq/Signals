@@ -68,15 +68,20 @@ targets:
     sslrootcert_file: <path> # Optional. Path to CA certificate.
 
     # Credential provider (credential-providers.md #93). Optional.
-    # Default (empty) = password. aws_rds_iam connects passwordlessly
-    # using a short-lived RDS IAM token minted from ambient AWS identity.
-    auth_method: <string>    # Optional. "password" (default) | "aws_rds_iam".
+    # Default (empty) = password. Token methods (aws_rds_iam,
+    # azure_entra) connect passwordlessly using a short-lived token
+    # minted from the collector's ambient cloud identity.
+    auth_method: <string>    # Optional. "password" (default) |
+                             #   "aws_rds_iam" | "azure_entra".
     region: <string>         # Optional. AWS region for aws_rds_iam; when
                              #   omitted, resolved from AWS_REGION /
                              #   AWS_DEFAULT_REGION / instance metadata (IMDS).
+    azure_client_id: <string> # Optional. User-assigned managed-identity
+                             #   client id for azure_entra; when omitted,
+                             #   AZURE_CLIENT_ID then the chain default.
 
-    # Credential source (at most one). MUST be empty when
-    # auth_method: aws_rds_iam (the token method is passwordless).
+    # Credential source (at most one). MUST be empty when auth_method is
+    # a token method (aws_rds_iam / azure_entra are passwordless).
     password_file: <path>    # Read password from file (newline-trimmed)
     password_env: <string>   # Read password from this env var's value
     pgpass_file: <path>      # Read password from pgpass-format file
@@ -189,6 +194,28 @@ exported, or logged (only its metadata). Validation rules:
 
 The AWS SDK is invoked only on the `aws_rds_iam` path; targets using
 password auth never require AWS credentials at runtime.
+
+### `auth_method: azure_entra` (#95)
+
+Selects passwordless authentication to Azure Database for PostgreSQL —
+Flexible Server. A short-lived Microsoft Entra ID access token (scope
+fixed at `https://ossrdbms-aad.database.windows.net/.default`, typically
+valid 60–90 minutes) is acquired from the collector's ambient Azure
+identity (the `DefaultAzureCredential` chain: environment / AKS workload
+identity / managed identity / Azure CLI) and used as the connection
+password. The token is cached per target and re-acquired ~5 minutes
+before expiry; it is never stored, exported, or logged (only its
+metadata). Validation rules:
+
+| Rule | Behavior |
+|------|----------|
+| Passwordless | `password_file` / `password_env` / `pgpass_file` MUST be empty — combining them is a hard startup error (FC-AZURE-003). |
+| TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-AZURE-004 / INV003). |
+| Identity | The managed identity is selected by `azure_client_id` → `AZURE_CLIENT_ID` → the chain default. A missing client id is **not** a startup warning (single / system-assigned identity is the common case); an undiscoverable or ambiguous identity is a connect-time, target-scoped failure (FC-AZURE-005) that does not stop collection for other targets. |
+| DB role | `user` must be a role mapped to the Entra principal via `pgaadauth_create_principal`, and the role name must match the principal's display name. `arqctl` surfaces the exact snippet on auth failure (AC-AZURE-009). |
+
+The Azure SDK is invoked only on the `azure_entra` path; targets using
+password auth never require Azure credentials at runtime.
 
 ## High-sensitivity collectors
 
