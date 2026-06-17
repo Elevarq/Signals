@@ -78,6 +78,11 @@ Resources:
       Roles:
         - !Ref CollectorRole
 
+  # IMDSv2 is enforced below via MetadataOptions.HttpTokens=required. Trivy's
+  # CloudFormation adapter for AVD-AWS-0028 does not read MetadataOptions (the
+  # equivalent Terraform in ../terraform passes the same check), so this is a
+  # false positive. Remove when Trivy's CFN adapter reads MetadataOptions.
+  # trivy:ignore:AVD-AWS-0028
   CollectorInstance:
     Type: AWS::EC2::Instance
     Properties:
