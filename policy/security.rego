@@ -1,4 +1,4 @@
-# Conftest policies for Arq-Signals' Helm chart + Kubernetes
+# Conftest policies for Elevarq Signals' Helm chart + Kubernetes
 # manifests. Companion to `kube-linter lint` (which covers the
 # CIS-aligned check set out of the box); these Rego rules express
 # project-specific hardening decisions that don't have a
@@ -63,7 +63,7 @@ deny contains msg if {
 	some spec in pod_spec
 	not spec.automountServiceAccountToken == false
 	msg := sprintf(
-		"%s/%s: automountServiceAccountToken MUST be false (no runtime Kubernetes-API calls; defence in depth, mirrors Arq #443)",
+		"%s/%s: automountServiceAccountToken MUST be false (no runtime Kubernetes-API calls; defence in depth, mirrors Elevarq #443)",
 		[input.kind, input.metadata.name],
 	)
 }
@@ -89,7 +89,7 @@ deny contains msg if {
 	)
 }
 
-# Containers must drop ALL Linux capabilities. Arq-Signals does
+# Containers must drop ALL Linux capabilities. Elevarq Signals does
 # not need any capability; the read-only PG queries + HTTP API
 # run in user-space.
 deny contains msg if {

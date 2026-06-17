@@ -21,7 +21,7 @@ sensitivity) and available only in definition mode.
 |---|---|---|
 | inventory | identity + signature + properties | yes |
 | definition | adds: body (prosrc text) | no |
-| hash_only | adds: body_hash (SHA-256, computed by Arq Signals runtime) | no |
+| hash_only | adds: body_hash (SHA-256, computed by Elevarq Signals runtime) | no |
 
 ## Output columns (inventory mode)
 

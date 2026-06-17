@@ -2,7 +2,7 @@
 
 Tracking: [#138](https://github.com/Elevarq/Arq-Signals/issues/138).
 
-This page documents the runtime observability surface Arq Signals
+This page documents the runtime observability surface Elevarq Signals
 exposes, the closed taxonomy operators use to triage state, and
 the support-bundle guidance for handing evidence to Elevarq
 without leaking sensitive data. Suitable to cite alongside

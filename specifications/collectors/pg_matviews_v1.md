@@ -19,7 +19,7 @@ pg_views_v1.
 |---|---|---|
 | inventory | schemaname, matviewname, matviewowner, ispopulated, hasindexes | yes |
 | definition | adds: definition (matview SQL text) | no |
-| hash_only | adds: definition_hash (SHA-256, computed by Arq Signals runtime) | no |
+| hash_only | adds: definition_hash (SHA-256, computed by Elevarq Signals runtime) | no |
 
 v1 registers inventory-mode as pg_matviews_v1 and definition-mode
 as pg_matviews_definitions_v1. hash_only is computed application-side.

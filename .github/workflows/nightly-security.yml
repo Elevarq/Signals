@@ -1,9 +1,9 @@
 name: Nightly Security
 
-# Arq-Signals #162 — scheduled security-evidence workflow.
+# Elevarq Signals #162 — scheduled security-evidence workflow.
 # Complements .github/workflows/ci.yml (push/PR-time gates, fast)
 # and .github/workflows/release.yml (release-tag evidence). This
-# workflow produces the ongoing posture evidence Arq-Signals needs
+# workflow produces the ongoing posture evidence Elevarq Signals needs
 # between releases:
 #
 #   - Full-history Gitleaks scan against the project allowlist
@@ -18,7 +18,7 @@ name: Nightly Security
 #     Trivy (which already runs in ci.yml) — two scanners reduce
 #     the chance that a single tool's vuln-DB lag misses an
 #     advisory.
-#   - OpenSSF Scorecard, weekly. Arq-Signals is a public repo,
+#   - OpenSSF Scorecard, weekly. Elevarq Signals is a public repo,
 #     so Scorecard can evaluate the standard ecosystem signals
 #     (branch protection, signed releases, dependency review,
 #     etc.).
@@ -32,7 +32,7 @@ name: Nightly Security
 on:
   schedule:
     # 07:23 UTC daily — off the hour to avoid scheduler hot-minute
-    # contention. Arq's nightly runs at 07:17 — keep them 5 minutes
+    # contention. Elevarq's nightly runs at 07:17 — keep them 5 minutes
     # apart so simultaneous Anchore/Grype DB pulls don't collide.
     - cron: "23 7 * * *"
   workflow_dispatch: {}

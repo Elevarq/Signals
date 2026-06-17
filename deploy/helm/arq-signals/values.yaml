@@ -1,4 +1,4 @@
-# Arq Signals Helm chart values
+# Elevarq Signals Helm chart values
 
 image:
   repository: ghcr.io/elevarq/arq-signals

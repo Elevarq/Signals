@@ -59,7 +59,7 @@ func TestCatalogAllPassLint(t *testing.T) {
 
 // TestPgSettingsV1SelectShape pins the column list of the
 // pg_settings_v1 collector. context, vartype, boot_val, reset_val
-// are the load-bearing additions for the downstream Arq Analyzer
+// are the load-bearing additions for the downstream Elevarq Analyzer
 // without context, downstream cannot distinguish
 // USERSET from POSTMASTER GUCs without a hardcoded allowlist.
 // sourcefile and sourceline are intentionally excluded — they are

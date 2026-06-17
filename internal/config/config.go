@@ -11,7 +11,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config is the top-level configuration for Arq Signals.
+// Config is the top-level configuration for Elevarq Signals.
 type Config struct {
 	Env                string         `yaml:"env"` // "dev" (default), "lab", "prod"
 	AllowInsecurePgTLS bool           `yaml:"-"`   // env-only via ARQ_ALLOW_INSECURE_PG_TLS
@@ -1124,7 +1124,7 @@ func ValidateProdTLS(cfg Config) error {
 	return nil
 }
 
-// ResolveArqControlPlaneToken reads the configured Arq control-plane
+// ResolveArqControlPlaneToken reads the configured Elevarq control-plane
 // token (R083). It is called per authentication attempt by the auth
 // middleware so rotating the file's contents takes effect on the
 // next request — no daemon restart required. Returns empty string

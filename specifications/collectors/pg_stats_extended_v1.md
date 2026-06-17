@@ -113,7 +113,7 @@ For example:
    keep sampled values out of the artifact sets
    `signals.high_sensitivity_collectors_enabled: false` to drop the
    collector entirely (skip-path classification).
-2. **All data stays local.** Arq Signals stores collected data only
+2. **All data stays local.** Elevarq Signals stores collected data only
    in the local SQLite database and export ZIPs. No external
    transmission occurs.
 3. **Short retention.** The RetentionShort class means sampled values
@@ -146,7 +146,7 @@ Do not enable if:
 
 ## Analyzer use cases
 
-When this collector is available, the Arq Analyzer can:
+When this collector is available, the Elevarq Analyzer can:
 
 - **SE-GAP-01 (close):** Detect column-type exhaustion by parsing
   histogram_bounds to find high-water marks for integer columns,

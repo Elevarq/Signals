@@ -32,7 +32,7 @@ tables remain analysable.
 | domain_default | text | domain default expression `typdefault` (domain only; else null) |
 | domain_constraints | text[] | each domain CHECK via `pg_get_constraintdef` (domain only; else null) |
 
-**Why structured columns rather than a ready DDL string:** the Arq
+**Why structured columns rather than a ready DDL string:** the Elevarq
 Signals safety linter bans the literal keyword `CREATE`/`ALTER`/… in
 collector SQL (it scans the query text, including string literals), so
 a server-side-built `CREATE TYPE …` string is not permittable. There is

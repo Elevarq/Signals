@@ -78,7 +78,7 @@ includes but is not limited to:
   row is written to `query_results.ndjson` for this collector.
   `collector_status.json` carries one entry with
   `status = "skipped"` and `reason = "extension_missing"` per
-  `specifications/extension-absent-emission.md` (EA-R001). The Arq
+  `specifications/extension-absent-emission.md` (EA-R001). The Elevarq
   Analyzer reads that entry and surfaces the collector as
   `ExtensionUnavailable` (distinct from `CollectorEmpty`). The
   parallel `extension_inventory_v1` collector remains available as

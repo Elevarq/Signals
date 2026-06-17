@@ -1,6 +1,6 @@
 # Appendix A: API Contract
 
-This appendix defines the HTTP API contract for Arq Signals. Any
+This appendix defines the HTTP API contract for Elevarq Signals. Any
 conforming implementation must expose these endpoints with the specified
 behavior.
 

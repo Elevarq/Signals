@@ -1,10 +1,10 @@
-# Contributing to Arq Signals
+# Contributing to Elevarq Signals
 
-Thank you for your interest in contributing to Arq Signals.
+Thank you for your interest in contributing to Elevarq Signals.
 
 ## Scope
 
-Arq Signals is the open-source PostgreSQL diagnostic signal collector. It
+Elevarq Signals is the open-source PostgreSQL diagnostic signal collector. It
 collects data. It does not analyze, score, or interpret data. Contributions
 must stay within this boundary.
 
@@ -30,7 +30,7 @@ Open an issue on GitHub with:
 - What you expected to happen
 - What actually happened
 - Steps to reproduce
-- PostgreSQL version and Arq Signals version
+- PostgreSQL version and Elevarq Signals version
 
 ### Submitting changes
 
@@ -81,7 +81,7 @@ All contributions must preserve the production safety guarantees:
   (SELECT/WITH only, no DDL, DML, or dangerous functions).
 - **No credentials in output.** Passwords must never appear in logs,
   exports, API responses, or stored data.
-- **No external network calls.** Arq Signals must not phone home,
+- **No external network calls.** Elevarq Signals must not phone home,
   upload telemetry, or contact external services.
 - **Fail-closed for unsafe roles.** Superuser, replication, and
   bypassrls roles must be blocked unless explicitly overridden.
@@ -98,5 +98,5 @@ artifacts in `features/arq-signals/` and add corresponding tests.
 
 ## License
 
-By contributing to Arq Signals, you agree that your contributions will be
+By contributing to Elevarq Signals, you agree that your contributions will be
 licensed under the BSD-3-Clause license.

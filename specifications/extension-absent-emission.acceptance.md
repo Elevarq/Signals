@@ -146,4 +146,4 @@ ubiquity), and INV-EA-01 (one entry per registered collector;
 `query_results.ndjson` carries only real query rows). EA-R003
 (collector-spec cross-reference) is covered by per-collector
 specs themselves; EA-R004 (analyzer contract) is covered by tests
-in the Arq Analyzer repo against the `EvidenceCompleteness` model.
+in the Elevarq Analyzer repo against the `EvidenceCompleteness` model.

@@ -4,7 +4,7 @@ Tracking: [#139](https://github.com/Elevarq/Arq-Signals/issues/139).
 
 This page documents the PostgreSQL versions, managed-database
 providers, extensions, permissions, and network requirements
-Arq Signals supports for the v1.0 release. The matrix
+Elevarq Signals supports for the v1.0 release. The matrix
 distinguishes **supported** (tested + green in CI), **best-effort**
 (works, monitored by support, no SLA), **unsupported** (known
 gaps), and **planned** (on the roadmap, not yet shipped).
@@ -60,7 +60,7 @@ collector; the analyzer consumes it to gate rules.
 
 ## Permissions
 
-Arq Signals is designed to run as a **non-superuser** role.
+Elevarq Signals is designed to run as a **non-superuser** role.
 
 ### Minimum read permissions
 
@@ -145,7 +145,7 @@ signals at least one failed check.
 
 - **Sales / SE quick-answer**: if the prospect's stack is in the
   "Supported" column for PG version + managed provider + Kubernetes
-  version, Arq Signals fits. Best-effort answers should be flagged
+  version, Elevarq Signals fits. Best-effort answers should be flagged
   for a brief technical exchange before commitment.
 - **Unsupported is final**: distributed forks (Citus, Cockroach,
   Yugabyte) and Single-Server Azure are out of scope for v1.0 by

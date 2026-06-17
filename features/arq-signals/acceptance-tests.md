@@ -1,4 +1,4 @@
-# Acceptance Tests: Arq Signals
+# Acceptance Tests: Elevarq Signals
 
 All test cases describe observable behavior and constraints. They are
 language-neutral and do not reference specific implementation constructs.
@@ -170,8 +170,8 @@ version commands
 ## TC-SIG-016: Health Endpoint
 
 **Linked Rules:** ARQ-SIGNALS-R011
-**Scenario:** GET /health on a running Arq Signals server
-**Inputs:** Running Arq Signals process
+**Scenario:** GET /health on a running Elevarq Signals server
+**Inputs:** Running Elevarq Signals process
 **Expected Behavior:** Returns HTTP 200 with JSON body containing
 "status" and "version" fields. No authentication required.
 
@@ -181,7 +181,7 @@ version commands
 
 **Linked Rules:** ARQ-SIGNALS-R011
 **Scenario:** GET /status with valid bearer token
-**Inputs:** Running Arq Signals with configured target
+**Inputs:** Running Elevarq Signals with configured target
 **Expected Behavior:** Returns JSON with fields per Appendix A: API
 Contract. Response includes target info and collection state. Response
 does NOT include secret_type, secret_ref, passwords, or scoring data.

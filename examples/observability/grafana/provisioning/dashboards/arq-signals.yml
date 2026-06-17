@@ -1,9 +1,9 @@
 apiVersion: 1
 
 providers:
-  - name: Arq Signal
+  - name: Elevarq Signal
     orgId: 1
-    folder: Arq Signal
+    folder: Elevarq Signal
     type: file
     disableDeletion: false
     editable: true

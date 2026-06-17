@@ -3,7 +3,7 @@
 ## Our commitment
 
 We are committed to providing a welcoming and constructive environment
-for everyone who participates in the Arq Signals project, regardless of
+for everyone who participates in the Elevarq Signals project, regardless of
 experience level, background, or identity.
 
 ## Expected behavior
@@ -25,7 +25,7 @@ experience level, background, or identity.
 
 This code of conduct applies to all project spaces: GitHub issues,
 pull requests, discussions, and any other communication channels
-associated with Arq Signals.
+associated with Elevarq Signals.
 
 ## Enforcement
 

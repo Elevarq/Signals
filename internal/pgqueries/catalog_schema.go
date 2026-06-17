@@ -291,7 +291,7 @@ func init() {
 	// typical configurations; enabled when schema drift detection
 	// or documentation is needed.
 	//
-	// For hash_only mode, the Arq Signals runtime computes SHA-256
+	// For hash_only mode, the Elevarq Signals runtime computes SHA-256
 	// of the definition column application-side before persistence,
 	// then strips the raw text. No pgcrypto dependency.
 	//
@@ -379,7 +379,7 @@ func init() {
 	// has owner-only visibility post-PG12 and requires
 	// permissions beyond pg_monitor).
 	//
-	// Consumer: Arq analyzer's CREATE STATISTICS advisor
+	// Consumer: Elevarq Analyzer's CREATE STATISTICS advisor
 	// which uses this as the "what already exists"
 	// guard so it never recommends a duplicate (table, attnums)
 	// statistics object.

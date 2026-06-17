@@ -1,6 +1,6 @@
 # Snapshot Inspection Guide
 
-This guide explains how to inspect an Arq Signals export snapshot.
+This guide explains how to inspect an Elevarq Signals export snapshot.
 
 ## Export a snapshot
 
@@ -176,7 +176,7 @@ the column names in the payload may differ between PostgreSQL versions:
 | Block write time | `blk_write_time` | `shared_blk_write_time` |
 
 New columns added in future PostgreSQL versions will appear
-automatically. This is intentional — Arq Signals captures the actual
+automatically. This is intentional — Elevarq Signals captures the actual
 returned fields for version-sensitive views.
 
 ## Inspect the query catalog

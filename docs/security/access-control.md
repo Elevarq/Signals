@@ -4,7 +4,7 @@ Tracking: [#135](https://github.com/Elevarq/Arq-Signals/issues/135),
 [#136](https://github.com/Elevarq/Arq-Signals/issues/136),
 [#137](https://github.com/Elevarq/Arq-Signals/issues/137).
 
-This page documents the control-plane access guarantees Arq Signals
+This page documents the control-plane access guarantees Elevarq Signals
 implements today. Suitable to cite for SOC 2 / ISO 27001 evidence
 collection on **access control** and **secret management**.
 

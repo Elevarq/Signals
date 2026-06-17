@@ -1,8 +1,8 @@
-# Feature Specification: Arq Signals
+# Feature Specification: Elevarq Signals
 
 ## Purpose
 
-Arq Signals is the open-source PostgreSQL diagnostic signal collector. It
+Elevarq Signals is the open-source PostgreSQL diagnostic signal collector. It
 connects to PostgreSQL instances, executes approved read-only SQL collectors,
 produces structured snapshots of diagnostic data, and packages them for
 transfer or storage. It contains no analysis, scoring, recommendations, or
@@ -91,7 +91,7 @@ query_results.ndjson.
 ### Safety
 
 **ARQ-SIGNALS-R007**: The system shall not perform scoring, recommendations,
-root-cause analysis, or LLM interaction. No module in the Arq Signals
+root-cause analysis, or LLM interaction. No module in the Elevarq Signals
 codebase shall depend on components that implement these functions.
 
 **ARQ-SIGNALS-R008**: The system shall operate without network calls to
@@ -662,7 +662,7 @@ daemon-wide opt-out: a restricted profile drops **every** high-
 sensitivity collector regardless of `SensitiveColumns` (no redaction
 substitute). INV-SENS-01 still holds: per-target profile never widens
 eligibility beyond the daemon-wide gate. The toggle is local operator
-control over data sensitivity; it is not an exfiltration boundary (Arq
+control over data sensitivity; it is not an exfiltration boundary (Elevarq
 Signals runs inside the operator's own environment).
 
 `metadata.json.high_sensitivity_collectors_enabled` records the
@@ -769,7 +769,7 @@ export against the daemon version that produced it.
 
 **ARQ-SIGNALS-R079**: The system shall expose an optional Prometheus
 `/metrics` endpoint that publishes **operational health metrics
-about the Arq Signals daemon itself**. The endpoint shall **never**
+about the Elevarq Signals daemon itself**. The endpoint shall **never**
 expose collected PostgreSQL data, SQL text, query results, view or
 function definitions, or any sensitive payload — its scope is
 limited to counters, gauges, and histograms describing the daemon's
@@ -872,7 +872,7 @@ the operator did not opt into.
 ### Control-plane boundary
 
 **ARQ-SIGNALS-R082**: The system shall operate in one of two modes
-— **standalone OSS** (Mode A) and **Arq-managed** (Mode B) — and
+— **standalone OSS** (Mode A) and **Elevarq-managed** (Mode B) — and
 shall preserve a clear trust boundary between locally-controlled
 configuration and externally-driven orchestration.
 
@@ -888,27 +888,27 @@ R082's introduction.
 interval. No external service can request collection or narrow the
 target set. This is the mode every open-source user runs.
 
-**Mode B — Arq-managed.** Optional. When enabled by local config,
-Arq Signal accepts authenticated collection requests from the
-commercial Arq control plane. The control plane may **narrow** the
+**Mode B — Elevarq-managed.** Optional. When enabled by local config,
+Elevarq Signal accepts authenticated collection requests from the
+commercial Elevarq control plane. The control plane may **narrow** the
 configured target set to a subset (the contracted/licensed
 databases) and trigger collection cycles. The target set in
-`signals.yaml` remains the authoritative ceiling — Arq cannot
+`signals.yaml` remains the authoritative ceiling — Elevarq cannot
 expand it.
 
 #### Trust boundary
 
-- Arq Signal runs inside the customer environment. Default behavior
+- Elevarq Signal runs inside the customer environment. Default behavior
   has no outbound data egress (R007 / R008 / R009 remain in force).
-- Arq may also run inside the customer environment depending on
-  the deployment topology; the design does not assume Arq is remote.
+- Elevarq may also run inside the customer environment depending on
+  the deployment topology; the design does not assume Elevarq is remote.
 - Mode B requests are **authenticated** (Phase 1: bearer token,
   consistent with R011). Stronger auth (mTLS, signed JWTs) is a
   future extension.
-- Arq Signal **does not enforce commercial licensing as a security
+- Elevarq Signal **does not enforce commercial licensing as a security
   boundary**. The collector is open source; an operator who removes
   the license check can do so trivially. The commercial value lives
-  in Arq's analysis, recommendations, and reporting — not in
+  in Elevarq's analysis, recommendations, and reporting — not in
   obscured collector behavior.
 
 #### Target selection
@@ -940,7 +940,7 @@ Content-Type: application/json
 |---|---|---|---|
 | `targets` | string[] | optional | Subset of configured target names. When **absent**, behaviour matches Mode A — collect all enabled targets. When **present and non-empty**, the cycle's effective set is `targets ∩ enabled-configured-targets`. An **empty array** (`"targets": []`) is treated as a client bug and rejected with `400 Bad Request`; collectors are never silently dropped. Backward compatible: empty body / no body retains existing semantics. |
 | `reason` | string matching `^[A-Za-z0-9_-]{1,64}$` | optional | Short label surfaced in audit events. Restricted to the same charset as `request_id` so neither field can carry log-injection bytes or unbounded whitespace. Not free-form prose. |
-| `request_id` | string matching `^[A-Za-z0-9_-]+$` (≤ 32 chars) | optional | Correlation identifier propagated through to per-target audit events. Restricted to ASCII alphanumerics, `_`, and `-` so audit-log greppability stays predictable. When absent, Arq Signal generates a ULID (which already satisfies the regex). |
+| `request_id` | string matching `^[A-Za-z0-9_-]+$` (≤ 32 chars) | optional | Correlation identifier propagated through to per-target audit events. Restricted to ASCII alphanumerics, `_`, and `-` so audit-log greppability stays predictable. When absent, Elevarq Signal generates a ULID (which already satisfies the regex). |
 
 Response:
 
@@ -983,7 +983,7 @@ per-target events:
 
 Field semantics:
 
-- `request_id` — when the caller did not supply one, Arq Signal
+- `request_id` — when the caller did not supply one, Elevarq Signal
   generates a ULID. Always present on `collect_now_requested` and
   `collect_now_dropped`. May be absent on `collect_now_rejected`
   (e.g. an invalid `request_id` field never produces a usable id).
@@ -1032,31 +1032,31 @@ in audit attributes regardless of request shape.
 
 | Layer | Owner |
 |---|---|
-| License validation | Arq |
-| Contracted target list / customer entitlement | Arq |
-| Analysis, scoring, recommendations | Arq |
-| Enterprise workflow + reporting | Arq |
-| Local extraction | Arq Signal |
-| Local API + this endpoint | Arq Signal |
-| Local snapshot export | Arq Signal |
-| Operational metrics (R079) | Arq Signal |
-| Safe collector execution | Arq Signal |
+| License validation | Elevarq |
+| Contracted target list / customer entitlement | Elevarq |
+| Analysis, scoring, recommendations | Elevarq |
+| Enterprise workflow + reporting | Elevarq |
+| Local extraction | Elevarq Signal |
+| Local API + this endpoint | Elevarq Signal |
+| Local snapshot export | Elevarq Signal |
+| Operational metrics (R079) | Elevarq Signal |
+| Safe collector execution | Elevarq Signal |
 
-Arq Signal does **not** validate licenses, check entitlements, or
+Elevarq Signal does **not** validate licenses, check entitlements, or
 gate collection on a commercial signal. Operators running Mode A
 get the full collector capability — that is by design and matches
 the BSD-3-Clause license posture (R009). The commercial value
-remains in Arq's analysis layer, not in obscured collector behaviour.
+remains in Elevarq's analysis layer, not in obscured collector behaviour.
 
 #### Non-goals (R082)
 
-- No license enforcement inside Arq Signal.
+- No license enforcement inside Elevarq Signal.
 - No remote SaaS control plane assumption (Mode B works equally
-  well for in-cluster Arq).
+  well for in-cluster Elevarq).
 - No collector profile selection — that is a separate future spec.
 - No per-collector export view — R080 remains separate.
-- No status callback channel from Arq Signal back to Arq.
-  Mode B is fire-and-forget on the request side; Arq retrieves
+- No status callback channel from Elevarq Signal back to Elevarq.
+  Mode B is fire-and-forget on the request side; Elevarq retrieves
   results via the existing `/export` endpoint.
 - No per-`request_id` outcome tracking. R082 propagates the
   correlation id through audit events but does not expose a way
@@ -1078,7 +1078,7 @@ remains in Arq's analysis layer, not in obscured collector behaviour.
 
 **ARQ-SIGNALS-R083**: When the operator opts into Mode B (R082) by
 setting `signals.mode: arq_managed`, the system shall accept
-authenticated requests from the Arq control plane via a **separate
+authenticated requests from the Elevarq control plane via a **separate
 bearer token** distinct from the local API token. The audit `actor`
 field is derived from *which token matched* — never from request
 shape — so audit identity cannot be forged by a caller that holds
@@ -1100,7 +1100,7 @@ signals:
   # arq_control_plane_token check.
   mode: standalone
 
-  # R083: Separate bearer token for the Arq control plane.
+  # R083: Separate bearer token for the Elevarq control plane.
   # Used ONLY when mode=arq_managed. Supplied via file (preferred)
   # or env var; never as a YAML literal — same posture as
   # api.token (R011).
@@ -1221,7 +1221,7 @@ Runtime considerations (not startup errors):
   attempt, so rotating the token does not require restarting the
   daemon.
 - **Cross-actor confusion:** a local operator who guesses or
-  steals the Arq token would see their requests audited as
+  steals the Elevarq token would see their requests audited as
   `actor=arq_control_plane`. This is acceptable — token
   compromise of either token is a separate incident class. The
   audit field reflects reality: whoever sent the request had the
@@ -1232,9 +1232,9 @@ Runtime considerations (not startup errors):
 - **Replay protection:** out of scope for R083. The bearer token
   is the only auth surface. Higher-strength auth (mTLS, signed
   JWTs, request-bound nonces) is Phase 4+ work.
-- **Network-level attacks:** Mode B does **not** require Arq to
-  be remote. The recommended deployment is Arq in-cluster with
-  Arq Signal, both processes on a private network. R011's
+- **Network-level attacks:** Mode B does **not** require Elevarq to
+  be remote. The recommended deployment is Elevarq in-cluster with
+  Elevarq Signal, both processes on a private network. R011's
   loopback-bind guidance still applies.
 
 #### Tests planned
@@ -1256,14 +1256,14 @@ Runtime considerations (not startup errors):
 
 #### Non-goals (R083)
 
-- **No license validation in Arq Signal.** R082's licensing-model
+- **No license validation in Elevarq Signal.** R082's licensing-model
   invariant carries forward.
 - **No mTLS / signed JWTs / OIDC.** Higher-strength auth is
   Phase 4+ work.
 - **No `mode: arq_managed_only` (refusing the local API token in
   Mode B).** Possible future extension; R083 keeps the local
   token usable in both modes so operators are never locked out
-  by an Arq outage.
+  by an Elevarq outage.
 - **No per-`request_id` outcome lookup endpoint.** Phase 4+.
 - **No status callback channel.** Phase 4+.
 - **No collector profiles or entitlement metadata.** Separate
@@ -1274,7 +1274,7 @@ Runtime considerations (not startup errors):
   by design; the audit record on the next request after rotation
   is sufficient observability. Operators that need explicit
   rotation visibility can wrap the rotation in a custom event
-  outside Arq Signal.
+  outside Elevarq Signal.
 - **No auth-failure audit events.** Existing 401 responses + R024
   per-IP rate limiter on invalid attempts are unchanged. Adding
   explicit `auth_failed` audit records would be noisy under bot
@@ -2171,7 +2171,7 @@ that output. Two undesirable consequences follow:
    `dbname`; the connection is scoped to that database. The
    statistics view must follow the same scope.
 
-**ARQ-SIGNALS-R106**: All PostgreSQL connections opened by Arq
+**ARQ-SIGNALS-R106**: All PostgreSQL connections opened by Elevarq
 Signals — collector pool, doctor probe, and conntest probe —
 shall set a fixed `application_name` runtime parameter to the
 single source-of-truth constant `arq-signals`. The value shall
@@ -2207,7 +2207,7 @@ contract (`id`, `category`, `result_kind`, `retention_class`,
 
 Invariants:
 
-- **INV-SIGNALS-16**: Every PostgreSQL connection opened by Arq
+- **INV-SIGNALS-16**: Every PostgreSQL connection opened by Elevarq
   Signals reports `application_name = 'arq-signals'` to the
   server. The application name is sourced from a single Go
   constant; no other string literal in the repository sets the
@@ -2281,8 +2281,8 @@ operator-controlled — the export's scope is determined by
 flag) and, for `/export` specifically, by the existing
 `?target_id=N` query parameter. R080 does not introduce any
 mechanism for an external service to narrow the target set at
-request time. Runtime, Arq-driven target filtering — the
-control-plane boundary that lets Arq narrow the collected set on a
+request time. Runtime, Elevarq-driven target filtering — the
+control-plane boundary that lets Elevarq narrow the collected set on a
 per-cycle basis — is the subject of a separate spec (R082, future
 work) and is intentionally out of scope here.
 
@@ -2332,7 +2332,7 @@ ignores `X-Forwarded-For`, which cannot be trusted). Behind NAT, a
 reverse proxy that collapses the client address, or a co-located
 attacker pod, many clients share one source IP. If the lockout were
 evaluated before token validation, an unauthenticated peer could
-flood invalid tokens and lock the legitimate operator or Arq control
+flood invalid tokens and lock the legitimate operator or Elevarq control
 plane out of pause/resume/reload/export — a denial of service. Gating
 only the invalid path preserves the existing brute-force throttle
 (an IP over the failure threshold still receives `429` for invalid
@@ -2393,7 +2393,7 @@ loopback default.
 | Beyond-loopback bind with neither TLS nor a restricting NetworkPolicy (Helm) | Chart emits an explicit insecure-exposure warning; the `0.0.0.0/0` NetworkPolicy placeholder fails chart rendering when the policy is enabled. |
 ### TimescaleDB collector family
 
-**ARQ-SIGNALS-R114**: Arq Signals shall detect TimescaleDB
+**ARQ-SIGNALS-R114**: Elevarq Signals shall detect TimescaleDB
 (Tiger Data) on a monitored target and collect its metadata through a
 twelve-member collector family (`Category: "timescaledb"`, IDs
 `timescaledb_extension_v1`, `timescaledb_hypertables_v1`,
@@ -2485,7 +2485,7 @@ is recorded as a structured warning instead of an opaque
 - **INV-SIGNALS-03**: The snapshot format is a stable contract. Breaking
   changes require a new version suffix (e.g. `_v2`).
 - **INV-SIGNALS-04**: No proprietary prompts, scoring models, or analysis
-  algorithms shall exist anywhere in the Arq Signals repository.
+  algorithms shall exist anywhere in the Elevarq Signals repository.
 - **INV-SIGNALS-05**: Collection evidence must only be gathered under
   safety-constrained execution. No collector query shall execute outside a
   verified read-only session.
@@ -2525,7 +2525,7 @@ is recorded as a structured warning instead of an opaque
   the number of runs per collector is bounded at one. Forensic
   full-history exports remain behind the explicit `--all` selector
   (R085).
-- **INV-SIGNALS-16**: Every PostgreSQL connection opened by Arq
+- **INV-SIGNALS-16**: Every PostgreSQL connection opened by Elevarq
   Signals reports `application_name = 'arq-signals'` to the
   server. The value originates from a single Go constant; no
   other string literal in the repository sets it.

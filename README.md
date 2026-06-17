@@ -122,7 +122,7 @@ audit the binary. You own the output.
 
 ## Specification & Test-Driven Development (STDD)
 
-Arq Signals is developed using STDD — a methodology where the
+Elevarq Signals is developed using STDD — a methodology where the
 specification and tests define the system, and code is a replaceable
 artifact that must satisfy both.
 
@@ -185,7 +185,7 @@ For the full safety model, see
 
 ## Supported PostgreSQL versions
 
-Arq Signals has first-class catalog support for **PostgreSQL 14, 15,
+Elevarq Signals has first-class catalog support for **PostgreSQL 14, 15,
 16, 17, and 18**. Each major has its own catalog file
 (`internal/pgqueries/catalog_pgN.go`) that carries the SQL needed
 when a `pg_stat_*` view's column shape differs from the version-
@@ -216,7 +216,7 @@ questions against that page without reading source.
 
 ## Security model
 
-Arq Signals is local-first by design:
+Elevarq Signals is local-first by design:
 
 - **No data egress.** The daemon writes snapshots only to local
   storage (a SQLite file under `database.path`) and serves them via
@@ -316,7 +316,7 @@ annotated configuration file.
 
 ### Recommended PostgreSQL role
 
-Arq Signals is designed to run using a dedicated monitoring role, not
+Elevarq Signals is designed to run using a dedicated monitoring role, not
 the PostgreSQL superuser. For production use, create a role such as
 `arq_signals` and grant the `pg_monitor` predefined role:
 
@@ -341,7 +341,7 @@ audit the role — see [`docs/postgres-role.md`](docs/postgres-role.md).
 
 ### Optional: Prometheus metrics
 
-Arq Signals can expose an opt-in `/metrics` endpoint with operational
+Elevarq Signals can expose an opt-in `/metrics` endpoint with operational
 counters and gauges (collection outcomes, export outcomes, sqlite
 persistence health, high-sensitivity gate state). The endpoint never
 publishes collected PostgreSQL data. Off by default; enable with
@@ -352,7 +352,7 @@ guarantees and
 for the full metric inventory, scrape configuration, and
 recommended alerting rules.
 
-## Using Arq Signals
+## Using Elevarq Signals
 
 ### Trigger a collection
 
@@ -431,7 +431,7 @@ arqctl status
 
 ## Snapshot format
 
-Arq Signals produces snapshots in the `arq-snapshot.v1` format:
+Elevarq Signals produces snapshots in the `arq-snapshot.v1` format:
 
 ```
 snapshot.zip
@@ -464,11 +464,11 @@ The format is versioned. Breaking changes will bump `schema_version`.
 
 A complete example snapshot is available at
 [`examples/snapshot-example/`](examples/snapshot-example/) — you can
-inspect exactly what Arq Signals collects without running it.
+inspect exactly what Elevarq Signals collects without running it.
 
 ## Collected signals
 
-Arq Signals includes 73 read-only collectors. Grouped by domain:
+Elevarq Signals includes 73 read-only collectors. Grouped by domain:
 
 - **Baseline & runtime** — server config, sessions, databases,
   tables, indexes, table / index I/O, query stats
@@ -602,7 +602,7 @@ already configured.
 Two optional correlation fields ride along with the request:
 
 - `request_id` (regex `^[A-Za-z0-9_-]{1,32}$`) — caller-supplied
-  correlation identifier. When absent, Arq Signals generates a ULID.
+  correlation identifier. When absent, Elevarq Signals generates a ULID.
 - `reason` (regex `^[A-Za-z0-9_-]{1,64}$`) — short tag-style label
   surfaced in audit events.
 
@@ -617,7 +617,7 @@ Validation failures emit `collect_now_rejected`; requests that
 queue but can't run (channel full, or cycle overlap) emit
 `collect_now_dropped`. See "Audit guarantees" below.
 
-Operators who want the commercial Arq control plane to drive this
+Operators who want the commercial Elevarq control plane to drive this
 endpoint additionally enable Mode B authentication — see the next
 section. The endpoint itself works in both modes.
 
@@ -625,7 +625,7 @@ Reference: [`docs/control-plane.md`](docs/control-plane.md).
 
 ## Authentication modes
 
-Arq Signals supports two modes, configured by `signals.mode` in
+Elevarq Signals supports two modes, configured by `signals.mode` in
 `signals.yaml` (default `standalone`).
 
 ### Standalone mode (default)
@@ -636,7 +636,7 @@ the only mode every open-source deployment needs to know about.
 
 ### Managed mode (`mode: arq_managed`)
 
-Adds a second bearer token, the **Arq control-plane token**,
+Adds a second bearer token, the **Elevarq control-plane token**,
 distinct from `api.token`. The matched token determines the audit
 identity:
 
@@ -666,9 +666,9 @@ a single file-write — no daemon restart required. Token length
 floor is 32 characters; the two tokens must be distinct (constant-
 time check at startup).
 
-Mode B has **no licence-validation surface in Arq Signals.** The
+Mode B has **no licence-validation surface in Elevarq Signals.** The
 collector remains open source; the commercial value lives in the
-Arq control plane's analysis layer, not in obscured collector
+Elevarq control plane's analysis layer, not in obscured collector
 behaviour. See `docs/authentication.md` for the full Mode B model,
 rotation behaviour, and security posture.
 
@@ -676,7 +676,7 @@ Reference: [`docs/authentication.md`](docs/authentication.md).
 
 ## Audit guarantees
 
-Arq Signals emits structured slog records keyed
+Elevarq Signals emits structured slog records keyed
 `audit_event=<name>` for every operationally significant lifecycle
 moment. The contract:
 
@@ -731,7 +731,7 @@ secret-handling proof points, see
 
 ### Role safety validation (fail-closed)
 
-Before collecting from any target, Arq Signals validates the connected
+Before collecting from any target, Elevarq Signals validates the connected
 role's safety posture. Collection is **blocked** if the role has:
 
 - Superuser privileges (`rolsuper=true`)
@@ -776,14 +776,14 @@ details.
 
 ### Network
 
-- Arq Signals makes **no outbound network connections** except to your
+- Elevarq Signals makes **no outbound network connections** except to your
   PostgreSQL targets
 - No telemetry, no analytics, no phone-home
 - The HTTP API binds to loopback by default (`127.0.0.1:8081`)
 
 ### Container hardening
 
-When deployed via Docker, Arq Signals runs as a non-root user
+When deployed via Docker, Elevarq Signals runs as a non-root user
 (UID 10001) on a minimal Alpine 3.21 base. The image contains
 BusyBox (used by the `wget`-based healthcheck and `tini` init) and
 no Bash, sh or other full shell beyond BusyBox's `ash` applet.
@@ -793,7 +793,7 @@ so it runs without glibc.
 
 ## Configuration reference
 
-Arq Signals reads configuration from (in order):
+Elevarq Signals reads configuration from (in order):
 1. `--config` flag
 2. `/etc/arq/signals.yaml`
 3. `./signals.yaml`
@@ -830,49 +830,49 @@ annotated example.
 
 ## Architecture and scope
 
-Arq Signals is the open-source collection layer of the Arq platform.
+Elevarq Signals is the open-source collection layer of the Elevarq platform.
 It is a complete, standalone tool — not a crippled free tier.
 
 ```
-┌─────────────────┐
-│   Arq Signals   │  Collects diagnostic signals from PostgreSQL.
-│  (open source)  │  Produces portable snapshots. This repository.
-└────────┬────────┘
-         │ snapshot (ZIP / NDJSON)
-         ▼
-┌─────────────────┐
-│       Arq       │  Analyzes signals. Scores health. Generates
-│    (private)    │  findings and recommendations.
-└────────┬────────┘
-         │ findings
-         ▼
-┌─────────────────┐
-│ Arq Workbench   │  Presents results to engineers.
-│    (private)    │  Interactive UI for DBA workflows.
-└─────────────────┘
+┌───────────────────┐
+│  Elevarq Signals  │  Collects diagnostic signals from PostgreSQL.
+│   (open source)   │  Produces portable snapshots. This repository.
+└─────────┬─────────┘
+          │ snapshot (ZIP / NDJSON)
+          ▼
+┌───────────────────┐
+│  Elevarq Analyzer │  Analyzes signals. Scores health. Generates
+│     (private)     │  findings and recommendations.
+└─────────┬─────────┘
+          │ findings
+          ▼
+┌───────────────────┐
+│ Elevarq Workbench │  Presents results to engineers.
+│     (private)     │  Interactive UI for DBA workflows.
+└───────────────────┘
 ```
 
 The snapshot format (`arq-snapshot.v1`) is the stable contract between
 layers. Each layer is independently deployable and separately
 maintained.
 
-**Arq Signals is fully usable on its own.** You do not need Arq or
-Arq Workbench to collect, export, or inspect your PostgreSQL
-diagnostics. Many teams use Arq Signals purely for data collection,
+**Elevarq Signals is fully usable on its own.** You do not need Elevarq
+Analyzer or Elevarq Workbench to collect, export, or inspect your PostgreSQL
+diagnostics. Many teams use Elevarq Signals purely for data collection,
 feeding the snapshots into their own scripts, dashboards, or analysis
 workflows.
 
-### What stays out of Arq Signals — by design
+### What stays out of Elevarq Signals — by design
 
 The boundary between Signals and the rest of the platform is
 intentional, not accidental:
 
 | Capability | Where it lives | Why not in Signals |
 |-----------|---------------|-------------------|
-| Database analysis | Arq | Interpretation is a separate concern from evidence collection |
-| Health scoring | Arq | Scoring requires domain judgment that evolves independently |
-| AI / LLM | Arq | Language models are not needed for safe data collection |
-| Recommendations | Arq | Remediation advice requires analysis context |
+| Database analysis | Elevarq Analyzer | Interpretation is a separate concern from evidence collection |
+| Health scoring | Elevarq Analyzer | Scoring requires domain judgment that evolves independently |
+| AI / LLM | Elevarq Analyzer | Language models are not needed for safe data collection |
+| Recommendations | Elevarq Analyzer | Remediation advice requires analysis context |
 | Cloud services | None | No component phones home or uploads data |
 | Telemetry | None | No usage tracking exists anywhere in the platform |
 
@@ -882,7 +882,7 @@ permitted.
 
 ## Project status
 
-Arq Signals v0.8.0 — the collection engine, safety model, and
+Elevarq Signals v0.8.0 — the collection engine, safety model, and
 snapshot format are stable and tested (800+ automated tests, 104
 STDD requirements). Smoke-tested against PostgreSQL 14, 15, 16,
 17, and 18. Released container images are published to GHCR and
@@ -929,8 +929,8 @@ analyzer).
 ## Related
 
 - [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams
-- [Arq](https://elevarq.com/products/arq) — commercial PostgreSQL intelligence
-  platform; Arq Signals is its open-source collection layer
+- [Elevarq Analyzer](https://elevarq.com/products/arq) — commercial PostgreSQL intelligence
+  platform; Elevarq Signals is its open-source collection layer
 - [pgAgroal Container](https://github.com/Elevarq/pgAgroal) — production-ready
   container distribution of pgagroal, a high-performance PostgreSQL connection
   pooler

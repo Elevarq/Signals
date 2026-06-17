@@ -388,7 +388,7 @@
       "gridPos": { "h": 4, "w": 24, "x": 0, "y": 38 },
       "options": {
         "mode": "markdown",
-        "content": "**No metric exists for `collect_now_dropped` in this Arq Signals build.** The drop signal is emitted as a structured audit event (`audit_event=collect_now_dropped` with `reason_category=previous_request_pending` or `cycle_overlap_skipped`) — grep the daemon log to count drops by `request_id`. See `docs/audit-model.md` and `docs/grafana-dashboard.md` for the rationale and the workaround."
+        "content": "**No metric exists for `collect_now_dropped` in this Elevarq Signals build.** The drop signal is emitted as a structured audit event (`audit_event=collect_now_dropped` with `reason_category=previous_request_pending` or `cycle_overlap_skipped`) — grep the daemon log to count drops by `request_id`. See `docs/audit-model.md` and `docs/grafana-dashboard.md` for the rationale and the workaround."
       }
     }
   ],
@@ -399,7 +399,7 @@
   "time": { "from": "now-1h", "to": "now" },
   "timepicker": {},
   "timezone": "browser",
-  "title": "Arq Signal Operational Health",
+  "title": "Elevarq Signal Operational Health",
   "uid": "arq-signal-operational-health",
   "version": 1,
   "weekStart": ""

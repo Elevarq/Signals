@@ -61,7 +61,7 @@ unzip -l snapshot.zip
 
 A ready-to-use Docker Compose file is available at
 [`examples/docker-compose.yml`](../docker-compose.yml). It starts
-Arq Signals alongside PostgreSQL 16 with a pre-configured monitoring
+Elevarq Signals alongside PostgreSQL 16 with a pre-configured monitoring
 role:
 
 ```bash
@@ -78,7 +78,7 @@ docker compose -f examples/docker-compose.yml up -d
 
 ## Safe role vs superuser
 
-By default, Arq Signals blocks superuser roles. For local Docker
+By default, Elevarq Signals blocks superuser roles. For local Docker
 testing with `postgres`, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`.
 For production, use a dedicated `arq_signals` role with `pg_monitor`.
 

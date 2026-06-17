@@ -4,7 +4,7 @@
 
 When a target-specific export is requested (TargetID > 0), all
 artifacts in the ZIP must be scoped to that target only. This ensures
-the Arq Analyzer receives a consistent, single-target bundle.
+the Elevarq Analyzer receives a consistent, single-target bundle.
 
 ## Requirements
 

@@ -1,6 +1,6 @@
 # Adoption Guide
 
-This guide covers installing, configuring, and operating Arq Signals in development and production environments.
+This guide covers installing, configuring, and operating Elevarq Signals in development and production environments.
 
 ## Getting Started
 
@@ -42,7 +42,7 @@ targets:
     enabled: true
 ```
 
-The config file is called `signals.yaml`. Arq Signals searches for it at `/etc/arq/signals.yaml` and `./signals.yaml` by default, or you can pass `--config <path>`.
+The config file is called `signals.yaml`. Elevarq Signals searches for it at `/etc/arq/signals.yaml` and `./signals.yaml` by default, or you can pass `--config <path>`.
 
 ### 3. Start the daemon
 
@@ -58,7 +58,7 @@ The daemon begins collecting on the configured `poll_interval` (default 5m).
 arqctl collect now
 ```
 
-`arqctl` talks to the running Arq Signals daemon over its HTTP API. Set `ARQ_SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
+`arqctl` talks to the running Elevarq Signals daemon over its HTTP API. Set `ARQ_SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
 
 ### 5. Export
 
@@ -83,7 +83,7 @@ arqctl version
 
 ### Docker
 
-Run Arq Signals as a long-lived container:
+Run Elevarq Signals as a long-lived container:
 
 ```bash
 docker run -d \
@@ -132,7 +132,7 @@ The following target-level env vars are supported:
 
 ### TLS
 
-Arq Signals connects to PostgreSQL over TLS when the target's `sslmode` field is set to `require` or stricter. For production, use `verify-ca` or `verify-full` and provide `sslrootcert_file` pointing to the CA certificate:
+Elevarq Signals connects to PostgreSQL over TLS when the target's `sslmode` field is set to `require` or stricter. For production, use `verify-ca` or `verify-full` and provide `sslrootcert_file` pointing to the CA certificate:
 
 ```yaml
 targets:
@@ -149,13 +149,13 @@ targets:
 
 In production (`env: prod`), weak TLS modes (`disable`, `allow`, `prefer`, `require`) are rejected. In non-production environments, set `ARQ_ALLOW_INSECURE_PG_TLS=true` to allow weak TLS for local development.
 
-For the HTTP API, place Arq Signals behind a TLS-terminating reverse proxy (nginx, Caddy, or a cloud load balancer).
+For the HTTP API, place Elevarq Signals behind a TLS-terminating reverse proxy (nginx, Caddy, or a cloud load balancer).
 
 ---
 
 ## Credential Management
 
-Arq Signals supports three credential sources. Choose whichever fits your environment. Only one may be specified per target.
+Elevarq Signals supports three credential sources. Choose whichever fits your environment. Only one may be specified per target.
 
 | Method | Config field | Description |
 |--------|-------------|-------------|
@@ -197,7 +197,7 @@ Credentials are read fresh on each connection attempt. They are never cached in 
 
 ### Monitoring Role Setup
 
-Create a dedicated read-only role for Arq Signals. The following works across RDS, Cloud SQL, Aurora, and self-managed PostgreSQL:
+Create a dedicated read-only role for Elevarq Signals. The following works across RDS, Cloud SQL, Aurora, and self-managed PostgreSQL:
 
 ```sql
 CREATE ROLE arq_monitor WITH LOGIN PASSWORD 'your-secure-password';
@@ -215,7 +215,7 @@ On **Google Cloud SQL**, grant the `cloudsqlsuperuser` role or assign `pg_monito
 
 ### Role Safety
 
-Arq Signals enforces strict role safety by default. If your monitoring role has superuser, replication, or bypassrls attributes, collection is blocked with an actionable error message. Use the recommended monitoring role setup:
+Elevarq Signals enforces strict role safety by default. If your monitoring role has superuser, replication, or bypassrls attributes, collection is blocked with an actionable error message. Use the recommended monitoring role setup:
 
 ```sql
 CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
@@ -231,7 +231,7 @@ An explicit override (`ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev e
 
 ## Multi-Target Setup
 
-Arq Signals supports concurrent collection across multiple targets:
+Elevarq Signals supports concurrent collection across multiple targets:
 
 ```yaml
 # signals.yaml
@@ -322,7 +322,7 @@ api:
 
 ### Scheduled Export via Cron
 
-Run Arq Signals as a daemon and export snapshots on a schedule:
+Run Elevarq Signals as a daemon and export snapshots on a schedule:
 
 ```bash
 # Export a snapshot every hour
@@ -356,11 +356,11 @@ aws s3 cp snapshot.zip s3://my-bucket/arq-signals/$(date +%Y/%m/%d)/
 
 ### Snapshot Format Versioning
 
-Snapshot archives include a format version identifier (`arq-snapshot.v1`). When the format changes, the version number increments. Older snapshots remain readable by newer versions of Arq Signals.
+Snapshot archives include a format version identifier (`arq-snapshot.v1`). When the format changes, the version number increments. Older snapshots remain readable by newer versions of Elevarq Signals.
 
 ### Binary Upgrades
 
-Replace the binary or container image and restart. Arq Signals uses SQLite with WAL mode for local storage; the schema is migrated automatically on startup. No manual migration steps are required.
+Replace the binary or container image and restart. Elevarq Signals uses SQLite with WAL mode for local storage; the schema is migrated automatically on startup. No manual migration steps are required.
 
 ### Backward Compatibility
 
@@ -424,7 +424,7 @@ For lab/dev environments only, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true` to overr
 **Causes:**
 - `pg_stat_statements` is not installed or not listed in `shared_preload_libraries`.
 
-**Fix:** This is informational, not an error. Arq Signals automatically skips collectors that depend on unavailable extensions. To enable the extension, add `pg_stat_statements` to `shared_preload_libraries` in `postgresql.conf` and run `CREATE EXTENSION pg_stat_statements;` in each target database.
+**Fix:** This is informational, not an error. Elevarq Signals automatically skips collectors that depend on unavailable extensions. To enable the extension, add `pg_stat_statements` to `shared_preload_libraries` in `postgresql.conf` and run `CREATE EXTENSION pg_stat_statements;` in each target database.
 
 ### SQLite Locked
 
@@ -434,10 +434,10 @@ For lab/dev environments only, set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true` to overr
 - Another process holds a write lock on the SQLite database file.
 - The filesystem does not support WAL mode (e.g., some network filesystems).
 
-**Fix:** Ensure only one Arq Signals instance writes to a given SQLite database file. Use a local filesystem that supports `fcntl` locking.
+**Fix:** Ensure only one Elevarq Signals instance writes to a given SQLite database file. Use a local filesystem that supports `fcntl` locking.
 
 ### High Memory Usage During Export
 
 **Symptom:** Memory spikes when exporting large snapshots.
 
-**Fix:** Export more frequently to reduce the volume of data per snapshot. Arq Signals streams results to disk during collection, but export assembles the ZIP archive in memory.
+**Fix:** Export more frequently to reduce the volume of data per snapshot. Elevarq Signals streams results to disk during collection, but export assembles the ZIP archive in memory.

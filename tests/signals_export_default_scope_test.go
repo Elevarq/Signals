@@ -10,7 +10,7 @@
 //   TC-SIG-093..TC-SIG-099
 //
 // These tests describe the producer-side wire contract any consumer
-// (Arq Analyzer, third-party integrations) is entitled to rely on.
+// (Elevarq Analyzer, third-party integrations) is entitled to rely on.
 // They run against the in-process SQLite store and the export
 // Builder; no HTTP layer or arqctl process is involved at this
 // level.

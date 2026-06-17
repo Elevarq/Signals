@@ -1,6 +1,6 @@
 # Audit model
 
-Arq Signals emits structured slog records keyed by
+Elevarq Signals emits structured slog records keyed by
 `audit_event=<name>` for every operationally significant lifecycle
 moment — startup, collection cycles, on-demand requests, exports.
 This document catalogues the events, defines the correlation rules
@@ -107,7 +107,7 @@ credential material into the audit stream.
 happens because of one `/collect/now` call.
 
 - The caller may supply it (regex `^[A-Za-z0-9_-]{1,32}$`).
-- If absent, Arq Signals generates a ULID (which satisfies the
+- If absent, Elevarq Signals generates a ULID (which satisfies the
   regex by construction).
 - The 202 response echoes whichever value was used.
 - The same value appears on `collect_now_requested`,
@@ -153,7 +153,7 @@ value is sourced from the bearer token the auth middleware matched —
 | Value | Origin |
 |---|---|
 | `local_operator` | The local API token (`api.token`) matched. |
-| `arq_control_plane` | The Arq control-plane token matched (only valid in `mode=arq_managed`). |
+| `arq_control_plane` | The Elevarq control-plane token matched (only valid in `mode=arq_managed`). |
 
 Events that carry `actor`:
 

@@ -15,7 +15,7 @@ minimum PostgreSQL major version (`pg_stat_io_v1` requires PG ≥ 16).
 When a precondition fails, the collector is gated out before query
 execution rather than left to fail at runtime. This specification
 defines the canonical channel through which downstream consumers
-(notably the Arq Analyzer's evidence-completeness model) learn
+(notably the Elevarq Analyzer's evidence-completeness model) learn
 **why** a collector produced no data.
 
 ## Channel: collector_status.json
@@ -72,7 +72,7 @@ complementary, not redundant: `query_results.ndjson` is data;
   reference this specification in its **Failure Conditions**
   section and document the reason value(s) it can produce.
 
-- **EA-R004 (analyzer contract)**: The Arq Analyzer's
+- **EA-R004 (analyzer contract)**: The Elevarq Analyzer's
   `EvidenceCompleteness` model MUST consume `collector_status.json`
   and surface the per-collector `reason` so detectors can
   distinguish:
@@ -152,7 +152,7 @@ duration.
   on a target where the precondition fails — even if no SQL ever
   ran on its behalf.
 
-- The Arq Analyzer's coverage report exposes the four states
+- The Elevarq Analyzer's coverage report exposes the four states
   enumerated in EA-R004 (`ExtensionUnavailable`,
   `VersionUnsupported`, `ConfigDisabled`, `CollectorFailed`) plus
   `CollectorOK`, distinguishable by the `reason` field on

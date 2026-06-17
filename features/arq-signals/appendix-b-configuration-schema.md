@@ -1,6 +1,6 @@
 # Appendix B: Configuration Schema
 
-This appendix defines the configuration model for Arq Signals. Any
+This appendix defines the configuration model for Elevarq Signals. Any
 conforming implementation must accept this configuration format.
 
 ## Configuration sources
@@ -344,7 +344,7 @@ columns): the collector still runs; the listed columns are set to
 `NULL` in persisted output. Non-sensitive diagnostic columns survive.
 
 This control is for **local operator control over data sensitivity**,
-not exfiltration prevention — Arq Signals runs inside the customer's
+not exfiltration prevention — Elevarq Signals runs inside the customer's
 environment and the snapshot file does not leave the site. The
 collect-everything default exists because the diagnostic value of
 these collectors is high (long-running transactions, blocking chains,

@@ -3,14 +3,14 @@
 ## Purpose
 
 Record the execution outcome of every registered collector for each
-snapshot cycle. This metadata enables the Arq Analyzer to assess
+snapshot cycle. This metadata enables the Elevarq Analyzer to assess
 evidence completeness and communicate reduced reliability when
 collector data is missing or incomplete.
 
 ## File
 
 `collector_status.json` — written alongside `metadata.json` in the
-Arq Signals output ZIP.
+Elevarq Signals output ZIP.
 
 ## Schema
 

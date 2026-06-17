@@ -1,6 +1,6 @@
 # Authentication
 
-Arq Signals authenticates HTTP API callers with bearer tokens. This
+Elevarq Signals authenticates HTTP API callers with bearer tokens. This
 document describes both authentication modes — `standalone`
 (default) and `arq_managed` — including how tokens map to audit
 `actor` identity and how to rotate the control-plane token without
@@ -15,7 +15,7 @@ restarting the daemon. Specs: ARQ-SIGNALS-R011, R083.
 
 `mode` is set by `signals.mode` in `signals.yaml` or via the
 `ARQ_SIGNALS_MODE` environment variable. Default is `standalone` —
-operators who don't run the Arq control plane don't need to change
+operators who don't run the Elevarq control plane don't need to change
 anything.
 
 ## The local API token
@@ -29,11 +29,11 @@ been:
 - `ARQ_SIGNALS_API_TOKEN_FILE` pointing at a file containing the
   token.
 
-If none of these are set, Arq Signals auto-generates a 32-byte
+If none of these are set, Elevarq Signals auto-generates a 32-byte
 random token at startup and logs the SHA-256 fingerprint (not the
 value) so the operator can confirm which token is active.
 
-## The Arq control-plane token (Mode B only)
+## The Elevarq control-plane token (Mode B only)
 
 When `signals.mode: arq_managed`, the daemon also accepts a second
 bearer token, distinct from `api.token`, identified in audit events
@@ -189,7 +189,7 @@ Subsequent requests:
 curl -H "Authorization: Bearer ${ARQ_SIGNALS_API_TOKEN}" http://127.0.0.1:8081/status
 # audit: actor=local_operator
 
-# As the Arq control plane (arq_control_plane_token):
+# As the Elevarq control plane (arq_control_plane_token):
 curl -H "Authorization: Bearer 01HXY9QZK5T8M3FN6JBPRWADCV7E2GH4" \
   -X POST http://127.0.0.1:8081/collect/now \
   -H 'Content-Type: application/json' \
@@ -203,7 +203,7 @@ curl -H "Authorization: Bearer 01HXY9QZK5T8M3FN6JBPRWADCV7E2GH4" \
   Phase 4+ work.
 - **No `arq_managed_only` mode** that refuses the local API token
   in Mode B. The local token remains valid in both modes so
-  operators are never locked out by an Arq-side outage.
-- **No license enforcement in Arq Signals.** Per R082, the
+  operators are never locked out by an Elevarq-side outage.
+- **No license enforcement in Elevarq Signals.** Per R082, the
   collector is open source; commercial value is in the analysis
   layer, not in obscured collector behaviour.

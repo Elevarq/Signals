@@ -8,7 +8,7 @@ Spec: `specifications/collectors/timescaledb_family_v1.md` (R114),
 (R114) and § Extension-version gating (R115)
 
 This note records the research findings and the design decisions for
-adding TimescaleDB detection and metadata collection to Arq Signals.
+adding TimescaleDB detection and metadata collection to Elevarq Signals.
 All version facts below were verified against the TimescaleDB source
 (`sql/views.sql`, `sql/pre_install/tables.sql`, `src/guc.c` at release
 tags), the GitHub changelog, and the Tiger Data documentation
@@ -19,7 +19,7 @@ product; docs.timescale.com redirects there.
 
 Latest TimescaleDB release: **2.27.2** (2026-06-02).
 
-| TimescaleDB | PostgreSQL majors | Arq Signals overlap (PG 14–18) |
+| TimescaleDB | PostgreSQL majors | Elevarq Signals overlap (PG 14–18) |
 |---|---|---|
 | 2.23 – 2.27 | 15–18 | 15–18 |
 | 2.20 – 2.22 | 15–17 | 15–17 |
@@ -31,7 +31,7 @@ PG 15 support is announced to end with the TimescaleDB release after
 2.27 (June 2026). Tiger Data publishes no per-version EOL dates;
 support is expressed through the PG window.
 
-**Arq Signals support tiers (proposed):**
+**Elevarq Signals support tiers (proposed):**
 
 - **Supported (tested in CI):** TimescaleDB 2.17 → 2.27 on PG 14–18,
   per the intersection above.
