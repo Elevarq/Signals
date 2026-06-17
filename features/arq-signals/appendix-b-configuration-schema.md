@@ -72,7 +72,8 @@ targets:
     # azure_entra, gcp_cloudsql_iam) connect passwordlessly using a
     # short-lived token minted from the collector's ambient cloud identity.
     auth_method: <string>    # Optional. "password" (default) | "aws_rds_iam"
-                             #   | "azure_entra" | "gcp_cloudsql_iam".
+                             #   | "azure_entra" | "gcp_cloudsql_iam"
+                             #   | "secret_store".
     region: <string>         # Optional. AWS region for aws_rds_iam; when
                              #   omitted, resolved from AWS_REGION /
                              #   AWS_DEFAULT_REGION / instance metadata (IMDS).
@@ -82,10 +83,24 @@ targets:
     gcp_impersonate_service_account: <string> # Optional. Service account to
                              #   impersonate for gcp_cloudsql_iam; when omitted,
                              #   the ambient ADC identity is used directly.
+    secret_ref: <string>     # Required for secret_store. Cloud vault reference;
+                             #   its shape selects the backend (AWS Secrets
+                             #   Manager ARN | Azure Key Vault secret URI | GCP
+                             #   Secret Manager resource name). AWS region is
+                             #   taken from the ARN, never from AWS_REGION/IMDS.
+    secret_json_key: <string> # Optional, secret_store only. When set, parse the
+                             #   fetched secret as a JSON object and use this
+                             #   key's string value; when omitted, the raw
+                             #   fetched value is the password.
+    max_cache_ttl: <dur>     # Optional, secret_store only. Upper bound on how
+                             #   long a fetched secret is reused between
+                             #   reconnects. 0 / omitted → re-fetch on every
+                             #   reconnect (rotation picked up immediately).
 
     # Credential source (at most one). MUST be empty when auth_method is
-    # a token method (aws_rds_iam / azure_entra / gcp_cloudsql_iam are
-    # passwordless).
+    # a token method (aws_rds_iam / azure_entra / gcp_cloudsql_iam) or
+    # secret_store — all are passwordless from config (secret_store fetches
+    # the password from the vault, never inline).
     password_file: <path>    # Read password from file (newline-trimmed)
     password_env: <string>   # Read password from this env var's value
     pgpass_file: <path>      # Read password from pgpass-format file
@@ -244,6 +259,51 @@ stored, exported, or logged (only its metadata). Validation rules:
 
 The Google SDK is invoked only on the `gcp_cloudsql_iam` path; targets
 using password auth never require Google credentials at runtime.
+
+### `auth_method: secret_store` (#97)
+
+Fetches a **static database password** from a cloud secret store using
+the collector's ambient cloud identity and applies it as the connection
+password. Unlike the token methods (`aws_rds_iam` / `azure_entra` /
+`gcp_cloudsql_iam`), the credential is a long-lived password the operator
+already manages in a vault — `secret_store` keeps it out of config and
+disk while leaving rotation to the vault. The backend is **inferred from
+the shape of `secret_ref`**:
+
+| `secret_ref` shape | Backend | Region source |
+|--------------------|---------|---------------|
+| `arn:aws:secretsmanager:<region>:<acct>:secret:<name>` | AWS Secrets Manager | the ARN's region field, authoritatively — never `AWS_REGION` / the SDK default chain / IMDS |
+| `https://<vault>.vault.azure.net/secrets/<name>[/<version>]` | Azure Key Vault | n/a |
+| `projects/<p>/secrets/<s>/versions/<v|latest>` | GCP Secret Manager | n/a |
+
+A reference matching none of these is a hard startup error naming the
+three accepted forms (FC-SECRET-007).
+
+**Backend availability in this release:** the **AWS Secrets Manager** path
+is production-grade. Azure Key Vault and GCP Secret Manager references are
+accepted at startup (the shapes are recognised and validated) but their
+production fetchers are deferred — a target using one fails at connect
+time with a clear "backend is not available in this build" error and does
+not stop collection for other targets. Tracked as a follow-up.
+
+The fetched secret is cached per target. The reuse bound is
+`min(vault-supplied TTL if any, max_cache_ttl if set)`; AWS Secrets Manager
+supplies no TTL, so for AWS the bound is whatever `max_cache_ttl` sets. With
+neither set the secret is re-fetched on every reconnect, so a rotated secret
+is picked up without a restart (INV003). The secret is never stored,
+exported, or logged — only its metadata. Validation rules:
+
+| Rule | Behavior |
+|------|----------|
+| Passwordless from config | `password_file` / `password_env` / `pgpass_file` MUST be empty — the password comes from the vault, never inline; combining them is a hard startup error (FC-SECRET-005 / INV001). |
+| TLS floor | `sslmode` MUST be `verify-full` in every environment — weaker modes are a hard startup error (FC-SECRET-006 / INV004). |
+| Reference required | `secret_ref` MUST be set and match a recognised backend shape; absent or unrecognised is a hard startup error (FC-SECRET-007). |
+| JSON extraction | When `secret_json_key` is set the fetched value MUST be a JSON object containing that key with a non-empty string value; a non-JSON / missing-key / non-string / empty value is a connect-time failure whose error never echoes the raw secret (FC-SECRET-003 / FC-SECRET-004 / INV002). |
+| Identity / permission | The fetching identity is the collector's ambient cloud identity (AWS: instance profile / IRSA / Pod Identity). A fetch denial or undiscoverable identity is a connect-time, target-scoped failure with an actionable IAM hint (FC-SECRET-001 / FC-SECRET-002) that does not stop collection for other targets. |
+
+Only the inferred backend's SDK is invoked for a given target (INV005);
+targets using password or token auth never require secret-store
+credentials at runtime.
 
 ## High-sensitivity collectors
 

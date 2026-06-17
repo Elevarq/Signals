@@ -8,6 +8,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Added
 
+- **Secret-store credential provider (`auth_method: secret_store`, #93,
+  #97).** Fetch a static database password from a cloud secret store using
+  the collector's ambient cloud identity and apply it as the connection
+  password - keeping the credential out of Signals' config and off disk
+  while leaving rotation to the vault. The backend is inferred from the
+  shape of `secret_ref`: an AWS Secrets Manager ARN, an Azure Key Vault
+  secret URI, or a GCP Secret Manager resource name; a reference matching
+  none is a hard startup error naming the three accepted forms. **The AWS
+  Secrets Manager path is production-grade** (region taken authoritatively
+  from the ARN, never `AWS_REGION` / the SDK default chain / IMDS); Azure
+  Key Vault and GCP Secret Manager references are validated at startup but
+  their production fetchers are deferred behind the same interface and fail
+  at connect time with a clear "backend not available in this build" error
+  (backend support scaffolded; production fetchers tracked separately in
+  #108) without stopping collection for other targets.
+  An optional `secret_json_key` extracts a named key from a JSON secret
+  (raw value otherwise); extraction failures never echo the raw secret. The
+  fetched secret is cached per target with a reuse bound of `min(vault TTL,
+  max_cache_ttl)` - with neither set it is re-fetched on every reconnect so
+  a rotated secret is picked up without a restart. Validation enforces the
+  passwordless and `verify-full` TLS floors at startup; the secret is never
+  stored, exported, or logged (metadata only). Reuses the shared
+  credential-provider scaffolding from #94. Live behaviour covered by an
+  env-gated smoke (`ARQ_SIGNALS_INTEGRATION_LIVE=1`).
 - **GCP Cloud SQL IAM credential provider (`auth_method:
   gcp_cloudsql_iam`, #93, #96).** Connect passwordlessly to Cloud SQL for
   PostgreSQL using Cloud SQL IAM database authentication: a short-lived

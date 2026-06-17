@@ -186,6 +186,29 @@ type TargetConfig struct {
 	// secret: a service-account email is a public identifier.
 	GCPImpersonateServiceAccount string `yaml:"gcp_impersonate_service_account"`
 
+	// SecretRef is the cloud secret-store reference for the secret_store
+	// provider (ARQ-SIGNALS-AUTH-SECRET-, #97): an AWS Secrets Manager ARN,
+	// an Azure Key Vault secret URI, or a GCP Secret Manager resource name.
+	// Its shape selects the backend (InferSecretBackend). Required when
+	// auth_method is secret_store (FC-SECRET-007). Not a secret: the
+	// reference names, but does not contain, the credential.
+	SecretRef string `yaml:"secret_ref"`
+
+	// SecretJSONKey, when set, parses the fetched secret as a JSON object
+	// and uses this key's string value as the password (e.g. "password" for
+	// an AWS RDS-managed secret {"username":…,"password":…}). When empty the
+	// fetched value is used verbatim. Consumed only by the secret_store
+	// provider (#97).
+	SecretJSONKey string `yaml:"secret_json_key"`
+
+	// MaxCacheTTL bounds how long a fetched secret may be reused between
+	// reconnects when the vault supplies no TTL/lease of its own
+	// (ARQ-SIGNALS-AUTH-SECRET-INV003). Optional; zero with no vault TTL
+	// means re-fetch on every reconnect. MaxCacheTTLS is the YAML duration
+	// string folded into MaxCacheTTL by parseDurations.
+	MaxCacheTTL  time.Duration `yaml:"-"`
+	MaxCacheTTLS string        `yaml:"max_cache_ttl"`
+
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -239,8 +262,11 @@ func (t TargetConfig) SecretType() string {
 	}
 }
 
-// SecretRef returns the non-secret reference for the credential source.
-func (t TargetConfig) SecretRef() string {
+// CredentialSourceRef returns the non-secret reference for the credential
+// source (the password_file / password_env / pgpass_file path). It is
+// distinct from the secret_store SecretRef field, which names a cloud
+// secret-store reference.
+func (t TargetConfig) CredentialSourceRef() string {
 	switch {
 	case t.PasswordFile != "":
 		return t.PasswordFile
@@ -272,12 +298,13 @@ const (
 	AuthMethodAWSRDSIAM      = "aws_rds_iam"
 	AuthMethodAzureEntra     = "azure_entra"
 	AuthMethodGCPCloudSQLIAM = "gcp_cloudsql_iam"
+	AuthMethodSecretStore    = "secret_store"
 )
 
 // SupportedAuthMethods enumerates every auth_method this build can serve.
 // The empty value is equivalent to AuthMethodPassword (see
 // EffectiveAuthMethod) and is always accepted.
-var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM}
+var SupportedAuthMethods = []string{AuthMethodPassword, AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM, AuthMethodSecretStore}
 
 // EffectiveAuthMethod returns the target's auth_method, defaulting an
 // empty value to AuthMethodPassword so existing configs keep their
@@ -806,6 +833,28 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			// (ambient ADC identity), and an undiscoverable identity or a
 			// denied impersonation is a connect-time, target-scoped failure
 			// (FC-GCP-005), not a whole-collector startup failure.
+		case AuthMethodSecretStore:
+			// FC-SECRET-005: the password comes only from the vault — reject
+			// any inline password source on the target.
+			if secretCount > 0 {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q does not take an inline password source — remove password_file, password_env, and pgpass_file; the password comes from the vault", i, t.Name, AuthMethodSecretStore))
+			}
+			// FC-SECRET-006: the fetched secret must only traverse a fully
+			// verified TLS channel, in every environment.
+			if t.SSLMode != "verify-full" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires sslmode=verify-full (got %q)", i, t.Name, AuthMethodSecretStore, t.SSLMode))
+			}
+			// FC-SECRET-007: secret_ref is required and must match one of the
+			// three accepted shapes (the shape selects the backend).
+			if t.SecretRef == "" {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires secret_ref; %s", i, t.Name, AuthMethodSecretStore, secretRefForms))
+			} else if _, err := InferSecretBackend(t.SecretRef); err != nil {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q: %v", i, t.Name, AuthMethodSecretStore, err))
+			}
+			// Identity resolution is deliberately NOT validated at startup:
+			// an undiscoverable workload identity for the vault is a
+			// connect-time, target-scoped failure (FC-SECRET-002), not a
+			// whole-collector startup failure.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}
@@ -1147,6 +1196,19 @@ func parseDurations(cfg *Config) error {
 			return fmt.Errorf("parse signals.circuit.open_cooldown %q: %w", cfg.Signals.Circuit.OpenCooldownS, err)
 		}
 		cfg.Signals.Circuit.OpenCooldown = d
+	}
+	// Per-target durations: secret_store max_cache_ttl (#97).
+	for i := range cfg.Targets {
+		if cfg.Targets[i].MaxCacheTTLS != "" {
+			d, err := time.ParseDuration(cfg.Targets[i].MaxCacheTTLS)
+			if err != nil {
+				return fmt.Errorf("parse target[%d] (%s) max_cache_ttl %q: %w", i, cfg.Targets[i].Name, cfg.Targets[i].MaxCacheTTLS, err)
+			}
+			if d < 0 {
+				return fmt.Errorf("target[%d] (%s): max_cache_ttl must be >= 0 (got %s)", i, cfg.Targets[i].Name, d)
+			}
+			cfg.Targets[i].MaxCacheTTL = d
+		}
 	}
 	return nil
 }

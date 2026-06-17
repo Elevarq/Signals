@@ -58,8 +58,12 @@ type credentialResolver struct {
 	// gcp_cloudsql_iam provider (#96). Like the other minters it is a seam
 	// so unit tests inject a fake and make no real GCP call (NFR003).
 	gcpMinter gcpTokenMinter
-	now       func() time.Time
-	logger    *slog.Logger
+	// secretFetcher fetches database passwords from a cloud secret store for
+	// the secret_store provider (#97). Like the minters it is a seam so unit
+	// tests inject a fake and make no real cloud call (NFR003).
+	secretFetcher secretFetcher
+	now           func() time.Time
+	logger        *slog.Logger
 }
 
 // newCredentialResolver builds the production resolver: a real AWS token
@@ -76,8 +80,12 @@ func newCredentialResolver(logger *slog.Logger) *credentialResolver {
 		region:      resolveAWSRegion,
 		azureMinter: azureEntraTokenMinter{},
 		gcpMinter:   gcpADCTokenMinter{},
-		now:         time.Now,
-		logger:      logger,
+		// AWS Secrets Manager is production-grade (#97); the Azure and GCP
+		// fetchers are deferred behind the same seam and report
+		// errSecretBackendUnavailable until wired.
+		secretFetcher: productionSecretFetcher{aws: awsSecretsManagerFetcher{}},
+		now:           time.Now,
+		logger:        logger,
 	}
 }
 
@@ -93,6 +101,8 @@ func (r *credentialResolver) Resolve(ctx context.Context, tgt config.TargetConfi
 		return r.resolveAzure(ctx, tgt)
 	case config.AuthMethodGCPCloudSQLIAM:
 		return r.resolveGCP(ctx, tgt)
+	case config.AuthMethodSecretStore:
+		return r.resolveSecretStore(ctx, tgt)
 	default:
 		password, err := ResolvePassword(tgt)
 		if err != nil {
