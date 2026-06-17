@@ -10,7 +10,7 @@ variable "region" {
 variable "name_prefix" {
   type        = string
   description = "Prefix for created resource names."
-  default     = "arq-signals"
+  default     = "signals"
 }
 
 variable "db_host" {
@@ -64,7 +64,7 @@ variable "instance_type" {
 variable "image_uri" {
   type        = string
   description = "Elevarq Signals container image (pinned tag)."
-  default     = "ghcr.io/elevarq/arq-signals:0.10.0-beta.5"
+  default     = "ghcr.io/elevarq/signals:0.10.0-beta.5"
 }
 
 variable "arq_env" {

@@ -1,4 +1,4 @@
-# Acceptance Tests: `arqctl connect test`
+# Acceptance Tests: `signalsctl connect test`
 
 ## Feature
 
@@ -18,7 +18,7 @@ not superuser / replication / bypassrls.
 - The configured role passes `collector.ValidateRoleSafety`.
 
 **When:**
-- `arqctl connect test <target>` is run.
+- `signalsctl connect test <target>` is run.
 
 **Then:**
 - Output contains a single line beginning with `OK`.
@@ -38,7 +38,7 @@ nothing is listening (firewall drop or instance down).
 - Target configured at `127.0.0.1:9` (discard port — refused).
 
 **When:**
-- `arqctl connect test <target>` is run.
+- `signalsctl connect test <target>` is run.
 
 **Then:**
 - Output line begins with `FAIL`.
@@ -58,7 +58,7 @@ nothing is listening (firewall drop or instance down).
 - A target reachable on TCP whose configured password is invalid.
 
 **When:**
-- `arqctl connect test <target>` is run.
+- `signalsctl connect test <target>` is run.
 
 **Then:**
 - Output line begins with `FAIL`.
@@ -81,7 +81,7 @@ environment variable is not set when the CLI runs.
 - The env var is not set.
 
 **When:**
-- `arqctl connect test <target>` is run.
+- `signalsctl connect test <target>` is run.
 
 **Then:**
 - Output line begins with `FAIL`.
@@ -104,7 +104,7 @@ to config.
 - No mention of it in `signals.yaml`.
 
 **When:**
-- `arqctl connect test --dsn "host=localhost port=5432 dbname=postgres user=arq sslmode=disable"` is run.
+- `signalsctl connect test --dsn "host=localhost port=5432 dbname=postgres user=arq sslmode=disable"` is run.
 
 **Then:**
 - The connection is attempted.
@@ -123,7 +123,7 @@ to config.
 - Both a positional `<target-name>` and `--dsn` on the command line.
 
 **When:**
-- `arqctl connect test foo --dsn "host=... port=..."` is run.
+- `signalsctl connect test foo --dsn "host=... port=..."` is run.
 
 **Then:**
 - No connection is attempted.
@@ -142,7 +142,7 @@ to config.
 - Any valid target (the exact health state does not matter).
 
 **When:**
-- `arqctl connect test --json [<target>]` is run.
+- `signalsctl connect test --json [<target>]` is run.
 
 **Then:**
 - Output is a single JSON object parseable by `encoding/json`.
@@ -176,7 +176,7 @@ to config.
 
 **Rule:** Invariant — INV-CONN-04
 
-**Scenario:** Operator runs `arqctl connect test` (no args, no
+**Scenario:** Operator runs `signalsctl connect test` (no args, no
 `--dsn`) against a config with three targets `alpha`, `bravo`,
 `charlie`.
 
@@ -204,7 +204,7 @@ to config.
 - The env var set to `SENTINEL-conntest-leak-probe-789`.
 
 **When:**
-- `arqctl connect test <target>` is run against an unreachable port
+- `signalsctl connect test <target>` is run against an unreachable port
   (forces the dial-failure path that exercises error formatting).
 
 **Then:**

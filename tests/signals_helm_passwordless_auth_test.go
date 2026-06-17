@@ -142,9 +142,9 @@ func TestHelm_ServiceAccountAnnotationsRender(t *testing.T) {
 	// ServiceAccount annotation. The chart already exposes
 	// serviceAccount.annotations; verify it reaches the SA resource.
 	out := renderHelm(t,
-		`serviceAccount.annotations.eks\.amazonaws\.com/role-arn=arn:aws:iam::111122223333:role/arq-signals-irsa`,
+		`serviceAccount.annotations.eks\.amazonaws\.com/role-arn=arn:aws:iam::111122223333:role/signals-irsa`,
 	)
-	if !strings.Contains(out, "eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/arq-signals-irsa") {
+	if !strings.Contains(out, "eks.amazonaws.com/role-arn: arn:aws:iam::111122223333:role/signals-irsa") {
 		t.Errorf("IRSA role-arn annotation not rendered on the ServiceAccount:\n%s", out)
 	}
 }

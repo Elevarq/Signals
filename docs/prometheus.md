@@ -78,13 +78,13 @@ Recommended `prometheus.yml` job for an authenticated endpoint:
 
 ```yaml
 scrape_configs:
-  - job_name: arq-signals
+  - job_name: signals
     metrics_path: /metrics
     scheme: http             # use https if the listener is fronted by TLS
-    bearer_token_file: /etc/prometheus/secrets/arq-signals-token
+    bearer_token_file: /etc/prometheus/secrets/signals-token
     static_configs:
       - targets:
-          - arq-signals.internal:8081
+          - signals.internal:8081
         labels:
           deployment: prod
 ```
@@ -93,7 +93,7 @@ For loopback / local-only scraping (no auth):
 
 ```yaml
 scrape_configs:
-  - job_name: arq-signals
+  - job_name: signals
     metrics_path: /metrics
     static_configs:
       - targets: ['127.0.0.1:8081']

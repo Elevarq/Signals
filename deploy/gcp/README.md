@@ -35,7 +35,7 @@ The module creates the service account and grants
 
 ```bash
 # SA email without the .gserviceaccount.com suffix is the PG role name
-gcloud sql users create arq-signals-collector@<project>.iam.gserviceaccount.com \
+gcloud sql users create signals-collector@<project>.iam.gserviceaccount.com \
   --instance=<instance> --type=cloud_iam_service_account
 ```
 
@@ -43,7 +43,7 @@ Then grant least-privilege monitoring, **as a privileged role** on the target
 database (the role name is the SA email **without** `.gserviceaccount.com`):
 
 ```sql
-GRANT pg_monitor TO "arq-signals-collector@<project>.iam";
+GRANT pg_monitor TO "signals-collector@<project>.iam";
 ```
 
 `terraform output collector_db_user` prints the exact role name. See
@@ -78,9 +78,9 @@ SSH to the collector VM:
 
 ```bash
 # the collector container should be running and collecting
-docker logs arq-signals 2>&1 | grep -iE "collector|snapshot|connected"
+docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
 # trigger an export to confirm a successful passwordless connection
-docker exec arq-signals arqctl export --output /data/snapshot.zip
+docker exec signals signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
@@ -106,5 +106,5 @@ instance private IP.
 
 If you run the collector on GKE instead of the bundled VM, take the
 `collector_service_account_email` output and bind it through Workload Identity
-— see the Helm chart (`deploy/helm/arq-signals/`) and its `gcp_cloudsql_iam` /
+— see the Helm chart (`deploy/helm/signals/`) and its `gcp_cloudsql_iam` /
 GKE-workload-identity snippet (#114).

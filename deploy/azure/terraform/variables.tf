@@ -16,7 +16,7 @@ variable "location" {
 variable "name_prefix" {
   type        = string
   description = "Prefix for created resource names. The managed identity's name (= this prefix + '-collector') MUST equal the PG principal created with pgaadauth_create_principal."
-  default     = "arq-signals"
+  default     = "signals"
 }
 
 variable "db_host" {
@@ -66,7 +66,7 @@ variable "admin_ssh_public_key" {
 variable "image_uri" {
   type        = string
   description = "Elevarq Signals container image (pinned tag)."
-  default     = "ghcr.io/elevarq/arq-signals:0.10.0-beta.5"
+  default     = "ghcr.io/elevarq/signals:0.10.0-beta.5"
 }
 
 variable "db_ca_cert_url" {

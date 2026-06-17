@@ -6,14 +6,14 @@ import (
 	"testing"
 )
 
-const prodChartPath = "../deploy/helm/arq-signals"
+const prodChartPath = "../deploy/helm/signals"
 
 func renderHelm(t *testing.T, sets ...string) string {
 	t.Helper()
 	if _, err := exec.LookPath("helm"); err != nil {
 		t.Skip("helm CLI not on PATH; skipping helm-render assertions")
 	}
-	args := []string{"template", "arq-signals", prodChartPath}
+	args := []string{"template", "signals", prodChartPath}
 	for _, s := range sets {
 		args = append(args, "--set", s)
 	}
@@ -27,7 +27,7 @@ func renderHelm(t *testing.T, sets ...string) string {
 // #140 — default render produces all the templates a single-replica
 // production install needs without operator intervention. The PVC
 // fix specifically: before #140 the deployment mounted a volume
-// named `<release>-arq-signals-data` but no PVC manifest existed.
+// named `<release>-signals-data` but no PVC manifest existed.
 func TestHelm_DefaultRenderContainsAllTemplates(t *testing.T) {
 	out := renderHelm(t)
 	for _, kind := range []string{

@@ -15,7 +15,7 @@ data "azurerm_resource_group" "rg" {
 }
 
 locals {
-  tags = merge({ "app.kubernetes.io/name" = "arq-signals", "managed-by" = "terraform" }, var.tags)
+  tags = merge({ "app.kubernetes.io/name" = "signals", "managed-by" = "terraform" }, var.tags)
 
   # The managed identity display name == the PG principal name (azure_entra
   # requires user == Entra principal display name).
@@ -50,7 +50,7 @@ locals {
         sslmode: verify-full
         sslrootcert_file: /etc/arq/azure-ca.pem
     YAML
-    docker run -d --name arq-signals --restart=always \
+    docker run -d --name signals --restart=always \
       -e AZURE_CLIENT_ID=${azurerm_user_assigned_identity.collector.client_id} \
       -v /etc/arq:/etc/arq:ro \
       -v arq-data:/data \

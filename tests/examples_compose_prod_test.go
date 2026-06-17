@@ -12,7 +12,7 @@ import (
 // the container's wildcard interface (or supply a mounted config
 // that does so). Without this override Docker port publishing
 // cannot reach the daemon, so the documented host-side curl /
-// arqctl flow silently fails.
+// signalsctl flow silently fails.
 //
 // We accept either of two equivalent fixes per the issue body:
 //

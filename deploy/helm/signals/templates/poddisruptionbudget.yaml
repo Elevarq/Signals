@@ -16,9 +16,9 @@
 apiVersion: policy/v1
 kind: PodDisruptionBudget
 metadata:
-  name: {{ .Release.Name }}-arq-signals
+  name: {{ .Release.Name }}-signals
   labels:
-    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/name: signals
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   {{- if .Values.podDisruptionBudget.minAvailable }}
@@ -31,6 +31,6 @@ spec:
   {{- end }}
   selector:
     matchLabels:
-      app.kubernetes.io/name: arq-signals
+      app.kubernetes.io/name: signals
       app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}

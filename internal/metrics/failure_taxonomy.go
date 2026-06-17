@@ -7,7 +7,7 @@ package metrics
 // deliberate spec amendment rather than emitted as ad-hoc strings.
 //
 // The wire strings (the const values) are stable contract — they
-// appear in `/status` JSON, in `arqctl doctor --json`, in
+// appear in `/status` JSON, in `signalsctl doctor --json`, in
 // Prometheus metric labels, and in support-bundle templates.
 type FailureReasonCode string
 
@@ -54,7 +54,7 @@ const (
 
 	// ReasonUnknown: catch-all bucket. Firing this signals an
 	// incomplete taxonomy; the operator should file a bug with the
-	// `arqctl doctor --json` output and the failing log line so
+	// `signalsctl doctor --json` output and the failing log line so
 	// the closed list grows to cover the case.
 	ReasonUnknown FailureReasonCode = "unknown"
 )

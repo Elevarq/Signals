@@ -240,7 +240,7 @@ carries snapshot data, the metadata shall additionally include the
 ### Export Scope
 
 **ARQ-SIGNALS-R084**: The default export scope is the **latest run of
-each collector per active target**. An `arqctl export` invocation with
+each collector per active target**. An `signalsctl export` invocation with
 no selector flags shall package, for each target with at least one
 recorded collector run, the most recent run of every collector that
 has ever run against that target — the row in `query_runs` with the
@@ -269,7 +269,7 @@ solve — each collector contributes exactly one (its most recent) run,
 not its full history. Full history remains behind `--all`.
 
 **ARQ-SIGNALS-R085**: Operators shall be able to widen or narrow the
-export scope via mutually-named selectors. The CLI (`arqctl export`)
+export scope via mutually-named selectors. The CLI (`signalsctl export`)
 and the HTTP API (`GET /export`) shall support, in addition to the
 default-latest scope from R084:
 
@@ -294,7 +294,7 @@ intent explicitly via two new fields under R035:
 |---|---|---|
 | `snapshot_count` | integer | The number of distinct `snapshots` rows packaged in this ZIP **after R090 filtering** (orphaned `target_id`s are excluded from the default scope but appear under `--all`). Always populated. For the R084 default export this is the number of distinct snapshots the latest-per-collector runs belong to — **at least** the number of active targets, and more when a target's collectors span cadences that last fired in different cycles; for `--snapshot-id` it is 1; for `--all` it is the size of the daemon's store at the moment of export, including any orphaned snapshots. |
 | `run_scope` | string | One of `"latest-per-collector"` or `"snapshot"`. `"latest-per-collector"` marks the R084 default export: runs are assembled as the most recent run per `(target_id, query_id)`, so two runs in the same export may carry **different** `collected_at` values. `"snapshot"` marks every selector-scoped export (`--all`, `--snapshot-id`, `--since/--until`), whose runs are exactly those belonging to the selected snapshot rows. Consumers use this to know whether per-run `collected_at` must be read individually (latest-per-collector) or can be taken from the snapshot. A consumer that does not recognise the value, or finds it absent (legacy producer), MUST treat the export as `"snapshot"`. |
-| `ingest_mode` | string | One of `"analyze"` or `"history_only"`. Indicates how the consuming Analyzer should process this export. The default `arqctl export` (R084 scope) sets `ingest_mode = "analyze"` — the consumer treats it as a current snapshot and may run full report generation. The backlog-replay flow defined in R087 sets `ingest_mode = "history_only"` for snapshots that pre-date the most recent one in a replay burst. |
+| `ingest_mode` | string | One of `"analyze"` or `"history_only"`. Indicates how the consuming Analyzer should process this export. The default `signalsctl export` (R084 scope) sets `ingest_mode = "analyze"` — the consumer treats it as a current snapshot and may run full report generation. The backlog-replay flow defined in R087 sets `ingest_mode = "history_only"` for snapshots that pre-date the most recent one in a replay burst. |
 
 `ingest_mode` is advisory metadata, not enforcement. The Analyzer side
 of this contract (a sibling specification in the `arq` repository)
@@ -549,14 +549,14 @@ all — a consumer could not distinguish "ran clean" from "never got a
 turn" (R072 completeness).
 
 **ARQ-SIGNALS-R109**: A disabled or removed target shall not appear in
-the default export or in `arqctl status`. Specifically:
+the default export or in `signalsctl status`. Specifically:
 
 - The default export scope (R084 `GetLatestRunsPerCollector`) and the
   per-target snapshot helpers JOIN `targets` with `t.enabled = 1`, so a
   disabled target contributes no runs or snapshots to the default
   export. `--all` (R085) still surfaces disabled targets' history for
   forensics.
-- `arqctl status` (`GET /status`) lists only enabled targets.
+- `signalsctl status` (`GET /status`) lists only enabled targets.
 - The daemon reconciles the `targets.enabled` column against
   configuration on startup and on every reload: a target present and
   enabled in config becomes `enabled = 1`; a target disabled in config,
@@ -1351,7 +1351,7 @@ SELECT and MUST ignore `LastInsertId()`.
 
 Operational evidence: a daemon running v0.3.x for 17 hours
 accumulated 1,337 distinct `snapshots.target_id` values referencing
-1 actual `targets` row (1,336 orphans). `arqctl status` reported 1
+1 actual `targets` row (1,336 orphans). `signalsctl status` reported 1
 target; the v0.3.x default export (which then groups by
 `snapshots.target_id`) saw 1,337. The two views disagreed because
 `snapshots.target_id` was no longer a true reference. R089 closes
@@ -1429,7 +1429,7 @@ This rule applies uniformly to:
 
 - Interval-driven cycles (the daemon's `poll_interval` ticker).
 - Initial baseline cycle on daemon startup.
-- On-demand cycles triggered by `arqctl collect now` and
+- On-demand cycles triggered by `signalsctl collect now` and
   `POST /collect/now`.
 
 The intent is to protect the system from rapid repeated collections
@@ -1443,7 +1443,7 @@ A target with no completed snapshots is never skipped by R091 —
 the first cycle for any target always runs.
 
 **ARQ-SIGNALS-R092**: An explicit operator override (`--force` on
-`arqctl collect now`, `force=true` on `POST /collect/now`)
+`signalsctl collect now`, `force=true` on `POST /collect/now`)
 bypasses R091 for that one cycle. The forced collection is
 recorded in audit:
 
@@ -1572,11 +1572,11 @@ after a config change. Manually exercising every component (config
 loader, store path, each target's connectivity, each target's role
 safety) is error-prone and inconsistent across operators.
 
-R095 introduces `arqctl doctor` as the canonical pre-flight tool,
+R095 introduces `signalsctl doctor` as the canonical pre-flight tool,
 promoting the previously informal "before editing arq-signals" check
 into engineering-owned coverage.
 
-**ARQ-SIGNALS-R095**: The system shall provide an `arqctl doctor`
+**ARQ-SIGNALS-R095**: The system shall provide an `signalsctl doctor`
 subcommand that runs the following operator-facing read-only checks
 and reports their union (no short-circuit between independent
 checks):
@@ -1611,7 +1611,7 @@ case enum: `ok` | `warn` | `fail`), and a summary triple.
 
 ### Failure conditions
 
-- **FC-13**: An `arqctl doctor --check=<name>` flag specifies an
+- **FC-13**: An `signalsctl doctor --check=<name>` flag specifies an
   unknown check ID → the command exits 2 with a diagnostic listing
   supported IDs, before any check runs.
 
@@ -1621,11 +1621,11 @@ R095 (doctor) addresses the operator question "is the whole
 deployment wired up?" by running a battery of checks. The
 complementary operator question — "why won't *this* connection
 work?" — is poorly served today: the daemon's connect failures
-are buried in journald and `arqctl doctor` doesn't surface
+are buried in journald and `signalsctl doctor` doesn't surface
 classified reasons for one target.
 
 **ARQ-SIGNALS-R096**: The system shall provide an
-`arqctl connect test` subcommand that opens a single short-lived
+`signalsctl connect test` subcommand that opens a single short-lived
 connection attempt per target and classifies the outcome into one
 of these categories:
 
@@ -1692,7 +1692,7 @@ state in memory and gate `collectTarget` invocations on it:
 |-------|-----------|
 | `closed` | Normal — cycles run. |
 | `open` | Auto-disabled after `fail_threshold` (default 3) consecutive `collectTarget` errors. Skips cycles. Auto-recovers to `closed` after `open_cooldown` (default 5m). |
-| `paused` | Manually disabled via `arqctl collect pause` or `POST /collect/pause`. Stays `paused` until explicit `resume`. |
+| `paused` | Manually disabled via `signalsctl collect pause` or `POST /collect/pause`. Stays `paused` until explicit `resume`. |
 
 Manual `paused` takes priority over the auto state (INV-CIRC-02).
 State is in-memory only — restart resets all targets to `closed`
@@ -1706,7 +1706,7 @@ values: `circuit_open` and `circuit_paused`.
 
 The circuit gates collection but does NOT gate `--force` for R092
 purposes — `--force` bypasses R091 only. To override a paused
-target the operator runs `arqctl collect resume` first; this is
+target the operator runs `signalsctl collect resume` first; this is
 deliberate (you can't accidentally collect from a target you
 manually paused).
 
@@ -1714,8 +1714,8 @@ Spec: `specifications/circuit-breaker.md` (BEHAVIORAL).
 
 CLI / API surface:
 
-- `arqctl collect pause [--target=NAME] [--reason="..."]`
-- `arqctl collect resume [--target=NAME]`
+- `signalsctl collect pause [--target=NAME] [--reason="..."]`
+- `signalsctl collect resume [--target=NAME]`
 - `POST /collect/pause` and `POST /collect/resume` (bearer-auth,
   same actor decoration as R083).
 - `GET /status` includes `circuit_state` per target plus
@@ -1978,7 +1978,7 @@ Signals collects the raw inputs every index-audit needs
 findings — unused, invalid, redundant, duplicate. R103
 centralises the derivation into a single Signals-side summary so
 the analyzer ingests already-classified rows and operators get
-the same view via `arqctl` / Workbench.
+the same view via `signalsctl` / Workbench.
 
 **ARQ-SIGNALS-R103**: The system shall register an
 `index_health_summary_v1` collector that emits one row per
@@ -2289,7 +2289,7 @@ work) and is intentionally out of scope here.
 ### Diagnostic DSN assembly
 
 **ARQ-SIGNALS-R111**: The shared diagnostic DSN builder
-(`collector.BuildSafeDSN`, used by doctor C4 and `arqctl connect
+(`collector.BuildSafeDSN`, used by doctor C4 and `signalsctl connect
 test` — R095/R096) shall quote every string-valued field per libpq
 key=value conventions before assembly: the value is wrapped in
 single quotes, with backslash (`\`) and single quote (`'`) each
@@ -2379,7 +2379,7 @@ mesh / sidecar and restrict the listener with a NetworkPolicy; the
 deployment chart MUST NOT present a beyond-loopback HTTP listener as a
 secure default (see deployment guard below).
 
-The local CLI (`arqctl`, default `--api-addr http://127.0.0.1:8081`)
+The local CLI (`signalsctl`, default `--api-addr http://127.0.0.1:8081`)
 continues to use plain HTTP against the loopback listener; enabling
 daemon TLS is an exposed-listener concern and does not change the
 loopback default.
@@ -2504,7 +2504,7 @@ is recorded as a structured warning instead of an opaque
   It is a first-class artifact, not optional metadata.
 - **INV-SIGNALS-12**: Schema intelligence collectors exclude system
   schemas (pg_catalog, information_schema, pg_toast, pg_temp_%).
-- **INV-SIGNALS-14**: `arqctl status` and the R084 default export
+- **INV-SIGNALS-14**: `signalsctl status` and the R084 default export
   MUST agree on the active-target set, where "active" means
   `enabled = 1` (R109). The number of targets in the status response
   equals the number of distinct `target_id` values in default-scope
@@ -2516,7 +2516,7 @@ is recorded as a structured warning instead of an opaque
   counts after a skipped collection equal their pre-skip values.
   The only observable side effect is the `collection_skipped`
   audit event.
-- **INV-SIGNALS-13**: Default `arqctl export` (no selector flags) does
+- **INV-SIGNALS-13**: Default `signalsctl export` (no selector flags) does
   not aggregate cross-cycle history. It carries, per active target,
   exactly the **latest run of each collector** (R084) — at most one run
   per `(target_id, query_id)`, never a collector's full run history.
@@ -2579,7 +2579,7 @@ is recorded as a structured warning instead of an opaque
 - FC-07: Role safety check failure → block collection for that target with
   actionable error (unless unsafe override is active)
 - FC-08: `--snapshot-id <id>` requested but no `snapshots` row matches →
-  HTTP 404 / non-zero `arqctl` exit, with the requested ID echoed in
+  HTTP 404 / non-zero `signalsctl` exit, with the requested ID echoed in
   the diagnostic. Mutual-exclusion violation (`--all` and
   `--snapshot-id` both set) → HTTP 400 / non-zero exit.
 - FC-09: Default export requested when no target has produced a

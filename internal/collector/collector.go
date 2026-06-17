@@ -111,7 +111,7 @@ type CollectRequest struct {
 	Actor     string   // empty = omit actor attribute
 	// Force, when true, bypasses R091's per-target
 	// min_snapshot_interval check for this one cycle (R092).
-	// Operators set it via `arqctl collect now --force` or
+	// Operators set it via `signalsctl collect now --force` or
 	// `POST /collect/now?force=true`. The override is
 	// per-request only — it does not persist or change
 	// configuration.
@@ -714,7 +714,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	// that's auto-disabled or operator-paused. --force (R092)
 	// bypasses R091's min-interval ONLY, not the circuit: an
 	// operator who wants to override paused must explicitly
-	// `arqctl collect resume` first (spec § R092 interaction).
+	// `signalsctl collect resume` first (spec § R092 interaction).
 	if dec := c.circuit.ShouldCollect(tgt.Name); dec.Skip {
 		skippedAttrs := []any{
 			"target", tgt.Name,

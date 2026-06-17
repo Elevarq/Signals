@@ -135,7 +135,7 @@ func TestPgStatStatementsCollectorPassesLint(t *testing.T) {
 }
 
 // TestBuildSafeDSNCarriesAppName verifies that the diagnostic DSN used
-// by `arqctl doctor` (C3/C4) and `arqctl connect test` (R096) also
+// by `signalsctl doctor` (C3/C4) and `signalsctl connect test` (R096) also
 // carries application_name. Every Signals connection — collector pool,
 // doctor probe, and conntest probe — must self-identify so the
 // pg_stat_statements self-filter works end to end.

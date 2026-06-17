@@ -14,14 +14,14 @@ configured `api.listen_addr`. Prometheus scrape config:
 
 ```yaml
 scrape_configs:
-  - job_name: arq-signals
+  - job_name: signals
     metrics_path: /metrics
     scheme: http        # or https when the daemon terminates TLS
     static_configs:
-      - targets: ['arq-signals.host:8081']
+      - targets: ['signals.host:8081']
     authorization:
       type: Bearer
-      credentials_file: /etc/prometheus/arq-signals.token
+      credentials_file: /etc/prometheus/signals.token
 ```
 
 Operators that scrape from inside the same host typically rely on

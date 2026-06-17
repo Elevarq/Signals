@@ -40,13 +40,13 @@ ARQ_SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars
 
 ```bash
 # Build
-go build -o /tmp/arq-signals-bin ./cmd/arq-signals
+go build -o /tmp/signals-bin ./cmd/signals
 
 # Start
 ARQ_ALLOW_INSECURE_PG_TLS=true \
 ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true \
 ARQ_SIGNALS_API_TOKEN=smoke-dev-local-only-replace-in-prod-32chars \
-/tmp/arq-signals-bin --config test-config.yaml
+/tmp/signals-bin --config test-config.yaml
 
 # Check status
 curl -s -H "Authorization: Bearer smoke-dev-local-only-replace-in-prod-32chars" \

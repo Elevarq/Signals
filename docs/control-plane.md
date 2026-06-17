@@ -131,7 +131,7 @@ curl -s -X POST http://127.0.0.1:8081/collect/now \
 
 `force` does **not** bypass a paused circuit (R097). A target
 paused via `/collect/pause` stays paused even under `force: true`;
-the operator must resume it explicitly. `arqctl collect now
+the operator must resume it explicitly. `signalsctl collect now
 --force` is the CLI surface for this field.
 
 ### Invalid request — rejected
@@ -338,7 +338,7 @@ operator actor and reason directly on the canonical
 `circuit_paused` / `circuit_resumed` audit events (one event per
 state change, no supplemental `_request` events).
 
-`arqctl collect now --force` bypasses R091's min-snapshot-interval
+`signalsctl collect now --force` bypasses R091's min-snapshot-interval
 only; it does NOT bypass a paused circuit. To override a paused
 target, resume it first.
 
@@ -353,7 +353,7 @@ parameters.
 
 ```bash
 # Signal
-kill -HUP $(pidof arq-signals)
+kill -HUP $(pidof signals)
 
 # HTTP
 curl -X POST http://localhost:8081/reload \

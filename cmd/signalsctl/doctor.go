@@ -27,7 +27,7 @@ type failError struct{}
 
 func (failError) Error() string { return "" }
 
-// doctorCmd is the `arqctl doctor` subcommand (R095). It runs the
+// doctorCmd is the `signalsctl doctor` subcommand (R095). It runs the
 // read-only operator pre-flight checks defined in
 // specifications/doctor.md and signals 0 / 1 / 2 exit codes via
 // typed errors handled in main().

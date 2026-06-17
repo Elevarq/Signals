@@ -1,4 +1,4 @@
-# Acceptance Tests: `arqctl doctor`
+# Acceptance Tests: `signalsctl doctor`
 
 ## Feature
 
@@ -10,7 +10,7 @@
 
 **Rule:** Normal — happy path
 
-**Scenario:** Operator runs `arqctl doctor` against a valid config
+**Scenario:** Operator runs `signalsctl doctor` against a valid config
 with one reachable target whose role passes safety validation.
 
 **Given:**
@@ -21,7 +21,7 @@ with one reachable target whose role passes safety validation.
 - The target's role is not superuser / replication / bypassrls.
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - All four checks (C1..C4) report `OK`.
@@ -43,7 +43,7 @@ not exist.
 - `--config /nonexistent/path.yaml` is supplied.
 
 **When:**
-- `arqctl doctor --config /nonexistent/path.yaml` is run.
+- `signalsctl doctor --config /nonexistent/path.yaml` is run.
 
 **Then:**
 - `C1=FAIL` with a detail mentioning the path.
@@ -68,7 +68,7 @@ drop, instance down). Other targets remain reachable.
   listening on (e.g. `127.0.0.1:9`). The other is healthy.
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - `C1=OK`, `C2=OK`.
@@ -96,7 +96,7 @@ readable output.
   test.
 
 **When:**
-- `arqctl doctor --json` is run.
+- `signalsctl doctor --json` is run.
 - The stdout output is parsed as JSON.
 
 **Then:**
@@ -122,7 +122,7 @@ field types regardless of underlying check outcomes.
 - The valid check IDs are C1, C2, C3, C4.
 
 **When:**
-- `arqctl doctor --check=C9` is run.
+- `signalsctl doctor --check=C9` is run.
 
 **Then:**
 - The command does not run any check.
@@ -146,7 +146,7 @@ at argument parse time, not silently ignored or treated as failures.
 - `pg_stat_statements` extension is created in the target database.
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - C5 emits OK.
@@ -169,7 +169,7 @@ installed.
 - `pg_stat_statements` is **not** installed.
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - C5 emits WARN.
@@ -191,7 +191,7 @@ installed.
 - Role validation fails because the connection fails earlier (C4 FAIL).
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - C5 emits WARN with detail `skipped (target_reachable / role_safe failed)`.
@@ -212,7 +212,7 @@ for the target.
   collected 45s ago.
 
 **When:**
-- `arqctl doctor --check=C6` is run.
+- `signalsctl doctor --check=C6` is run.
 
 **Then:**
 - C6 emits OK.
@@ -232,7 +232,7 @@ for the target.
   collected 5 minutes ago (5× interval).
 
 **When:**
-- `arqctl doctor` is run.
+- `signalsctl doctor` is run.
 
 **Then:**
 - C6 emits WARN.
@@ -251,7 +251,7 @@ booted. Store file does not exist.
 - Configured `database.path` does not point at a valid SQLite file.
 
 **When:**
-- `arqctl doctor --check=C6` is run.
+- `signalsctl doctor --check=C6` is run.
 
 **Then:**
 - C6 emits WARN with detail beginning `store unreadable:`.
@@ -274,7 +274,7 @@ error detail string — even when the connection fails.
   connection error formatting).
 
 **When:**
-- `arqctl doctor` is run with the env var present.
+- `signalsctl doctor` is run with the env var present.
 
 **Then:**
 - The password value `S3kRet-doctor-test` appears nowhere in

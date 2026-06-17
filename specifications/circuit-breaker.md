@@ -42,22 +42,22 @@ across the open-cooldown boundary so a single recovery cycle is
 not required to climb from zero).
 
 **closed | open → paused** when the operator issues
-`arqctl collect pause` (or `POST /collect/pause`). Carries a
+`signalsctl collect pause` (or `POST /collect/pause`). Carries a
 free-form operator reason (≤ 256 chars). Manual pause takes
 absolute priority over the auto state — a paused target stays
 paused until manually resumed.
 
 **paused → closed** when the operator issues
-`arqctl collect resume` (or `POST /collect/resume`). Consecutive-
+`signalsctl collect resume` (or `POST /collect/resume`). Consecutive-
 fail counter resets to zero.
 
 ### R092 force interaction
 
-`arqctl collect now --force --target=X` (R092) bypasses **R091
+`signalsctl collect now --force --target=X` (R092) bypasses **R091
 min-snapshot-interval** but does NOT bypass the circuit state. If
 the operator wants to override a `paused` or `open` target, the
-correct path is `arqctl collect resume --target=X` followed by
-`arqctl collect now`. Forcing past the circuit would defeat its
+correct path is `signalsctl collect resume --target=X` followed by
+`signalsctl collect now`. Forcing past the circuit would defeat its
 purpose.
 
 The audit event for any cycle that ran while the circuit was
@@ -70,12 +70,12 @@ spot it.
 ### CLI
 
 ```
-arqctl collect pause [--target=<name>] [--reason="..."]
-arqctl collect resume [--target=<name>]
+signalsctl collect pause [--target=<name>] [--reason="..."]
+signalsctl collect resume [--target=<name>]
 ```
 
 `--target` omitted → applies to every enabled target in the daemon's
-config. `--reason` defaults to `manual operator pause via arqctl`.
+config. `--reason` defaults to `manual operator pause via signalsctl`.
 
 Output: one line per target reflecting the new state.
 
@@ -179,9 +179,9 @@ Operators alert on `arq_signal_circuit_state{state=~"open|paused"} == 1`.
   more permissive: pausing an unknown target is silently a no-op
   — operator may be pausing a target they're about to add to
   config.)
-- **FC-CIRC-03**: `arqctl collect pause` against a daemon whose
+- **FC-CIRC-03**: `signalsctl collect pause` against a daemon whose
   API token is unreachable → standard HTTP-failure path; the
-  `arqctl` exit code is non-zero with the underlying cause.
+  `signalsctl` exit code is non-zero with the underlying cause.
 - **FC-CIRC-04**: Auto-open transition occurs even when the
   collector framework's own retry / overlap protection (R032) is
   active — the circuit is the outer gate.

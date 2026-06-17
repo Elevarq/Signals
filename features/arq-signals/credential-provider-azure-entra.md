@@ -187,7 +187,7 @@ audience) and is not operator-configurable.
   snapshot; the token is re-acquired across a reconnect that crosses the
   refresh skew. Not run in default CI.
 - **AC-AZURE-009 (operator guidance)**: when the connection fails because
-  the DB role is not mapped to an Entra principal, `arqctl` surfaces the
+  the DB role is not mapped to an Entra principal, `signalsctl` surfaces the
   exact `SELECT * FROM pgaadauth_create_principal('<user>', false, false);`
   snippet (and the note that the role name must match the Entra principal
   display name) for the target. (UX detail may be refined alongside #99;

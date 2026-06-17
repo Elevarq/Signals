@@ -1,4 +1,4 @@
-# `arqctl connect test` — Connection Diagnostic
+# `signalsctl connect test` — Connection Diagnostic
 
 ## Status
 
@@ -12,7 +12,7 @@ gap between "the daemon failed to connect" (buried in journald) and
 "is this connection going to work?" (the question operators actually
 ask).
 
-Sibling to `arqctl doctor` (R095) but different shape: doctor runs a
+Sibling to `signalsctl doctor` (R095) but different shape: doctor runs a
 battery of checks against *every* target in config; connect test
 exercises *one* target — or an ad-hoc DSN — and only the connection
 path. Shares the underlying check helpers; differs in audience and
@@ -20,7 +20,7 @@ output.
 
 ## Scope
 
-`arqctl connect test [<target-name>] [--dsn <dsn-fields>] [--verbose]`
+`signalsctl connect test [<target-name>] [--dsn <dsn-fields>] [--verbose]`
 
 Modes:
 

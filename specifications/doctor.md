@@ -1,4 +1,4 @@
-# `arqctl doctor` — Pre-flight Verification
+# `signalsctl doctor` — Pre-flight Verification
 
 ## Status
 
@@ -17,7 +17,7 @@ rule into engineering work (issue #43, parent #39).
 
 ## Scope
 
-`arqctl doctor` runs the following checks against the loaded config and
+`signalsctl doctor` runs the following checks against the loaded config and
 the targets it declares. Each check is independent — one check failing
 does not short-circuit the others; all checks run and the union of
 findings is reported.
@@ -38,7 +38,7 @@ writes; the only persistence is the doctor's own report (to stdout).
 
 | Flag / arg | Type | Default | Description |
 |------------|------|---------|-------------|
-| `--config` | path | inherits from `arqctl` | Config file location. |
+| `--config` | path | inherits from `signalsctl` | Config file location. |
 | `--json` | bool | `false` | Emit a single JSON object instead of human-readable text. |
 | `--check` | string (repeatable) | empty (all checks) | Run only the named checks (e.g. `--check=C1,C3`). Unknown names → exit 2 with diagnostic. |
 

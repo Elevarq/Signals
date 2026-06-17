@@ -13,9 +13,9 @@ import (
 	"github.com/elevarq/arq-signals/internal/conntest"
 )
 
-// connectCmd is the `arqctl connect` parent for connection diagnostics
+// connectCmd is the `signalsctl connect` parent for connection diagnostics
 // (R096). It exposes a `test` subcommand today; a future expansion
-// (e.g. `arqctl connect probe` for traffic-shape checks) drops in
+// (e.g. `signalsctl connect probe` for traffic-shape checks) drops in
 // alongside without crowding the root namespace.
 func connectCmd() *cobra.Command {
 	cmd := &cobra.Command{
@@ -26,7 +26,7 @@ func connectCmd() *cobra.Command {
 	return cmd
 }
 
-// connectTestCmd is the `arqctl connect test` subcommand (R096).
+// connectTestCmd is the `signalsctl connect test` subcommand (R096).
 // Tests one target / every enabled target / an ad-hoc DSN and returns
 // classified failure categories.
 func connectTestCmd() *cobra.Command {
@@ -44,9 +44,9 @@ func connectTestCmd() *cobra.Command {
 			"password_resolve / config. Spec: R096.\n" +
 			"\n" +
 			"Modes:\n" +
-			"  arqctl connect test             test every enabled target in config\n" +
-			"  arqctl connect test <name>      test one target from config\n" +
-			"  arqctl connect test --dsn '...' test an ad-hoc DSN without config\n" +
+			"  signalsctl connect test             test every enabled target in config\n" +
+			"  signalsctl connect test <name>      test one target from config\n" +
+			"  signalsctl connect test --dsn '...' test an ad-hoc DSN without config\n" +
 			"\n" +
 			"Ad-hoc --dsn fields (space-separated key=value):\n" +
 			"  host=<host>            required\n" +

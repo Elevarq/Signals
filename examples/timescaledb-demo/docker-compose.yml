@@ -31,7 +31,7 @@
 # timescaledb_job_stats_v1.total_failures grows over time by design.
 
 services:
-  arq-signals:
+  signals:
     build:
       context: ../..
       dockerfile: Dockerfile

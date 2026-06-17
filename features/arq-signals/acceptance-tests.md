@@ -502,13 +502,13 @@ output. The collector's safety model is unchanged.
 **Linked Rules:** ARQ-SIGNALS-R084, INV-SIGNALS-13
 **Scenario:** Daemon has run multiple collection cycles for one or more
 targets, each cycle persisting only the collectors due that cycle.
-Operator invokes `arqctl export` with no selector flags.
+Operator invokes `signalsctl export` with no selector flags.
 **Inputs:**
 - Daemon with N completed snapshots for target A and M completed
   snapshots for target B (N, M ≥ 2), where each target runs a single
   collector at one cadence (so latest-run == latest-snapshot for this
   simple case).
-- `arqctl export -o /tmp/out.zip` (no other flags).
+- `signalsctl export -o /tmp/out.zip` (no other flags).
 
 **Expected Behavior:**
 - `query_runs.ndjson` contains, per target, the latest run of each
@@ -537,7 +537,7 @@ collector under the default scope is a regression on R084. A
 **Scenario:** Operator opts into the pre-R084 behavior for forensics.
 **Inputs:**
 - Daemon with K total completed snapshots across all targets.
-- `arqctl export --all -o /tmp/out.zip`.
+- `signalsctl export --all -o /tmp/out.zip`.
 
 **Expected Behavior:**
 - `snapshots.ndjson` contains all K rows in `collected_at` ascending
@@ -561,7 +561,7 @@ input error and shall be rejected per FC-08.
 diagnosis.
 **Inputs:**
 - A known `snapshots.id` value present in the daemon's store.
-- `arqctl export --snapshot-id <id> -o /tmp/out.zip`.
+- `signalsctl export --snapshot-id <id> -o /tmp/out.zip`.
 
 **Expected Behavior:**
 - `snapshots.ndjson` contains exactly one row with that `id`.
@@ -571,7 +571,7 @@ diagnosis.
   whose `snapshot_id` matches.
 
 **Failure Expectation:**
-- Unknown `snapshot_id` → HTTP 404 / non-zero `arqctl` exit, with
+- Unknown `snapshot_id` → HTTP 404 / non-zero `signalsctl` exit, with
   the requested ID echoed in the diagnostic (FC-08).
 - Both `--snapshot-id` and `--all` set → HTTP 400 / non-zero exit.
 
@@ -583,7 +583,7 @@ diagnosis.
 **Scenario:** Operator restricts the export to a time window.
 **Inputs:**
 - A daemon with snapshots at t0, t1, t2, t3 (t0 < t1 < t2 < t3).
-- `arqctl export --since <t1-RFC3339> --until <t2-RFC3339> -o /tmp/out.zip`.
+- `signalsctl export --since <t1-RFC3339> --until <t2-RFC3339> -o /tmp/out.zip`.
 
 **Expected Behavior:**
 - `snapshots.ndjson` contains only the snapshots whose `collected_at`
@@ -623,7 +623,7 @@ inspect each ZIP's `metadata.json`.
 **Linked Rules:** FC-09, ARQ-SIGNALS-R086
 **Scenario:** Daemon has not yet produced any completed snapshots
 (fresh install, or all targets disabled before any cycle ran).
-**Inputs:** `arqctl export` (no flags) against a daemon whose
+**Inputs:** `signalsctl export` (no flags) against a daemon whose
 `snapshots` table is empty.
 **Expected Behavior:**
 - ZIP returns 200 with the same six-file layout.
@@ -651,7 +651,7 @@ dropped (issue #5).
   `cadence_5m_v1` and `cadence_24h_v1`.
 - Target A, snapshot S2 (newer `collected_at`) with a run for
   `cadence_5m_v1` only.
-- `arqctl export` (no flags).
+- `signalsctl export` (no flags).
 
 **Expected Behavior:**
 - `query_runs.ndjson` contains the latest run of **each** collector:
@@ -693,7 +693,7 @@ or never-run one from the export alone.
 - Target A with `cadence_5m_v1` run within the last minute, a
   `cadence_24h_v1` whose latest run is 3 days old, and an eligible
   `cadence_1h_v1` that has never produced a run.
-- `arqctl export --target-id A` (target-scoped — `never_run`
+- `signalsctl export --target-id A` (target-scoped — `never_run`
   enumeration requires per-entry target attribution, R107).
 
 **Expected Behavior:**
@@ -755,7 +755,7 @@ config or removed from it. The daemon reloads.
   runs/snapshots; B is absent from `snapshots.ndjson`,
   `query_runs.ndjson`, and `collector_status.json`.
 - `GET /status` lists only A.
-- `arqctl export --all` still includes B's historical snapshots (no
+- `signalsctl export --all` still includes B's historical snapshots (no
   deletion).
 
 **Boundary/unit:** `ReconcileEnabledTargets([A])` sets B `enabled = 0`
@@ -885,22 +885,22 @@ rows defeats forensic recovery.
 
 ---
 
-## TC-SIG-106: arqctl status and Default Export Agree on Target Count
+## TC-SIG-106: signalsctl status and Default Export Agree on Target Count
 
 **Linked Rules:** INV-SIGNALS-14, ARQ-SIGNALS-R084
-**Scenario:** The user-visible target count from `arqctl status`
+**Scenario:** The user-visible target count from `signalsctl status`
 must equal the number of distinct `target_id` values in the
 default-scope export's `snapshots.ndjson`.
 **Inputs:**
 - A daemon configured with one enabled target named "X".
 - 1 collection cycle has completed.
-- `arqctl status` and `arqctl export` (no flags) called in
+- `signalsctl status` and `signalsctl export` (no flags) called in
   succession.
 **Expected Behavior:**
-- `arqctl status.targets` length = 1.
+- `signalsctl status.targets` length = 1.
 - `metadata.snapshot_count` from the export = 1.
 - The single `snapshots.target_id` value present in the export
-  equals `arqctl status.targets[0].id`.
+  equals `signalsctl status.targets[0].id`.
 **Failure Expectation:** The two views disagreeing is the
 producer/consumer split that R089+R090 close.
 
@@ -990,18 +990,18 @@ never collected; `min_snapshot_interval = 60s`; cycle request at
 
 ---
 
-## TC-SIG-114: arqctl collect now Respects the Interval by Default
+## TC-SIG-114: signalsctl collect now Respects the Interval by Default
 
 **Linked Rules:** ARQ-SIGNALS-R091, ARQ-SIGNALS-R092
-**Scenario:** Manual `arqctl collect now` does NOT bypass R091
+**Scenario:** Manual `signalsctl collect now` does NOT bypass R091
 unless `--force` is supplied.
 **Inputs:** Target "A" with snapshot at `T0`; operator runs
-`arqctl collect now` at `T0 + 20s` without `--force`.
+`signalsctl collect now` at `T0 + 20s` without `--force`.
 **Expected Behavior:** Target "A" is skipped per R091. The HTTP
 response still indicates `accepted_targets: ["A"]` (the request
 was queued and processed) but the per-target outcome is "skipped"
 in audit.
-**Failure Expectation:** A bare `arqctl collect now` that bypasses
+**Failure Expectation:** A bare `signalsctl collect now` that bypasses
 the interval is a regression on R091.
 
 ---
@@ -1012,7 +1012,7 @@ the interval is a regression on R091.
 **Scenario:** Explicit operator override forces a collection
 within the interval window.
 **Inputs:** Target "A" with snapshot at `T0`; operator runs
-`arqctl collect now --force` at `T0 + 20s`.
+`signalsctl collect now --force` at `T0 + 20s`.
 **Expected Behavior:**
 - Collection runs to completion despite the elapsed time being
   below `min_snapshot_interval`.

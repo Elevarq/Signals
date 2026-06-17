@@ -1,7 +1,7 @@
 # Helm Example
 
 A starter Helm chart is provided at
-[`deploy/helm/arq-signals/`](../../deploy/helm/arq-signals/).
+[`deploy/helm/signals/`](../../deploy/helm/signals/).
 
 ## Install
 
@@ -10,7 +10,7 @@ can install by reference without a repo checkout (the chart version
 matches the release version):
 
 ```bash
-helm install arq-signals oci://ghcr.io/elevarq/charts/arq-signals \
+helm install signals oci://ghcr.io/elevarq/charts/signals \
   --version 0.10.0-beta.5 \
   --set target.host=db.example.com \
   --set target.user=arq_signals \
@@ -22,7 +22,7 @@ The published chart is cosign-signed (keyless, GitHub OIDC) — the same
 trust root as the container image. Verify before install:
 
 ```bash
-cosign verify ghcr.io/elevarq/charts/arq-signals:0.10.0-beta.5 \
+cosign verify ghcr.io/elevarq/charts/signals:0.10.0-beta.5 \
   --certificate-identity-regexp='github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
@@ -30,7 +30,7 @@ cosign verify ghcr.io/elevarq/charts/arq-signals:0.10.0-beta.5 \
 Or install straight from a working-tree checkout:
 
 ```bash
-helm install arq-signals deploy/helm/arq-signals/ \
+helm install signals deploy/helm/signals/ \
   --set target.host=db.example.com \
   --set target.user=arq_signals \
   --set target.dbname=postgres \
@@ -68,7 +68,7 @@ env: prod
 Install with:
 
 ```bash
-helm install arq-signals deploy/helm/arq-signals/ \
+helm install signals deploy/helm/signals/ \
   -f my-values.yaml
 ```
 

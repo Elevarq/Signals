@@ -16,12 +16,12 @@ cd arq-signals
 make build
 ```
 
-This produces `bin/arq-signals` (daemon) and `bin/arqctl` (CLI).
+This produces `bin/signals` (daemon) and `bin/signalsctl` (CLI).
 
 **Docker:**
 
 ```bash
-docker pull ghcr.io/elevarq/arq-signals:latest
+docker pull ghcr.io/elevarq/signals:latest
 ```
 
 ### 2. Configure
@@ -47,7 +47,7 @@ The config file is called `signals.yaml`. Elevarq Signals searches for it at `/e
 ### 3. Start the daemon
 
 ```bash
-./bin/arq-signals --config signals.yaml
+./bin/signals --config signals.yaml
 ```
 
 The daemon begins collecting on the configured `poll_interval` (default 5m).
@@ -55,17 +55,17 @@ The daemon begins collecting on the configured `poll_interval` (default 5m).
 ### 4. Trigger a one-shot collection
 
 ```bash
-arqctl collect now
+signalsctl collect now
 ```
 
-`arqctl` talks to the running Elevarq Signals daemon over its HTTP API. Set `ARQ_SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
+`signalsctl` talks to the running Elevarq Signals daemon over its HTTP API. Set `ARQ_SIGNALS_API_TOKEN` to the token shown at daemon startup (or configure a fixed token via the same env var).
 
 ### 5. Export
 
 Export the collected data as a snapshot:
 
 ```bash
-arqctl export --output snapshot.zip
+signalsctl export --output snapshot.zip
 ```
 
 The output is a self-contained ZIP archive in `arq-snapshot.v1` format.
@@ -73,8 +73,8 @@ The output is a self-contained ZIP archive in `arq-snapshot.v1` format.
 ### 6. Check status
 
 ```bash
-arqctl status
-arqctl version
+signalsctl status
+signalsctl version
 ```
 
 ---
@@ -87,11 +87,11 @@ Run Elevarq Signals as a long-lived container:
 
 ```bash
 docker run -d \
-  --name arq-signals \
+  --name signals \
   -v /etc/arq/signals.yaml:/etc/arq/signals.yaml:ro \
   -v arq-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/arq-signals:latest
+  ghcr.io/elevarq/signals:latest
 ```
 
 The container runs as a non-root user (UID 10001) on Alpine 3.21. The API listens on port 8081. Bind it to loopback unless you need external access.
@@ -102,7 +102,7 @@ For simple deployments with a single PostgreSQL target, you can configure everyt
 
 ```bash
 docker run -d \
-  --name arq-signals \
+  --name signals \
   -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
   -e ARQ_SIGNALS_TARGET_PORT=5432 \
   -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
@@ -113,7 +113,7 @@ docker run -d \
   -v /run/secrets/pg_password:/run/secrets/pg_password:ro \
   -v arq-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/arq-signals:latest
+  ghcr.io/elevarq/signals:latest
 ```
 
 The following target-level env vars are supported:
@@ -326,7 +326,7 @@ Run Elevarq Signals as a daemon and export snapshots on a schedule:
 
 ```bash
 # Export a snapshot every hour
-0 * * * * /usr/local/bin/arqctl export --output /var/snapshots/arq-$(date +\%Y\%m\%d-\%H\%M).zip
+0 * * * * /usr/local/bin/signalsctl export --output /var/snapshots/arq-$(date +\%Y\%m\%d-\%H\%M).zip
 ```
 
 ### Feeding Snapshots to Custom Scripts
@@ -347,7 +347,7 @@ Snapshots are self-contained and immutable. Store them in any object store (S3, 
 
 ```bash
 # Upload to S3
-aws s3 cp snapshot.zip s3://my-bucket/arq-signals/$(date +%Y/%m/%d)/
+aws s3 cp snapshot.zip s3://my-bucket/signals/$(date +%Y/%m/%d)/
 ```
 
 ---

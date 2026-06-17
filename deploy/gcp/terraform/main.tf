@@ -11,7 +11,7 @@
 # The GRANT pg_monitor to the IAM user is a one-time SQL step; see ../README.md.
 
 locals {
-  labels = merge({ "app_kubernetes_io_name" = "arq-signals", "managed-by" = "terraform" }, var.labels)
+  labels = merge({ "app_kubernetes_io_name" = "signals", "managed-by" = "terraform" }, var.labels)
 
   # IAM DB user / PG role name = SA email without the .gserviceaccount.com
   # suffix (Google's documented truncation).
@@ -49,7 +49,7 @@ locals {
         sslmode: verify-full
         sslrootcert_file: /etc/arq/cloudsql-ca.pem
     YAML
-    docker run -d --name arq-signals --restart=always \
+    docker run -d --name signals --restart=always \
       -v /etc/arq:/etc/arq:ro \
       -v arq-data:/data \
       -p 127.0.0.1:8081:8081 \

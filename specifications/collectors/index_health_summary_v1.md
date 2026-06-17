@@ -12,7 +12,7 @@ canonical index-hygiene findings, but every analyzer that wants
 them reinvents the SQL. This collector centralises the derivation
 into a single Signals-side summary so the analyzer ingests
 already-classified rows and operators get the same view via
-`arqctl` / Workbench.
+`signalsctl` / Workbench.
 
 Index hygiene is the highest-leverage "improve your PostgreSQL
 database" recommendation a tool can make — every cluster has
@@ -146,7 +146,7 @@ those collectors today already accept this surface.
 
 ## Operator value (standalone)
 
-A future `arqctl doctor` check (C7-style) can surface the top N
+A future `signalsctl doctor` check (C7-style) can surface the top N
 `large_unused` and `duplicate` findings without the analyzer in
 the loop. Out of scope for R103 itself — covered as a follow-up
 in the issue tracker.

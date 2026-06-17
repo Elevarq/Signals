@@ -1,9 +1,9 @@
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-arq-signals-config
+  name: {{ .Release.Name }}-signals-config
   labels:
-    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/name: signals
     app.kubernetes.io/instance: {{ .Release.Name }}
 data:
   signals.yaml: |
@@ -14,7 +14,7 @@ data:
       target_timeout: {{ .Values.collector.targetTimeout }}
       query_timeout: {{ .Values.collector.queryTimeout }}
     database:
-      path: /data/arq-signals.db
+      path: /data/signals.db
       wal: true
     api:
       listen_addr: "0.0.0.0:{{ .Values.api.port }}"

@@ -3,7 +3,7 @@
 ## Build the image
 
 ```bash
-docker build -t arq-signals .
+docker build -t signals .
 ```
 
 With version metadata:
@@ -12,13 +12,13 @@ With version metadata:
 docker build \
   --build-arg VERSION=0.2.0 \
   --build-arg COMMIT=$(git rev-parse --short HEAD) \
-  -t arq-signals:0.2.0 .
+  -t signals:0.2.0 .
 ```
 
 ## Run with environment variables
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -e ARQ_SIGNALS_TARGET_HOST=db.example.com \
   -e ARQ_SIGNALS_TARGET_USER=arq_signals \
   -e ARQ_SIGNALS_TARGET_DBNAME=postgres \
@@ -29,17 +29,17 @@ docker run -d --name arq-signals \
   -e ARQ_SIGNALS_API_TOKEN=dev-local-only-replace-in-prod-32chars \
   -v arq-data:/data \
   -p 8081:8081 \
-  arq-signals
+  signals
 ```
 
 ## Run with a config file
 
 ```bash
-docker run -d --name arq-signals \
+docker run -d --name signals \
   -v /path/to/signals.yaml:/etc/arq/signals.yaml:ro \
   -v arq-data:/data \
   -p 127.0.0.1:8081:8081 \
-  arq-signals --config /etc/arq/signals.yaml
+  signals --config /etc/arq/signals.yaml
 ```
 
 ## Collect and export

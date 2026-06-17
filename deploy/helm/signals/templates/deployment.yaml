@@ -1,20 +1,20 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ .Release.Name }}-arq-signals
+  name: {{ .Release.Name }}-signals
   labels:
-    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/name: signals
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: arq-signals
+      app.kubernetes.io/name: signals
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: arq-signals
+        app.kubernetes.io/name: signals
         app.kubernetes.io/instance: {{ .Release.Name }}
         {{- /* #114: AKS workload identity needs the pod to carry
               azure.workload.identity/use: "true" so the webhook injects
@@ -24,7 +24,7 @@ spec:
         {{- end }}
     spec:
       {{- if .Values.serviceAccount.create }}
-      serviceAccountName: {{ .Release.Name }}-arq-signals
+      serviceAccountName: {{ .Release.Name }}-signals
       automountServiceAccountToken: false
       {{- end }}
       securityContext:
@@ -34,7 +34,7 @@ spec:
         seccompProfile:
           type: RuntimeDefault
       containers:
-        - name: arq-signals
+        - name: signals
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           securityContext:
@@ -80,7 +80,7 @@ spec:
             {{- end }}
             {{- /* #136: API bearer token from a managed Secret. When
                   tokenSecretName is set, the binary skips the
-                  auto-generate path in cmd/arq-signals/main.go and
+                  auto-generate path in cmd/signals/main.go and
                   uses the value from the Secret. The token never
                   lands in a ConfigMap or rendered manifest beyond
                   the Secret reference name. */ -}}
@@ -120,11 +120,11 @@ spec:
       volumes:
         - name: config
           configMap:
-            name: {{ .Release.Name }}-arq-signals-config
+            name: {{ .Release.Name }}-signals-config
         - name: data
           {{- if .Values.persistence.enabled }}
           persistentVolumeClaim:
-            claimName: {{ .Release.Name }}-arq-signals-data
+            claimName: {{ .Release.Name }}-signals-data
           {{- else }}
           emptyDir: {}
           {{- end }}

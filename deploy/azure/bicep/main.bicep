@@ -19,7 +19,7 @@ targetScope = 'resourceGroup'
 param location string = resourceGroup().location
 
 @description('Prefix for created resource names. The managed identity name (= prefix + "-collector") MUST equal the PG principal created with pgaadauth_create_principal.')
-param namePrefix string = 'arq-signals'
+param namePrefix string = 'signals'
 
 @description('Flexible Server endpoint hostname (e.g. myserver.postgres.database.azure.com).')
 param dbHost string
@@ -46,7 +46,7 @@ param adminUsername string = 'azureuser'
 param adminSshPublicKey string
 
 @description('Elevarq Signals container image (pinned tag).')
-param imageUri string = 'ghcr.io/elevarq/arq-signals:0.10.0-beta.5'
+param imageUri string = 'ghcr.io/elevarq/signals:0.10.0-beta.5'
 
 @description('URL of the CA bundle for sslmode=verify-full. Default is the DigiCert Global Root G2 that Azure Database for PostgreSQL Flexible Server chains to.')
 param dbCaCertUrl string = 'https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem'
@@ -64,7 +64,7 @@ param tags object = {}
 // requires user == Entra principal display name).
 var identityName = '${namePrefix}-collector'
 
-var commonTags = union({ 'app.kubernetes.io/name': 'arq-signals', 'managed-by': 'bicep' }, tags)
+var commonTags = union({ 'app.kubernetes.io/name': 'signals', 'managed-by': 'bicep' }, tags)
 
 resource collectorIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: identityName
@@ -74,7 +74,7 @@ resource collectorIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@202
 
 // cloud-init for the collector VM. Bicep multi-line strings do not interpolate,
 // so this is a single interpolated string with \n line breaks.
-var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl\nsystemctl enable --now docker\nmkdir -p /etc/arq\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/arq/azure-ca.pem\ncat > /etc/arq/signals.yaml <<\'YAML\'\nenv: ${arqEnv}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/arq-signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/arq/azure-ca.pem\nYAML\ndocker run -d --name arq-signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -v /etc/arq:/etc/arq:ro -v arq-data:/data -p 127.0.0.1:8081:8081 ${imageUri} --config /etc/arq/signals.yaml\n'
+var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl\nsystemctl enable --now docker\nmkdir -p /etc/arq\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/arq/azure-ca.pem\ncat > /etc/arq/signals.yaml <<\'YAML\'\nenv: ${arqEnv}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/arq-signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/arq/azure-ca.pem\nYAML\ndocker run -d --name signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -v /etc/arq:/etc/arq:ro -v arq-data:/data -p 127.0.0.1:8081:8081 ${imageUri} --config /etc/arq/signals.yaml\n'
 
 resource nic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
   name: '${namePrefix}-collector-nic'

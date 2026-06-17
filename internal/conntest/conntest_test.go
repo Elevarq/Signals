@@ -12,7 +12,7 @@ import (
 )
 
 // ---------------------------------------------------------------------------
-// R096 / arqctl connect test — classification + report-shape unit tests.
+// R096 / signalsctl connect test — classification + report-shape unit tests.
 //
 // Spec:        specifications/connect-test.md
 // Acceptance:  specifications/connect-test.acceptance.md (TC-CONN-01..10)

@@ -64,7 +64,7 @@ curl -s -X POST http://localhost:8081/collect/now \
 Useful sanity checks:
 
 - Prometheus targets:  http://localhost:9090/targets — the
-  `arq-signals` job should be `UP`.
+  `signals` job should be `UP`.
 - Raw metrics:         `curl -s -H "Authorization: Bearer dev-local-only-replace-in-prod-32chars" \
                         http://localhost:8081/metrics | head -30`
 - Dashboard URL:       http://localhost:3000/dashboards →
@@ -125,11 +125,11 @@ metric for drop rate can:
 ## Updating the dashboard
 
 Grafana provisioning is read-only for this dashboard via the
-`provisioning/dashboards/arq-signals.yml` file. Edits made in the UI
+`provisioning/dashboards/signals.yml` file. Edits made in the UI
 persist for the session but are reset on next provisioning sync.
 
 To make a change durable, edit
-`examples/observability/grafana/dashboards/arq-signal-operational-health.json`
+`examples/observability/grafana/dashboards/signal-operational-health.json`
 and re-run `docker compose up`. (Grafana's provisioner re-reads the
 file every 30 seconds, so a restart is usually not required.)
 
@@ -137,8 +137,8 @@ file every 30 seconds, so a restart is usually not required.)
 
 Prometheus authenticates to Elevarq Signal using the standard
 `authorization` block with `credentials_file:` pointing at
-`/etc/prometheus/secrets/arq-signals-token`. The token file is
-mounted from `prometheus/arq-signals-token` and is `dev-local-only-replace-in-prod-32chars` in
+`/etc/prometheus/secrets/signals-token`. The token file is
+mounted from `prometheus/signals-token` and is `dev-local-only-replace-in-prod-32chars` in
 this example.
 
 For real deployments, see the production guidance in

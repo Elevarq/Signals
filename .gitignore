@@ -8,6 +8,9 @@ test-config.yaml
 # Root-level binaries produced by `go build ./cmd/...`. These take
 # their names from the cmd/ subdirectories and would otherwise get
 # staged accidentally when an operator builds from the repo root.
+# The arq-signals / arqctl entries cover the deprecation-alias names.
+/signals
+/signalsctl
 /arq-signals
 /arqctl
 

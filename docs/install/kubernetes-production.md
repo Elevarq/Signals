@@ -8,12 +8,12 @@ Related: [`access-control.md`](../security/access-control.md),
 This page documents how to deploy Elevarq Signals on Kubernetes with
 the controls a platform team will want to see before approving
 the workload. Pairs with the chart at
-`deploy/helm/arq-signals/`.
+`deploy/helm/signals/`.
 
 ## TL;DR
 
 ```sh
-helm install arq-signals deploy/helm/arq-signals/ \
+helm install signals deploy/helm/signals/ \
   --namespace observability \
   --create-namespace \
   --values production.yaml
@@ -30,7 +30,7 @@ target:
   sslmode: verify-full
   sslrootcertFile: /etc/ssl/certs/ca-certificates.crt
 api:
-  tokenSecretName: arq-signals-api
+  tokenSecretName: signals-api
   tokenSecretKey: token
 serviceAccount:
   create: true
@@ -57,7 +57,7 @@ resources:
 The bearer-token Secret is provisioned out-of-band:
 
 ```sh
-kubectl -n observability create secret generic arq-signals-api \
+kubectl -n observability create secret generic signals-api \
   --from-literal=token="$(openssl rand -base64 32)"
 kubectl -n observability create secret generic pg-credentials \
   --from-literal=password="$(operator-pasted-value)"
@@ -130,7 +130,7 @@ roadmap is a per-target sharded collector pool; tracked in
 ## Upgrade behavior
 
 ```sh
-helm upgrade arq-signals deploy/helm/arq-signals/ \
+helm upgrade signals deploy/helm/signals/ \
   --namespace observability \
   --values production.yaml \
   --version 0.8.0
@@ -153,7 +153,7 @@ a no-op. Downgrading is NOT supported (schema may have evolved).
 ## Rollback
 
 ```sh
-helm rollback arq-signals 0 --namespace observability
+helm rollback signals 0 --namespace observability
 ```
 
 What survives:
@@ -176,7 +176,7 @@ old schema if rollback fails.
 ## Uninstall
 
 ```sh
-helm uninstall arq-signals --namespace observability
+helm uninstall signals --namespace observability
 ```
 
 Removed:
@@ -189,13 +189,13 @@ Removed:
 - **PVC**: Helm does not delete PVCs by default; the SQLite
   snapshot store survives uninstall. Delete with:
   ```sh
-  kubectl -n observability delete pvc arq-signals-arq-signals-data
+  kubectl -n observability delete pvc signals-signals-data
   ```
-- **Secrets**: `arq-signals-api` (API bearer token) and
+- **Secrets**: `signals-api` (API bearer token) and
   `pg-credentials` (Postgres password) were provisioned out-of-
   band and Helm does not manage them. Delete with:
   ```sh
-  kubectl -n observability delete secret arq-signals-api pg-credentials
+  kubectl -n observability delete secret signals-api pg-credentials
   ```
 - **Namespace**: not deleted by `helm uninstall`. If you want the
   namespace gone, `kubectl delete namespace observability` after
@@ -212,14 +212,14 @@ After install:
 
 ```sh
 # Pod ready?
-kubectl -n observability get pods -l app.kubernetes.io/name=arq-signals
+kubectl -n observability get pods -l app.kubernetes.io/name=signals
 
 # Run the operator preflight from inside the pod
-kubectl -n observability exec deploy/arq-signals-arq-signals -- \
-  arqctl doctor --config /etc/arq-signals/signals.yaml --json
+kubectl -n observability exec deploy/signals-signals -- \
+  signalsctl doctor --config /etc/arq-signals/signals.yaml --json
 
 # Confirm the API token Secret is wired (no token in the rendered manifest):
-helm template arq-signals deploy/helm/arq-signals --values production.yaml | \
+helm template signals deploy/helm/signals --values production.yaml | \
   grep -A 5 ARQ_SIGNALS_API_TOKEN
 ```
 

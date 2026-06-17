@@ -157,12 +157,12 @@ outside the operator's environment regardless of this setting.
 Every release ships verifiable artefacts:
 
 - **Container image**: multi-arch (`linux/amd64`, `linux/arm64`) at
-  `ghcr.io/elevarq/arq-signals`. Cosign-signed (keyless, GitHub OIDC,
+  `ghcr.io/elevarq/signals`. Cosign-signed (keyless, GitHub OIDC,
   Sigstore Fulcio). SBOM attached both as an OCI attestation
   (`sbom: true` in BuildKit) and as a re-attested
   `cosign attest --type spdxjson` predicate. SLSA build provenance
   (`provenance: mode=max`) attached as a verifiable attestation.
-- **Helm chart**: `oci://ghcr.io/elevarq/charts/arq-signals`,
+- **Helm chart**: `oci://ghcr.io/elevarq/charts/signals`,
   cosign-signed under the same trust root as the container image.
 - **Release assets**: per-platform binaries, `sbom.spdx.json`, and a
   `SHA256SUMS` file pinned on the GitHub Release page; the Release is
@@ -188,11 +188,11 @@ Command-line verification of the image and the chart (replace the
 version):
 
 ```bash
-cosign verify ghcr.io/elevarq/arq-signals:<VERSION> \
+cosign verify ghcr.io/elevarq/signals:<VERSION> \
   --certificate-identity-regexp='https://github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 
-cosign verify ghcr.io/elevarq/charts/arq-signals:<VERSION> \
+cosign verify ghcr.io/elevarq/charts/signals:<VERSION> \
   --certificate-identity-regexp='https://github.com/Elevarq/Arq-Signals/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```

@@ -20,7 +20,7 @@ recommendation.
 |---|---|---|
 | **healthy** | Last collection succeeded for every enabled target within the configured `poll_interval`. Storage writable. API serving. | None. |
 | **degraded** | Daemon serving, but ≥ 1 enabled target is failing collection (transient). Examples: temporary connection refused, query timeout, single-collector error. Cleared automatically on next successful poll. | Inspect `/status`; check target reachability. |
-| **misconfigured** | Startup-time configuration validation failed. Examples: weak API token in `env=prod`, unreachable identity directory, invalid retention class. Daemon exits at startup; no API. | Fix the closed `reason_code` (see § Failure categories) and restart. Pre-flight via `arqctl doctor` before re-deploy. |
+| **misconfigured** | Startup-time configuration validation failed. Examples: weak API token in `env=prod`, unreachable identity directory, invalid retention class. Daemon exits at startup; no API. | Fix the closed `reason_code` (see § Failure categories) and restart. Pre-flight via `signalsctl doctor` before re-deploy. |
 | **blocked** | Daemon serving, but no collection happening because a hard precondition isn't met. Examples: `pg_monitor` role missing → role_safe check failed; circuit-breaker open for every target. | Resolve the precondition; daemon detects and resumes. |
 
 The state is exposed two ways:
@@ -38,7 +38,7 @@ The state is exposed two ways:
 
 Every collection or startup failure resolves to ONE of these
 closed `reason_code` values. The taxonomy is the **v1.0 contract**
-— operator-facing tooling (`/status`, `arqctl doctor --json`,
+— operator-facing tooling (`/status`, `signalsctl doctor --json`,
 metric labels, support-bundle templates) aligns to this list.
 The Go-side `internal/metrics` and `internal/api` packages emit
 the codes as their failure dimension; future runtime additions
@@ -62,7 +62,7 @@ amendment rather than introducing a new ad-hoc string.
 
 The `unknown` bucket is a deliberate honesty signal: if it fires,
 the taxonomy is incomplete and the operator should report the
-output of `arqctl doctor --json` + the daemon log line carrying
+output of `signalsctl doctor --json` + the daemon log line carrying
 the bucket.
 
 ## Prometheus metrics
@@ -89,7 +89,7 @@ the closed `outcome` enum).
 Before deploying a new config:
 
 ```sh
-arqctl doctor --config config.yaml
+signalsctl doctor --config config.yaml
 ```
 
 Runs the closed read-only checks:
@@ -115,10 +115,10 @@ The recommended package:
 
 | Artefact | What it shows | Redaction guarantees |
 |---|---|---|
-| `arqctl doctor --json` output | Current target reachability + role + collector prerequisites + storage state. Last failure reason per target. | Closed JSON shape; never includes passwords / pgpass content. |
+| `signalsctl doctor --json` output | Current target reachability + role + collector prerequisites + storage state. Last failure reason per target. | Closed JSON shape; never includes passwords / pgpass content. |
 | `/status` JSON snapshot | Daemon-side view of all targets. Last error per target. Circuit-breaker state. Last snapshot age. | Same — closed shape; credential source types only. |
 | Daemon stderr / journald excerpt for the troubled window | The slog lines around the issue. | The daemon's logger is set up to never emit secrets at any level; the API-token fingerprint is the only token-derived value that appears (12 chars of SHA-256). |
-| `arqctl export` snapshot for ONE failing target | The collected catalog rows for the period of interest. | Sensitivity-profile redaction (see [`specifications/sensitivity-profiles.md`](../../specifications/sensitivity-profiles.md)) applies. PII MUST NOT appear in collected rows; producer-side discipline is the load-bearing rule. |
+| `signalsctl export` snapshot for ONE failing target | The collected catalog rows for the period of interest. | Sensitivity-profile redaction (see [`specifications/sensitivity-profiles.md`](../../specifications/sensitivity-profiles.md)) applies. PII MUST NOT appear in collected rows; producer-side discipline is the load-bearing rule. |
 
 **Forbidden**:
 
@@ -142,7 +142,7 @@ The behavior documented above is pinned by:
 | `/health` returns binary state, never includes diagnostics | `internal/api/health_test.go` (existing) |
 | `/status` payload never carries credential source values | `tests/signals_target_identity_test.go` |
 | Closed failure-category enum constants exist + each value's wire string is the documented one | `tests/signals_failure_taxonomy_test.go` (new — see this PR) |
-| `arqctl doctor` reports closed check ids + closed reasons | `internal/doctor/doctor_test.go` |
+| `signalsctl doctor` reports closed check ids + closed reasons | `internal/doctor/doctor_test.go` |
 | Sensitivity profile redaction holds on snapshot export | `tests/signals_sensitivity_profiles_test.go` |
 
 ## Threat model
@@ -150,7 +150,7 @@ The behavior documented above is pinned by:
 In scope:
 
 - Operator misconfiguration → `misconfigured` state with closed
-  reason at startup; `arqctl doctor` runnable to repair.
+  reason at startup; `signalsctl doctor` runnable to repair.
 - Transient target failure → `degraded` with closed
   `reason_code`; circuit-breaker cuts noise once threshold hit.
 - Support evidence leakage → bounded surface + sensitivity-

@@ -1,7 +1,7 @@
 {{- /*
   #140 — PersistentVolumeClaim for the SQLite snapshot store.
 
-  The deployment volume mount references `<release>-arq-signals-data`
+  The deployment volume mount references `<release>-signals-data`
   but there was no PVC template until #140. Without this manifest,
   helm-install on a cluster with no operator-managed PVC failed at
   pod scheduling time. Production-readiness requires the chart
@@ -15,9 +15,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ .Release.Name }}-arq-signals-data
+  name: {{ .Release.Name }}-signals-data
   labels:
-    app.kubernetes.io/name: arq-signals
+    app.kubernetes.io/name: signals
     app.kubernetes.io/instance: {{ .Release.Name }}
     app.kubernetes.io/component: storage
 spec:
