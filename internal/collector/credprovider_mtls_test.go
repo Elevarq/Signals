@@ -167,8 +167,8 @@ func TestFileCertLoaderEncryptedKey(t *testing.T) {
 	if err := os.WriteFile(passFile, []byte("wrong"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	err = nil
-	if _, err = (fileCertLoader{}).Load(certFile, keyFile, passFile); err == nil {
+	_, err = (fileCertLoader{}).Load(certFile, keyFile, passFile)
+	if err == nil {
 		t.Fatal("expected error for wrong passphrase")
 	}
 	if strings.Contains(err.Error(), "wrong") && strings.Contains(err.Error(), "s3cret") {
