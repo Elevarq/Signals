@@ -88,6 +88,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- **Corrected the documented `signalsctl doctor` config path that pointed
+  at a non-existent `/etc/signals-signals/` directory (#153).** The Helm
+  chart mounts the ConfigMap at `/etc/signals` and the daemon's default
+  config is `/etc/signals/signals.yaml`, but
+  `docs/install/kubernetes-production.md` told operators to run
+  `signalsctl doctor --config /etc/signals-signals/signals.yaml`, which
+  fails on copy-paste — the path does not exist in the pod. The
+  `specifications/doctor.md` example output had the same doubled directory
+  (plus the wrong filename `config.yaml`). Both now reference
+  `/etc/signals/signals.yaml`. The `signals-signals` *resource* names in
+  the same doc are correct (Helm renders `{release}-signals` and the docs
+  install with release name `signals`) and are unchanged. Documentation
+  only.
+
 - **Example DB monitoring roles renamed to the single `signals` role
   (#141).** #137's claim that the examples use a single `signals` role
   was incomplete — the role-creation SQL and the snapshot fixture were
