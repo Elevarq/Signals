@@ -53,7 +53,7 @@ summarises pass/fail counts.
 Example:
 
 ```
-OK   C1 config_valid              loaded /etc/signals-signals/config.yaml
+OK   C1 config_valid              loaded /etc/signals/signals.yaml
 OK   C2 store_writable            /var/lib/signals
 FAIL C3 target_reachable prod-db  dial tcp 10.0.0.7:5432: connect: connection refused
 OK   C3 target_reachable staging  reached staging.example.com:5432 in 14ms

@@ -216,7 +216,7 @@ kubectl -n observability get pods -l app.kubernetes.io/name=signals
 
 # Run the operator preflight from inside the pod
 kubectl -n observability exec deploy/signals-signals -- \
-  signalsctl doctor --config /etc/signals-signals/signals.yaml --json
+  signalsctl doctor --config /etc/signals/signals.yaml --json
 
 # Confirm the API token Secret is wired (no token in the rendered manifest):
 helm template signals deploy/helm/signals --values production.yaml | \
