@@ -106,6 +106,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   behaviour are unchanged. Operators who set `arq_env` / `ArqEnv` in
   their tfvars or stack parameters must rename it to `env` / `Env`.
 
+- **Updated the documented `control_plane_token_env` example value
+  `ARQ_CONTROL_PLANE_TOKEN` -> `SIGNALS_CONTROL_PLANE_TOKEN` (#146).**
+  This is the operator-chosen env-var name shown in the commented config
+  examples — Signals never hard-codes or reads `ARQ_CONTROL_PLANE_TOKEN`;
+  it reads whatever name the operator sets in `control_plane_token_env`,
+  so this is a documentation example only, **not** a behaviour change and
+  not a breaking change (the config key and the `SIGNALS_CONTROL_PLANE_TOKEN_ENV`
+  override were already de-arq'd in #137). Updated in `README.md`,
+  `docs/authentication.md`, and `features/arq-signals/specification.md`,
+  plus the cosmetic internal variable `arqControlPlaneTokenFn` ->
+  `signalsControlPlaneTokenFn` in `cmd/signals/main.go`.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added

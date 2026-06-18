@@ -237,7 +237,7 @@ func run() error {
 	// startup so cross-token rules (length floor, distinctness from
 	// api.token) are validated before serving any traffic. Per-
 	// request rotation is handled by ControlPlaneTokenFn below.
-	var arqControlPlaneTokenFn func() string
+	var signalsControlPlaneTokenFn func() string
 	controlPlaneTokenConfigured := false
 	if cfg.Signals.Mode == config.ModeManaged {
 		startupToken, err := config.ResolveControlPlaneToken(cfg.Signals)
@@ -248,7 +248,7 @@ func run() error {
 			return fmt.Errorf("R083 cross-token validation: %w", err)
 		}
 		controlPlaneTokenConfigured = true
-		arqControlPlaneTokenFn = func() string {
+		signalsControlPlaneTokenFn = func() string {
 			// Re-read the source on every authentication attempt so
 			// rotating the file's contents takes effect on the next
 			// request without restarting the daemon. A read error
@@ -290,7 +290,7 @@ func run() error {
 		Exporter:            exporter,
 		Targets:             cfg.Targets,
 		ConfigPath:          *configPath, // R100: needed for POST /reload + SIGHUP handler.
-		ControlPlaneTokenFn: arqControlPlaneTokenFn,
+		ControlPlaneTokenFn: signalsControlPlaneTokenFn,
 		TLSCertFile:         cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
 		TLSKeyFile:          cfg.API.TLSKeyFile,
 	}

@@ -55,7 +55,7 @@ signals:
   # Alternative: env var indirection. Treat the env var as the
   # source of the token value. Same posture as the existing
   # SIGNALS_API_TOKEN_FILE / SIGNALS_API_TOKEN pattern.
-  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # control_plane_token_env: SIGNALS_CONTROL_PLANE_TOKEN
 ```
 
 Equivalent environment-variable overrides:
