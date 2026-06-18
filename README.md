@@ -658,7 +658,7 @@ signals:
   mode: managed
   control_plane_token_file: /etc/signals/control-plane.token
   # or:
-  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # control_plane_token_env: SIGNALS_CONTROL_PLANE_TOKEN
 ```
 
 The file is re-read on every authentication attempt so rotation is

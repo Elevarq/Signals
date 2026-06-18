@@ -1106,7 +1106,7 @@ signals:
   # api.token (R011).
   control_plane_token_file: /etc/signals/control-plane.token
   # alternative:
-  # control_plane_token_env: ARQ_CONTROL_PLANE_TOKEN
+  # control_plane_token_env: SIGNALS_CONTROL_PLANE_TOKEN
 ```
 
 | Field | Type | Default | Validation |
