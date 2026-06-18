@@ -69,7 +69,7 @@ runtime on every connection:
 - `SET LOCAL default_transaction_read_only = on`
 - `SET LOCAL statement_timeout`, `lock_timeout`,
   `idle_in_transaction_session_timeout` — short, configurable.
-- Every connection sets `application_name = arq-signals` in its
+- Every connection sets `application_name = signals` in its
   startup parameters (R106). The value is used by the
   `pg_stat_statements_v1` collector to filter out Signals' own
   probe queries so customer workload analysis is not polluted by

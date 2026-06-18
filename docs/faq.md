@@ -65,9 +65,9 @@ No. The collector self-filters so that customer workload analysis
 is not polluted by Signals' own probe queries:
 
 - Every PostgreSQL connection opened by Signals sets
-  `application_name = arq-signals` in its startup parameters.
+  `application_name = signals` in its startup parameters.
 - The `pg_stat_statements_v1` SQL excludes rows attributable to
-  any session whose `application_name` is `arq-signals`,
+  any session whose `application_name` is `signals`,
   matched on `(userid, dbid)`.
 - The same SQL scopes rows to the connected database
   (`pg_database.datname = current_database()`), so cross-database
@@ -75,5 +75,5 @@ is not polluted by Signals' own probe queries:
   collected.
 
 If you operate another application that also sets its
-`application_name` to `arq-signals`, its rows will be suppressed
+`application_name` to `signals`, its rows will be suppressed
 too. Pick a distinct name for non-Signals tooling.

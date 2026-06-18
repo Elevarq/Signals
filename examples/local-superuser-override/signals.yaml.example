@@ -1,6 +1,6 @@
 # Elevarq Signals — superuser override example (LOCAL/DEV ONLY)
 #
-# Uses the postgres superuser. Requires ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true.
+# Uses the postgres superuser. Requires SIGNALS_ALLOW_UNSAFE_ROLE=true.
 # Do NOT use this configuration in production.
 
 env: dev
