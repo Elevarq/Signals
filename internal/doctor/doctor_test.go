@@ -35,7 +35,7 @@ targets:
     host: 127.0.0.1
     port: 5432
     dbname: postgres
-    user: arq
+    user: monitor
     sslmode: disable
 `
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
@@ -215,9 +215,9 @@ func TestCheckRoleSafe_FailOnPasswordResolutionError(t *testing.T) {
 		Host:        "127.0.0.1",
 		Port:        5432,
 		DBName:      "postgres",
-		User:        "arq",
+		User:        "monitor",
 		SSLMode:     "disable",
-		PasswordEnv: "ARQ_DOCTOR_TEST_PASSWORD_DOES_NOT_EXIST",
+		PasswordEnv: "SIGNALS_DOCTOR_TEST_PASSWORD_DOES_NOT_EXIST",
 		Enabled:     true,
 	}
 	r := CheckRoleSafe(context.Background(), tgt, true /* reachable */)
@@ -237,14 +237,14 @@ func TestCheckRoleSafe_PasswordResolutionDetailContainsNoSensitiveValue(t *testi
 	// generic "secret"/"password" keyword that might have been pulled
 	// from the underlying error message must be sanitised by
 	// collector.RedactError.
-	const envName = "ARQ_DOCTOR_TEST_REDACT_PROBE"
+	const envName = "SIGNALS_DOCTOR_TEST_REDACT_PROBE"
 	t.Setenv(envName, "should-never-appear-in-detail")
 	tgt := config.TargetConfig{
 		Name:        "redact-probe",
 		Host:        "127.0.0.1",
 		Port:        5432,
 		DBName:      "postgres",
-		User:        "arq",
+		User:        "monitor",
 		SSLMode:     "disable",
 		PasswordEnv: envName,
 		Enabled:     true,
@@ -262,7 +262,7 @@ func TestCheckRoleSafe_PasswordResolutionDetailContainsNoSensitiveValue(t *testi
 // leak risk in this kind of tooling.
 func TestCheckRoleSafe_DialFailDetailHasNoCredentialValue(t *testing.T) {
 	const sentinel = "SUPER-secret-sentinel-doctor-test"
-	const envName = "ARQ_DOCTOR_TEST_DIAL_LEAK_PROBE"
+	const envName = "SIGNALS_DOCTOR_TEST_DIAL_LEAK_PROBE"
 	t.Setenv(envName, sentinel)
 
 	// Point at a port nothing is listening on. With reachable=true
@@ -274,7 +274,7 @@ func TestCheckRoleSafe_DialFailDetailHasNoCredentialValue(t *testing.T) {
 		Host:        "127.0.0.1",
 		Port:        9, // discard port — refuses or times out
 		DBName:      "postgres",
-		User:        "arq",
+		User:        "monitor",
 		SSLMode:     "disable",
 		PasswordEnv: envName,
 		Enabled:     true,
@@ -543,19 +543,19 @@ targets:
     host: 127.0.0.1
     port: 9
     dbname: postgres
-    user: arq
+    user: monitor
     sslmode: disable
   - name: bravo
     host: 127.0.0.1
     port: 9
     dbname: postgres
-    user: arq
+    user: monitor
     sslmode: disable
   - name: charlie
     host: 127.0.0.1
     port: 9
     dbname: postgres
-    user: arq
+    user: monitor
     sslmode: disable
 `
 	if err := os.WriteFile(cfgPath, []byte(contents), 0o600); err != nil {

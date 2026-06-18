@@ -65,7 +65,7 @@ func TestSessionReadOnlyParamSet(t *testing.T) {
 		Host:   "localhost",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	cfg, err := collector.BuildConnConfig(tgt)

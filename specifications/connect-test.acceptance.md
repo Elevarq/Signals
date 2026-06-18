@@ -77,7 +77,7 @@ nothing is listening (firewall drop or instance down).
 environment variable is not set when the CLI runs.
 
 **Given:**
-- Target config carries `password_env: ARQ_DOES_NOT_EXIST`.
+- Target config carries `password_env: SIGNALS_DOES_NOT_EXIST`.
 - The env var is not set.
 
 **When:**
@@ -104,7 +104,7 @@ to config.
 - No mention of it in `signals.yaml`.
 
 **When:**
-- `signalsctl connect test --dsn "host=localhost port=5432 dbname=postgres user=arq sslmode=disable"` is run.
+- `signalsctl connect test --dsn "host=localhost port=5432 dbname=postgres user=monitor sslmode=disable"` is run.
 
 **Then:**
 - The connection is attempted.
@@ -200,7 +200,7 @@ to config.
 **Scenario:** A target's password contains a recognisable sentinel.
 
 **Given:**
-- Config with `password_env: ARQ_TEST_SENTINEL`.
+- Config with `password_env: SIGNALS_TEST_SENTINEL`.
 - The env var set to `SENTINEL-conntest-leak-probe-789`.
 
 **When:**

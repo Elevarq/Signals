@@ -20,23 +20,23 @@ import (
 // This is the only secret_store test that makes real cloud calls. It is
 // doubly gated: the `integration` build tag AND SIGNALS_INTEGRATION_LIVE=1.
 // It never runs in default CI. It fetches a real database password from the
-// secret store inferred from ARQ_TEST_SECRET_REF using the collector's
+// secret store inferred from SIGNALS_TEST_SECRET_REF using the collector's
 // ambient workload identity, connects to a self-managed PostgreSQL
 // passwordlessly over verify-full TLS, and runs the read-only discovery probe
 // (the core of a snapshot).
 //
 // Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
-//	ARQ_TEST_SECRET_REF         secret reference (AWS ARN / Key Vault URI /
+//	SIGNALS_TEST_SECRET_REF         secret reference (AWS ARN / Key Vault URI /
 //	                            GCP Secret Manager resource); shape selects
 //	                            the backend
-//	ARQ_TEST_SECRET_HOST        PostgreSQL host
-//	ARQ_TEST_SECRET_DBNAME      database to connect to
-//	ARQ_TEST_SECRET_USER        DB role whose password is the stored secret
-//	ARQ_TEST_SECRET_SSLROOTCERT path to the server-CA bundle (verify-full)
-//	ARQ_TEST_SECRET_JSON_KEY    optional; JSON key to extract (e.g. "password")
-//	ARQ_TEST_SECRET_PORT        optional; defaults to 5432
-//	ARQ_TEST_SECRET_ROTATE      optional; "1" runs the AC-SECRET-013 opt-in
+//	SIGNALS_TEST_SECRET_HOST        PostgreSQL host
+//	SIGNALS_TEST_SECRET_DBNAME      database to connect to
+//	SIGNALS_TEST_SECRET_USER        DB role whose password is the stored secret
+//	SIGNALS_TEST_SECRET_SSLROOTCERT path to the server-CA bundle (verify-full)
+//	SIGNALS_TEST_SECRET_JSON_KEY    optional; JSON key to extract (e.g. "password")
+//	SIGNALS_TEST_SECRET_PORT        optional; defaults to 5432
+//	SIGNALS_TEST_SECRET_ROTATE      optional; "1" runs the AC-SECRET-013 opt-in
 //	                            rotation step (see below)
 //
 // The collector's ambient identity must be allowed to read the secret for
@@ -45,10 +45,10 @@ import (
 // All three backends are production-wired. Run, for the AWS demo path:
 //
 //	SIGNALS_INTEGRATION_LIVE=1 \
-//	ARQ_TEST_SECRET_REF=arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/pg/monitor-AbCdEf \
-//	ARQ_TEST_SECRET_HOST=db.internal ARQ_TEST_SECRET_DBNAME=appdb \
-//	ARQ_TEST_SECRET_USER=monitor ARQ_TEST_SECRET_SSLROOTCERT=/etc/ssl/rds-ca.pem \
-//	ARQ_TEST_SECRET_JSON_KEY=password \
+//	SIGNALS_TEST_SECRET_REF=arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/pg/monitor-AbCdEf \
+//	SIGNALS_TEST_SECRET_HOST=db.internal SIGNALS_TEST_SECRET_DBNAME=appdb \
+//	SIGNALS_TEST_SECRET_USER=monitor SIGNALS_TEST_SECRET_SSLROOTCERT=/etc/ssl/rds-ca.pem \
+//	SIGNALS_TEST_SECRET_JSON_KEY=password \
 //	  go test -tags integration ./internal/collector/ -run Live_SecretStore -v
 //
 // Specification: features/arq-signals/credential-provider-secret-store.md
@@ -57,19 +57,19 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
 		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live secret_store smoke")
 	}
-	ref := os.Getenv("ARQ_TEST_SECRET_REF")
-	host := os.Getenv("ARQ_TEST_SECRET_HOST")
-	dbname := os.Getenv("ARQ_TEST_SECRET_DBNAME")
-	user := os.Getenv("ARQ_TEST_SECRET_USER")
-	caFile := os.Getenv("ARQ_TEST_SECRET_SSLROOTCERT")
+	ref := os.Getenv("SIGNALS_TEST_SECRET_REF")
+	host := os.Getenv("SIGNALS_TEST_SECRET_HOST")
+	dbname := os.Getenv("SIGNALS_TEST_SECRET_DBNAME")
+	user := os.Getenv("SIGNALS_TEST_SECRET_USER")
+	caFile := os.Getenv("SIGNALS_TEST_SECRET_SSLROOTCERT")
 	if ref == "" || host == "" || dbname == "" || user == "" || caFile == "" {
-		t.Skip("ARQ_TEST_SECRET_REF/HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live secret_store smoke")
+		t.Skip("SIGNALS_TEST_SECRET_REF/HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live secret_store smoke")
 	}
 	port := 5432
-	if p := os.Getenv("ARQ_TEST_SECRET_PORT"); p != "" {
+	if p := os.Getenv("SIGNALS_TEST_SECRET_PORT"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			t.Fatalf("ARQ_TEST_SECRET_PORT %q is not an integer: %v", p, err)
+			t.Fatalf("SIGNALS_TEST_SECRET_PORT %q is not an integer: %v", p, err)
 		}
 		port = n
 	}
@@ -84,7 +84,7 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 		SSLRootCertFile: caFile,
 		AuthMethod:      config.AuthMethodSecretStore,
 		SecretRef:       ref,
-		SecretJSONKey:   os.Getenv("ARQ_TEST_SECRET_JSON_KEY"), // empty → raw value
+		SecretJSONKey:   os.Getenv("SIGNALS_TEST_SECRET_JSON_KEY"), // empty → raw value
 		Enabled:         true,
 	}
 
@@ -139,8 +139,8 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 	// Rotation mutates the live vault and is therefore NOT part of the
 	// required path; rotation-on-reconnect is fully covered in CI by the
 	// unit-level cache test.
-	if os.Getenv("ARQ_TEST_SECRET_ROTATE") != "1" {
-		t.Log("ARQ_TEST_SECRET_ROTATE != 1 — skipping the optional AC-SECRET-013 live rotation step")
+	if os.Getenv("SIGNALS_TEST_SECRET_ROTATE") != "1" {
+		t.Log("SIGNALS_TEST_SECRET_ROTATE != 1 — skipping the optional AC-SECRET-013 live rotation step")
 		return
 	}
 	t.Log("AC-SECRET-013: rotate the stored secret now; the next Resolve must pick up the new value without a restart")

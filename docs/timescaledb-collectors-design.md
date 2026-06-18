@@ -296,8 +296,8 @@ builds; `timescale/timescaledb` (Alpine) carries
 | Oldest supported combo | `timescale/timescaledb:2.19.3-pg14` | pre-2.20 column drift absorbed by dynamic capture (TC-TSDB-03 variant) |
 | PG 18 lane (optional) | `timescale/timescaledb-ha:pg18-ts2.27` | smoke |
 
-Harness: build-tag `integration` tests gated on `ARQ_TEST_TSDB_DSN`
-(TimescaleDB target) alongside the existing `ARQ_TEST_PG_DSN`
+Harness: build-tag `integration` tests gated on `SIGNALS_TEST_TSDB_DSN`
+(TimescaleDB target) alongside the existing `SIGNALS_TEST_PG_DSN`
 pattern; CI workflow wiring is implementation scope.
 
 ## 9. Out of scope (this issue)

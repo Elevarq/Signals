@@ -15,7 +15,7 @@ import (
 // declared, the volumeMount targets /etc/signals, and the mount is
 // read-only (defence in depth alongside readOnlyRootFilesystem).
 
-func TestHelm_ConfigMapIsMountedAtEtcArq(t *testing.T) {
+func TestHelm_ConfigMapIsMountedAtEtcSignals(t *testing.T) {
 	out := renderHelm(t)
 
 	if !strings.Contains(out, "kind: ConfigMap") {

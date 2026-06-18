@@ -48,7 +48,7 @@ func TestBuildConnConfigApplicationName(t *testing.T) {
 		Host:   "localhost",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	cfg, err := collector.BuildConnConfig(tgt)
@@ -74,7 +74,7 @@ func TestBuildConnConfigDefaultPort(t *testing.T) {
 		Host:   "localhost",
 		Port:   0, // should default to 5432
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	cfg, err := collector.BuildConnConfig(tgt)
@@ -96,7 +96,7 @@ func TestBuildConnConfigEmptyHostError(t *testing.T) {
 		Host:   "",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	_, err := collector.BuildConnConfig(tgt)
@@ -114,7 +114,7 @@ func TestBuildConnConfigReadOnlyParam(t *testing.T) {
 		Host:   "localhost",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	cfg, err := collector.BuildConnConfig(tgt)

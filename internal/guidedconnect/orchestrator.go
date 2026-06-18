@@ -384,7 +384,7 @@ func appendTarget(path, name, block string) error {
 	}
 
 	dir := filepath.Dir(path)
-	tmp, err := os.CreateTemp(dir, ".arqctl-connect-*.yaml")
+	tmp, err := os.CreateTemp(dir, ".signalsctl-connect-*.yaml")
 	if err != nil {
 		return fmt.Errorf("--write: create temp file: %w", err)
 	}

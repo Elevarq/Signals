@@ -44,7 +44,7 @@ targets:
     host: 127.0.0.1
     port: 5432
     dbname: postgres
-    user: arq
+    user: monitor
     sslmode: disable
 `
 	if err := os.WriteFile(configPath, []byte(contents), 0o600); err != nil {
@@ -61,7 +61,7 @@ targets:
 	}
 
 	tgts := []config.TargetConfig{
-		{Name: "prod", Host: "127.0.0.1", Port: 5432, DBName: "postgres", User: "arq", SSLMode: "disable", Enabled: true},
+		{Name: "prod", Host: "127.0.0.1", Port: 5432, DBName: "postgres", User: "monitor", SSLMode: "disable", Enabled: true},
 	}
 	coll := collector.New(store, tgts, 1*time.Hour, 30)
 	exp := export.NewBuilder(store, "test-instance-id")

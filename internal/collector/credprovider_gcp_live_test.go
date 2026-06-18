@@ -28,22 +28,22 @@ import (
 //
 // Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
-//	ARQ_TEST_GCP_HOST          Cloud SQL instance IP / hostname
-//	ARQ_TEST_GCP_DBNAME        database to connect to
-//	ARQ_TEST_GCP_USER          DB role registered as a Cloud SQL IAM user
-//	ARQ_TEST_GCP_SSLROOTCERT   path to the server-CA bundle (verify-full)
-//	ARQ_TEST_GCP_IMPERSONATE   optional; service account to impersonate
-//	ARQ_TEST_GCP_PORT          optional; defaults to 5432
+//	SIGNALS_TEST_GCP_HOST          Cloud SQL instance IP / hostname
+//	SIGNALS_TEST_GCP_DBNAME        database to connect to
+//	SIGNALS_TEST_GCP_USER          DB role registered as a Cloud SQL IAM user
+//	SIGNALS_TEST_GCP_SSLROOTCERT   path to the server-CA bundle (verify-full)
+//	SIGNALS_TEST_GCP_IMPERSONATE   optional; service account to impersonate
+//	SIGNALS_TEST_GCP_PORT          optional; defaults to 5432
 //
 // An ambient Google identity must be present (Application Default
 // Credentials: gcloud auth application-default login, workload identity, or
 // a service-account key via GOOGLE_APPLICATION_CREDENTIALS) and the DB role
-// ARQ_TEST_GCP_USER must be a Cloud SQL IAM database user. Run:
+// SIGNALS_TEST_GCP_USER must be a Cloud SQL IAM database user. Run:
 //
 //	SIGNALS_INTEGRATION_LIVE=1 \
-//	ARQ_TEST_GCP_HOST=10.10.0.5 \
-//	ARQ_TEST_GCP_DBNAME=appdb ARQ_TEST_GCP_USER=monitor@my-proj.iam \
-//	ARQ_TEST_GCP_SSLROOTCERT=/etc/ssl/gcp-server-ca.pem \
+//	SIGNALS_TEST_GCP_HOST=10.10.0.5 \
+//	SIGNALS_TEST_GCP_DBNAME=appdb SIGNALS_TEST_GCP_USER=monitor@my-proj.iam \
+//	SIGNALS_TEST_GCP_SSLROOTCERT=/etc/ssl/gcp-server-ca.pem \
 //	  go test -tags integration ./internal/collector/ -run Live_GCPCloudSQLIAM -v
 //
 // Specification: features/arq-signals/credential-provider-gcp-cloudsql-iam.md
@@ -52,18 +52,18 @@ func TestLive_GCPCloudSQLIAMPasswordlessConnectAndReacquire(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
 		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live gcp_cloudsql_iam smoke")
 	}
-	host := os.Getenv("ARQ_TEST_GCP_HOST")
-	dbname := os.Getenv("ARQ_TEST_GCP_DBNAME")
-	user := os.Getenv("ARQ_TEST_GCP_USER")
-	caFile := os.Getenv("ARQ_TEST_GCP_SSLROOTCERT")
+	host := os.Getenv("SIGNALS_TEST_GCP_HOST")
+	dbname := os.Getenv("SIGNALS_TEST_GCP_DBNAME")
+	user := os.Getenv("SIGNALS_TEST_GCP_USER")
+	caFile := os.Getenv("SIGNALS_TEST_GCP_SSLROOTCERT")
 	if host == "" || dbname == "" || user == "" || caFile == "" {
-		t.Skip("ARQ_TEST_GCP_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live gcp_cloudsql_iam smoke")
+		t.Skip("SIGNALS_TEST_GCP_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live gcp_cloudsql_iam smoke")
 	}
 	port := 5432
-	if p := os.Getenv("ARQ_TEST_GCP_PORT"); p != "" {
+	if p := os.Getenv("SIGNALS_TEST_GCP_PORT"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			t.Fatalf("ARQ_TEST_GCP_PORT %q is not an integer: %v", p, err)
+			t.Fatalf("SIGNALS_TEST_GCP_PORT %q is not an integer: %v", p, err)
 		}
 		port = n
 	}
@@ -77,7 +77,7 @@ func TestLive_GCPCloudSQLIAMPasswordlessConnectAndReacquire(t *testing.T) {
 		SSLMode:                      "verify-full",
 		SSLRootCertFile:              caFile,
 		AuthMethod:                   config.AuthMethodGCPCloudSQLIAM,
-		GCPImpersonateServiceAccount: os.Getenv("ARQ_TEST_GCP_IMPERSONATE"), // empty → ambient ADC
+		GCPImpersonateServiceAccount: os.Getenv("SIGNALS_TEST_GCP_IMPERSONATE"), // empty → ambient ADC
 		Enabled:                      true,
 	}
 
