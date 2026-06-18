@@ -118,6 +118,24 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   plus the cosmetic internal variable `arqControlPlaneTokenFn` ->
   `signalsControlPlaneTokenFn` in `cmd/signals/main.go`.
 
+- **Corrected docs/examples that still described the pre-#137 `arq`
+  behaviour (#149).** #137 changed the shipped code but left several
+  docs and one example describing the old names, so they actively
+  misled operators. The collector identifies as
+  `application_name = signals` (constant `collector.AppName`, used by
+  the `pg_stat_statements_v1` self-filter), but `docs/faq.md`,
+  `docs/postgres-role.md`, and `docs/collectors.md` still said
+  `arq-signals` — an operator building their own self-filter from those
+  docs would have matched the wrong value. The
+  `examples/local-superuser-override/signals.yaml.example` comment told
+  operators to set `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE`, but the daemon reads
+  `SIGNALS_ALLOW_UNSAFE_ROLE` (`internal/config/config.go`), so the
+  override silently did nothing. Also corrected the stale identity/store
+  paths `/var/lib/arq-signals` and `/var/lib/arq` -> `/var/lib/signals`
+  in `specifications/doctor.md` and
+  `docs/observability/operational-readiness.md`. Documentation/example
+  only; the code already behaved correctly.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added

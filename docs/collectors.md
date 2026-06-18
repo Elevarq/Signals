@@ -255,7 +255,7 @@ permissions: [`postgres-role.md`](postgres-role.md).
   (sourced from the `collector.AppName` constant) so the filter
   works from the very first statement on every session. If a
   non-Signals application sets its own `application_name` to
-  `arq-signals`, its rows are suppressed — that is operator
+  `signals`, its rows are suppressed — that is operator
   misconfiguration, not a Signals defect.
 
 ### Self-filter limits (operator note)

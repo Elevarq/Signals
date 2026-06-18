@@ -125,7 +125,7 @@ The recommended package:
 - Raw daemon logs without timestamp bounding — they often span
   multiple targets and surface concurrent activity the issue at
   hand is irrelevant to.
-- Files under `/var/lib/arq` (the identity directory) —
+- Files under `/var/lib/signals` (the identity directory) —
   `install_secret` is private to the process. Send the
   fingerprint from the daemon's startup log instead.
 - Copies of `config.yaml` carrying inline credentials — redact
