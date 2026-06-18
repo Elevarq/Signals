@@ -268,7 +268,7 @@ The password must not appear in stdout, stderr, JSON output, or any
 error detail string — even when the connection fails.
 
 **Given:**
-- A target configured with `password_env=ARQ_TEST_DOCTOR_PASSWORD`
+- A target configured with `password_env=SIGNALS_TEST_DOCTOR_PASSWORD`
   set to a unique value like `S3kRet-doctor-test`.
 - The host is unreachable (forces a failure path that touches
   connection error formatting).

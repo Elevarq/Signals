@@ -1061,7 +1061,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// are also fatal because the transaction state is now
 		// inconsistent and continuing risks stale or partial data
 		// reaching the snapshot.
-		savepointName := fmt.Sprintf("arq_q_%d", len(runs))
+		savepointName := fmt.Sprintf("signals_q_%d", len(runs))
 		if _, spErr := tx.Exec(ctx, "SAVEPOINT "+savepointName); spErr != nil {
 			qCancel()
 			return fmt.Errorf("savepoint %s for %s: %w", savepointName, tgt.Name, spErr)

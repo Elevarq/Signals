@@ -99,9 +99,9 @@ func TestR083ModeDefaultsStandalone(t *testing.T) {
 	}
 }
 
-// TestR083ArqManagedRequiresToken — TC-SIG-082
+// TestR083ManagedRequiresToken — TC-SIG-082
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-082
-func TestR083ArqManagedRequiresToken(t *testing.T) {
+func TestR083ManagedRequiresToken(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Signals.Mode = config.ModeManaged
 	cfg.Targets = []config.TargetConfig{
@@ -195,9 +195,9 @@ func TestR083APITokenStaysLocalOperator(t *testing.T) {
 	}
 }
 
-// TestR083ControlPlaneTokenSetsArqActor — TC-SIG-087
+// TestR083ControlPlaneTokenSetsControlPlaneActor — TC-SIG-087
 // Traces: ARQ-SIGNALS-R083 / TC-SIG-087
-func TestR083ControlPlaneTokenSetsArqActor(t *testing.T) {
+func TestR083ControlPlaneTokenSetsControlPlaneActor(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
 

@@ -7,8 +7,8 @@
 Test evidence types follow `features/arq-signals/traceability.md`:
 BEHAVIORAL tests run without a live server against the registry;
 INTEGRATION tests are build-tag guarded (`//go:build integration`)
-and gated on `ARQ_TEST_TSDB_DSN` (TimescaleDB target) /
-`ARQ_TEST_PG_DSN` (plain PostgreSQL target).
+and gated on `SIGNALS_TEST_TSDB_DSN` (TimescaleDB target) /
+`SIGNALS_TEST_PG_DSN` (plain PostgreSQL target).
 
 ## Test Cases
 

@@ -29,7 +29,7 @@ func TestBuildConnConfigUsesAppNameConstant(t *testing.T) {
 		Host:   "localhost",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	cfg, err := collector.BuildConnConfig(tgt)
@@ -146,7 +146,7 @@ func TestBuildSafeDSNCarriesAppName(t *testing.T) {
 		Host:   "db.example.com",
 		Port:   5432,
 		DBName: "postgres",
-		User:   "arq",
+		User:   "monitor",
 	}
 
 	dsn, err := collector.BuildSafeDSN(tgt)

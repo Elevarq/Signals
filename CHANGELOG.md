@@ -57,6 +57,35 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `arq_signal_export_requests_total` -> `signals_export_requests_total`.
   Label names, label-value enums, and metric semantics are unchanged.
 
+- **Renamed the residual `arq` developer-facing identifiers left out of
+  #137 (#150).** These are internal/cosmetic names with no operator-facing
+  surface, so #137 correctly scoped them out; this completes the de-`arq`
+  rename. No behaviour change, no aliases needed (none are read by CI or
+  by operators):
+  - **Live/integration test env vars:** `ARQ_TEST_*` -> `SIGNALS_TEST_*`
+    and `ARQ_DOCTOR_TEST_*` -> `SIGNALS_DOCTOR_TEST_*` (e.g.
+    `ARQ_TEST_PG_DSN` -> `SIGNALS_TEST_PG_DSN`,
+    `ARQ_TEST_TSDB_DSN` -> `SIGNALS_TEST_TSDB_DSN`). Set only by developers
+    running the build-tag-gated live tests manually. The naming spec
+    acceptance docs and `features/arq-signals/traceability.md` were updated
+    in lockstep.
+  - **Transient SAVEPOINT name:** the per-query savepoint is now
+    `signals_q_%d` (was `arq_q_%d`); observable in `pg_stat_activity` /
+    server logs during a collection cycle.
+  - **Guided-connect temp file prefix:** `.arqctl-connect-*.yaml` ->
+    `.signalsctl-connect-*.yaml`.
+  - **Sample DB usernames** in test fixtures and example DSNs use the
+    brand-neutral `monitor` (was `arq`).
+  - **Stale test names** carrying the old brand were renamed
+    (`TestR083ArqManagedRequiresToken`,
+    `TestR083ControlPlaneTokenSetsArqActor`,
+    `TestHelm_ConfigMapIsMountedAtEtcArq`).
+
+  Unchanged (intentional): the `arqctl` deprecated-binary alias (warns and
+  forwards to `signalsctl` until launch), internal `ARQ-SIGNALS-*`
+  requirement IDs, and the Go module path / `features/arq-signals/` tree
+  (gated on the repository rename #62).
+
 ### Fixed
 
 - **Example DB monitoring roles renamed to the single `signals` role

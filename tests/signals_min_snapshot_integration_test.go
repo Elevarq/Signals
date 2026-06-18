@@ -11,15 +11,15 @@
 // against a real PG so that orchestration-layer regressions surface in CI
 // (or local runs) before they reach production.
 //
-// Gated by the `integration` build tag and the ARQ_TEST_PG_DSN env var,
+// Gated by the `integration` build tag and the SIGNALS_TEST_PG_DSN env var,
 // matching the pattern in signals_integration_test.go.
 //
 // Run with:
 //
-//	ARQ_TEST_PG_DSN="postgres://signals@localhost/postgres" \
+//	SIGNALS_TEST_PG_DSN="postgres://signals@localhost/postgres" \
 //	  go test -tags integration ./tests/ -run TestIntegration_MinSnapshotInterval
 //
-// Optional: ARQ_TEST_PG_PASSWORD_ENV=<env-var-name> if the test role
+// Optional: SIGNALS_TEST_PG_PASSWORD_ENV=<env-var-name> if the test role
 // requires password auth (peer/trust auth otherwise).
 
 package tests
@@ -38,14 +38,14 @@ import (
 )
 
 func TestIntegration_MinSnapshotIntervalAgainstRealPG(t *testing.T) {
-	dsn := os.Getenv("ARQ_TEST_PG_DSN")
+	dsn := os.Getenv("SIGNALS_TEST_PG_DSN")
 	if dsn == "" {
-		t.Skip("ARQ_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
+		t.Skip("SIGNALS_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
 	}
 
 	connCfg, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		t.Fatalf("parse ARQ_TEST_PG_DSN: %v", err)
+		t.Fatalf("parse SIGNALS_TEST_PG_DSN: %v", err)
 	}
 
 	tgt := config.TargetConfig{
@@ -55,7 +55,7 @@ func TestIntegration_MinSnapshotIntervalAgainstRealPG(t *testing.T) {
 		DBName:      connCfg.Database,
 		User:        connCfg.User,
 		SSLMode:     "prefer",
-		PasswordEnv: os.Getenv("ARQ_TEST_PG_PASSWORD_ENV"),
+		PasswordEnv: os.Getenv("SIGNALS_TEST_PG_PASSWORD_ENV"),
 		Enabled:     true,
 	}
 

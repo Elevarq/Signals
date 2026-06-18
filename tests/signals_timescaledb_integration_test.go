@@ -17,11 +17,11 @@ import (
 // ---------------------------------------------------------------------------
 // timescaledb_family_v1 — live-server integration (R114/R115, issue #73).
 //
-// Gated on ARQ_TEST_TSDB_DSN pointing at a TimescaleDB-enabled target,
+// Gated on SIGNALS_TEST_TSDB_DSN pointing at a TimescaleDB-enabled target,
 // e.g. timescale/timescaledb:2.27.2-pg17 (Community) or the -oss tag
 // (Apache-2 edition). Run with:
 //
-//	ARQ_TEST_TSDB_DSN="postgres://postgres:secret@localhost:5433/postgres" \
+//	SIGNALS_TEST_TSDB_DSN="postgres://postgres:secret@localhost:5433/postgres" \
 //	  go test -tags integration ./tests/ -run Integration_TimescaleDB
 //
 // Eligibility is computed from the REAL discovery probe
@@ -60,9 +60,9 @@ func liveDiscover(ctx context.Context, t *testing.T, pool *pgxpool.Pool) pgqueri
 // (including the R115 version floor), and executes every eligible
 // member inside a read-only transaction.
 func TestIntegration_TimescaleDBFamilyEligibleAndExecutes(t *testing.T) {
-	dsn := os.Getenv("ARQ_TEST_TSDB_DSN")
+	dsn := os.Getenv("SIGNALS_TEST_TSDB_DSN")
 	if dsn == "" {
-		t.Skip("ARQ_TEST_TSDB_DSN not set — skipping TimescaleDB integration test")
+		t.Skip("SIGNALS_TEST_TSDB_DSN not set — skipping TimescaleDB integration test")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
@@ -77,7 +77,7 @@ func TestIntegration_TimescaleDBFamilyEligibleAndExecutes(t *testing.T) {
 	disc := liveDiscover(ctx, t, pool)
 	extversion, installed := disc.ExtensionVersions["timescaledb"]
 	if !installed {
-		t.Fatal("ARQ_TEST_TSDB_DSN target has no timescaledb extension")
+		t.Fatal("SIGNALS_TEST_TSDB_DSN target has no timescaledb extension")
 	}
 	t.Logf("target: PG %d, TimescaleDB %s", disc.MajorVersion, extversion)
 
@@ -149,9 +149,9 @@ func TestIntegration_TimescaleDBFamilyEligibleAndExecutes(t *testing.T) {
 // SQL runs, and every member is accounted for under
 // reason=extension_missing (INV-SIGNALS-24).
 func TestIntegration_TimescaleDBFamilyInertOnPlainPostgres(t *testing.T) {
-	dsn := os.Getenv("ARQ_TEST_PG_DSN")
+	dsn := os.Getenv("SIGNALS_TEST_PG_DSN")
 	if dsn == "" {
-		t.Skip("ARQ_TEST_PG_DSN not set — skipping plain-PostgreSQL integration test")
+		t.Skip("SIGNALS_TEST_PG_DSN not set — skipping plain-PostgreSQL integration test")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -165,7 +165,7 @@ func TestIntegration_TimescaleDBFamilyInertOnPlainPostgres(t *testing.T) {
 
 	disc := liveDiscover(ctx, t, pool)
 	if _, hasTS := disc.ExtensionVersions["timescaledb"]; hasTS {
-		t.Skip("ARQ_TEST_PG_DSN target has timescaledb installed — not a plain-PostgreSQL target")
+		t.Skip("SIGNALS_TEST_PG_DSN target has timescaledb installed — not a plain-PostgreSQL target")
 	}
 
 	params := pgqueries.FilterParams{

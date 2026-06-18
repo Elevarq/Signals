@@ -16,11 +16,11 @@ import (
 // TestIntegration_RoleSafetyAgainstRealPG connects to a real PostgreSQL
 // and validates role safety checks. Run with:
 //
-//	ARQ_TEST_PG_DSN="postgres://signals@localhost/postgres" go test -tags integration ./tests/ -run Integration
+//	SIGNALS_TEST_PG_DSN="postgres://signals@localhost/postgres" go test -tags integration ./tests/ -run Integration
 func TestIntegration_RoleSafetyAgainstRealPG(t *testing.T) {
-	dsn := os.Getenv("ARQ_TEST_PG_DSN")
+	dsn := os.Getenv("SIGNALS_TEST_PG_DSN")
 	if dsn == "" {
-		t.Skip("ARQ_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
+		t.Skip("SIGNALS_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)

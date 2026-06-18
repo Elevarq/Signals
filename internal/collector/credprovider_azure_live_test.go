@@ -27,21 +27,21 @@ import (
 //
 // Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
-//	ARQ_TEST_AZ_HOST          Flexible Server endpoint hostname
-//	ARQ_TEST_AZ_DBNAME        database to connect to
-//	ARQ_TEST_AZ_USER          DB role mapped to the Entra principal
-//	ARQ_TEST_AZ_SSLROOTCERT   path to the CA bundle (verify-full)
-//	ARQ_TEST_AZ_CLIENT_ID     optional; user-assigned MI client id
-//	ARQ_TEST_AZ_PORT          optional; defaults to 5432
+//	SIGNALS_TEST_AZ_HOST          Flexible Server endpoint hostname
+//	SIGNALS_TEST_AZ_DBNAME        database to connect to
+//	SIGNALS_TEST_AZ_USER          DB role mapped to the Entra principal
+//	SIGNALS_TEST_AZ_SSLROOTCERT   path to the CA bundle (verify-full)
+//	SIGNALS_TEST_AZ_CLIENT_ID     optional; user-assigned MI client id
+//	SIGNALS_TEST_AZ_PORT          optional; defaults to 5432
 //
 // An ambient Azure identity must be present (DefaultAzureCredential chain:
 // env / workload identity / managed identity / az login) and its principal
-// must be mapped to ARQ_TEST_AZ_USER via pgaadauth_create_principal. Run:
+// must be mapped to SIGNALS_TEST_AZ_USER via pgaadauth_create_principal. Run:
 //
 //	SIGNALS_INTEGRATION_LIVE=1 \
-//	ARQ_TEST_AZ_HOST=mydb.postgres.database.azure.com \
-//	ARQ_TEST_AZ_DBNAME=appdb ARQ_TEST_AZ_USER=monitor \
-//	ARQ_TEST_AZ_SSLROOTCERT=/etc/ssl/azure-global-bundle.pem \
+//	SIGNALS_TEST_AZ_HOST=mydb.postgres.database.azure.com \
+//	SIGNALS_TEST_AZ_DBNAME=appdb SIGNALS_TEST_AZ_USER=monitor \
+//	SIGNALS_TEST_AZ_SSLROOTCERT=/etc/ssl/azure-global-bundle.pem \
 //	  go test -tags integration ./internal/collector/ -run Live_AzureEntra -v
 //
 // Specification: features/arq-signals/credential-provider-azure-entra.md
@@ -50,18 +50,18 @@ func TestLive_AzureEntraPasswordlessConnectAndReacquire(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
 		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live azure_entra smoke")
 	}
-	host := os.Getenv("ARQ_TEST_AZ_HOST")
-	dbname := os.Getenv("ARQ_TEST_AZ_DBNAME")
-	user := os.Getenv("ARQ_TEST_AZ_USER")
-	caFile := os.Getenv("ARQ_TEST_AZ_SSLROOTCERT")
+	host := os.Getenv("SIGNALS_TEST_AZ_HOST")
+	dbname := os.Getenv("SIGNALS_TEST_AZ_DBNAME")
+	user := os.Getenv("SIGNALS_TEST_AZ_USER")
+	caFile := os.Getenv("SIGNALS_TEST_AZ_SSLROOTCERT")
 	if host == "" || dbname == "" || user == "" || caFile == "" {
-		t.Skip("ARQ_TEST_AZ_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live azure_entra smoke")
+		t.Skip("SIGNALS_TEST_AZ_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live azure_entra smoke")
 	}
 	port := 5432
-	if p := os.Getenv("ARQ_TEST_AZ_PORT"); p != "" {
+	if p := os.Getenv("SIGNALS_TEST_AZ_PORT"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			t.Fatalf("ARQ_TEST_AZ_PORT %q is not an integer: %v", p, err)
+			t.Fatalf("SIGNALS_TEST_AZ_PORT %q is not an integer: %v", p, err)
 		}
 		port = n
 	}
@@ -75,7 +75,7 @@ func TestLive_AzureEntraPasswordlessConnectAndReacquire(t *testing.T) {
 		SSLMode:         "verify-full",
 		SSLRootCertFile: caFile,
 		AuthMethod:      config.AuthMethodAzureEntra,
-		AzureClientID:   os.Getenv("ARQ_TEST_AZ_CLIENT_ID"), // empty → chain default
+		AzureClientID:   os.Getenv("SIGNALS_TEST_AZ_CLIENT_ID"), // empty → chain default
 		Enabled:         true,
 	}
 

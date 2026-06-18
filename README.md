@@ -387,7 +387,7 @@ signalsctl doctor
 # failure reasons: ok / dns / tcp / tls / auth / startup / role /
 # password_resolve / config.
 signalsctl connect test prod-db
-signalsctl connect test --dsn "host=db.example.com port=5432 dbname=app user=arq sslmode=require password_env=APP_DB_PW"
+signalsctl connect test --dsn "host=db.example.com port=5432 dbname=app user=monitor sslmode=require password_env=APP_DB_PW"
 ```
 
 ### Pause / resume a target during an incident

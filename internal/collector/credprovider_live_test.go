@@ -29,20 +29,20 @@ import (
 //
 // Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
-//	ARQ_TEST_RDS_HOST          RDS/Aurora endpoint hostname
-//	ARQ_TEST_RDS_DBNAME        database to connect to
-//	ARQ_TEST_RDS_USER          DB role granted rds_iam
-//	ARQ_TEST_RDS_SSLROOTCERT   path to the RDS CA bundle (verify-full)
-//	ARQ_TEST_RDS_REGION        optional; else resolved from env/IMDS
-//	ARQ_TEST_RDS_PORT          optional; defaults to 5432
+//	SIGNALS_TEST_RDS_HOST          RDS/Aurora endpoint hostname
+//	SIGNALS_TEST_RDS_DBNAME        database to connect to
+//	SIGNALS_TEST_RDS_USER          DB role granted rds_iam
+//	SIGNALS_TEST_RDS_SSLROOTCERT   path to the RDS CA bundle (verify-full)
+//	SIGNALS_TEST_RDS_REGION        optional; else resolved from env/IMDS
+//	SIGNALS_TEST_RDS_PORT          optional; defaults to 5432
 //
 // Ambient AWS credentials must be present (SDK default chain) and the
-// principal must allow rds-db:connect for ARQ_TEST_RDS_USER. Run with:
+// principal must allow rds-db:connect for SIGNALS_TEST_RDS_USER. Run with:
 //
 //	SIGNALS_INTEGRATION_LIVE=1 \
-//	ARQ_TEST_RDS_HOST=mydb.abc123.us-east-1.rds.amazonaws.com \
-//	ARQ_TEST_RDS_DBNAME=appdb ARQ_TEST_RDS_USER=monitor \
-//	ARQ_TEST_RDS_SSLROOTCERT=/etc/ssl/rds-global-bundle.pem \
+//	SIGNALS_TEST_RDS_HOST=mydb.abc123.us-east-1.rds.amazonaws.com \
+//	SIGNALS_TEST_RDS_DBNAME=appdb SIGNALS_TEST_RDS_USER=monitor \
+//	SIGNALS_TEST_RDS_SSLROOTCERT=/etc/ssl/rds-global-bundle.pem \
 //	AWS_PROFILE=elevarq AWS_REGION=us-east-1 \
 //	  go test -tags integration ./internal/collector/ -run Live_AWSRDSIAM -v
 //
@@ -52,18 +52,18 @@ func TestLive_AWSRDSIAMPasswordlessConnectAndRemint(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {
 		t.Skip("SIGNALS_INTEGRATION_LIVE != 1 — skipping live aws_rds_iam smoke")
 	}
-	host := os.Getenv("ARQ_TEST_RDS_HOST")
-	dbname := os.Getenv("ARQ_TEST_RDS_DBNAME")
-	user := os.Getenv("ARQ_TEST_RDS_USER")
-	caFile := os.Getenv("ARQ_TEST_RDS_SSLROOTCERT")
+	host := os.Getenv("SIGNALS_TEST_RDS_HOST")
+	dbname := os.Getenv("SIGNALS_TEST_RDS_DBNAME")
+	user := os.Getenv("SIGNALS_TEST_RDS_USER")
+	caFile := os.Getenv("SIGNALS_TEST_RDS_SSLROOTCERT")
 	if host == "" || dbname == "" || user == "" || caFile == "" {
-		t.Skip("ARQ_TEST_RDS_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live aws_rds_iam smoke")
+		t.Skip("SIGNALS_TEST_RDS_HOST/DBNAME/USER/SSLROOTCERT not all set — skipping live aws_rds_iam smoke")
 	}
 	port := 5432
-	if p := os.Getenv("ARQ_TEST_RDS_PORT"); p != "" {
+	if p := os.Getenv("SIGNALS_TEST_RDS_PORT"); p != "" {
 		n, err := strconv.Atoi(p)
 		if err != nil {
-			t.Fatalf("ARQ_TEST_RDS_PORT %q is not an integer: %v", p, err)
+			t.Fatalf("SIGNALS_TEST_RDS_PORT %q is not an integer: %v", p, err)
 		}
 		port = n
 	}
@@ -77,7 +77,7 @@ func TestLive_AWSRDSIAMPasswordlessConnectAndRemint(t *testing.T) {
 		SSLMode:         "verify-full",
 		SSLRootCertFile: caFile,
 		AuthMethod:      config.AuthMethodAWSRDSIAM,
-		Region:          os.Getenv("ARQ_TEST_RDS_REGION"), // empty → env/IMDS
+		Region:          os.Getenv("SIGNALS_TEST_RDS_REGION"), // empty → env/IMDS
 		Enabled:         true,
 	}
 
