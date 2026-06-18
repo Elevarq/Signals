@@ -19,6 +19,15 @@ body:
     validations:
       required: true
 
+  - type: input
+    id: umbrella
+    attributes:
+      label: Umbrella / parent issue (if this is a child)
+      description: "If this is a child of an umbrella, link it and INHERIT its cross-cutting decisions — do not duplicate them here. State only what is specific to this child (its component, inputs, manifest paths). See 'Umbrella issues own cross-cutting decisions' in the root engineering standards (CLAUDE.md)."
+      placeholder: "Inherits decisions from #<umbrella> — read it; do not duplicate"
+    validations:
+      required: false
+
   - type: textarea
     id: acceptance
     attributes:
@@ -101,3 +110,8 @@ body:
         After creating this issue, apply the matching labels:
         `effort:XS` / `effort:S` / `effort:M` / `effort:L` / `effort:XL`
         `priority:P0` / `priority:P1` / `priority:P2` / `priority:P3`
+
+        Cross-cutting decisions (anything affecting more than one child)
+        live in the umbrella issue only — reference it, never copy its
+        decision prose into a child (it silently drifts). See "Umbrella
+        issues own cross-cutting decisions" in the root CLAUDE.md.
