@@ -67,7 +67,7 @@ variable "image_uri" {
   default     = "ghcr.io/elevarq/signals:0.10.0-beta.5"
 }
 
-variable "arq_env" {
+variable "env" {
   type        = string
   description = "Signals environment (prod enforces verify-full TLS)."
   default     = "prod"

@@ -75,7 +75,7 @@ variable "db_ca_cert_url" {
   default     = "https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem"
 }
 
-variable "arq_env" {
+variable "env" {
   type        = string
   description = "Signals environment (prod enforces verify-full TLS)."
   default     = "prod"

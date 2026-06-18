@@ -31,7 +31,7 @@ locals {
     # Azure Flexible Server CA bundle for sslmode=verify-full.
     curl -fsSL ${var.db_ca_cert_url} -o /etc/signals/azure-ca.pem
     cat > /etc/signals/signals.yaml <<'YAML'
-    env: ${var.arq_env}
+    env: ${var.env}
     signals:
       poll_interval: ${var.poll_interval}
     database:

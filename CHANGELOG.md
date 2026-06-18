@@ -88,6 +88,24 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   Service identifiers were already named `signals`; this is prose and
   example-path only, with no product behaviour impact.
 
+- **Cleared residual `arq` names from the `deploy/` IaC templates
+  (#145).** #137 renamed the config directory, store path, and Docker
+  volume and its changelog already claimed `/etc/arq/` -> `/etc/signals/`,
+  `/data/arq-signals.db` -> `/data/signals.db`, and `arq-data` ->
+  `signals-data`, but the cloud provisioning templates under `deploy/`
+  were outside its scope and still carried the old names, leaving the
+  docs ahead of reality. The Azure Bicep cloud-init now writes config to
+  `/etc/signals/`, stores the database at `/data/signals.db`, and mounts
+  the `signals-data` volume (`deploy/azure/bicep/main.bicep`). The
+  deployment-environment input variable `arq_env` / `ArqEnv` / `arqEnv`
+  is renamed to `env` / `Env` across the AWS CloudFormation template,
+  the AWS/Azure/GCP Terraform modules, and the Azure Bicep template
+  (`deploy/aws/cloudformation/signals-rds-iam.yaml`,
+  `deploy/{aws,azure,gcp}/terraform/`, `deploy/azure/bicep/main.bicep`).
+  Provisioning-template only; the generated collector config and runtime
+  behaviour are unchanged. Operators who set `arq_env` / `ArqEnv` in
+  their tfvars or stack parameters must rename it to `env` / `Env`.
+
 ## [0.10.0-beta.6] - 2026-06-17
 
 ### Added
