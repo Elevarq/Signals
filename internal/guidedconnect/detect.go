@@ -1,5 +1,5 @@
 // Package guidedconnect implements the orchestration behind
-// `arqctl connect --auto` (#99): it auto-detects the cloud platform and
+// `signalsctl connect --auto` (#99): it auto-detects the cloud platform and
 // ambient identity, proposes an auth_method, resolves the credential,
 // runs the existing connection diagnostic, validates the role is
 // read-only, and renders either a ready-to-use (secret-free) target

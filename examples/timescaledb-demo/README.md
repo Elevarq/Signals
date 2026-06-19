@@ -7,7 +7,7 @@ Issue: [#76](https://github.com/Elevarq/Arq-Signals/issues/76).
 
 Collector contract: `specifications/collectors/timescaledb_family_v1.md`.
 Analyzer rule mapping: `docs/timescaledb-analyzer-roadmap.md`
-(TS-R001..TS-R009, [Elevarq/Arq#1204](https://github.com/Elevarq/Elevarq/issues/1204)).
+(TS-R001..TS-R009, [Elevarq/Arq#1204](https://github.com/Elevarq/Arq/issues/1204)).
 
 ## Run it
 

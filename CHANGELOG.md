@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Arq Signals will be documented in this file.
+All notable changes to Elevarq Signals will be documented in this file.
 
 This project adheres to [Semantic Versioning](https://semver.org/).
 
