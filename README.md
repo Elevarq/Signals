@@ -917,6 +917,7 @@ analyzer).
 
 ## Project resources
 
+- [Architecture](docs/architecture.md) — components, data flow, trust boundary, and no-egress design
 - [Collector inventory](docs/collectors.md) — all 99 collectors with sources and cadences
 - [Database connections](docs/database-connections.md) — per-cloud `auth_method` recipes (RDS IAM, Entra, Cloud SQL IAM, secret stores) + grants
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
