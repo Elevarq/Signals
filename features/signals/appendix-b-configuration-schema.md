@@ -73,7 +73,7 @@ targets:
     # short-lived token minted from the collector's ambient cloud identity.
     auth_method: <string>    # Optional. "password" (default) | "aws_rds_iam"
                              #   | "azure_entra" | "gcp_cloudsql_iam"
-                             #   | "secret_store".
+                             #   | "secret_store" | "mtls".
     region: <string>         # Optional. AWS region for aws_rds_iam; when
                              #   omitted, resolved from AWS_REGION /
                              #   AWS_DEFAULT_REGION / instance metadata (IMDS).
@@ -85,9 +85,10 @@ targets:
                              #   the ambient ADC identity is used directly.
     secret_ref: <string>     # Required for secret_store. Cloud vault reference;
                              #   its shape selects the backend (AWS Secrets
-                             #   Manager ARN | Azure Key Vault secret URI | GCP
-                             #   Secret Manager resource name). AWS region is
-                             #   taken from the ARN, never from AWS_REGION/IMDS.
+                             #   Manager ARN | AWS Parameter Store ARN | Azure
+                             #   Key Vault secret URI | GCP Secret Manager
+                             #   resource name). AWS region is taken from the
+                             #   ARN, never from AWS_REGION/IMDS.
     secret_json_key: <string> # Optional, secret_store only. When set, parse the
                              #   fetched secret as a JSON object and use this
                              #   key's string value; when omitted, the raw
@@ -289,13 +290,12 @@ fetching identity needs `ssm:GetParameter` (and `kms:Decrypt` on the CMK for
 a `SecureString`). Like Secrets Manager it supplies no TTL, so reuse is
 bounded by `max_cache_ttl`.
 
-**Backend availability in this release:** the **AWS Secrets Manager** and
-**AWS Systems Manager Parameter Store** paths are production-grade. Azure
-Key Vault and GCP Secret Manager references are accepted at startup (the
-shapes are recognised and validated) but their production fetchers are
-deferred — a target using one fails at connect time with a clear "backend
-is not available in this build" error and does not stop collection for
-other targets. Tracked as a follow-up.
+**Backend availability:** all four `secret_store` backends — **AWS Secrets
+Manager**, **AWS Systems Manager Parameter Store**, **Azure Key Vault**, and
+**GCP Secret Manager** — are production-wired (Azure Key Vault and GCP Secret
+Manager shipped in #108). A target using any of them fetches its secret from
+the inferred backend at connect time; for a given target only that backend's
+SDK is invoked (INV005).
 
 The fetched secret is cached per target. The reuse bound is
 `min(vault-supplied TTL if any, max_cache_ttl if set)`; AWS Secrets Manager
