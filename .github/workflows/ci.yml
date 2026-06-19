@@ -26,7 +26,7 @@ jobs:
 
       # The Go gates below mirror scripts/preflight.sh exactly so
       # developers can run the same checks pre-push via the
-      # .githooks/pre-push hook. Tracked by Elevarq/Arq-Signals#141
+      # .githooks/pre-push hook. Tracked by Elevarq/Signals#141
       # (sibling of Workbench#255).
 
       - name: gofmt

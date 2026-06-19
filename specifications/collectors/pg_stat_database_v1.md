@@ -95,7 +95,7 @@ The PG 14+ session/timing fields (`session_time`, `active_time`,
 `idle_in_transaction_time`, `sessions`, `sessions_abandoned`,
 `sessions_fatal`, `sessions_killed`) are now emitted — real on PG 14+,
 NULL stubs on PG 10–13 — per the output-columns table above
-(Elevarq/Arq-Signals#210). They unblock the connection-churn detector,
+(Elevarq/Signals#210). They unblock the connection-churn detector,
 which reads Δ`sessions` across snapshots as the
 connection-establishment rate, and let `io-cost-calibration`
 cross-validate against `active_time` for session-weighted cost

@@ -7,8 +7,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 func enabledByName(t *testing.T, store *db.DB) map[string]bool {

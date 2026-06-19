@@ -11,8 +11,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgconn"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -227,7 +227,7 @@ func (e errResolver) Resolve(context.Context, config.TargetConfig) (collector.Cr
 
 // TestTestConnectionWithResolver_ResolveFailure verifies a resolver error
 // short-circuits to CategoryPasswordResolve with a redacted detail and no
-// connection attempt (ARQ-SIGNALS-CONNECT-FC002 / INV001). No DB required.
+// connection attempt (SIGNALS-CONNECT-FC002 / INV001). No DB required.
 func TestTestConnectionWithResolver_ResolveFailure(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "db.example.com", Port: 5432, DBName: "app",

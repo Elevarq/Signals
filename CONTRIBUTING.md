@@ -87,7 +87,7 @@ All contributions must preserve the production safety guarantees:
   bypassrls roles must be blocked unless explicitly overridden.
 
 If your change affects the safety model, update the relevant STDD
-artifacts in `features/arq-signals/` and add corresponding tests.
+artifacts in `features/signals/` and add corresponding tests.
 
 ## Code style
 

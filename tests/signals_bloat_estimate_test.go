@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------

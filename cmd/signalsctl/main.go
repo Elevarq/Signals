@@ -13,7 +13,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 var (
@@ -111,7 +111,7 @@ min_interval_not_elapsed. The --force flag bypasses that check for
 this one cycle (R092). Audit events for forced cycles carry
 forced=true.
 
-Spec: features/arq-signals/specification.md (R091, R092).`,
+Spec: features/signals/specification.md (R091, R092).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var body io.Reader
 			if force {
@@ -159,7 +159,7 @@ State is in-memory only — a daemon restart resumes all targets.
 The pause/resume events live in the audit log so the operator trail
 survives the restart.
 
-Spec: features/arq-signals/specification.md (R097).`,
+Spec: features/signals/specification.md (R097).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -201,7 +201,7 @@ Resume clears the paused state and resets the consecutive-failure
 counter — a previously auto-opened target also returns to closed.
 Unknown target names are rejected (FC-CIRC-02).
 
-Spec: features/arq-signals/specification.md (R097).`,
+Spec: features/signals/specification.md (R097).`,
 		SilenceUsage:  true,
 		SilenceErrors: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -257,7 +257,7 @@ Use the selector flags below to widen or narrow the scope:
   --since/--until <RFC3339>   restrict to a half-open time window.
   --target-id <int>           narrow any of the above to a single target.
 
-Spec: features/arq-signals/specification.md (R084..R086).`,
+Spec: features/signals/specification.md (R084..R086).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if all && snapshotID != "" {
 				return fmt.Errorf("--all and --snapshot-id are mutually exclusive")

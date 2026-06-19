@@ -13,11 +13,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/api"
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/api"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // captureSlog routes slog output to a buffer for the duration of fn so the
@@ -67,7 +67,7 @@ func makeAuditTestHandler(t *testing.T, hsEnabled bool) (http.Handler, func(), *
 // TestExportAuditEventsOnSuccess verifies that GET /export emits both
 // export_requested and export_completed audit events with the expected
 // shape (no secrets, contains source_ip, status, duration_ms, size_bytes).
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestExportAuditEventsOnSuccess(t *testing.T) {
 	handler, cleanup, _, _ := makeAuditTestHandler(t, false)
 	defer cleanup()
@@ -100,7 +100,7 @@ func TestExportAuditEventsOnSuccess(t *testing.T) {
 // TestExportAuditEventsOnFailure verifies that an export failure emits
 // an export_completed audit event with status=failed and an
 // error_category, and never leaks the underlying error detail.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestExportAuditEventsOnFailure(t *testing.T) {
 	handler, _, store, _ := makeAuditTestHandler(t, false)
 	// Force builder failure mid-export.
@@ -129,7 +129,7 @@ func TestExportAuditEventsOnFailure(t *testing.T) {
 
 // TestExportAuditInvalidTargetID verifies the 400-path also emits a
 // completed event with the right error category.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestExportAuditInvalidTargetID(t *testing.T) {
 	handler, cleanup, _, _ := makeAuditTestHandler(t, false)
 	defer cleanup()
@@ -156,7 +156,7 @@ func TestExportAuditInvalidTargetID(t *testing.T) {
 // TestAuditLogsContainNoSecrets exercises a request flow with a fully
 // populated set of (deliberately-suspicious) attribute names directly via
 // safety.AuditLog and asserts that no banned substring survived.
-// Traces: ARQ-SIGNALS-R078 / INV-SIGNALS-07
+// Traces: SIGNALS-R078 / INV-SIGNALS-07
 func TestAuditLogsContainNoSecrets(t *testing.T) {
 	out := captureSlog(t, func() {
 		safety.AuditLog("export_completed",
@@ -220,7 +220,7 @@ func readMetadataFromExport(t *testing.T, body []byte) map[string]any {
 // TestExportMetadataContainsComplianceFields verifies the export
 // metadata.json carries every R078-required field for downstream
 // auditors.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestExportMetadataContainsComplianceFields(t *testing.T) {
 	for _, hs := range []bool{false, true} {
 		hs := hs
@@ -270,7 +270,7 @@ func TestExportMetadataContainsComplianceFields(t *testing.T) {
 // from main.go's bootstrap path by calling the same helper directly. This
 // keeps the test hermetic (no spawning the full daemon) while still
 // asserting the shape an auditor will see.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestStartupAuditLogsHighSensitivityState(t *testing.T) {
 	for _, enabled := range []bool{false, true} {
 		out := captureSlog(t, func() {

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // Anti-drift guard for #161. The collector count advertised in README.md

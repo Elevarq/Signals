@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ import (
 //	SIGNALS_TEST_GCP_SSLROOTCERT=/etc/ssl/gcp-server-ca.pem \
 //	  go test -tags integration ./internal/collector/ -run Live_GCPCloudSQLIAM -v
 //
-// Specification: features/arq-signals/credential-provider-gcp-cloudsql-iam.md
+// Specification: features/signals/credential-provider-gcp-cloudsql-iam.md
 // ---------------------------------------------------------------------------
 func TestLive_GCPCloudSQLIAMPasswordlessConnectAndReacquire(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {

@@ -1,6 +1,6 @@
 package collector
 
-import "github.com/elevarq/arq-signals/internal/pgqueries"
+import "github.com/elevarq/signals/internal/pgqueries"
 
 // redactHighSensitivityColumnsIfNeeded implements the R075 (revised
 // 2026-05, issue #6) redact path: when the daemon-wide

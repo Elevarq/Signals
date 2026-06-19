@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // ---------------------------------------------------------------------------
@@ -217,7 +217,7 @@ func TestAtomicBatchInsert(t *testing.T) {
 // TestInsertCollectionAtomicCommitsAll verifies the happy path: snapshot,
 // runs, and results all land in storage from a single InsertCollectionAtomic
 // call.
-// Traces: ARQ-SIGNALS-R077
+// Traces: SIGNALS-R077
 func TestInsertCollectionAtomicCommitsAll(t *testing.T) {
 	store := openTestDB(t)
 	targetID, err := store.UpsertTarget("test", "localhost", 5432, "db", "user", "prefer", "NONE", "", true)
@@ -256,7 +256,7 @@ func TestInsertCollectionAtomicCommitsAll(t *testing.T) {
 // TestInsertCollectionAtomicRollsBackOnRunFailure verifies that if any
 // query_run insert fails (here: two runs share the same primary key),
 // nothing — not even the snapshot — is left behind.
-// Traces: ARQ-SIGNALS-R077
+// Traces: SIGNALS-R077
 func TestInsertCollectionAtomicRollsBackOnRunFailure(t *testing.T) {
 	store := openTestDB(t)
 	targetID, err := store.UpsertTarget("test", "localhost", 5432, "db", "user", "prefer", "NONE", "", true)

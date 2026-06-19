@@ -1,6 +1,6 @@
 # Kubernetes — production deployment profile
 
-Tracking: [#140](https://github.com/Elevarq/Arq-Signals/issues/140).
+Tracking: [#140](https://github.com/Elevarq/Signals/issues/140).
 Related: [`access-control.md`](../security/access-control.md),
 [`operational-readiness.md`](../observability/operational-readiness.md),
 [`support-matrix.md`](../compatibility/support-matrix.md).
@@ -125,7 +125,7 @@ Survival expectations:
 Out of scope for v1.0. SQLite-on-network-FS has correctness
 considerations (lock semantics across NFS / EFS / longhorn). The
 roadmap is a per-target sharded collector pool; tracked in
-[v1.1 milestone](https://github.com/Elevarq/Arq-Signals/milestone/2).
+[v1.1 milestone](https://github.com/Elevarq/Signals/milestone/2).
 
 ## Upgrade behavior
 

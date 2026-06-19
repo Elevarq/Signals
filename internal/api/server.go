@@ -23,12 +23,12 @@ import (
 	"github.com/oklog/ulid/v2"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
-	"github.com/elevarq/arq-signals/internal/metrics"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
+	"github.com/elevarq/signals/internal/metrics"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // Deps holds handler dependencies.

@@ -12,8 +12,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -46,7 +46,7 @@ import (
 //	AWS_PROFILE=elevarq AWS_REGION=us-east-1 \
 //	  go test -tags integration ./internal/collector/ -run Live_AWSRDSIAM -v
 //
-// Specification: features/arq-signals/credential-provider-aws-rds-iam.md
+// Specification: features/signals/credential-provider-aws-rds-iam.md
 // ---------------------------------------------------------------------------
 func TestLive_AWSRDSIAMPasswordlessConnectAndRemint(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {

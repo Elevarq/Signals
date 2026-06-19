@@ -21,8 +21,8 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // Category enumerates the classification labels surfaced to operators.
@@ -218,12 +218,12 @@ func TestConnection(ctx context.Context, tgt config.TargetConfig, opts Options) 
 // the credential the resolver mints/fetches/loads — the guided-connect
 // orchestrator (#99) drives every method through this single path so it
 // reuses, rather than reimplements, credential resolution and the role
-// check (ARQ-SIGNALS-CONNECT-INV003). The caller sets tgt.SSLMode to
-// verify-full for credential-bearing methods (ARQ-SIGNALS-CONNECT-INV005).
+// check (SIGNALS-CONNECT-INV003). The caller sets tgt.SSLMode to
+// verify-full for credential-bearing methods (SIGNALS-CONNECT-INV005).
 //
 // A resolve failure is classified as CategoryPasswordResolve with a
 // redacted detail; the credential value never appears in the Result
-// (ARQ-SIGNALS-CONNECT-INV001).
+// (SIGNALS-CONNECT-INV001).
 func TestConnectionWithResolver(ctx context.Context, tgt config.TargetConfig, res collector.CredentialResolver, opts Options) Result {
 	start := time.Now()
 	result := Result{

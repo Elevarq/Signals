@@ -37,7 +37,7 @@ Examples of non-functional requirements:
 - Safety guarantees
 - Security requirements
 
-Specifications live in `features/arq-signals/` and follow the
+Specifications live in `features/signals/` and follow the
 templates in `stdd/templates/`.
 
 ## Validation Requirements
@@ -53,7 +53,7 @@ authoritative**. Fix the code, not the spec — unless the spec itself
 is wrong, in which case update the spec first, then the tests, then
 the code.
 
-Traceability is tracked in `features/arq-signals/traceability.md`.
+Traceability is tracked in `features/signals/traceability.md`.
 
 ## Project Safety Principles
 
@@ -162,7 +162,7 @@ formatting) or documentation-only changes.
 ## Repository Structure
 
 ```
-features/arq-signals/
+features/signals/
   specification.md          # Product requirements
   acceptance-tests.md       # Test cases derived from spec
   traceability.md           # Requirement → test mapping
@@ -176,14 +176,14 @@ stdd/templates/
 
 ## Working copy location
 
-The **canonical working copy** of arq-signals is this repository,
+The **canonical working copy** of signals is this repository,
 checked out at a stable sibling location alongside the other Elevarq
 product repos — convention:
-`<projects>/arq-signals/` alongside `<projects>/arq/`,
+`<projects>/signals/` alongside `<projects>/arq/`,
 `<projects>/agent/`, `<projects>/pgagroal-container/`.
 
 A copy of this source may also appear at
-`<arq-repo>/.cache/repo-split/arq-signals/`. That location is a
+`<arq-repo>/.cache/repo-split/signals/`. That location is a
 **disposable build-input reflection** governed by the arq analyzer's
 `workspace-policy.md` spec (WS-R001..WS-R016, Status: ACTIVE). It
 may be a symlink to the canonical checkout (preferred — WS-R015),
@@ -199,11 +199,11 @@ It is not the source of truth:
 - If you notice yourself about to commit inside `.cache/`, stop and
   move the work to the canonical sibling checkout first.
 
-Before any arq-signals action (edit / test / commit / push),
+Before any signals action (edit / test / commit / push),
 verify the canonical checkout is present:
 
 ```bash
-test -d <projects>/arq-signals/.git \
+test -d <projects>/signals/.git \
   && echo "canonical sibling present — safe to work" \
   || echo "STOP: clone the canonical sibling first"
 ```
@@ -212,9 +212,9 @@ If the canonical sibling is missing:
 
 ```bash
 cd <projects>
-git clone git@github.com:elevarq/arq-signals.git
+git clone git@github.com:elevarq/signals.git
 
 # Optionally point the analyzer's cache at the canonical checkout:
 mkdir -p arq/.cache/repo-split
-ln -s $(pwd)/arq-signals arq/.cache/repo-split/arq-signals
+ln -s $(pwd)/signals arq/.cache/repo-split/signals
 ```

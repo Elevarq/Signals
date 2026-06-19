@@ -3,8 +3,8 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // --- MTE-R001: Target-filtered query runs ---

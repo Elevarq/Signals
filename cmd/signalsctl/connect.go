@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
 
-	"github.com/elevarq/arq-signals/internal/conntest"
-	"github.com/elevarq/arq-signals/internal/guidedconnect"
+	"github.com/elevarq/signals/internal/conntest"
+	"github.com/elevarq/signals/internal/guidedconnect"
 )
 
 // connectCmd is the `signalsctl connect` parent for connection diagnostics
@@ -35,7 +35,7 @@ func connectCmd() *cobra.Command {
 // an auth_method, resolves the credential, runs the connection diagnostic
 // over verify-full, validates the role is read-only, and emits either a
 // ready-to-use (secret-free) target config block or a copy-pasteable fix.
-// Spec: features/arq-signals/guided-connect.md.
+// Spec: features/signals/guided-connect.md.
 func connectAutoCmd() *cobra.Command {
 	var opts guidedconnect.Options
 
@@ -49,7 +49,7 @@ func connectAutoCmd() *cobra.Command {
 			"printed), runs the connection diagnostic with sslmode=verify-full,\n" +
 			"validates the role is read-only, and prints a ready-to-use target\n" +
 			"config block on success — or the exact grant / IAM binding to apply\n" +
-			"on a fixable gap. Spec: ARQ-SIGNALS-CONNECT.\n" +
+			"on a fixable gap. Spec: SIGNALS-CONNECT.\n" +
 			"\n" +
 			"Default is dry-run (print only). Pass --write <path> to append the\n" +
 			"verified, secret-free block to a config file's targets: list.\n" +
@@ -118,7 +118,7 @@ func promptPassword(w io.Writer) (string, error) {
 // writeAutoOutcome renders the guided-connect outcome. On success it prints
 // the confirmation and the ready target block; on a fixable gap it prints
 // the redacted, actionable message. No secret is ever printed
-// (ARQ-SIGNALS-CONNECT-INV001).
+// (SIGNALS-CONNECT-INV001).
 func writeAutoOutcome(w io.Writer, o guidedconnect.Outcome) error {
 	if o.Success {
 		header := "Add this target to your config (targets:):"

@@ -1,8 +1,8 @@
 # Feature Specification: Guided onboarding — `signalsctl connect --auto`
 
-- **Spec ID prefix:** `ARQ-SIGNALS-CONNECT-`
+- **Spec ID prefix:** `SIGNALS-CONNECT-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#99](https://github.com/Elevarq/Arq-Signals/issues/99)
+- **Tracking issue:** [#99](https://github.com/Elevarq/Signals/issues/99)
 - **Consumes:** `credential-providers.md` (ACTIVE, #93) and its derived
   provider specs (#94–#98). This is a **consumer** spec — it defines the
   guided-onboarding command's behavior over the existing `auth_method`
@@ -111,24 +111,24 @@ redacted message.
 
 ## Invariants
 
-- **ARQ-SIGNALS-CONNECT-INV001 (no secret printed)**: No token, fetched
+- **SIGNALS-CONNECT-INV001 (no secret printed)**: No token, fetched
   secret, private key, passphrase, or password is ever printed, logged, or
   written to the emitted config block. Only metadata and operator remediation
   text. (Instance of keystone INV002/INV007 — the strictest reading, since this
   command's whole job is to print things.)
-- **ARQ-SIGNALS-CONNECT-INV002 (read-only, non-mutating)**: The command never
+- **SIGNALS-CONNECT-INV002 (read-only, non-mutating)**: The command never
   executes a grant, creates a cloud identity, or writes to the database. It
   *prints* remediation for the operator to run. The only DB interaction is the
   read-only diagnostic connection. (Aligns with keystone INV005 and the repo
   no-write principle.)
-- **ARQ-SIGNALS-CONNECT-INV003 (reuse, don't reimplement)**: Credential
+- **SIGNALS-CONNECT-INV003 (reuse, don't reimplement)**: Credential
   resolution reuses the providers (#94–#98), the connection test reuses
   `doctor` (C3/C4), and the role check reuses `ValidateRoleSafety`. The command
   adds orchestration only — no parallel connection or validation logic.
-- **ARQ-SIGNALS-CONNECT-INV004 (single method)**: Exactly one `auth_method` is
+- **SIGNALS-CONNECT-INV004 (single method)**: Exactly one `auth_method` is
   selected per run; only that method's flags/config are read. (Instance of
   keystone INV006.)
-- **ARQ-SIGNALS-CONNECT-INV005 (verify-full)**: The diagnostic connection and
+- **SIGNALS-CONNECT-INV005 (verify-full)**: The diagnostic connection and
   the emitted config use `sslmode=verify-full` for every credential-bearing
   method, consistent with the providers' transport floor (INV003).
 
@@ -157,13 +157,13 @@ redacted message.
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-CONNECT-NFR001 (no hidden network calls)**: the only outbound
+- **SIGNALS-CONNECT-NFR001 (no hidden network calls)**: the only outbound
   calls are the selected provider's identity/vault endpoint and the PostgreSQL
   diagnostic connection — both explicit and operator-initiated. No telemetry.
-- **ARQ-SIGNALS-CONNECT-NFR002 (idempotent, side-effect-free by default)**:
+- **SIGNALS-CONNECT-NFR002 (idempotent, side-effect-free by default)**:
   running the command changes nothing unless `--write` is given; re-running is
   safe.
-- **ARQ-SIGNALS-CONNECT-NFR003 (fast feedback)**: the guided flow completes
+- **SIGNALS-CONNECT-NFR003 (fast feedback)**: the guided flow completes
   within the existing per-target connection + mint budget; a single token mint
   / vault fetch, one diagnostic connection.
 

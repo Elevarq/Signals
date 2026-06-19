@@ -9,15 +9,15 @@
 // providers via collector.CredentialResolver, the connection test reuses
 // conntest, and the role check reuses collector.ValidateRoleSafety — it
 // introduces no new connection, credential, or safety behavior
-// (ARQ-SIGNALS-CONNECT-INV003).
+// (SIGNALS-CONNECT-INV003).
 //
-// Spec: features/arq-signals/guided-connect.md (ACTIVE).
+// Spec: features/signals/guided-connect.md (ACTIVE).
 package guidedconnect
 
 import (
 	"strings"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // Cloud identifies a cloud platform for detection purposes.

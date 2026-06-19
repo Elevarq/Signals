@@ -5,12 +5,12 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // TestCatalogMinimumCount verifies that the query catalog contains at
 // least 9 registered queries.
-// Traces: ARQ-SIGNALS-R002 / TC-SIG-004
+// Traces: SIGNALS-R002 / TC-SIG-004
 func TestCatalogMinimumCount(t *testing.T) {
 	all := pgqueries.All()
 	if len(all) < 9 {
@@ -20,7 +20,7 @@ func TestCatalogMinimumCount(t *testing.T) {
 
 // TestCatalogRequiredQueries verifies all 9 required query IDs are
 // present in the catalog.
-// Traces: ARQ-SIGNALS-R003 / TC-SIG-005
+// Traces: SIGNALS-R003 / TC-SIG-005
 func TestCatalogRequiredQueries(t *testing.T) {
 	required := []string{
 		"pg_version_v1",
@@ -48,7 +48,7 @@ func TestCatalogRequiredQueries(t *testing.T) {
 }
 
 // TestCatalogAllPassLint verifies every registered query passes the linter.
-// Traces: ARQ-SIGNALS-R002 / TC-SIG-004
+// Traces: SIGNALS-R002 / TC-SIG-004
 func TestCatalogAllPassLint(t *testing.T) {
 	for _, q := range pgqueries.All() {
 		if err := pgqueries.LintQuery(q.SQL); err != nil {
@@ -96,7 +96,7 @@ func TestPgSettingsV1SelectShape(t *testing.T) {
 }
 
 // TestCatalogSorted verifies that All() returns queries sorted by ID.
-// Traces: ARQ-SIGNALS-R002 / TC-SIG-004
+// Traces: SIGNALS-R002 / TC-SIG-004
 func TestCatalogSorted(t *testing.T) {
 	all := pgqueries.All()
 	ids := make([]string, len(all))

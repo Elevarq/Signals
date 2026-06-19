@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -148,7 +148,7 @@ var allowlistedDivergence = map[string]bool{
 	// version-aware catalog normalises the LOGICAL column set per
 	// major, but the SQL text legitimately differs.
 	// See: specifications/collectors/pg_stat_io_v1.md
-	//      features/arq-signals/traceability.md (R081)
+	//      features/signals/traceability.md (R081)
 	"pg_stat_io_v1": true,
 
 	// pg_stat_wal view existed pre-PG 14 but column shape changed in

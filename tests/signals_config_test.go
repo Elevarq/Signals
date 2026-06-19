@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -296,7 +296,7 @@ signals:
 
 // TestValidateStrictAcceptsValidConfig verifies the happy path: a complete,
 // healthy config returns no error and no warnings.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestValidateStrictAcceptsValidConfig(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Targets = []config.TargetConfig{
@@ -321,7 +321,7 @@ func TestValidateStrictAcceptsValidConfig(t *testing.T) {
 
 // TestValidateStrictAggregatesHardErrors verifies that ValidateStrict reports
 // every hard error in a single message rather than failing on the first.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestValidateStrictAggregatesHardErrors(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Database.Path = ""
@@ -350,7 +350,7 @@ func TestValidateStrictAggregatesHardErrors(t *testing.T) {
 
 // TestValidateStrictRejectsMultipleSecretSources verifies that more than one
 // of password_file/password_env/pgpass_file is a hard error.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestValidateStrictRejectsMultipleSecretSources(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Targets = []config.TargetConfig{
@@ -373,7 +373,7 @@ func TestValidateStrictRejectsMultipleSecretSources(t *testing.T) {
 
 // TestLoadRejectsMalformedIntEnv verifies that a non-integer in
 // SIGNALS_RETENTION_DAYS aborts Load instead of being silently dropped.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestLoadRejectsMalformedIntEnv(t *testing.T) {
 	origDir, _ := os.Getwd()
 	dir := t.TempDir()
@@ -393,7 +393,7 @@ func TestLoadRejectsMalformedIntEnv(t *testing.T) {
 // TestLoadRejectsMalformedBoolEnv verifies that a non-boolean in
 // SIGNALS_ALLOW_INSECURE_PG_TLS aborts Load. Previously "yes" silently became
 // false.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestLoadRejectsMalformedBoolEnv(t *testing.T) {
 	origDir, _ := os.Getwd()
 	dir := t.TempDir()
@@ -413,7 +413,7 @@ func TestLoadRejectsMalformedBoolEnv(t *testing.T) {
 // TestTargetEnabledDefaultsToTrue verifies R076: a target without an explicit
 // `enabled:` field is treated as enabled. The previous zero-value behaviour
 // silently disabled targets in any minimal config.
-// Traces: ARQ-SIGNALS-R076
+// Traces: SIGNALS-R076
 func TestTargetEnabledDefaultsToTrue(t *testing.T) {
 	dir := t.TempDir()
 	cfgPath := filepath.Join(dir, "signals.yaml")

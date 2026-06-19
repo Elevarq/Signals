@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/api"
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/api"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // makeTargetTestHandler builds an api handler with a configured target
@@ -90,7 +90,7 @@ func twoTargets() []config.TargetConfig {
 // an empty / missing body still returns 202 and treats the cycle as
 // "collect every enabled target". Backward compatibility is the
 // foundational R082 Phase 1 invariant.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-069
+// Traces: SIGNALS-R082 / TC-SIG-069
 func TestCollectNowEmptyBodyUnchanged(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -111,7 +111,7 @@ func TestCollectNowEmptyBodyUnchanged(t *testing.T) {
 // TestCollectNowValidSubset verifies that a request listing a subset
 // of configured + enabled targets returns 202 and the response
 // echoes back exactly the requested narrow set.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-070
+// Traces: SIGNALS-R082 / TC-SIG-070
 func TestCollectNowValidSubset(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -129,7 +129,7 @@ func TestCollectNowValidSubset(t *testing.T) {
 // TestCollectNowUnknownTarget verifies that a name not in
 // signals.yaml's target list is rejected with 400 and a per-name
 // reason. The cycle is not triggered.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-071
+// Traces: SIGNALS-R082 / TC-SIG-071
 func TestCollectNowUnknownTarget(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -155,7 +155,7 @@ func TestCollectNowUnknownTarget(t *testing.T) {
 // but disabled target is rejected with reason=disabled_target. R082
 // is explicit that disabled targets are never silently dropped from
 // the accepted set.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-072
+// Traces: SIGNALS-R082 / TC-SIG-072
 func TestCollectNowDisabledTarget(t *testing.T) {
 	targets := []config.TargetConfig{
 		{Name: "primary", Host: "h", DBName: "d", User: "u", Enabled: true},
@@ -186,7 +186,7 @@ func TestCollectNowDisabledTarget(t *testing.T) {
 // the bright-line case in R082: absent field means "all enabled",
 // empty array means "client wrote bad code". Never silently
 // collapse to "all" or "none".
-// Traces: ARQ-SIGNALS-R082
+// Traces: SIGNALS-R082
 func TestCollectNowEmptyArray(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()

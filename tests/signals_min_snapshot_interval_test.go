@@ -1,7 +1,7 @@
 // Tests for the per-target min-snapshot-interval enforcement
 // (R091, R092, INV-SIGNALS-15, FC-10).
 //
-// Spec: features/arq-signals/specification.md
+// Spec: features/signals/specification.md
 // Acceptance: TC-SIG-110..117.
 //
 // The enforcement decision is implemented as the pure function
@@ -16,9 +16,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // ---------------------------------------------------------------

@@ -8,13 +8,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // TestMigrationSQLNoPasswordColumn scans all migration SQL files to verify
 // that no migration creates a "password" column. This ensures credentials
 // are never persisted in the local database.
-// Traces: ARQ-SIGNALS-R016 / TC-SIG-026
+// Traces: SIGNALS-R016 / TC-SIG-026
 func TestMigrationSQLNoPasswordColumn(t *testing.T) {
 	root := repoRoot(t)
 	migrationsDir := filepath.Join(root, "internal", "db", "migrations")
@@ -62,7 +62,7 @@ func TestMigrationSQLNoPasswordColumn(t *testing.T) {
 
 // TestTargetStructNoPasswordField verifies that the db.Target struct does not
 // have a Password field. Credentials must never be stored in the local DB.
-// Traces: ARQ-SIGNALS-R016 / TC-SIG-027
+// Traces: SIGNALS-R016 / TC-SIG-027
 func TestTargetStructNoPasswordField(t *testing.T) {
 	targetType := reflect.TypeOf(db.Target{})
 
@@ -77,7 +77,7 @@ func TestTargetStructNoPasswordField(t *testing.T) {
 // TestExportQueryRunsNoPasswordField verifies that the query run export output
 // structure does not contain password fields. The export only includes:
 // id, target_id, snapshot_id, query_id, collected_at, pg_version, duration_ms, row_count, error.
-// Traces: ARQ-SIGNALS-R016 / TC-SIG-028
+// Traces: SIGNALS-R016 / TC-SIG-028
 func TestExportQueryRunsNoPasswordField(t *testing.T) {
 	// Verify by inspecting the db.QueryRun struct fields.
 	runType := reflect.TypeOf(db.QueryRun{})
@@ -107,7 +107,7 @@ func TestExportQueryRunsNoPasswordField(t *testing.T) {
 
 // TestMigrationEmbeddedFilesExist verifies that the embedded migration file
 // list is non-empty (ensuring the embed directive works).
-// Traces: ARQ-SIGNALS-R016 / TC-SIG-026
+// Traces: SIGNALS-R016 / TC-SIG-026
 func TestMigrationEmbeddedFilesExist(t *testing.T) {
 	names := db.MigrationFilenames()
 	if len(names) == 0 {

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"net/http"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // handleConfigReload implements POST /reload (R100). Re-reads the

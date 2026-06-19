@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/doctor"
+	"github.com/elevarq/signals/internal/doctor"
 )
 
 // failError must carry an empty message — the failing detail is on

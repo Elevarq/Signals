@@ -1,9 +1,9 @@
 # Feature Specification: Credential Providers (`auth_method`)
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-`
+- **Spec ID prefix:** `SIGNALS-AUTH-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#93](https://github.com/Elevarq/Arq-Signals/issues/93)
-  (keystone of epic [#92](https://github.com/Elevarq/Arq-Signals/issues/92))
+- **Tracking issue:** [#93](https://github.com/Elevarq/Signals/issues/93)
+  (keystone of epic [#92](https://github.com/Elevarq/Signals/issues/92))
 - **Type:** Behavioral + Integration-mapping (cloud identity endpoints)
 
 > This is the keystone specification for epic #92. It is `ACTIVE`: the
@@ -149,19 +149,19 @@ corresponding derived spec; this table is the binding map between
 
 ## Invariants
 
-- **ARQ-SIGNALS-AUTH-INV001 (no stored secret for token methods)**: For
+- **SIGNALS-AUTH-INV001 (no stored secret for token methods)**: For
   `aws_rds_iam`, `azure_entra`, and `gcp_cloudsql_iam`, the target
   configuration MUST NOT contain a password, password file, or pgpass
   reference. The credential is minted from ambient identity at connect
   time and never persisted.
-- **ARQ-SIGNALS-AUTH-INV002 (credential never disclosed)**: No provider
+- **SIGNALS-AUTH-INV002 (credential never disclosed)**: No provider
   may write a resolved password, token, fetched secret, or private-key
   material to logs, error messages, audit events, metrics, the local
   database, or any export artifact. This extends the existing
   "credentials never stored, exported, or logged" safety principle to
   tokens and certificate material. Only the SHA-256 fingerprint or the
   method name / expiry timestamp may be logged.
-- **ARQ-SIGNALS-AUTH-INV003 (server-identity verification for token
+- **SIGNALS-AUTH-INV003 (server-identity verification for token
   methods)**: Any `auth_method` that transmits a bearer token to the
   server (`aws_rds_iam`, `azure_entra`, `gcp_cloudsql_iam`) MUST use an
   encrypted connection whose server identity is verified. A token method
@@ -177,7 +177,7 @@ corresponding derived spec; this table is the binding map between
     connector path it uses and assert this verification is in effect; a
     direct libpq connection for `gcp_cloudsql_iam` still requires
     `verify-full`.
-- **ARQ-SIGNALS-AUTH-INV004 (rotation on reconnect preserved; TTL
+- **SIGNALS-AUTH-INV004 (rotation on reconnect preserved; TTL
   honoured)**: The credential is re-resolved on every new physical
   connection — a rotated secret, a refreshed token, or a replaced
   certificate is picked up on the next reconnect without a daemon
@@ -189,18 +189,18 @@ corresponding derived spec; this table is the binding map between
     cached secret MUST NOT be reused past that TTL. If the vault supplies
     no TTL, re-fetch on reconnect; an operator-configured `max_cache_ttl`
     (when set) further bounds reuse between reconnects.
-- **ARQ-SIGNALS-AUTH-INV005 (read-only model untouched)**: The
+- **SIGNALS-AUTH-INV005 (read-only model untouched)**: The
   credential-provider abstraction changes only how the connection
   authenticates. It does not add write capability, does not relax role
   validation (`ValidateRoleSafety`), and does not bypass collector
   approval. A target authenticated by any method is subject to the same
   read-only enforcement as a password target.
-- **ARQ-SIGNALS-AUTH-INV006 (single method per target)**: Exactly one
+- **SIGNALS-AUTH-INV006 (single method per target)**: Exactly one
   `auth_method` is in effect per target, and only that method's
   configuration block is read. Configuration for a non-selected method
   is ignored (and, where it implies a stored secret on a token method,
   rejected — see FC005).
-- **ARQ-SIGNALS-AUTH-INV007 (credential metadata is observable; the
+- **SIGNALS-AUTH-INV007 (credential metadata is observable; the
   credential is not)**: On every credential resolution, each target MUST
   emit credential **metadata only** — `auth_method`, provider name,
   `resolved_at`, and `expires_at` (or a `ttl_present` boolean when no
@@ -213,43 +213,43 @@ corresponding derived spec; this table is the binding map between
 
 ## Failure Conditions
 
-- **ARQ-SIGNALS-AUTH-FC001 (unknown method)**: `auth_method` is not one
+- **SIGNALS-AUTH-FC001 (unknown method)**: `auth_method` is not one
   of the enum values → hard config error at startup, naming the field
   and the allowed values. Daemon does not start.
-- **ARQ-SIGNALS-AUTH-FC002 (identity undiscoverable)**: A token or
+- **SIGNALS-AUTH-FC002 (identity undiscoverable)**: A token or
   secret_store method is configured but no ambient cloud identity can be
   discovered → the target's connection attempt fails with an actionable
   error (which identity source was tried). Other targets are unaffected;
   the daemon continues (consistent with per-target collection
   isolation).
-- **ARQ-SIGNALS-AUTH-FC003 (credential mint/fetch failure)**: The
+- **SIGNALS-AUTH-FC003 (credential mint/fetch failure)**: The
   identity endpoint or vault returns an error, times out, or denies the
   request → connection attempt fails with a redacted, actionable error
   (endpoint + status class, never the credential). The failure is
   recorded in the target's collector status; no partial credential is
   cached.
-- **ARQ-SIGNALS-AUTH-FC004 (expired token at connect)**: A minted token
+- **SIGNALS-AUTH-FC004 (expired token at connect)**: A minted token
   has expired (or is within an unusable skew) at the moment of use →
   the provider re-mints before handing the credential to pgx; if
   re-mint fails, treat as FC003. A token is never knowingly presented
   expired.
-- **ARQ-SIGNALS-AUTH-FC005 (stored secret on token method)**: A target
+- **SIGNALS-AUTH-FC005 (stored secret on token method)**: A target
   sets a token method (`aws_rds_iam` / `azure_entra` /
   `gcp_cloudsql_iam`) together with `password_file` / `password_env` /
   `pgpass_file` → hard config error at startup (violates INV001). The
   message states that token methods are passwordless.
-- **ARQ-SIGNALS-AUTH-FC006 (TLS too weak for token method)**: A token
+- **SIGNALS-AUTH-FC006 (TLS too weak for token method)**: A token
   method is configured on a target whose effective `sslmode` does not
   meet INV003 → hard config error at startup, regardless of `env`,
   naming the target and the required mode.
-- **ARQ-SIGNALS-AUTH-FC007 (missing method config)**: The selected
+- **SIGNALS-AUTH-FC007 (missing method config)**: The selected
   method's required fields are absent (e.g. `secret_store` without
   `secret_ref`, `mtls` without `sslcert`/`sslkey`) → hard config error
   at startup naming the missing field.
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-NFR001 (mint latency budget; per-target cache &
+- **SIGNALS-AUTH-NFR001 (mint latency budget; per-target cache &
   refresh skew)**: Credential resolution at `BeforeConnect` MUST complete
   within the existing per-target connection budget. Minted tokens are
   cached in memory and refreshed *before* expiry so steady-state
@@ -264,16 +264,16 @@ corresponding derived spec; this table is the binding map between
     15 minutes → a 3-minute refresh skew.
   This default applies across all token providers; a derived spec may
   tighten but not loosen it.
-- **ARQ-SIGNALS-AUTH-NFR002 (minimal outbound surface)**: A provider's
+- **SIGNALS-AUTH-NFR002 (minimal outbound surface)**: A provider's
   only new outbound calls are to its cloud identity / vault endpoint.
   No telemetry, no third-party calls. (Consistent with the "no hidden
   external network calls" safety principle — these calls are explicit,
   documented, and operator-selected via `auth_method`.)
-- **ARQ-SIGNALS-AUTH-NFR003 (backward compatibility)**: Existing
+- **SIGNALS-AUTH-NFR003 (backward compatibility)**: Existing
   configurations with no `auth_method` continue to behave exactly as
   before (`password` provider). No migration step is required for
   existing deployments.
-- **ARQ-SIGNALS-AUTH-NFR004 (dependency hygiene)**: Cloud SDK
+- **SIGNALS-AUTH-NFR004 (dependency hygiene)**: Cloud SDK
   dependencies introduced by token providers MUST be pinned and pass the
   repository's security gates (Trivy/govulncheck). Where practical,
   providers SHOULD be build-tag or interface isolated so the core
@@ -281,34 +281,34 @@ corresponding derived spec; this table is the binding map between
 
 ## Acceptance Rules
 
-- **ARQ-SIGNALS-AUTH-RULE001**: A target with no `auth_method` connects
+- **SIGNALS-AUTH-RULE001**: A target with no `auth_method` connects
   using the existing password resolution, unchanged. *(normal)*
-- **ARQ-SIGNALS-AUTH-RULE002**: A target with `auth_method:
+- **SIGNALS-AUTH-RULE002**: A target with `auth_method:
   aws_rds_iam` (and `verify-full` TLS) connects to a database whose role
   is granted `rds_iam`, using a token minted from ambient identity, with
   **no password in config**, and the token is re-minted on reconnect.
   *(normal — verified live in #94)*
-- **ARQ-SIGNALS-AUTH-RULE003**: A token method configured alongside a
+- **SIGNALS-AUTH-RULE003**: A token method configured alongside a
   password source is rejected at startup with an actionable error
   (FC005). *(invalid)*
-- **ARQ-SIGNALS-AUTH-RULE004**: A token method configured on a target
+- **SIGNALS-AUTH-RULE004**: A token method configured on a target
   with weak/unverified TLS is rejected at startup in every environment
   (FC006). *(boundary — stricter than the prod-only TLS rule)*
-- **ARQ-SIGNALS-AUTH-RULE005**: When the identity endpoint is
+- **SIGNALS-AUTH-RULE005**: When the identity endpoint is
   unreachable or denies the mint, the target's connection fails with a
   redacted, actionable error and the credential value never appears in
   any output surface (FC003 + INV002). *(failure)*
-- **ARQ-SIGNALS-AUTH-RULE006**: `auth_method` set to a value outside the
+- **SIGNALS-AUTH-RULE006**: `auth_method` set to a value outside the
   enum aborts startup naming the allowed values (FC001). *(invalid)*
-- **ARQ-SIGNALS-AUTH-RULE007**: A minted token is re-minted before its
+- **SIGNALS-AUTH-RULE007**: A minted token is re-minted before its
   expiry per `max(60s, min(5m, ttl * 0.20))`, and a token cached for one
   target is never presented for a different target (distinct cache key).
   *(boundary — NFR001, INV004)*
-- **ARQ-SIGNALS-AUTH-RULE008**: For `secret_store`, a fetched secret is
+- **SIGNALS-AUTH-RULE008**: For `secret_store`, a fetched secret is
   not reused past a vault-supplied TTL; when no TTL is supplied it is
   re-fetched on reconnect and, if `max_cache_ttl` is set, not reused
   beyond it. *(boundary — INV004)*
-- **ARQ-SIGNALS-AUTH-RULE009**: Each resolution emits credential
+- **SIGNALS-AUTH-RULE009**: Each resolution emits credential
   metadata (`auth_method`, provider, `resolved_at`, `expires_at` /
   `ttl_present`, optional version/fingerprint) and no output surface
   ever contains the token, secret, or key material. *(normal — INV007,

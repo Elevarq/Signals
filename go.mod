@@ -1,4 +1,4 @@
-module github.com/elevarq/arq-signals
+module github.com/elevarq/signals
 
 go 1.26.4
 

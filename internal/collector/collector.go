@@ -23,12 +23,12 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/oklog/ulid/v2"
 
-	"github.com/elevarq/arq-signals/internal/circuit"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/metrics"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/circuit"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/metrics"
+	"github.com/elevarq/signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // connConfigFunc is the function used to build pgx configs. Overridable for testing.

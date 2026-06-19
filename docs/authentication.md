@@ -4,7 +4,7 @@ Elevarq Signals authenticates HTTP API callers with bearer tokens. This
 document describes both authentication modes — `standalone`
 (default) and `managed` — including how tokens map to audit
 `actor` identity and how to rotate the control-plane token without
-restarting the daemon. Specs: ARQ-SIGNALS-R011, R083.
+restarting the daemon. Specs: SIGNALS-R011, R083.
 
 ## Modes at a glance
 
@@ -201,7 +201,7 @@ curl -H "Authorization: Bearer 01HXY9QZK5T8M3FN6JBPRWADCV7E2GH4" \
 
 - **No mTLS / signed JWTs / OIDC.** Higher-strength auth is
   Phase 4+ work.
-- **No `arq_managed_only` mode** that refuses the local API token
+- **No `managed_only` mode** that refuses the local API token
   in Mode B. The local token remains valid in both modes so
   operators are never locked out by an Elevarq-side outage.
 - **No license enforcement in Elevarq Signals.** Per R082, the

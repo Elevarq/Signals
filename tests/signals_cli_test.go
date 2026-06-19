@@ -14,7 +14,7 @@ import (
 // TestCLISubcommandsRegistered verifies that the signalsctl main.go registers
 // the expected subcommands (version, status, collect, export) by inspecting
 // the AST of cmd/signalsctl/main.go for AddCommand calls.
-// Traces: ARQ-SIGNALS-R010 / TC-SIG-025
+// Traces: SIGNALS-R010 / TC-SIG-025
 func TestCLISubcommandsRegistered(t *testing.T) {
 	root := repoRoot(t)
 	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")
@@ -41,7 +41,7 @@ func TestCLISubcommandsRegistered(t *testing.T) {
 
 // TestCLIMainImportsCobra verifies that cmd/signalsctl/main.go imports the
 // cobra package.
-// Traces: ARQ-SIGNALS-R010 / TC-SIG-025
+// Traces: SIGNALS-R010 / TC-SIG-025
 func TestCLIMainImportsCobra(t *testing.T) {
 	root := repoRoot(t)
 	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")
@@ -67,7 +67,7 @@ func TestCLIMainImportsCobra(t *testing.T) {
 
 // TestCLIMainDefinesFunctions verifies cmd/signalsctl/main.go defines the
 // expected command builder functions.
-// Traces: ARQ-SIGNALS-R010 / TC-SIG-025
+// Traces: SIGNALS-R010 / TC-SIG-025
 func TestCLIMainDefinesFunctions(t *testing.T) {
 	root := repoRoot(t)
 	mainPath := filepath.Join(root, "cmd", "signalsctl", "main.go")

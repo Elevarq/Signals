@@ -1,5 +1,5 @@
 // Package metrics owns the Prometheus registry that powers the optional
-// /metrics endpoint described in ARQ-SIGNALS-R079. The registry is
+// /metrics endpoint described in SIGNALS-R079. The registry is
 // dedicated (not the global default) so test code and embedded use
 // don't see metrics they didn't ask for, and so we can guarantee that
 // only the metrics defined here are ever exported.

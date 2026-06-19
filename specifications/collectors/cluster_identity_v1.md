@@ -114,7 +114,7 @@ connection strings, or user data.
 
 - `pg_last_wal_receive_lsn()` / `pg_last_wal_replay_lsn()` exist as
   named in PG 10+. The pre-PG-10 names (`pg_last_xlog_*`) are not
-  supported; arq-signals' min PG version is 10 (R024 / R081).
+  supported; signals' min PG version is 10 (R024 / R081).
 
 ## Out of scope
 

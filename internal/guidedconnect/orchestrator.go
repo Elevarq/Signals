@@ -9,9 +9,9 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/conntest"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/conntest"
 )
 
 // Options carries the parsed `connect --auto` inputs.
@@ -57,7 +57,7 @@ type Options struct {
 }
 
 // Deps holds the orchestrator's seams so unit tests run without cloud,
-// network, or a live database (ARQ-SIGNALS-CONNECT-INV003 reuse; NFR001).
+// network, or a live database (SIGNALS-CONNECT-INV003 reuse; NFR001).
 type Deps struct {
 	// Detect proposes an auth_method from the environment + host. nil uses
 	// the package Detect.
@@ -274,7 +274,7 @@ func Run(ctx context.Context, opts Options, deps Deps) (Outcome, error) {
 
 // GuidanceFor returns the copy-pasteable operator remediation for the
 // selected method, reusing the provider guidance functions
-// (ARQ-SIGNALS-CONNECT-INV003).
+// (SIGNALS-CONNECT-INV003).
 func GuidanceFor(method string, tgt config.TargetConfig) string {
 	switch method {
 	case config.AuthMethodAWSRDSIAM:
@@ -297,7 +297,7 @@ the server (SELECT pg_reload_conf();).`, tgt.Name)
 
 // renderTargetBlock renders the secret-free YAML target block: a 2-space
 // indented list item ready to paste under a `targets:` key. It never
-// contains a credential (ARQ-SIGNALS-CONNECT-INV001) — only the method's
+// contains a credential (SIGNALS-CONNECT-INV001) — only the method's
 // non-secret fields.
 func renderTargetBlock(tgt config.TargetConfig) string {
 	var b strings.Builder

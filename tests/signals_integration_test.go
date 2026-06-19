@@ -10,7 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/elevarq/arq-signals/internal/collector"
+	"github.com/elevarq/signals/internal/collector"
 )
 
 // TestIntegration_RoleSafetyAgainstRealPG connects to a real PostgreSQL

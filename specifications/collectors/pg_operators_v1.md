@@ -65,4 +65,4 @@ query-logic source text.
 
 - Queries using user-defined operators can be analysed accurately.
   Operator classes/families are a documented follow-up.
-  Audit: Elevarq/Arq-Signals#212.
+  Audit: Elevarq/Signals#212.

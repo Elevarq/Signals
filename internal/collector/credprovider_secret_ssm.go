@@ -10,13 +10,13 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/ssm"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ssmGetParameterAPI is the minimal AWS Systems Manager surface the fetcher
 // uses. Narrowing it to one method lets a unit test inject a fake and assert
 // the call contract (notably WithDecryption=true) with no real AWS call
-// (ARQ-SIGNALS-AUTH-SECRET-NFR003).
+// (SIGNALS-AUTH-SECRET-NFR003).
 type ssmGetParameterAPI interface {
 	GetParameter(ctx context.Context, in *ssm.GetParameterInput, optFns ...func(*ssm.Options)) (*ssm.GetParameterOutput, error)
 }
@@ -25,7 +25,7 @@ type ssmGetParameterAPI interface {
 // Manager Parameter Store. Like the Secrets Manager fetcher it authenticates
 // with the collector's ambient AWS workload identity but pins the endpoint
 // region to the value parsed from the ARN — never AWS_REGION, the SDK default
-// region chain, or IMDS (ARQ-SIGNALS-AUTH-SECRET, region-from-ARN decision).
+// region chain, or IMDS (SIGNALS-AUTH-SECRET, region-from-ARN decision).
 //
 // newClient is the SSM client constructor; it is overridable so tests inject
 // a fake. When nil, the production constructor (loadSSMClient) is used.
@@ -38,7 +38,7 @@ type awsParameterStoreFetcher struct {
 // plain String passes through unchanged; both yield a string value. Parameter
 // Store supplies no lease/TTL, so the returned ttl is always zero — reuse
 // between reconnects is therefore governed entirely by the operator's
-// max_cache_ttl (ARQ-SIGNALS-AUTH-SECRET-INV003).
+// max_cache_ttl (SIGNALS-AUTH-SECRET-INV003).
 func (f awsParameterStoreFetcher) Fetch(ctx context.Context, ref config.ParsedSecretRef) (string, time.Duration, error) {
 	if ref.AWSRegion == "" {
 		// Defensive: InferSecretBackend guarantees a non-empty region for an

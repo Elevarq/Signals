@@ -7,12 +7,12 @@ DRAFT
 ## Purpose
 
 A read-only CLI subcommand that runs operator-facing pre-flight
-verification on an arq-signals deployment, before the daemon is started
+verification on an signals deployment, before the daemon is started
 or after a config change. Surfaces problems with exit code 0 (all OK) or
 non-zero (one or more checks failed), so the command is shell-friendly
 for CI gates and operator runbooks.
 
-Promotes the manually-encoded "before editing arq-signals" feedback
+Promotes the manually-encoded "before editing signals" feedback
 rule into engineering work (issue #43, parent #39).
 
 ## Scope
@@ -157,7 +157,7 @@ in memory and never appear in output.
 ## Out of scope
 
 - Workspace-policy / canonical-sibling checks (the original "before
-  editing arq-signals" feedback rule). Those are developer-workflow
+  editing signals" feedback rule). Those are developer-workflow
   concerns better served by a `make preflight` target or a separate
   `scripts/dev-doctor.sh`. Doctor v1 targets operator pre-flight.
 - Extension-presence checks beyond what `ValidateRoleSafety` covers.

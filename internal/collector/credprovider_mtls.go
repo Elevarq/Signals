@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // certLoader loads and validates a client certificate + private key for the
-// mtls provider (ARQ-SIGNALS-AUTH-MTLS-, #98). It is a seam so unit tests
+// mtls provider (SIGNALS-AUTH-MTLS-, #98). It is a seam so unit tests
 // inject in-memory fixtures and read no operator key material (NFR003).
 type certLoader interface {
 	Load(certFile, keyFile, passphraseFile string) (*tls.Certificate, error)

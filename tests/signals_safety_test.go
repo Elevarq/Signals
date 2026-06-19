@@ -14,10 +14,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // ---------------------------------------------------------------------------
@@ -26,7 +26,7 @@ import (
 
 // TestSafetyResultIsSafe_NoFailures verifies that a SafetyResult with no hard
 // failures reports IsSafe()=true.
-// Traces: ARQ-SIGNALS-R017 / TC-SIG-025
+// Traces: SIGNALS-R017 / TC-SIG-025
 func TestSafetyResultIsSafe_NoFailures(t *testing.T) {
 	r := collector.SafetyResult{}
 	if !r.IsSafe() {
@@ -36,7 +36,7 @@ func TestSafetyResultIsSafe_NoFailures(t *testing.T) {
 
 // TestSafetyResultIsSafe_WithFailures verifies that a SafetyResult with hard
 // failures reports IsSafe()=false.
-// Traces: ARQ-SIGNALS-R017 / TC-SIG-025
+// Traces: SIGNALS-R017 / TC-SIG-025
 func TestSafetyResultIsSafe_WithFailures(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{"role has superuser attribute"},
@@ -48,7 +48,7 @@ func TestSafetyResultIsSafe_WithFailures(t *testing.T) {
 
 // TestSafetyResultError_Empty verifies that Error() returns an empty string
 // when there are no hard failures.
-// Traces: ARQ-SIGNALS-R017 / TC-SIG-025
+// Traces: SIGNALS-R017 / TC-SIG-025
 func TestSafetyResultError_Empty(t *testing.T) {
 	r := collector.SafetyResult{}
 	if got := r.Error(); got != "" {
@@ -58,7 +58,7 @@ func TestSafetyResultError_Empty(t *testing.T) {
 
 // TestSessionReadOnlyParamSet verifies that BuildConnConfig sets
 // default_transaction_read_only=on in RuntimeParams.
-// Traces: ARQ-SIGNALS-R021 / TC-SIG-025
+// Traces: SIGNALS-R021 / TC-SIG-025
 func TestSessionReadOnlyParamSet(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "ro-check",
@@ -89,7 +89,7 @@ func TestSessionReadOnlyParamSet(t *testing.T) {
 // TestSafetyResultSuperuserBlocked verifies that a SafetyResult with a hard
 // failure for superuser reports IsSafe()=false, and Error() contains
 // "superuser", "BLOCKED", and remediation guidance.
-// Traces: ARQ-SIGNALS-R018 / TC-SIG-026
+// Traces: SIGNALS-R018 / TC-SIG-026
 func TestSafetyResultSuperuserBlocked(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{
@@ -120,7 +120,7 @@ func TestSafetyResultSuperuserBlocked(t *testing.T) {
 // TestSafetyResultReplicationBlocked verifies that a SafetyResult with a hard
 // failure for replication reports IsSafe()=false, and Error() mentions
 // "replication" and "BLOCKED".
-// Traces: ARQ-SIGNALS-R019 / TC-SIG-027
+// Traces: SIGNALS-R019 / TC-SIG-027
 func TestSafetyResultReplicationBlocked(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{
@@ -147,7 +147,7 @@ func TestSafetyResultReplicationBlocked(t *testing.T) {
 // TestSafetyResultBypassRLSBlocked verifies that a SafetyResult with a hard
 // failure for bypassrls reports IsSafe()=false, and Error() mentions
 // "bypassrls" and "BLOCKED".
-// Traces: ARQ-SIGNALS-R020 / TC-SIG-028
+// Traces: SIGNALS-R020 / TC-SIG-028
 func TestSafetyResultBypassRLSBlocked(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{
@@ -174,7 +174,7 @@ func TestSafetyResultBypassRLSBlocked(t *testing.T) {
 // TestCollectorTimeoutDefaults verifies that a new Collector has
 // queryTimeout=10s and targetTimeout=60s by inspecting the accessor and
 // the source code constants.
-// Traces: ARQ-SIGNALS-R022 / TC-SIG-029
+// Traces: SIGNALS-R022 / TC-SIG-029
 func TestCollectorTimeoutDefaults(t *testing.T) {
 	// We cannot instantiate a Collector without a db.DB, but we can verify
 	// the source constants via AST scanning.
@@ -194,7 +194,7 @@ func TestCollectorTimeoutDefaults(t *testing.T) {
 // TestTimeoutValuesPassedCorrectly verifies that the collector code computes
 // stmtTimeoutMs from queryTimeout.Milliseconds() and uses the conservative
 // lockTimeoutMs constant of 5000.
-// Traces: ARQ-SIGNALS-R022 / TC-SIG-029
+// Traces: SIGNALS-R022 / TC-SIG-029
 func TestTimeoutValuesPassedCorrectly(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))
@@ -213,7 +213,7 @@ func TestTimeoutValuesPassedCorrectly(t *testing.T) {
 
 // TestSafetyResultWarningsDoNotBlock verifies that a SafetyResult with only
 // Warnings (no HardFailures) returns IsSafe()=true.
-// Traces: ARQ-SIGNALS-R023 / TC-SIG-030
+// Traces: SIGNALS-R023 / TC-SIG-030
 func TestSafetyResultWarningsDoNotBlock(t *testing.T) {
 	r := collector.SafetyResult{
 		Warnings: []string{"role is member of pg_write_all_data"},
@@ -229,7 +229,7 @@ func TestSafetyResultWarningsDoNotBlock(t *testing.T) {
 // TestSafetyResultMixedFailuresAndWarnings verifies that IsSafe()=false when
 // both HardFailures and Warnings are present, and Error() only mentions
 // the hard failures (not warnings).
-// Traces: ARQ-SIGNALS-R023 / TC-SIG-030
+// Traces: SIGNALS-R023 / TC-SIG-030
 func TestSafetyResultMixedFailuresAndWarnings(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{`role "admin" has superuser attribute (rolsuper=true)`},
@@ -255,7 +255,7 @@ func TestSafetyResultMixedFailuresAndWarnings(t *testing.T) {
 
 // TestRedactDSNPassword verifies that RedactDSN replaces the password in a
 // key=value connection string.
-// Traces: ARQ-SIGNALS-R024 / TC-SIG-031
+// Traces: SIGNALS-R024 / TC-SIG-031
 func TestRedactDSNPassword(t *testing.T) {
 	got := collector.RedactDSN("host=x password=secret user=y")
 	want := "host=x password=**** user=y"
@@ -266,7 +266,7 @@ func TestRedactDSNPassword(t *testing.T) {
 
 // TestRedactDSNURL verifies that RedactDSN replaces the password in a
 // postgres:// URL connection string.
-// Traces: ARQ-SIGNALS-R024 / TC-SIG-031
+// Traces: SIGNALS-R024 / TC-SIG-031
 func TestRedactDSNURL(t *testing.T) {
 	got := collector.RedactDSN("postgres://user:secret@host/db")
 	want := "postgres://user:****@host/db"
@@ -281,7 +281,7 @@ func TestRedactDSNURL(t *testing.T) {
 // should NOT contain the raw path when the error message matches the
 // redaction pattern. Instead, we verify via source scanning that redactError
 // exists and checks for "password".
-// Traces: ARQ-SIGNALS-R024 / TC-SIG-031
+// Traces: SIGNALS-R024 / TC-SIG-031
 func TestRedactErrorContainingPassword(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "secrets.go"))
@@ -300,7 +300,7 @@ func TestRedactErrorContainingPassword(t *testing.T) {
 
 // TestRedactErrorSafe verifies that redactError returns the original error
 // for non-password errors, by scanning the source for the fallback path.
-// Traces: ARQ-SIGNALS-R024 / TC-SIG-031
+// Traces: SIGNALS-R024 / TC-SIG-031
 func TestRedactErrorSafe(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "secrets.go"))
@@ -338,7 +338,7 @@ func TestRedactErrorSafe(t *testing.T) {
 
 // TestSafetyResultErrorContainsRemediation verifies that Error() includes
 // remediation guidance with CREATE ROLE and GRANT pg_monitor.
-// Traces: ARQ-SIGNALS-R025 / TC-SIG-032
+// Traces: SIGNALS-R025 / TC-SIG-032
 func TestSafetyResultErrorContainsRemediation(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{"role has superuser attribute"},
@@ -355,7 +355,7 @@ func TestSafetyResultErrorContainsRemediation(t *testing.T) {
 
 // TestSafetyResultErrorContainsAttributeInfo verifies that Error() includes
 // the specific attribute name and value from the hard failure.
-// Traces: ARQ-SIGNALS-R025 / TC-SIG-032
+// Traces: SIGNALS-R025 / TC-SIG-032
 func TestSafetyResultErrorContainsAttributeInfo(t *testing.T) {
 	r := collector.SafetyResult{
 		HardFailures: []string{
@@ -378,7 +378,7 @@ func TestSafetyResultErrorContainsAttributeInfo(t *testing.T) {
 
 // TestAllowUnsafeRoleOption verifies that WithAllowUnsafeRole(true) sets the
 // internal flag, accessible via GetAllowUnsafeRole().
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestAllowUnsafeRoleOption(t *testing.T) {
 	store := openTestDB(t)
 	c := collector.New(store, nil, 0, 0, collector.WithAllowUnsafeRole(true))
@@ -389,7 +389,7 @@ func TestAllowUnsafeRoleOption(t *testing.T) {
 
 // TestAllowUnsafeRoleDefaultFalse verifies that the default collector has
 // GetAllowUnsafeRole()=false.
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestAllowUnsafeRoleDefaultFalse(t *testing.T) {
 	store := openTestDB(t)
 	c := collector.New(store, nil, 0, 0)
@@ -400,7 +400,7 @@ func TestAllowUnsafeRoleDefaultFalse(t *testing.T) {
 
 // TestConfigAllowUnsafeRoleField verifies that config.Config has the
 // AllowUnsafeRole field.
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestConfigAllowUnsafeRoleField(t *testing.T) {
 	cfgType := reflect.TypeOf(config.Config{})
 	field, found := cfgType.FieldByName("AllowUnsafeRole")
@@ -418,7 +418,7 @@ func TestConfigAllowUnsafeRoleField(t *testing.T) {
 
 // TestDefaultBehaviorIsBlocking verifies that the default collector blocks
 // unsafe roles (GetAllowUnsafeRole()=false).
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-034
+// Traces: SIGNALS-R026 / TC-SIG-034
 func TestDefaultBehaviorIsBlocking(t *testing.T) {
 	store := openTestDB(t)
 	c := collector.New(store, nil, 0, 0)
@@ -467,7 +467,7 @@ func TestSafetyResultMultipleFailures(t *testing.T) {
 
 // TestExportUnsafeModeFalseByDefault verifies that a default export builder
 // writes unsafe_mode=false in metadata.json.
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestExportUnsafeModeFalseByDefault(t *testing.T) {
 	store := openTestDB(t)
 	builder := export.NewBuilder(store, "test-instance")
@@ -488,7 +488,7 @@ func TestExportUnsafeModeFalseByDefault(t *testing.T) {
 
 // TestExportUnsafeModeTrue verifies that SetUnsafeMode writes
 // unsafe_mode=true and unsafe_reasons in metadata.json.
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestExportUnsafeModeTrue(t *testing.T) {
 	store := openTestDB(t)
 	builder := export.NewBuilder(store, "test-instance")
@@ -532,7 +532,7 @@ func TestExportUnsafeModeTrue(t *testing.T) {
 
 // TestConfigAllowUnsafeRoleEnvVar verifies that setting
 // SIGNALS_ALLOW_UNSAFE_ROLE=true causes config.Load to set AllowUnsafeRole=true.
-// Traces: ARQ-SIGNALS-R026 / TC-SIG-033
+// Traces: SIGNALS-R026 / TC-SIG-033
 func TestConfigAllowUnsafeRoleEnvVar(t *testing.T) {
 	// Create a minimal config file so Load does not try to open /etc/signals/signals.yaml.
 	dir := t.TempDir()
@@ -558,7 +558,7 @@ func TestConfigAllowUnsafeRoleEnvVar(t *testing.T) {
 
 // TestCollectorCallsValidateRoleSafety scans collector.go for a call to
 // ValidateRoleSafety.
-// Traces: ARQ-SIGNALS-R017 / TC-SIG-025
+// Traces: SIGNALS-R017 / TC-SIG-025
 func TestCollectorCallsValidateRoleSafety(t *testing.T) {
 	root := repoRoot(t)
 	assertFuncCalledInFile(t,
@@ -569,7 +569,7 @@ func TestCollectorCallsValidateRoleSafety(t *testing.T) {
 
 // TestCollectorVerifiesReadOnlyInline verifies that collector.go checks
 // default_transaction_read_only on the acquired connection inline.
-// Traces: ARQ-SIGNALS-R021 / TC-SIG-025
+// Traces: SIGNALS-R021 / TC-SIG-025
 func TestCollectorVerifiesReadOnlyInline(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))
@@ -581,7 +581,7 @@ func TestCollectorVerifiesReadOnlyInline(t *testing.T) {
 // TestCollectorSetsTimeoutsViaSetLocal verifies that collector.go uses
 // SET LOCAL to apply timeouts inside the collection transaction,
 // guaranteeing they apply to the same connection.
-// Traces: ARQ-SIGNALS-R022 / TC-SIG-029
+// Traces: SIGNALS-R022 / TC-SIG-029
 func TestCollectorSetsTimeoutsViaSetLocal(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))
@@ -598,7 +598,7 @@ func TestCollectorSetsTimeoutsViaSetLocal(t *testing.T) {
 
 // TestCollectorLockTimeout5000 scans collector.go for the conservative lock
 // timeout constant of 5000 ms.
-// Traces: ARQ-SIGNALS-R022 / TC-SIG-029
+// Traces: SIGNALS-R022 / TC-SIG-029
 func TestCollectorLockTimeout5000(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))

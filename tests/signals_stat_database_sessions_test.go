@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
-// Elevarq/Arq-Signals#210: pg_stat_database_v1 emits the PG 14+
+// Elevarq/Signals#210: pg_stat_database_v1 emits the PG 14+
 // session/timing fields — real columns on PG 14+ (per-major override),
 // typed NULL stubs on PG < 14 (default SQL). Unblocks the connection-
 // churn detector.
@@ -70,7 +70,7 @@ func TestStatDatabaseSessionsNullStubInDefault(t *testing.T) {
 }
 
 // Both the default and the PG 14+ override pass the read-only safety
-// linter (ARQ-SIGNALS-R002).
+// linter (SIGNALS-R002).
 func TestStatDatabaseSessionsSQLLints(t *testing.T) {
 	if err := pgqueries.LintQuery(pgqueries.ByID("pg_stat_database_v1").SQL); err != nil {
 		t.Errorf("default pg_stat_database_v1 SQL failed linter: %v", err)

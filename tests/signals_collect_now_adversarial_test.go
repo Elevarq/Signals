@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // ---------------------------------------------------------------------------
@@ -23,7 +23,7 @@ import (
 // partial cycle. The combinations cover (a) a number where a string
 // is expected, (b) an object where an array is expected, (c) a
 // trailing-comma syntax error.
-// Traces: ARQ-SIGNALS-R082 / stabilization
+// Traces: SIGNALS-R082 / stabilization
 func TestCollectNowMalformedJSONWithPartialValidFields(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -67,7 +67,7 @@ func TestCollectNowMalformedJSONWithPartialValidFields(t *testing.T) {
 // rather than tripping a validation error. Belt-and-suspenders for
 // callers that send a deliberately empty payload with the
 // Content-Type header set.
-// Traces: ARQ-SIGNALS-R082
+// Traces: SIGNALS-R082
 func TestCollectNowJSONNullAndEmpty(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -89,7 +89,7 @@ func TestCollectNowJSONNullAndEmpty(t *testing.T) {
 // Codex post-0.3.1 L-001 added http.MaxBytesReader at the handler
 // entry point with a 64 KiB cap; anything larger is rejected before
 // JSON parsing.
-// Traces: ARQ-SIGNALS-R082 / stabilization / Codex L-001
+// Traces: SIGNALS-R082 / stabilization / Codex L-001
 func TestCollectNowLargeBody(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -125,7 +125,7 @@ func TestCollectNowLargeBody(t *testing.T) {
 //   - The audit log contains at least one collect_now_dropped event,
 //     proving the buffer-full path was exercised under contention.
 //
-// Traces: ARQ-SIGNALS-R082 / R032 / stabilization
+// Traces: SIGNALS-R082 / R032 / stabilization
 func TestCollectNowConcurrentSpam(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -188,7 +188,7 @@ func lastN(s string, n int) string {
 // stabilization patch the substring match on "token" filtered the
 // key out, so the spec-promised attribute never reached the audit
 // stream. The fix added the key to a small, hand-curated allow list.
-// Traces: ARQ-SIGNALS-R078 / R083 / stabilization
+// Traces: SIGNALS-R078 / R083 / stabilization
 func TestModeConfiguredEventCarriesAllowlistedKey(t *testing.T) {
 	out := captureAuditLogs(t, func() {
 		safety.AuditLog("mode_configured",

@@ -1,7 +1,7 @@
 # Documentation Consistency Audit
 
 Audit date: 2026-03-14
-Scope: all implementation, test, and documentation files in arq-signals
+Scope: all implementation, test, and documentation files in signals
 
 ## Findings
 
@@ -29,7 +29,7 @@ only collects daily. Misleading for capacity planning.
 
 ### ISSUE 2 — Specification has leftover "pending" fragment (INCORRECT)
 
-**Location:** features/arq-signals/specification.md, line 229
+**Location:** features/signals/specification.md, line 229
 
 **Documentation says:**
 ```
@@ -124,7 +124,7 @@ The following documentation areas match the implementation:
 | # | File | Change | Effort |
 |---|------|--------|--------|
 | 1 | README.md | Fix wraparound_db_level_v1 and wraparound_rel_level_v1 cadence from 15m to 24h | Trivial |
-| 2 | features/arq-signals/specification.md | Delete leftover line 229 | Trivial |
+| 2 | features/signals/specification.md | Delete leftover line 229 | Trivial |
 | 3 | docs/runtime-safety-model.md | Add lock_timeout=5s to timeout table, add commit verification note | Small |
 
 Total: 3 files, 5 line-level changes.

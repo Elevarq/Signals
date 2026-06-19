@@ -3,7 +3,7 @@ package guidedconnect
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // envFunc builds a Getenv from a fixture map.

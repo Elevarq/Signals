@@ -32,9 +32,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
 )
 
 func TestIntegration_MinSnapshotIntervalAgainstRealPG(t *testing.T) {

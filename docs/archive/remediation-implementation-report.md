@@ -7,7 +7,7 @@ Generated: 2026-03-14
 | # | Severity | Issue | Resolution |
 |---|----------|-------|------------|
 | 1 | CRITICAL | Session timeouts applied to wrong connection | Fixed: dedicated connection acquired, SET LOCAL inside transaction |
-| 2 | CRITICAL | STDD artifacts missing from repo | Fixed: copied into features/arq-signals/ |
+| 2 | CRITICAL | STDD artifacts missing from repo | Fixed: copied into features/signals/ |
 | 3 | MAJOR | AST tests overstated coverage | Fixed: added 7 behavioral tests, updated traceability to distinguish evidence types |
 | 4 | MAJOR | adoption-guide.md wrong config schema | Fixed: complete rewrite using actual structured config |
 | 5 | MAJOR | Unsafe metadata records generic reason | Fixed: exporter queries collector for actual bypassed checks at export time |
@@ -21,20 +21,20 @@ Generated: 2026-03-14
 - `internal/collector/rolecheck.go` — Removed ValidateSessionReadOnly and ApplySessionTimeouts (replaced by inline enforcement in collector.go)
 - `internal/export/export.go` — SetUnsafeMode now accepts `func() []string` to query dynamic bypass reasons at export time
 - `internal/api/server.go` — Removed secret_type from /status response
-- `cmd/arq-signals/main.go` — Passes collector.GetBypassedChecks function to exporter
+- `cmd/signals/main.go` — Passes collector.GetBypassedChecks function to exporter
 - `tests/signals_safety_test.go` — Fixed SetUnsafeMode call, replaced 2 broken AST tests with source verification tests
 - `tests/signals_api_test.go` — Added TestStatusEndpointResponse verifying no secret fields
 - `README.md` — Complete env var table with all 22 variables
 - `docs/adoption-guide.md` — Complete rewrite with correct config schema
 - `docs/runtime-safety-model.md` — Updated timeout section (SET LOCAL), /status disclosure
 - `docs/credential-handling-review.md` — Updated /status exposure table
-- `features/arq-signals/specification.md` — Replaced prohibited marker wording with "confidential content"
-- `features/arq-signals/traceability.md` — Added evidence type column, honest coverage
+- `features/signals/specification.md` — Replaced prohibited marker wording with "confidential content"
+- `features/signals/traceability.md` — Added evidence type column, honest coverage
 
 ### Created
 - `tests/signals_safety_behavioral_test.go` — 6 behavioral tests
 - `tests/signals_integration_test.go` — 1 integration test (build tag guarded)
-- `features/arq-signals/` — STDD artifacts copied into repo
+- `features/signals/` — STDD artifacts copied into repo
 - `docs/remediation-current-state.md` — Discovery findings
 - `docs/remediation-implementation-report.md` — This file
 

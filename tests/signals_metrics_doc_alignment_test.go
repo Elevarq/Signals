@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/metrics"
+	"github.com/elevarq/signals/internal/metrics"
 )
 
 // ---------------------------------------------------------------------------

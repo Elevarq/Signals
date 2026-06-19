@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // strongTokenForTest returns a freshly-minted high-entropy token of

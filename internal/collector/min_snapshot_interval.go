@@ -1,9 +1,9 @@
 // Per-target minimum snapshot interval enforcement (R091, R092).
 //
-// Spec: features/arq-signals/specification.md
-//   ARQ-SIGNALS-R091 (min snapshot interval, default 60s, per
+// Spec: features/signals/specification.md
+//   SIGNALS-R091 (min snapshot interval, default 60s, per
 //                     logical target = targets.name)
-//   ARQ-SIGNALS-R092 (--force / force=true bypass — opt-in only)
+//   SIGNALS-R092 (--force / force=true bypass — opt-in only)
 //   FC-10            (non-positive min_interval is a config error)
 //   INV-SIGNALS-15   (skip leaves zero rows)
 //

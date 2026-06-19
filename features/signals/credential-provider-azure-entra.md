@@ -1,8 +1,8 @@
 # Feature Specification: Azure Entra ID Credential Provider
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-AZURE-`
+- **Spec ID prefix:** `SIGNALS-AUTH-AZURE-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#95](https://github.com/Elevarq/Arq-Signals/issues/95)
+- **Tracking issue:** [#95](https://github.com/Elevarq/Signals/issues/95)
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy, and resolved design
@@ -91,22 +91,22 @@ audience) and is not operator-configurable.
 
 ## Invariants (Azure-specific; keystone invariants also apply)
 
-- **ARQ-SIGNALS-AUTH-AZURE-INV001**: A target with `auth_method:
+- **SIGNALS-AUTH-AZURE-INV001**: A target with `auth_method:
   azure_entra` carries no password source (`password_file` /
   `password_env` / `pgpass_file`). (Instance of keystone INV001;
   enforced at startup by FC-AZURE-003.)
-- **ARQ-SIGNALS-AUTH-AZURE-INV002**: The acquired token is never written
+- **SIGNALS-AUTH-AZURE-INV002**: The acquired token is never written
   to logs, errors, audit, metrics, the local DB, or exports — only its
   metadata (db_user, scope, resolved_at, expires_at). (Instance of
   keystone INV002/INV007.)
-- **ARQ-SIGNALS-AUTH-AZURE-INV003**: The token is cached per target and
+- **SIGNALS-AUTH-AZURE-INV003**: The token is cached per target and
   re-acquired before expiry at `max(60s, min(5m, ttl*0.20))` (the
   keystone cross-provider default; for a ~75-minute token this caps at
   the **5-minute** ceiling). Cache key = `target_id` + `auth_method` +
   `db_user` + host/instance identity (reuses `TargetConfig.ConnIdentity()`
   plus the method). Never shared across targets. (Instance of keystone
   NFR001.)
-- **ARQ-SIGNALS-AUTH-AZURE-INV004**: The token scope is fixed at
+- **SIGNALS-AUTH-AZURE-INV004**: The token scope is fixed at
   `https://ossrdbms-aad.database.windows.net/.default`; no code path or
   config may widen or change the audience.
 
@@ -138,15 +138,15 @@ audience) and is not operator-configurable.
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-AZURE-NFR001 (dependency hygiene)**: Use the Azure
+- **SIGNALS-AUTH-AZURE-NFR001 (dependency hygiene)**: Use the Azure
   SDK for Go (`azidentity` + `azcore`) at pinned versions; the additions
   MUST pass the repo's Trivy / govulncheck gates. The Azure SDK is linked
   only on the Azure provider's path — core collection paths that don't
   use `azure_entra` must not require Azure credentials at runtime.
-- **ARQ-SIGNALS-AUTH-AZURE-NFR002 (latency)**: steady-state reconnects
+- **SIGNALS-AUTH-AZURE-NFR002 (latency)**: steady-state reconnects
   reuse the cached token (no acquisition); a cold acquisition completes
   within the existing per-target connection budget.
-- **ARQ-SIGNALS-AUTH-AZURE-NFR003 (no test-time Azure calls)**: unit
+- **SIGNALS-AUTH-AZURE-NFR003 (no test-time Azure calls)**: unit
   tests use the injected `entraTokenMinter` fake and make no real Azure
   or network calls, consistent with the repo's "no hidden external
   network calls" safety principle. The live path is exercised only by the

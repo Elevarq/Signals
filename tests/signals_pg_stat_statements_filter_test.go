@@ -5,14 +5,14 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // TestAppNameConstantValue verifies that the exported package constant
 // driving application_name is exactly "signals".
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
+// Traces: SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
 func TestAppNameConstantValue(t *testing.T) {
 	if collector.AppName != "signals" {
 		t.Fatalf("collector.AppName = %q, want %q", collector.AppName, "signals")
@@ -22,7 +22,7 @@ func TestAppNameConstantValue(t *testing.T) {
 // TestBuildConnConfigUsesAppNameConstant verifies that BuildConnConfig
 // sources the application_name runtime parameter from the package
 // constant rather than an inline string literal.
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
+// Traces: SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
 func TestBuildConnConfigUsesAppNameConstant(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "appname-target",
@@ -46,7 +46,7 @@ func TestBuildConnConfigUsesAppNameConstant(t *testing.T) {
 // TestPgStatStatementsCollectorFiltersCurrentDatabase verifies that the
 // registered SQL for pg_stat_statements_v1 restricts rows to the
 // connected database.
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-119 / INV-SIGNALS-17
+// Traces: SIGNALS-R106 / TC-SIG-119 / INV-SIGNALS-17
 func TestPgStatStatementsCollectorFiltersCurrentDatabase(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
 	if q == nil {
@@ -65,7 +65,7 @@ func TestPgStatStatementsCollectorFiltersCurrentDatabase(t *testing.T) {
 // TestPgStatStatementsCollectorExcludesSelf verifies that the registered
 // SQL for pg_stat_statements_v1 excludes rows attributable to the
 // Signals collector itself (application_name = 'signals').
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-119 / INV-SIGNALS-18
+// Traces: SIGNALS-R106 / TC-SIG-119 / INV-SIGNALS-18
 func TestPgStatStatementsCollectorExcludesSelf(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
 	if q == nil {
@@ -93,7 +93,7 @@ func TestPgStatStatementsCollectorExcludesSelf(t *testing.T) {
 // non-behavioral surface of the collector (ID, category, extension
 // gate, retention class, result kind) is preserved by the self-filter
 // rewrite.
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-120
+// Traces: SIGNALS-R106 / TC-SIG-120
 func TestPgStatStatementsCollectorContractUnchanged(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
 	if q == nil {
@@ -123,7 +123,7 @@ func TestPgStatStatementsCollectorContractUnchanged(t *testing.T) {
 
 // TestPgStatStatementsCollectorPassesLint verifies that the rewritten
 // SQL still satisfies the static read-only linter.
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-120 / ARQ-SIGNALS-R002
+// Traces: SIGNALS-R106 / TC-SIG-120 / SIGNALS-R002
 func TestPgStatStatementsCollectorPassesLint(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
 	if q == nil {
@@ -139,7 +139,7 @@ func TestPgStatStatementsCollectorPassesLint(t *testing.T) {
 // carries application_name. Every Signals connection — collector pool,
 // doctor probe, and conntest probe — must self-identify so the
 // pg_stat_statements self-filter works end to end.
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
+// Traces: SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
 func TestBuildSafeDSNCarriesAppName(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "safe-dsn-target",
@@ -172,7 +172,7 @@ func TestBuildSafeDSNCarriesAppName(t *testing.T) {
 // application_name. If a new connection-opening path is added without
 // referencing collector.AppName, that path is flagged.
 //
-// Traces: ARQ-SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
+// Traces: SIGNALS-R106 / TC-SIG-118 / INV-SIGNALS-16
 func TestAppNameLiteralUsedOnlyOnce(t *testing.T) {
 	// Behavioural assertion already covered by
 	// TestBuildConnConfigUsesAppNameConstant; this test pins the

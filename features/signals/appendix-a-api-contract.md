@@ -248,7 +248,7 @@ body.
 **Authentication:** Bearer token required
 
 **Default scope (no selector parameters):** the latest completed
-snapshot per active target. See `ARQ-SIGNALS-R084` for rationale.
+snapshot per active target. See `SIGNALS-R084` for rationale.
 
 **Query parameters:**
 - `target_id` (optional, integer) — filter to a single target

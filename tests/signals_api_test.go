@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/api"
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/api"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 const testAPIToken = "test-token-12345"
@@ -54,7 +54,7 @@ func makeTestHandler(t *testing.T) (http.Handler, func()) {
 }
 
 // TestHealthEndpoint verifies GET /health returns 200 with {"status":"ok"} without auth.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-015
+// Traces: SIGNALS-R011 / TC-SIG-015
 func TestHealthEndpoint(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -77,7 +77,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 // TestStatusEndpointRequiresAuth verifies GET /status without bearer token returns 401.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-016
+// Traces: SIGNALS-R011 / TC-SIG-016
 func TestStatusEndpointRequiresAuth(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -93,7 +93,7 @@ func TestStatusEndpointRequiresAuth(t *testing.T) {
 
 // TestStatusEndpointResponse verifies GET /status with valid token returns 200
 // and the response body contains expected fields but NOT secret_type or secret_ref.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-016
+// Traces: SIGNALS-R011 / TC-SIG-016
 func TestStatusEndpointResponse(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -129,7 +129,7 @@ func TestStatusEndpointResponse(t *testing.T) {
 }
 
 // TestCollectNowEndpoint verifies POST /collect/now with valid token returns 202.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-017
+// Traces: SIGNALS-R011 / TC-SIG-017
 func TestCollectNowEndpoint(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -145,7 +145,7 @@ func TestCollectNowEndpoint(t *testing.T) {
 }
 
 // TestExportEndpoint verifies GET /export with valid token returns application/zip content type.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-018
+// Traces: SIGNALS-R011 / TC-SIG-018
 func TestExportEndpoint(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -168,7 +168,7 @@ func TestExportEndpoint(t *testing.T) {
 // builder fails midway, the handler returns a JSON 500 with no ZIP headers
 // — not a 200 OK with a truncated/invalid ZIP body. This guards against
 // silent data corruption on the consumer side.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-018
+// Traces: SIGNALS-R011 / TC-SIG-018
 func TestExportEndpointReturnsErrorOnFailure(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "broken-export.db")
@@ -213,7 +213,7 @@ func TestExportEndpointReturnsErrorOnFailure(t *testing.T) {
 }
 
 // TestExportEndpointRequiresAuth verifies GET /export without token returns 401.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-018
+// Traces: SIGNALS-R011 / TC-SIG-018
 func TestExportEndpointRequiresAuth(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()
@@ -228,7 +228,7 @@ func TestExportEndpointRequiresAuth(t *testing.T) {
 }
 
 // TestCollectNowEndpointRequiresAuth verifies POST /collect/now without token returns 401.
-// Traces: ARQ-SIGNALS-R011 / TC-SIG-017
+// Traces: SIGNALS-R011 / TC-SIG-017
 func TestCollectNowEndpointRequiresAuth(t *testing.T) {
 	handler, cleanup := makeTestHandler(t)
 	defer cleanup()

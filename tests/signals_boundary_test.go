@@ -53,7 +53,7 @@ func allGoFiles(t *testing.T, root string) []string {
 
 // TestNoAnalyzerImports verifies that no .go file in Elevarq Signals imports
 // packages that belong to the analyzer product boundary.
-// Traces: ARQ-SIGNALS-R007, ARQ-SIGNALS-R008, ARQ-SIGNALS-R009 / TC-SIG-010, TC-SIG-011
+// Traces: SIGNALS-R007, SIGNALS-R008, SIGNALS-R009 / TC-SIG-010, TC-SIG-011
 func TestNoAnalyzerImports(t *testing.T) {
 	root := repoRoot(t)
 	forbidden := []string{
@@ -64,7 +64,7 @@ func TestNoAnalyzerImports(t *testing.T) {
 		"llm",
 		// "doctor" is intentionally NOT in this list. The signals
 		// `doctor` package (internal/doctor, R095) is the operator
-		// pre-flight surface for arq-signals itself, not an analyzer
+		// pre-flight surface for signals itself, not an analyzer
 		// concern. The original boundary list pre-dated R095 and was
 		// reserving the name out of caution; with R095 active the
 		// name is in-scope for this product.
@@ -82,7 +82,7 @@ func TestNoAnalyzerImports(t *testing.T) {
 	// exempted here explicitly.
 	allowedImports := map[string]bool{
 		// AWS SDK v2 RDS IAM auth-token builder — the aws_rds_iam
-		// credential provider (#94, ARQ-SIGNALS-AUTH-AWS-). "auth" here
+		// credential provider (#94, SIGNALS-AUTH-AWS-). "auth" here
 		// is the SDK's feature package name, not Signals product auth.
 		"github.com/aws/aws-sdk-go-v2/feature/rds/auth": true,
 	}
@@ -116,7 +116,7 @@ func TestNoAnalyzerImports(t *testing.T) {
 
 // TestNoLLMCode scans all non-test .go files for strings that would
 // indicate LLM/report integration code has leaked into Elevarq Signals.
-// Traces: ARQ-SIGNALS-R007 / TC-SIG-012
+// Traces: SIGNALS-R007 / TC-SIG-012
 func TestNoLLMCode(t *testing.T) {
 	root := repoRoot(t)
 	forbidden := []string{
@@ -149,7 +149,7 @@ func TestNoLLMCode(t *testing.T) {
 
 // TestNoScoringCode scans all non-test .go files for strings that would
 // indicate scoring/analysis code has leaked into Elevarq Signals.
-// Traces: ARQ-SIGNALS-R008 / TC-SIG-013
+// Traces: SIGNALS-R008 / TC-SIG-013
 func TestNoScoringCode(t *testing.T) {
 	root := repoRoot(t)
 	forbidden := []string{
@@ -184,7 +184,7 @@ func TestNoScoringCode(t *testing.T) {
 // TestLicenseFileExists verifies that a LICENSE file exists and contains
 // the expected BSD-3-Clause identifier. This test will pass after Phase 7
 // (OSS readiness).
-// Traces: ARQ-SIGNALS-R009 / TC-SIG-014
+// Traces: SIGNALS-R009 / TC-SIG-014
 func TestLicenseFileExists(t *testing.T) {
 	root := repoRoot(t)
 	licensePath := filepath.Join(root, "LICENSE")
@@ -201,7 +201,7 @@ func TestLicenseFileExists(t *testing.T) {
 
 // TestNoProprietaryContent scans all files for proprietary markers that
 // must not appear in an open-source project.
-// Traces: ARQ-SIGNALS-R009 / TC-SIG-014
+// Traces: SIGNALS-R009 / TC-SIG-014
 func TestNoProprietaryContent(t *testing.T) {
 	root := repoRoot(t)
 	forbidden := []string{

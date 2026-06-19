@@ -1,7 +1,7 @@
 # pg_statistic_ext_data_v1 — Collector Specification
 
 Spec version: 1.0
-Issue: [Elevarq/Arq-Signals#171](https://github.com/Elevarq/Arq-Signals/issues/171)
+Issue: [Elevarq/Signals#171](https://github.com/Elevarq/Signals/issues/171)
 Sibling (metadata): [pg_statistic_ext_v1](pg_statistic_ext_v1.md)
 
 ## Purpose
@@ -12,7 +12,7 @@ dependencies, multivariate ndistinct, multivariate MCV, expression
 stats). These are the values the planner uses to fix correlated-
 column selectivity, joint cardinality for `GROUP BY`, etc.
 
-The metadata sibling `pg_statistic_ext_v1` (Arq-Signals#131) emits
+The metadata sibling `pg_statistic_ext_v1` (Signals#131) emits
 "which CREATE STATISTICS objects exist". This collector emits
 "what those objects contain" — the statistics values themselves, used
 in downstream planner-cost analysis.

@@ -1,7 +1,7 @@
 // Tests for the target-identity / orphan-target_id fix (R089, R090).
 //
-// Spec: features/arq-signals/specification.md — R089, R090, INV-SIGNALS-14.
-// Spec: features/arq-signals/acceptance-tests.md — TC-SIG-100..107.
+// Spec: features/signals/specification.md — R089, R090, INV-SIGNALS-14.
+// Spec: features/signals/acceptance-tests.md — TC-SIG-100..107.
 //
 // Background: a v0.3.x daemon running for ~17 hours produced 1,337
 // distinct values in `snapshots.target_id` against 1 actual `targets`
@@ -26,8 +26,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // ---------------------------------------------------------------

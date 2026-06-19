@@ -1,8 +1,8 @@
 # Feature Specification: mTLS Client-Certificate Credential Provider
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-MTLS-`
+- **Spec ID prefix:** `SIGNALS-AUTH-MTLS-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#98](https://github.com/Elevarq/Arq-Signals/issues/98)
+- **Tracking issue:** [#98](https://github.com/Elevarq/Signals/issues/98)
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy, and resolved design
@@ -94,30 +94,30 @@ mtlsProvider implements CredentialProvider:
 
 ## Invariants (mTLS-specific; keystone invariants also apply)
 
-- **ARQ-SIGNALS-AUTH-MTLS-INV001 (private key never disclosed)**: The private
+- **SIGNALS-AUTH-MTLS-INV001 (private key never disclosed)**: The private
   key material (and any passphrase) is never written to logs, errors, audit,
   metrics, the local DB, or exports — only non-secret metadata (cert subject,
   fingerprint, `NotAfter`). Instance of keystone INV002/INV007 extended to
   private-key material.
-- **ARQ-SIGNALS-AUTH-MTLS-INV002 (no inline password source)**: A target with
+- **SIGNALS-AUTH-MTLS-INV002 (no inline password source)**: A target with
   `auth_method: mtls` carries no `password_file` / `password_env` /
   `pgpass_file` — authentication is by certificate. (Enforced at startup by
   FC-MTLS-005.) Note: unlike the token methods, the credential here is a local
   key file, so keystone INV001 (which forbids *stored secrets* for the
   *token* methods) does not forbid the key file; it forbids a *password*.
-- **ARQ-SIGNALS-AUTH-MTLS-INV003 (rotation on reconnect)**: The cert + key are
+- **SIGNALS-AUTH-MTLS-INV003 (rotation on reconnect)**: The cert + key are
   re-read on every new physical connection, so a rotated certificate or key is
   picked up on the next reconnect without a daemon restart. There is no token
   cache and no refresh timer — the file content at connect time is
   authoritative. (Instance of keystone INV004.)
-- **ARQ-SIGNALS-AUTH-MTLS-INV004 (verify-full floor)**: A `mtls` target's
+- **SIGNALS-AUTH-MTLS-INV004 (verify-full floor)**: A `mtls` target's
   effective `sslmode` MUST be `verify-full`, in every environment. Client-cert
   auth is meaningless without verifying the server it is presented to;
   presenting a client certificate to an unverified server risks disclosing it
   to an impostor. This applies the keystone INV003 transport posture to `mtls`
   — a confirmed local strengthening, not a weakening of any keystone rule.
   Enforced by FC-MTLS-004.
-- **ARQ-SIGNALS-AUTH-MTLS-INV005 (read-only model untouched)**: `mtls` changes
+- **SIGNALS-AUTH-MTLS-INV005 (read-only model untouched)**: `mtls` changes
   only how the connection authenticates; `ValidateRoleSafety` still runs and no
   write capability is added. (Instance of keystone INV005.)
 
@@ -144,15 +144,15 @@ mtlsProvider implements CredentialProvider:
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-MTLS-NFR001 (no new dependencies)**: `mtls` uses only the
+- **SIGNALS-AUTH-MTLS-NFR001 (no new dependencies)**: `mtls` uses only the
   Go standard library (`crypto/tls`, `crypto/x509`, `encoding/pem`) and pgx —
   no cloud SDK. It links cleanly on the core path with no build-tag isolation
   required.
-- **ARQ-SIGNALS-AUTH-MTLS-NFR002 (latency)**: cert + key parsing at
+- **SIGNALS-AUTH-MTLS-NFR002 (latency)**: cert + key parsing at
   `BeforeConnect` completes within the existing per-target connection budget;
   the material MAY be re-parsed per reconnect (no caching is required since
   there is no network mint).
-- **ARQ-SIGNALS-AUTH-MTLS-NFR003 (no test-time key material)**: unit tests use
+- **SIGNALS-AUTH-MTLS-NFR003 (no test-time key material)**: unit tests use
   injected fixtures (ephemeral self-signed test certs generated in-test) and
   read no operator key material, consistent with the repo's safety principles.
 

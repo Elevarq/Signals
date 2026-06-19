@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // --- GCP test doubles -------------------------------------------------

@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
 // R097 / signals.circuit ValidateStrict gates (issue #90).
 //
-// Spec: features/arq-signals/specification.md § Circuit breaker
+// Spec: features/signals/specification.md § Circuit breaker
 // ---------------------------------------------------------------------------
 
 func TestCircuitConfig_RejectsNegativeFailThreshold(t *testing.T) {

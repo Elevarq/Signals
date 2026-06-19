@@ -43,8 +43,8 @@ but can be consumed by any tool that reads JSON.
 ## Get started in 2 minutes
 
 ```bash
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals
+git clone https://github.com/elevarq/signals.git
+cd signals
 docker compose -f examples/docker-compose.yml up -d
 ```
 

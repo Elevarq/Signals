@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -1691,7 +1691,7 @@ func TestSequencesCollectorResultKind(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Schema Metadata Collectors — pg_statistic_ext_v1 (Arq#393 / Arq-Signals#130)
+// Schema Metadata Collectors — pg_statistic_ext_v1 (Arq#393 / Signals#130)
 // ---------------------------------------------------------------------------
 
 func TestStatisticExtCollectorRegistered(t *testing.T) {
@@ -1801,7 +1801,7 @@ func TestSequencesCollectorIncludedOnPG14(t *testing.T) {
 func TestSchemaPhase2CompleteCatalogCount(t *testing.T) {
 	all := pgqueries.All()
 	// 29 baseline + 15 schema collectors = 44 minimum
-	// (+ pg_statistic_ext_v1 from Arq-Signals#130 keeps us above
+	// (+ pg_statistic_ext_v1 from Signals#130 keeps us above
 	// the floor; the floor is intentionally a >= check so adding
 	// collectors doesn't churn the test.)
 	if len(all) < 44 {
@@ -2031,7 +2031,7 @@ func TestStatisticExtDataMCVCollectorEmitsOnlyMCV(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// pg_identity_columns_v1 — Arq-Signals#202 / Arq#652 dependency
+// pg_identity_columns_v1 — Signals#202 / Arq#652 dependency
 // ---------------------------------------------------------------------------
 
 func TestIdentityColumnsCollectorRegistered(t *testing.T) {

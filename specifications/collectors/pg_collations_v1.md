@@ -62,4 +62,4 @@ source text.
 ## Downstream use
 
 - Queries using user collations can be analysed accurately. Audit:
-  Elevarq/Arq-Signals#212.
+  Elevarq/Signals#212.

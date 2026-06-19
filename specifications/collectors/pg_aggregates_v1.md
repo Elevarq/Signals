@@ -59,4 +59,4 @@ source text.
 ## Downstream use
 
 - Queries calling user-defined aggregates can be analysed accurately.
-  Audit: Elevarq/Arq-Signals#212.
+  Audit: Elevarq/Signals#212.

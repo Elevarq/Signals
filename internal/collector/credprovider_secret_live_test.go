@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -52,7 +52,7 @@ import (
 //	SIGNALS_TEST_SECRET_JSON_KEY=password \
 //	  go test -tags integration ./internal/collector/ -run Live_SecretStore -v
 //
-// Specification: features/arq-signals/credential-provider-secret-store.md
+// Specification: features/signals/credential-provider-secret-store.md
 // ---------------------------------------------------------------------------
 func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {

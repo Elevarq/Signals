@@ -4,7 +4,7 @@
 
 `specifications/collectors/timescaledb_family_v1.md` (R114, R115)
 
-Test evidence types follow `features/arq-signals/traceability.md`:
+Test evidence types follow `features/signals/traceability.md`:
 BEHAVIORAL tests run without a live server against the registry;
 INTEGRATION tests are build-tag guarded (`//go:build integration`)
 and gated on `SIGNALS_TEST_TSDB_DSN` (TimescaleDB target) /

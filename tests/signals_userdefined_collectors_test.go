@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
-// Elevarq/Arq-Signals#217-#222 (#212 family): the remaining
+// Elevarq/Signals#217-#222 (#212 family): the remaining
 // user-defined-object collectors — operators, aggregates, rules, casts,
 // collations, text-search configurations. Each emits user-defined,
 // non-extension-owned objects so queries that reference them remain

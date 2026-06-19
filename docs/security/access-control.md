@@ -1,8 +1,8 @@
 # Access control — API bearer token
 
-Tracking: [#135](https://github.com/Elevarq/Arq-Signals/issues/135),
-[#136](https://github.com/Elevarq/Arq-Signals/issues/136),
-[#137](https://github.com/Elevarq/Arq-Signals/issues/137).
+Tracking: [#135](https://github.com/Elevarq/Signals/issues/135),
+[#136](https://github.com/Elevarq/Signals/issues/136),
+[#137](https://github.com/Elevarq/Signals/issues/137).
 
 This page documents the control-plane access guarantees Elevarq Signals
 implements today. Suitable to cite for SOC 2 / ISO 27001 evidence

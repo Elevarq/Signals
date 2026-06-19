@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/conntest"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/conntest"
 )
 
 // capture records what the orchestrator handed the diagnostic seam.

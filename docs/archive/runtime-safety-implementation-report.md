@@ -51,15 +51,15 @@ blocked by default when the connected role has unsafe attributes.
   WithAllowUnsafeRole option, safety validation block in collectTarget
 - `internal/config/config.go` — added AllowUnsafeRole field and env override
 - `internal/export/export.go` — added unsafeMode/unsafeReasons to metadata
-- `cmd/arq-signals/main.go` — wired AllowUnsafeRole to collector and exporter
+- `cmd/signals/main.go` — wired AllowUnsafeRole to collector and exporter
 - `README.md` — added role safety validation section
 - `docs/faq.md` — added superuser FAQ entry
 - `docs/adoption-guide.md` — added role safety subsection
 
 ### STDD artifacts updated
-- `features/arq-signals/specification.md` — added R017-R026, INV-05-07
-- `features/arq-signals/acceptance-tests.md` — added TC-SIG-025 through TC-SIG-035
-- `features/arq-signals/traceability.md` — added 10 rows, all COVERED
+- `features/signals/specification.md` — added R017-R026, INV-05-07
+- `features/signals/acceptance-tests.md` — added TC-SIG-025 through TC-SIG-035
+- `features/signals/traceability.md` — added 10 rows, all COVERED
 
 ## Justified Limitations
 

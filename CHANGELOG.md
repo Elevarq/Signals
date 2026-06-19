@@ -21,6 +21,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Changed
 
+- **Completed the de-`arq` rename (#171, closes #62).** With the GitHub
+  repository renamed to `Elevarq/Signals`, the last structural Arq names
+  are gone: the **Go module path** is now `github.com/elevarq/signals`
+  (first-party consumers must update imports), the spec tree moved
+  `features/arq-signals/` → `features/signals/`, requirement IDs are
+  `SIGNALS-*` (was `ARQ-SIGNALS-*`), and residual `Elevarq/Arq-Signals`
+  repo URLs / issue links now point at `Elevarq/Signals`. The deprecated
+  `arqctl` / `arq-signals` binary aliases were already removed (#168).
+  References to the sibling **Arq analyzer** repo are unchanged — that is
+  a separate product.
 - **BREAKING — removed the residual `arq` branding from every user-facing
   interface (#137).** Beta intentionally froze these names (see the
   beta.4 note below); with adoption beginning, this is the last window to
@@ -94,9 +104,9 @@ This project adheres to [Semantic Versioning](https://semver.org/).
     `TestR083ControlPlaneTokenSetsArqActor`,
     `TestHelm_ConfigMapIsMountedAtEtcArq`).
 
-  Unchanged (intentional): internal `ARQ-SIGNALS-*` requirement IDs, and
-  the Go module path / `features/arq-signals/` tree (gated on the
-  repository rename #62).
+  These last Arq-prefixed identifiers (the module path, the `features/`
+  spec tree, and the requirement-ID prefix) were completed once the
+  repository was renamed — see the #171 entry above.
 
 ### Removed
 

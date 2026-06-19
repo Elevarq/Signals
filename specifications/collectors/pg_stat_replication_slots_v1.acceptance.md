@@ -17,7 +17,7 @@ for the majority of installations.
 **Given:**
 - A PostgreSQL primary on PG 14+ with no entries in
   `pg_replication_slots`.
-- The arq-signals read-only role can `SELECT` from
+- The signals read-only role can `SELECT` from
   `pg_stat_replication_slots`.
 
 **When:**

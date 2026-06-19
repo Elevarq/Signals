@@ -1,12 +1,12 @@
 // Tests for the latest-snapshot export semantics added by R084..R086.
 //
-// Spec: features/arq-signals/specification.md
-//   ARQ-SIGNALS-R084 (default export scope = latest completed
+// Spec: features/signals/specification.md
+//   SIGNALS-R084 (default export scope = latest completed
 //                     snapshot per active target)
-//   ARQ-SIGNALS-R085 (explicit selectors: --all, --snapshot-id,
+//   SIGNALS-R085 (explicit selectors: --all, --snapshot-id,
 //                     --since/--until, --target-id)
-//   ARQ-SIGNALS-R086 (metadata fields snapshot_count + ingest_mode)
-// Spec: features/arq-signals/acceptance-tests.md
+//   SIGNALS-R086 (metadata fields snapshot_count + ingest_mode)
+// Spec: features/signals/acceptance-tests.md
 //   TC-SIG-093..TC-SIG-099
 //
 // These tests describe the producer-side wire contract any consumer
@@ -29,8 +29,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // ---------------------------------------------------------------

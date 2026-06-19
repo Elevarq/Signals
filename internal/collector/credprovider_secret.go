@@ -7,13 +7,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // secretFetcher is the seam between the resolver and a cloud secret store.
 // The production implementation (productionSecretFetcher) routes to the SDK
 // for the inferred backend; unit tests inject a fake so no test makes a real
-// cloud call (ARQ-SIGNALS-AUTH-SECRET-NFR003). ttl is the vault-supplied
+// cloud call (SIGNALS-AUTH-SECRET-NFR003). ttl is the vault-supplied
 // lease duration, or 0 when the backend supplies none (e.g. AWS Secrets
 // Manager). The returned value is the raw payload — JSON-key extraction
 // happens in the resolver, not the fetcher.
