@@ -133,6 +133,8 @@ just samples the same counter values more often.
 | `signals_sqlite_persistence_failures_total` | counter | (none) | `InsertCollectionAtomic` rollbacks (R077). |
 | `signals_last_successful_collection_timestamp` | gauge | `target` | Unix seconds of the most recent successful collection per target. |
 | `signals_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
+| `signals_circuit_state` | gauge | `target`, `state` | Per-target circuit-breaker state (R097); one row per state (`closed` / `open` / `paused`), the active row has value `1`, the others `0`. |
+| `signals_eligible_collectors` | gauge | `target` | Collectors eligible to run for the target after the version (R081), extension, daemon-wide sensitivity (R075), and per-target profile (R098) gates. Alert on sudden drops. |
 
 ## Suggested alerts
 
