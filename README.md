@@ -78,7 +78,10 @@ audit the binary. You own the output.
 
 ## What Elevarq Signals does
 
-- Connects to one or more PostgreSQL instances (14+)
+- Connects to one or more PostgreSQL instances (14+) — **passwordless via
+  cloud IAM** (RDS / Cloud SQL / Azure), or with the password fetched **live
+  from a cloud secret store**, so no database secret lives in config
+  ([details](#connecting-to-your-databases--passwordless--secret-store-auth))
 - Runs 99 read-only diagnostic collectors covering:
   - Server configuration, identity, and cluster fingerprint
   - Session activity and connection pressure
@@ -119,6 +122,42 @@ audit the binary. You own the output.
   (`signalsctl connect test`)
 - Per-target sensitivity profiles, per-class retention, and a
   per-target circuit breaker for operator safety during incidents
+
+## Connecting to your databases — passwordless & secret-store auth
+
+**No database password has to live in Signals' config.** Point a target at
+your existing cloud identity or secret store, and Signals resolves the
+credential at connect time — nothing is written to disk, logs, or exports.
+
+| `auth_method` | For | How it authenticates |
+|---|---|---|
+| `aws_rds_iam` | AWS RDS / Aurora | short-lived IAM token (instance profile / IRSA / Pod Identity) — **no password** |
+| `azure_entra` | Azure Flexible Server | Entra ID token (Managed Identity) — **no password** |
+| `gcp_cloudsql_iam` | Cloud SQL | IAM token (Workload Identity / ADC) — **no password** |
+| `secret_store` | self-managed, any cloud | password fetched live from **AWS Secrets Manager**, **AWS Systems Manager Parameter Store**, **Azure Key Vault**, or **GCP Secret Manager** |
+| `mtls` | on-prem / regulated | client X.509 certificate |
+| `password` | anywhere | password from a file / env var / Kubernetes Secret — never inline |
+
+Example — fetch the password from **AWS Secrets Manager** (or Parameter
+Store), with no secret in config:
+
+```yaml
+targets:
+  - name: prod
+    host: db.internal
+    dbname: appdb
+    user: signals
+    auth_method: secret_store
+    secret_ref: arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/db-AbCdEf
+    # …or a Parameter Store ARN: arn:aws:ssm:eu-west-1:123456789012:parameter/prod/db
+    sslmode: verify-full
+```
+
+The shape of `secret_ref` selects the backend (Secrets Manager / Parameter
+Store ARN, Key Vault URI, or Secret Manager resource name) — the region is
+taken from the ARN, never the environment. Full per-cloud recipes and the
+exact least-privilege IAM grants:
+[docs/database-connections.md](docs/database-connections.md).
 
 ## Specification & Test-Driven Development (STDD)
 
