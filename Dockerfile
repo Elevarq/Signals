@@ -29,6 +29,18 @@ RUN CGO_ENABLED=0 go build \
 # Stage 2: Runtime
 FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
 
+# Static OCI image labels so a locally built image is self-describing. The
+# release workflow's metadata-action re-applies these (plus dynamic
+# revision/created/version) at push time with identical values — keep them in
+# sync with .github/workflows/release.yml.
+LABEL org.opencontainers.image.title="signals" \
+      org.opencontainers.image.description="Open-source PostgreSQL diagnostic signal collector — local-first, no data egress." \
+      org.opencontainers.image.licenses="BSD-3-Clause" \
+      org.opencontainers.image.vendor="Elevarq" \
+      org.opencontainers.image.url="https://github.com/Elevarq/signals" \
+      org.opencontainers.image.source="https://github.com/Elevarq/signals" \
+      org.opencontainers.image.documentation="https://github.com/Elevarq/signals/blob/main/README.md"
+
 RUN apk add --no-cache tini ca-certificates \
     && adduser -D -u 10001 signals
 
