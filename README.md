@@ -939,7 +939,9 @@ analyzer).
 
 ## License
 
-BSD-3-Clause. See [LICENSE](LICENSE).
+BSD-3-Clause. See [LICENSE](LICENSE). Third-party dependency licenses are
+reproduced in [THIRD-PARTY-NOTICES](THIRD-PARTY-NOTICES) (regenerate with
+`bash scripts/gen-third-party-notices.sh`).
 
 Free to use, modify, and distribute for any purpose, including
 commercial use.
