@@ -187,8 +187,9 @@ type TargetConfig struct {
 	GCPImpersonateServiceAccount string `yaml:"gcp_impersonate_service_account"`
 
 	// SecretRef is the cloud secret-store reference for the secret_store
-	// provider (SIGNALS-AUTH-SECRET-, #97): an AWS Secrets Manager ARN,
-	// an Azure Key Vault secret URI, or a GCP Secret Manager resource name.
+	// provider (SIGNALS-AUTH-SECRET-, #97): an AWS Secrets Manager ARN, an
+	// AWS Systems Manager Parameter Store ARN, an Azure Key Vault secret URI,
+	// or a GCP Secret Manager resource name.
 	// Its shape selects the backend (InferSecretBackend). Required when
 	// auth_method is secret_store (FC-SECRET-007). Not a secret: the
 	// reference names, but does not contain, the credential.
