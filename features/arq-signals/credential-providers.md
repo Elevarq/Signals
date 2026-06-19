@@ -79,8 +79,9 @@ conform to the interface, invariants, and failure taxonomy defined here.
     (`https://ossrdbms-aad.database.windows.net/.default`).
   - `gcp_cloudsql_iam` — no required fields; identity comes from the
     attached service account / Application Default Credentials.
-  - `secret_store` — `secret_ref` (ARN / Key Vault secret URI / Secret
-    Manager resource name). The provider's own auth to the vault uses
+  - `secret_store` — `secret_ref` (Secrets Manager ARN / Parameter Store
+    ARN / Key Vault secret URI / Secret Manager resource name). The
+    provider's own auth to the vault uses
     ambient workload identity. Optional `max_cache_ttl` (duration)
     bounds how long a fetched secret may be cached when the vault
     supplies no TTL/lease of its own (see INV004).

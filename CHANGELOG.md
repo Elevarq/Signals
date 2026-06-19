@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **`secret_store`: AWS Systems Manager Parameter Store backend (#157).**
+  A target's database password may now live in Parameter Store, referenced
+  by ARN (`arn:aws:ssm:<region>:<acct>:parameter/<name>`). The parameter is
+  fetched with `GetParameter` and `WithDecryption=true`, so a `SecureString`
+  is returned decrypted and a plain `String` passes through. The region is
+  taken authoritatively from the ARN, and the `ssm` vs `secretsmanager` ARN
+  service segment selects the backend. Requires `ssm:GetParameter` (plus
+  `kms:Decrypt` on the CMK for a `SecureString`). All other `secret_store`
+  behaviour (verify-full floor, no inline password, never-log, per-target
+  cache, `secret_json_key`) is unchanged.
+
 ### Changed
 
 - **BREAKING — removed the residual `arq` branding from every user-facing
