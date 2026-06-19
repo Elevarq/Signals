@@ -58,11 +58,33 @@ includes but is not limited to:
 
 ## Query text handling
 
-- Normalized text only: `pg_stat_statements` replaces constants
-  with `$N` placeholders for parameterized SQL. Unparameterized
-  SQL retains its literals — acceptable under the
-  deployment-boundary assumption (data remains on site). No
-  collection-time redaction.
+- Normalized text: `pg_stat_statements` replaces constants with `$N`
+  placeholders for parameterized SQL, so ordinary DML literals are not
+  retained. **Utility statements are not normalized**, so a literal
+  secret in `CREATE`/`ALTER ROLE … PASSWORD '…'` — or a libpq conninfo
+  `password=` inside `dblink` / `postgres_fdw` / `CREATE SUBSCRIPTION …
+  CONNECTION` — is retained verbatim by the view (#188).
+- **REDACT-R001 (structured credential redaction):** the `query`
+  column MUST be passed through the statement-secret redactor before
+  the row is persisted or exported (the same pre-NDJSON seam as the FDW
+  option redactor), so cleartext never reaches the local store or the
+  snapshot. This is **unconditional** — independent of the
+  high-sensitivity gate (SIGNALS-R075); a credential must never be
+  exportable. Reaffirms **INV-SIGNALS-07**.
+- **REDACT-R002 (patterns):** the redactor masks the secret literal
+  while preserving the surrounding statement shape:
+  - `[ENCRYPTED] PASSWORD '<lit>'` in `CREATE`/`ALTER`
+    `ROLE`/`USER`/`GROUP` → `PASSWORD '<redacted>'`.
+  - libpq conninfo `password=<val>` / `password '<val>'` (in `dblink`,
+    `postgres_fdw`, `CREATE SUBSCRIPTION … CONNECTION`, and user-mapping
+    option text) → `password=<redacted>`.
+- **REDACT-R003 (no over-redaction):** statements with no credential
+  syntax — the overwhelming majority, since DML literals are already
+  `$N`-normalized — pass through unchanged, preserving diagnostic value.
+- **Out of scope (bucket 2, #189):** secrets hard-coded into free-form
+  code (function/procedure bodies, arbitrary non-credential literals,
+  comments) are NOT detected or redacted. This collector guarantees
+  redaction only of the structured credential syntax above.
 
 ## Invariants
 
@@ -102,9 +124,12 @@ includes but is not limited to:
 
 ## Sensitivity
 
-Low-to-medium. Query text may embed literals on unparameterized SQL;
-by deployment-boundary assumption the snapshot remains within the
-customer site.
+Low-to-medium. Structured credential syntax in the `query` text
+(`PASSWORD '…'`, conninfo `password=`) is redacted before persistence
+(REDACT-R001..R003, INV-SIGNALS-07). Non-credential literals on
+unparameterized SQL may still appear and, like secrets hard-coded into
+free-form code (bucket 2, #189), are not redacted; the snapshot remains
+within the customer site by the deployment-boundary assumption.
 
 ## Analyzer requirements unblocked
 

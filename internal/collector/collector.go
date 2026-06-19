@@ -1133,6 +1133,14 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// Spec: specifications/collectors/fdw_*_v1.md REDACT-R001..R004.
 		redactFDWRowsIfNeeded(q.ID, rows)
 
+		// Statement-text post-processing: redact structured credential
+		// literals (PASSWORD '…', conninfo password=) in collectors that
+		// carry raw SQL text (pg_stat_statements_v1.query) BEFORE encoding,
+		// so cleartext never reaches disk or the export. No-op otherwise.
+		// Spec: specifications/collectors/pg_stat_statements_v1.md
+		// REDACT-R001..R003 (#188 / INV-SIGNALS-07).
+		redactStatementSecretsIfNeeded(q.ID, rows)
+
 		// R075 (revised, issue #6): when the operator has opted out of
 		// high-sensitivity collection, NULL the collector's declared
 		// SensitiveColumns in each row so the sensitive payload never
