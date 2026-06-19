@@ -19,7 +19,7 @@
 package collector
 
 import (
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // fdwOptionColumnByID maps the FDW collector's logical ID to the

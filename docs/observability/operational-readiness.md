@@ -1,6 +1,6 @@
 # Operational readiness — health, diagnostics, support
 
-Tracking: [#138](https://github.com/Elevarq/Arq-Signals/issues/138).
+Tracking: [#138](https://github.com/Elevarq/Signals/issues/138).
 
 This page documents the runtime observability surface Elevarq Signals
 exposes, the closed taxonomy operators use to triage state, and

@@ -11,7 +11,7 @@ excludes:
 - `stakind=6` RANGE_LENGTH_HISTOGRAM — float8 length histogram for range types
 - `stakind=7` RANGE_BOUNDS_HISTOGRAM — array-of-ranges bounds histogram
 
-Tracking: [Elevarq/Arq-Signals#128](https://github.com/Elevarq/Arq-Signals/issues/128).
+Tracking: [Elevarq/Signals#128](https://github.com/Elevarq/Signals/issues/128).
 
 ## Status
 
@@ -191,5 +191,5 @@ ORDER BY schemaname, tablename, attname
 
 ## References
 
-- [Elevarq/Arq-Signals#128](https://github.com/Elevarq/Arq-Signals/issues/128) — this collector
+- [Elevarq/Signals#128](https://github.com/Elevarq/Signals/issues/128) — this collector
 - `pg_stats_extended_v1.md` — sibling collector for standard MCV / histogram_bounds

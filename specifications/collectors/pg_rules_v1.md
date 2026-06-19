@@ -54,4 +54,4 @@ default (R075); enabled via the daemon flag or an R098 per-target profile.
 ## Downstream use
 
 - DML on rule-bearing relations can be analysed accurately.
-  Audit: Elevarq/Arq-Signals#212.
+  Audit: Elevarq/Signals#212.

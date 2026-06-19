@@ -7,8 +7,8 @@ import (
 	"io"
 	"net/http"
 
-	"github.com/elevarq/arq-signals/internal/circuit"
-	"github.com/elevarq/arq-signals/internal/safety"
+	"github.com/elevarq/signals/internal/circuit"
+	"github.com/elevarq/signals/internal/safety"
 )
 
 // pauseMaxBodyBytes caps the /collect/pause and /collect/resume

@@ -1,8 +1,8 @@
 # Feature Specification: GCP Cloud SQL IAM Credential Provider
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-GCP-`
+- **Spec ID prefix:** `SIGNALS-AUTH-GCP-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#96](https://github.com/Elevarq/Arq-Signals/issues/96)
+- **Tracking issue:** [#96](https://github.com/Elevarq/Signals/issues/96)
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy, and resolved design
@@ -122,18 +122,18 @@ operator-configurable.
 
 ## Invariants (GCP-specific; keystone invariants also apply)
 
-- **ARQ-SIGNALS-AUTH-GCP-INV001**: A target with `auth_method:
+- **SIGNALS-AUTH-GCP-INV001**: A target with `auth_method:
   gcp_cloudsql_iam` carries no password source. (Keystone INV001; enforced
   by FC-GCP-003.)
-- **ARQ-SIGNALS-AUTH-GCP-INV002**: The token is never written to logs,
+- **SIGNALS-AUTH-GCP-INV002**: The token is never written to logs,
   errors, audit, metrics, the local DB, or exports — only its metadata.
   (Keystone INV002/INV007.)
-- **ARQ-SIGNALS-AUTH-GCP-INV003**: The token is cached per target and
+- **SIGNALS-AUTH-GCP-INV003**: The token is cached per target and
   re-acquired before expiry at `max(60s, min(5m, ttl*0.20))` (keystone
   default; for a ~60-minute token this caps at the **5-minute** ceiling).
   Cache key = `target_id` + `auth_method` + `db_user` + host/instance
   identity. Never shared across targets. (Keystone NFR001.)
-- **ARQ-SIGNALS-AUTH-GCP-INV004**: The token scope is fixed at
+- **SIGNALS-AUTH-GCP-INV004**: The token scope is fixed at
   `https://www.googleapis.com/auth/sqlservice.login`; no code path or
   config may widen it.
 
@@ -161,15 +161,15 @@ operator-configurable.
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-GCP-NFR001 (dependency hygiene)**: Use
+- **SIGNALS-AUTH-GCP-NFR001 (dependency hygiene)**: Use
   `golang.org/x/oauth2/google` (direct-libpq path) at a pinned version;
   the additions MUST pass Trivy / govulncheck gates. The GCP SDK is linked
   only on this provider's path — non-GCP targets require no Google
   credentials at runtime.
-- **ARQ-SIGNALS-AUTH-GCP-NFR002 (latency)**: steady-state reconnects reuse
+- **SIGNALS-AUTH-GCP-NFR002 (latency)**: steady-state reconnects reuse
   the cached token; a cold acquisition completes within the per-target
   connection budget.
-- **ARQ-SIGNALS-AUTH-GCP-NFR003 (no test-time GCP calls)**: unit tests use
+- **SIGNALS-AUTH-GCP-NFR003 (no test-time GCP calls)**: unit tests use
   the injected `gcpTokenMinter` fake and make no real GCP or network
   calls. The live path is exercised only by the env-gated smoke.
 

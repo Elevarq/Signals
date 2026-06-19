@@ -6,8 +6,8 @@ PostgreSQL. Each target picks one `auth_method`; the method decides
 allowed to do — the read-only least-privilege model is identical for
 every method.
 
-Specs: `features/arq-signals/credential-providers.md`
-(`ARQ-SIGNALS-AUTH-*`, ACTIVE) and the per-provider sub-specs
+Specs: `features/signals/credential-providers.md`
+(`SIGNALS-AUTH-*`, ACTIVE) and the per-provider sub-specs
 (#94–#98).
 
 ## The guarantees (read this first)
@@ -396,5 +396,5 @@ Each is actionable and redacted (the credential never appears):
   method authenticates as.
 - [authentication.md](authentication.md) — authentication for Signals'
   own HTTP API (a different concern from database connections).
-- `features/arq-signals/credential-providers.md` — the authoritative
+- `features/signals/credential-providers.md` — the authoritative
   specification.

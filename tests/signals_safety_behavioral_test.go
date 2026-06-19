@@ -7,8 +7,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // ---------------------------------------------------------------------------

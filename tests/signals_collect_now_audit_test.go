@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // captureAuditLogs swaps slog's default logger for a buffered text
@@ -46,7 +46,7 @@ func postCollectNow(t *testing.T, handler http.Handler, body string) (int, strin
 // TestCollectNowAcceptsValidRequestID verifies the happy path: a
 // caller-supplied request_id matching the regex is accepted, returned
 // in the response body, and surfaced in the audit log.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-074
+// Traces: SIGNALS-R082 / TC-SIG-074
 func TestCollectNowAcceptsValidRequestID(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -76,7 +76,7 @@ func TestCollectNowAcceptsValidRequestID(t *testing.T) {
 // request_id is supplied, the daemon generates a ULID and returns it
 // to the caller. The response gives the operator a value they can
 // later grep in audit logs.
-// Traces: ARQ-SIGNALS-R082
+// Traces: SIGNALS-R082
 func TestCollectNowGeneratesULIDWhenAbsent(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -94,7 +94,7 @@ func TestCollectNowGeneratesULIDWhenAbsent(t *testing.T) {
 // request_id (containing characters outside [A-Za-z0-9_-] or longer
 // than 32 chars) is rejected with 400 and a collect_now_rejected
 // audit event.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-075
+// Traces: SIGNALS-R082 / TC-SIG-075
 func TestCollectNowRejectsInvalidRequestID(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -128,7 +128,7 @@ func TestCollectNowRejectsInvalidRequestID(t *testing.T) {
 
 // TestCollectNowAcceptsValidReason verifies a reason matching the
 // charset is accepted and surfaced in the audit log.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-076
+// Traces: SIGNALS-R082 / TC-SIG-076
 func TestCollectNowAcceptsValidReason(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -151,7 +151,7 @@ func TestCollectNowAcceptsValidReason(t *testing.T) {
 // TestCollectNowRejectsInvalidReason verifies an out-of-spec reason
 // (containing characters outside [A-Za-z0-9_-] or longer than 64
 // chars) is rejected with 400 and a collect_now_rejected event.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-077
+// Traces: SIGNALS-R082 / TC-SIG-077
 func TestCollectNowRejectsInvalidReason(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -188,7 +188,7 @@ func TestCollectNowRejectsInvalidReason(t *testing.T) {
 // regardless of whether request_id was supplied. The
 // control_plane actor value must NEVER be inferred from request
 // shape — that's reserved for Phase 3 once a separate token exists.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-078
+// Traces: SIGNALS-R082 / TC-SIG-078
 func TestCollectNowActorAlwaysLocalOperator(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -218,7 +218,7 @@ func TestCollectNowActorAlwaysLocalOperator(t *testing.T) {
 // an unknown / disabled target produces a collect_now_rejected event
 // carrying request_id, requested_targets, accepted_targets, and
 // rejected_targets so an auditor can correlate the failure.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-079
+// Traces: SIGNALS-R082 / TC-SIG-079
 func TestCollectNowRejectedTargetEmitsAudit(t *testing.T) {
 	targets := []config.TargetConfig{
 		{Name: "primary", Host: "h", DBName: "d", User: "u", Enabled: true},
@@ -254,7 +254,7 @@ func TestCollectNowRejectedTargetEmitsAudit(t *testing.T) {
 // all enabled) AND now emits a collect_now_requested audit event with
 // a generated request_id. The HTTP response body adds the
 // generated request_id field but the original status field stays.
-// Traces: ARQ-SIGNALS-R082
+// Traces: SIGNALS-R082
 func TestCollectNowEmptyBodyBackwardCompatPhase2(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()
@@ -282,7 +282,7 @@ func TestCollectNowEmptyBodyBackwardCompatPhase2(t *testing.T) {
 // that no secret-shaped substring leaks into the audit stream. R078's
 // denylist filter applies to AuditLog calls regardless of caller; this
 // test guards Phase 2's new emission sites specifically.
-// Traces: ARQ-SIGNALS-R082 / TC-SIG-080 / INV-SIGNALS-07
+// Traces: SIGNALS-R082 / TC-SIG-080 / INV-SIGNALS-07
 func TestCollectNowAuditContainsNoSecrets(t *testing.T) {
 	handler, cleanup := makeTargetTestHandler(t, twoTargets())
 	defer cleanup()

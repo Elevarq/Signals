@@ -15,7 +15,7 @@ import (
 // per-cycle budget context, so an over-budget cycle still persists its
 // complete status inventory. The error must still be captured + checked.
 //
-// Traces: ARQ-SIGNALS-R021 / ARQ-SIGNALS-R108 / TC-SIG-036
+// Traces: SIGNALS-R021 / SIGNALS-R108 / TC-SIG-036
 func TestCommitErrorIsChecked(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))
@@ -44,7 +44,7 @@ func TestCommitErrorIsChecked(t *testing.T) {
 // contradictory state is created in SQLite when the PostgreSQL
 // transaction fails.
 //
-// Traces: ARQ-SIGNALS-R021 / TC-SIG-036
+// Traces: SIGNALS-R021 / TC-SIG-036
 func TestCommitFailureBlocksDownstreamPersistence(t *testing.T) {
 	root := repoRoot(t)
 	src := readFileString(t, filepath.Join(root, "internal", "collector", "collector.go"))

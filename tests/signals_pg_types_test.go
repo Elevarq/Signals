@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
-// Elevarq/Arq-Signals#213: pg_types_v1 emits user-defined enum /
+// Elevarq/Signals#213: pg_types_v1 emits user-defined enum /
 // composite / domain structure (CREATE TYPE / CREATE DOMAIN) so tables
 // that use them remain analysable instead of being skipped. Audit: #212.
 

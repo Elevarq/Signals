@@ -4,7 +4,7 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/elevarq/arq-signals/snapshot"
+	"github.com/elevarq/signals/snapshot"
 )
 
 // TestSnapshotSchemaVersion verifies the schema version constant.

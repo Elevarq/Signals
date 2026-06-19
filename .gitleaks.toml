@@ -1,4 +1,4 @@
-title = "arq-signals gitleaks configuration"
+title = "signals gitleaks configuration"
 
 # Inherit gitleaks' built-in default rules.
 [extend]
@@ -24,7 +24,7 @@ paths = [
 # refactored to strings.Repeat("a", 32). Allowlisting the historical
 # commit avoids rewriting history (force-push to main would break
 # the signed commit chain and release-tag provenance).
-# See Elevarq/Arq-Signals#182.
+# See Elevarq/Signals#182.
 commits = [
   "45bd3bac5ed88f2da4ce11ca7a3f51c893c0b432",
 ]

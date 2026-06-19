@@ -163,7 +163,7 @@ type TargetConfig struct {
 	AuthMethod string `yaml:"auth_method"`
 
 	// Region is the AWS region of the target instance, consumed only
-	// by the aws_rds_iam provider (ARQ-SIGNALS-AUTH-AWS-, #94). Optional;
+	// by the aws_rds_iam provider (SIGNALS-AUTH-AWS-, #94). Optional;
 	// when empty the region is resolved from the environment / instance
 	// metadata at connect time. See the AWS spec's region-resolution
 	// decision.
@@ -171,7 +171,7 @@ type TargetConfig struct {
 
 	// AzureClientID is the client (application) ID of a user-assigned
 	// managed identity, consumed only by the azure_entra provider
-	// (ARQ-SIGNALS-AUTH-AZURE-, #95). Optional; it disambiguates which
+	// (SIGNALS-AUTH-AZURE-, #95). Optional; it disambiguates which
 	// identity to use when a host carries more than one. When empty the
 	// AZURE_CLIENT_ID environment variable is consulted, and failing that
 	// the credential chain selects the system-assigned / single identity.
@@ -181,13 +181,13 @@ type TargetConfig struct {
 	// GCPImpersonateServiceAccount is the email of a Google service
 	// account the collector should impersonate when minting Cloud SQL IAM
 	// access tokens, consumed only by the gcp_cloudsql_iam provider
-	// (ARQ-SIGNALS-AUTH-GCP-, #96). Optional; when empty the ambient
+	// (SIGNALS-AUTH-GCP-, #96). Optional; when empty the ambient
 	// Application Default Credentials identity is used directly. Not a
 	// secret: a service-account email is a public identifier.
 	GCPImpersonateServiceAccount string `yaml:"gcp_impersonate_service_account"`
 
 	// SecretRef is the cloud secret-store reference for the secret_store
-	// provider (ARQ-SIGNALS-AUTH-SECRET-, #97): an AWS Secrets Manager ARN,
+	// provider (SIGNALS-AUTH-SECRET-, #97): an AWS Secrets Manager ARN,
 	// an Azure Key Vault secret URI, or a GCP Secret Manager resource name.
 	// Its shape selects the backend (InferSecretBackend). Required when
 	// auth_method is secret_store (FC-SECRET-007). Not a secret: the
@@ -203,14 +203,14 @@ type TargetConfig struct {
 
 	// MaxCacheTTL bounds how long a fetched secret may be reused between
 	// reconnects when the vault supplies no TTL/lease of its own
-	// (ARQ-SIGNALS-AUTH-SECRET-INV003). Optional; zero with no vault TTL
+	// (SIGNALS-AUTH-SECRET-INV003). Optional; zero with no vault TTL
 	// means re-fetch on every reconnect. MaxCacheTTLS is the YAML duration
 	// string folded into MaxCacheTTL by parseDurations.
 	MaxCacheTTL  time.Duration `yaml:"-"`
 	MaxCacheTTLS string        `yaml:"max_cache_ttl"`
 
 	// SSLCert / SSLKey are filesystem paths to the PEM client certificate and
-	// private key for the mtls provider (ARQ-SIGNALS-AUTH-MTLS-, #98). Both are
+	// private key for the mtls provider (SIGNALS-AUTH-MTLS-, #98). Both are
 	// required when auth_method is mtls (FC-MTLS-001). The cert is presented
 	// during the TLS handshake (certificate-kind credential); the key material
 	// is never logged or exported (INV-MTLS-001).
@@ -648,7 +648,7 @@ func applyEnvOverrides(cfg *Config) error {
 // ValidateStrict implements R076. It returns the list of non-fatal warnings
 // (caller logs and continues) and a hard error that the caller must abort
 // on. The hard / warn taxonomy is defined in
-// `features/arq-signals/appendix-b-configuration-schema.md`.
+// `features/signals/appendix-b-configuration-schema.md`.
 func ValidateStrict(cfg Config) (warnings []string, err error) {
 	// Hard errors first; we still gather as many as we can find before
 	// returning so the operator sees the full picture in one run.
@@ -680,7 +680,7 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	// result in a collection set poll_interval >= min_snapshot_interval.
 	if cfg.Signals.MinSnapshotInterval <= 0 {
 		hard = append(hard, fmt.Sprintf(
-			"signals.min_snapshot_interval must be > 0 (got %v); see ARQ-SIGNALS-R091/FC-10",
+			"signals.min_snapshot_interval must be > 0 (got %v); see SIGNALS-R091/FC-10",
 			cfg.Signals.MinSnapshotInterval,
 		))
 	}

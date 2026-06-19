@@ -42,7 +42,7 @@ A representative entry for a gated collector:
 `status` is one of `success | partial | skipped | failed`; `reason`
 is the structured cause when status is not `success`. The full
 schema is defined in Appendix A
-(`features/arq-signals/appendix-a-api-contract.md` —
+(`features/signals/appendix-a-api-contract.md` —
 "Collector status schema") and `specifications/collector_status.md`.
 
 `query_results.ndjson` carries only real query rows. A gated

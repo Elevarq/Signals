@@ -10,13 +10,13 @@ import (
 	"github.com/Azure/azure-sdk-for-go/sdk/azcore/policy"
 	"github.com/Azure/azure-sdk-for-go/sdk/azidentity"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // entraScope is the fixed OAuth2 scope (audience) for Azure Database for
 // PostgreSQL — Flexible Server Entra authentication. It is hard-pinned and
 // MUST NOT be widened or made operator-configurable
-// (ARQ-SIGNALS-AUTH-AZURE-INV004).
+// (SIGNALS-AUTH-AZURE-INV004).
 const entraScope = "https://ossrdbms-aad.database.windows.net/.default"
 
 // azureTokenTTLFallback is used only if the token endpoint returns no
@@ -36,7 +36,7 @@ const azureFailureHint = "ensure the collector has a usable Azure identity " +
 // entraTokenMinter is the seam between the resolver and Azure. The
 // production implementation builds an Azure credential and requests a token
 // for entraScope; unit tests inject a fake so no test makes a real Azure
-// call (ARQ-SIGNALS-AUTH-AZURE-NFR003). clientID disambiguates a
+// call (SIGNALS-AUTH-AZURE-NFR003). clientID disambiguates a
 // user-assigned managed identity ("" = system-assigned / single identity).
 type entraTokenMinter interface {
 	Mint(ctx context.Context, scope, clientID string) (token string, expiresAt time.Time, err error)

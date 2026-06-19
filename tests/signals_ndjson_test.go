@@ -4,12 +4,12 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // TestNDJSONEncodeSmall verifies that a small payload is NOT compressed
 // and round-trips correctly.
-// Traces: ARQ-SIGNALS-R004 / TC-SIG-006
+// Traces: SIGNALS-R004 / TC-SIG-006
 func TestNDJSONEncodeSmall(t *testing.T) {
 	rows := []map[string]any{
 		{"a": "one", "b": 1},
@@ -44,7 +44,7 @@ func TestNDJSONEncodeSmall(t *testing.T) {
 
 // TestNDJSONEncodeLarge verifies that a payload exceeding 4 KB IS compressed
 // and round-trips correctly.
-// Traces: ARQ-SIGNALS-R004 / TC-SIG-007
+// Traces: SIGNALS-R004 / TC-SIG-007
 func TestNDJSONEncodeLarge(t *testing.T) {
 	rows := make([]map[string]any, 250)
 	for i := range rows {
@@ -73,7 +73,7 @@ func TestNDJSONEncodeLarge(t *testing.T) {
 }
 
 // TestNDJSONRoundtrip verifies that various data types survive encode/decode.
-// Traces: ARQ-SIGNALS-R004 / TC-SIG-006
+// Traces: SIGNALS-R004 / TC-SIG-006
 func TestNDJSONRoundtrip(t *testing.T) {
 	rows := []map[string]any{
 		{"str": "hello", "num": float64(42), "flt": 3.14, "nul": nil, "bool": true},
@@ -110,7 +110,7 @@ func TestNDJSONRoundtrip(t *testing.T) {
 }
 
 // TestNDJSONEncodeEmpty verifies encoding an empty slice succeeds.
-// Traces: ARQ-SIGNALS-R004 / TC-SIG-006
+// Traces: SIGNALS-R004 / TC-SIG-006
 func TestNDJSONEncodeEmpty(t *testing.T) {
 	data, compressed, size, err := db.EncodeNDJSON(nil)
 	if err != nil {

@@ -2,12 +2,12 @@
 // revised), the run_scope metadata marker (R086), and collector
 // freshness metadata (R107). Added for issue #5.
 //
-// Spec: features/arq-signals/specification.md
-//   ARQ-SIGNALS-R084 (default scope = latest run per collector per
+// Spec: features/signals/specification.md
+//   SIGNALS-R084 (default scope = latest run per collector per
 //                     active target)
-//   ARQ-SIGNALS-R086 (metadata run_scope marker)
-//   ARQ-SIGNALS-R107 (collector freshness: collected_at/cadence/freshness)
-// Spec: features/arq-signals/acceptance-tests.md
+//   SIGNALS-R086 (metadata run_scope marker)
+//   SIGNALS-R107 (collector freshness: collected_at/cadence/freshness)
+// Spec: features/signals/acceptance-tests.md
 //   TC-SIG-121 (mixed-cadence completeness)
 //   TC-SIG-122 (run_scope marker)
 //   TC-SIG-123 (freshness metadata)
@@ -19,9 +19,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // seedRun inserts one snapshot carrying a single collector run (and,

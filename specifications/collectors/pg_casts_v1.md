@@ -59,4 +59,4 @@ text.
 ## Downstream use
 
 - Queries relying on user-defined casts can be analysed accurately.
-  Audit: Elevarq/Arq-Signals#212.
+  Audit: Elevarq/Signals#212.

@@ -97,4 +97,4 @@ can drop the collector via an R098 per-target profile `exclude`.
 
 - Tables whose columns use user-defined enums / composites / domains
   can be analysed instead of skipped when these definitions are present
-  in the snapshot. Audit: Elevarq/Arq-Signals#212.
+  in the snapshot. Audit: Elevarq/Signals#212.

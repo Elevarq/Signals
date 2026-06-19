@@ -15,7 +15,7 @@
 # Go gates pass on the first try — no round-trip cost of pushing,
 # watching CI fail, fixing, and pushing again.
 #
-# Spec: tracking issue Elevarq/Arq-Signals#141. Sibling of
+# Spec: tracking issue Elevarq/Signals#141. Sibling of
 # Elevarq/Arq-Workbench#255 — same pattern shared across repos.
 
 set -euo pipefail

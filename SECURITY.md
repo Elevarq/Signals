@@ -189,11 +189,11 @@ version):
 
 ```bash
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
-  --certificate-identity-regexp='https://github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='https://github.com/Elevarq/(Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 
 cosign verify ghcr.io/elevarq/charts/signals:<VERSION> \
-  --certificate-identity-regexp='https://github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='https://github.com/Elevarq/(Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
 

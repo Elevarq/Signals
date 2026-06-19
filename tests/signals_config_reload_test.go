@@ -6,15 +6,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // ---------------------------------------------------------------------------
 // R100 / config reload — unit-level tests for Collector.Reload.
 //
-// Spec: features/arq-signals/specification.md § Configuration reload
+// Spec: features/signals/specification.md § Configuration reload
 // ---------------------------------------------------------------------------
 
 func newReloadTestCollector(t *testing.T, initial []config.TargetConfig) (*collector.Collector, *db.DB) {

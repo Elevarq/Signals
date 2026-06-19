@@ -48,7 +48,7 @@ Example output:
 
 ### 5. STDD artifacts present and aligned
 
-**VERIFIED.** All three files exist at `features/arq-signals/`:
+**VERIFIED.** All three files exist at `features/signals/`:
 - `specification.md`: 26 requirements (R001-R026), 7 invariants
 - `acceptance-tests.md`: 35 test cases (TC-SIG-001 through TC-SIG-035)
 - `traceability.md`: 26 rows with Evidence Type column (BEHAVIORAL/STRUCTURAL/INTEGRATION)

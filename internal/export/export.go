@@ -10,11 +10,11 @@ import (
 	"sort"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
-	"github.com/elevarq/arq-signals/internal/safety"
-	"github.com/elevarq/arq-signals/snapshot"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/safety"
+	"github.com/elevarq/signals/snapshot"
 )
 
 // ErrSnapshotNotFound is returned when an export is requested with

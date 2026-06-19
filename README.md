@@ -10,7 +10,7 @@ From [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams.
 
 [![CI](https://github.com/elevarq/signals/actions/workflows/ci.yml/badge.svg)](https://github.com/elevarq/signals/actions/workflows/ci.yml)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
-[![Go Report Card](https://goreportcard.com/badge/github.com/elevarq/arq-signals)](https://goreportcard.com/report/github.com/elevarq/arq-signals)
+[![Go Report Card](https://goreportcard.com/badge/github.com/elevarq/signals)](https://goreportcard.com/report/github.com/elevarq/signals)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
 
 > **Read-only by design** — three independent enforcement layers prevent
@@ -130,20 +130,20 @@ The repository contains:
 
 - **Formal specification** — 104 numbered requirements covering
   collection, safety, configuration, API, persistence, and diagnostics
-  ([specification.md](features/arq-signals/specification.md))
+  ([specification.md](features/signals/specification.md))
 - **Acceptance tests** — 240+ test cases derived directly from the
   specification (per-collector acceptance files under
   [`specifications/collectors/`](specifications/collectors/),
   plus the cross-cutting
-  [`acceptance-tests.md`](features/arq-signals/acceptance-tests.md))
+  [`acceptance-tests.md`](features/signals/acceptance-tests.md))
 - **Traceability matrix** — every requirement mapped to executable
   tests with evidence classification (behavioral, structural, or
   integration)
-  ([traceability.md](features/arq-signals/traceability.md))
+  ([traceability.md](features/signals/traceability.md))
 - **Language-neutral contracts** — API and configuration schemas
   defined as appendices, independent of the Go implementation
-  ([Appendix A](features/arq-signals/appendix-a-api-contract.md),
-  [Appendix B](features/arq-signals/appendix-b-configuration-schema.md))
+  ([Appendix A](features/signals/appendix-a-api-contract.md),
+  [Appendix B](features/signals/appendix-b-configuration-schema.md))
 
 This approach matters for a tool that connects to production databases.
 Every safety guarantee — read-only enforcement, role validation,
@@ -257,7 +257,7 @@ Quick signature verification:
 
 ```bash
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
-  --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
+  --certificate-identity-regexp='github.com/Elevarq/(Signals|signals)/.github/workflows/release.yml@' \
   --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
 ```
 
@@ -404,7 +404,7 @@ signalsctl collect resume --target=prod-db
 The daemon also auto-pauses (state `open`) a target that fails
 3 consecutive collection cycles and auto-recovers after a
 cooldown (default 5 minutes). See R097 in
-[`features/arq-signals/specification.md`](features/arq-signals/specification.md)
+[`features/signals/specification.md`](features/signals/specification.md)
 for the full state-machine spec.
 
 ### Reload configuration without restart

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // CollectorStatus records the execution outcome of a single collector.

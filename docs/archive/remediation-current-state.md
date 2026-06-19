@@ -14,13 +14,13 @@ that same connection/transaction.
 
 ## CRITICAL: STDD artifacts not in repository
 
-The STDD artifacts exist at `/Users/frankheikens/Projects/elevarq/arq/features/arq-signals/`
+The STDD artifacts exist at `/Users/frankheikens/Projects/elevarq/arq/features/signals/`
 which is **outside** the Arq Signals repository root. The repo at
-`repo-split/arq-signals/` has no `features/` directory. Any CI or
+`repo-split/signals/` has no `features/` directory. Any CI or
 contributor clone would not have these files.
 
 **Fix required**: Copy the STDD artifacts into the repository under
-`features/arq-signals/`.
+`features/signals/`.
 
 ## MAJOR: docs/adoption-guide.md has wrong config schema
 
@@ -30,7 +30,7 @@ The adoption guide references config fields that do not exist:
 - `workers:` / `target_timeout:` / `query_timeout:` under `collection:` — the actual
   config uses these under `signals:`
 - Port 8065 — the actual default is 8081
-- Config filename `arq-signals.yaml` — the actual lookup is `signals.yaml`
+- Config filename `signals.yaml` — the actual lookup is `signals.yaml`
 - `arqctl collect --config` — the CLI uses `arqctl collect now` with
   API token, not `--config`
 
@@ -46,7 +46,7 @@ as `SecretRef` but the handler uses `t.SecretType`). However,
 
 ## MAJOR: Unsafe mode metadata records generic reason
 
-`export.go:88-90` records `unsafe_reasons` but `cmd/arq-signals/main.go`
+`export.go:88-90` records `unsafe_reasons` but `cmd/signals/main.go`
 sets this to `["ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true"]` — a generic
 string, not the actual bypassed role checks. The collector knows the
 specific bypassed checks (from `safetyResult.HardFailures`) but does

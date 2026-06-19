@@ -3,13 +3,13 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // TestBuildConnConfigValid verifies that BuildConnConfig creates a valid pgx.ConnConfig
 // from a TargetConfig with host, port, dbname, and user.
-// Traces: ARQ-SIGNALS-R001 / TC-SIG-001
+// Traces: SIGNALS-R001 / TC-SIG-001
 func TestBuildConnConfigValid(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "test-target",
@@ -41,7 +41,7 @@ func TestBuildConnConfigValid(t *testing.T) {
 
 // TestBuildConnConfigApplicationName verifies that BuildConnConfig sets application_name
 // to "signals" in the runtime parameters.
-// Traces: ARQ-SIGNALS-R001 / TC-SIG-001
+// Traces: SIGNALS-R001 / TC-SIG-001
 func TestBuildConnConfigApplicationName(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "test-target",
@@ -67,7 +67,7 @@ func TestBuildConnConfigApplicationName(t *testing.T) {
 
 // TestBuildConnConfigDefaultPort verifies that BuildConnConfig defaults to port 5432
 // when the target config has port == 0.
-// Traces: ARQ-SIGNALS-R001 / TC-SIG-001
+// Traces: SIGNALS-R001 / TC-SIG-001
 func TestBuildConnConfigDefaultPort(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "test-target",
@@ -89,7 +89,7 @@ func TestBuildConnConfigDefaultPort(t *testing.T) {
 
 // TestBuildConnConfigEmptyHostError verifies that BuildConnConfig returns an error
 // when the host is empty.
-// Traces: ARQ-SIGNALS-R001 / TC-SIG-001
+// Traces: SIGNALS-R001 / TC-SIG-001
 func TestBuildConnConfigEmptyHostError(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "bad-target",
@@ -107,7 +107,7 @@ func TestBuildConnConfigEmptyHostError(t *testing.T) {
 
 // TestBuildConnConfigReadOnlyParam verifies that BuildConnConfig sets
 // default_transaction_read_only=on in runtime parameters.
-// Traces: ARQ-SIGNALS-R013 / TC-SIG-019
+// Traces: SIGNALS-R013 / TC-SIG-019
 func TestBuildConnConfigReadOnlyParam(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:   "ro-target",
@@ -135,7 +135,7 @@ func TestBuildConnConfigReadOnlyParam(t *testing.T) {
 // spaces, equals signs, single quotes, or backslashes are preserved verbatim
 // rather than being parsed as additional connection options. This guards
 // against connection-string injection from operator-controlled fields.
-// Traces: ARQ-SIGNALS-R024
+// Traces: SIGNALS-R024
 func TestBuildConnConfigEscapesUnsafeFields(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name:    "injection-test",

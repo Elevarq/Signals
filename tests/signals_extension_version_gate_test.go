@@ -3,9 +3,9 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -24,7 +24,7 @@ import (
 // detection collector exempt). These tests exercise the gate through
 // that real registry surface.
 //
-// Specification: features/arq-signals/specification.md R115
+// Specification: features/signals/specification.md R115
 // Acceptance:    TC-TSDB-12, TC-TSDB-14
 // ---------------------------------------------------------------------------
 

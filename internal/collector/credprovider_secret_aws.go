@@ -9,7 +9,7 @@ import (
 	awsconfig "github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/secretsmanager"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // awsSecretsManagerFetcher is the production secretFetcher for AWS Secrets
@@ -17,7 +17,7 @@ import (
 // identity (instance profile / IRSA / Pod Identity, via the SDK default
 // credential chain) but pins the endpoint region to the value parsed from
 // the ARN — never AWS_REGION, the SDK default region chain, or IMDS
-// (ARQ-SIGNALS-AUTH-SECRET, region-from-ARN decision).
+// (SIGNALS-AUTH-SECRET, region-from-ARN decision).
 type awsSecretsManagerFetcher struct{}
 
 // Fetch retrieves the secret payload for ref. AWS Secrets Manager supplies

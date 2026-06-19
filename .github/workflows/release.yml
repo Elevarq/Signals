@@ -454,9 +454,9 @@ jobs:
           CGO_ENABLED: "0"
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
-          LDFLAGS="-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION}"
-          LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.Commit=${GITHUB_SHA::8}"
-          LDFLAGS="${LDFLAGS} -X github.com/elevarq/arq-signals/internal/safety.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          LDFLAGS="-X github.com/elevarq/signals/internal/safety.Version=${VERSION}"
+          LDFLAGS="${LDFLAGS} -X github.com/elevarq/signals/internal/safety.Commit=${GITHUB_SHA::8}"
+          LDFLAGS="${LDFLAGS} -X github.com/elevarq/signals/internal/safety.BuildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           mkdir -p dist
           go build -ldflags "${LDFLAGS}" -o "dist/signals-${GOOS}-${GOARCH}" ./cmd/signals
           go build -ldflags "${LDFLAGS}" -o "dist/signalsctl-${GOOS}-${GOARCH}" ./cmd/signalsctl
@@ -520,7 +520,7 @@ jobs:
           Quick signature verification (GHCR):
           \`\`\`bash
           cosign verify ${{ env.IMAGE_NAME }}:${VERSION} \
-            --certificate-identity-regexp='github.com/Elevarq/(Arq-Signals|signals)/.github/workflows/release.yml@' \
+            --certificate-identity-regexp='github.com/Elevarq/(Signals|signals)/.github/workflows/release.yml@' \
             --certificate-oidc-issuer='https://token.actions.githubusercontent.com'
           \`\`\`
 

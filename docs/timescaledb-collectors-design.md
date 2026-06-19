@@ -1,10 +1,10 @@
 # Design note — TimescaleDB / Tiger Data collector family
 
-Issue: [#73](https://github.com/Elevarq/Arq-Signals/issues/73)
+Issue: [#73](https://github.com/Elevarq/Signals/issues/73)
 Status: IMPLEMENTED (`internal/pgqueries/catalog_timescaledb.go`;
 spec `specifications/collectors/timescaledb_family_v1.md` is ACTIVE)
 Spec: `specifications/collectors/timescaledb_family_v1.md` (R114),
-`features/arq-signals/specification.md` § TimescaleDB collector family
+`features/signals/specification.md` § TimescaleDB collector family
 (R114) and § Extension-version gating (R115)
 
 This note records the research findings and the design decisions for

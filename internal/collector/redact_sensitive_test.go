@@ -3,7 +3,7 @@ package collector
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // R075 (revised v2, issue #6): when high-sensitivity is opted out and

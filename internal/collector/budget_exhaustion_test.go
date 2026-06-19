@@ -3,7 +3,7 @@ package collector
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // R108 / INV-SIGNALS-19: when a target's per-cycle budget elapses, every

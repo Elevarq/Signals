@@ -11,7 +11,7 @@
 **Rule:** Normal
 
 **Scenario:** Collector runs against a primary cluster reached over
-TCP with the standard arq-signals read-only role.
+TCP with the standard signals read-only role.
 
 **Given:**
 - A PostgreSQL primary reachable on `127.0.0.1:5432`.

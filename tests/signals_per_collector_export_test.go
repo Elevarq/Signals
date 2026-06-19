@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // buildExportZIPWithBuilder runs an arbitrary configured Builder to a
@@ -67,7 +67,7 @@ func readZipFile(t *testing.T, zr *zip.Reader, name string) []byte {
 
 // TestPerCollectorExportOffByDefault verifies the safe default: no
 // per-collector/ directory unless the operator explicitly opts in.
-// Traces: ARQ-SIGNALS-R080
+// Traces: SIGNALS-R080
 func TestPerCollectorExportOffByDefault(t *testing.T) {
 	store := openTestDB(t)
 	seedExportData(t, store)
@@ -83,7 +83,7 @@ func TestPerCollectorExportOffByDefault(t *testing.T) {
 // TestPerCollectorExportEnabled verifies that with the flag on, every
 // collector that produced a query_run for this scope gets exactly one
 // per-collector/<query_id>.json file.
-// Traces: ARQ-SIGNALS-R080
+// Traces: SIGNALS-R080
 func TestPerCollectorExportEnabled(t *testing.T) {
 	store := openTestDB(t)
 	seedExportData(t, store)
@@ -127,7 +127,7 @@ func TestPerCollectorExportEnabled(t *testing.T) {
 // auditors browsing per-collector/ should see the gate is active. The
 // entry carries status=skipped and reason=config_disabled but no
 // payload rows.
-// Traces: ARQ-SIGNALS-R080 / ARQ-SIGNALS-R075
+// Traces: SIGNALS-R080 / SIGNALS-R075
 func TestPerCollectorExportSkippedRunHasStub(t *testing.T) {
 	store := openTestDB(t)
 
@@ -176,7 +176,7 @@ func TestPerCollectorExportSkippedRunHasStub(t *testing.T) {
 // TestPerCollectorExportLatestRunWins verifies the latest-run-wins
 // rule: when the export covers multiple cycles for the same collector,
 // the per-collector file reflects the most recent run only.
-// Traces: ARQ-SIGNALS-R080
+// Traces: SIGNALS-R080
 func TestPerCollectorExportLatestRunWins(t *testing.T) {
 	store := openTestDB(t)
 	targetID, err := store.UpsertTarget("test-pg", "h", 5432, "d", "u", "disable", "NONE", "", true)

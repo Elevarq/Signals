@@ -22,7 +22,7 @@ func captureLogs(t *testing.T, fn func()) string {
 // TestAuditLogEmitsEventKey verifies that AuditLog produces an audit_event
 // attribute carrying the event name. Downstream tooling filters on this
 // stable key.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestAuditLogEmitsEventKey(t *testing.T) {
 	out := captureLogs(t, func() {
 		AuditLog("config_validated", "status", "ok", "warnings", 0)
@@ -39,7 +39,7 @@ func TestAuditLogEmitsEventKey(t *testing.T) {
 // denylist filters attributes whose key suggests a secret. This is the
 // belt-and-braces guarantee for R078's "no secrets in audit events"
 // invariant — even if a future call site forgets the contract.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestAuditLogDropsForbiddenAttributes(t *testing.T) {
 	out := captureLogs(t, func() {
 		AuditLog("export_completed",
@@ -72,7 +72,7 @@ func TestAuditLogDropsForbiddenAttributes(t *testing.T) {
 // TestAuditLogIgnoresNonStringKeys verifies that non-string keys (which
 // would not match the slog kv contract anyway) are silently dropped
 // instead of panicking.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestAuditLogIgnoresNonStringKeys(t *testing.T) {
 	defer func() {
 		if r := recover(); r != nil {
@@ -84,7 +84,7 @@ func TestAuditLogIgnoresNonStringKeys(t *testing.T) {
 
 // TestIsDeniedAuditKey verifies the substring match: a denied prefix
 // anywhere in the key matches.
-// Traces: ARQ-SIGNALS-R078
+// Traces: SIGNALS-R078
 func TestIsDeniedAuditKey(t *testing.T) {
 	denied := []string{
 		"password",

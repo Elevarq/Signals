@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // TC-SIG-128 — R113: API TLS is all-or-nothing. ValidateStrict must

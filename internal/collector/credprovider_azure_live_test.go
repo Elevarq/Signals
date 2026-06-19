@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
@@ -44,7 +44,7 @@ import (
 //	SIGNALS_TEST_AZ_SSLROOTCERT=/etc/ssl/azure-global-bundle.pem \
 //	  go test -tags integration ./internal/collector/ -run Live_AzureEntra -v
 //
-// Specification: features/arq-signals/credential-provider-azure-entra.md
+// Specification: features/signals/credential-provider-azure-entra.md
 // ---------------------------------------------------------------------------
 func TestLive_AzureEntraPasswordlessConnectAndReacquire(t *testing.T) {
 	if os.Getenv("SIGNALS_INTEGRATION_LIVE") != "1" {

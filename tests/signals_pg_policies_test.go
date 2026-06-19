@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
-// Elevarq/Arq-Signals#214: pg_policies_v1 emits RLS policies + the
+// Elevarq/Signals#214: pg_policies_v1 emits RLS policies + the
 // per-table RLS flags so RLS-protected tables can be analysed
 // accurately. Audit: #212.
 

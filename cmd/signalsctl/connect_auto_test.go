@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/guidedconnect"
+	"github.com/elevarq/signals/internal/guidedconnect"
 )
 
 // TestWriteAutoOutcome_Success renders the confirmation and the ready

@@ -3,11 +3,11 @@
 This document describes how `POST /collect/now` accepts an optional
 JSON body to narrow the cycle to a subset of configured targets, and
 how an optional Elevarq control plane can drive that narrowing
-authenticated as a distinct actor. Specs: ARQ-SIGNALS-R082 (Phase 1
+authenticated as a distinct actor. Specs: SIGNALS-R082 (Phase 1
 + Phase 2) and R083.
 
 This is operator-facing reference — for the wire contract, see the
-spec text in `features/arq-signals/specification.md`.
+spec text in `features/signals/specification.md`.
 
 ## Modes
 

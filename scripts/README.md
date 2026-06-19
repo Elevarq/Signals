@@ -54,7 +54,7 @@ git push --no-verify
 
 ## Why this exists
 
-Tracked under [Elevarq/Arq-Signals#141](https://github.com/Elevarq/Arq-Signals/issues/141).
+Tracked under [Elevarq/Signals#141](https://github.com/Elevarq/Signals/issues/141).
 Sibling of the same pattern shipped on Workbench
 ([Elevarq/Arq-Workbench#255](https://github.com/Elevarq/Arq-Workbench/issues/255) /
 [Elevarq/Arq-Workbench#261](https://github.com/Elevarq/Arq-Workbench/pull/261)) —

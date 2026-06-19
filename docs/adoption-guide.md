@@ -11,8 +11,8 @@ You can go from zero to your first snapshot in under five minutes.
 **From source:**
 
 ```bash
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals
+git clone https://github.com/elevarq/signals.git
+cd signals
 make build
 ```
 
@@ -326,7 +326,7 @@ Run Elevarq Signals as a daemon and export snapshots on a schedule:
 
 ```bash
 # Export a snapshot every hour
-0 * * * * /usr/local/bin/signalsctl export --output /var/snapshots/arq-$(date +\%Y\%m\%d-\%H\%M).zip
+0 * * * * /usr/local/bin/signalsctl export --output /var/snapshots/signals-$(date +\%Y\%m\%d-\%H\%M).zip
 ```
 
 ### Feeding Snapshots to Custom Scripts

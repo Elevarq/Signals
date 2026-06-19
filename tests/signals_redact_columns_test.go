@@ -8,7 +8,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // The 4 live-query collectors must declare which columns to redact.

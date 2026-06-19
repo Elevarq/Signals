@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // findQueryByID returns the resolved QueryDef for `id` from a Filter
@@ -26,7 +26,7 @@ func findQueryByID(qs []pgqueries.QueryDef, id string) *pgqueries.QueryDef {
 // major=18, Filter returns pg_stat_io_v1 with the override SQL — using
 // PG 18's renamed columns (read_bytes/write_bytes/extend_bytes), not
 // the removed op_bytes column.
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestPgStatIoOverrideForPG18(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion:         18,
@@ -59,7 +59,7 @@ func TestPgStatIoOverrideForPG18(t *testing.T) {
 // TestPgStatIoDefaultForPG17 verifies the default SQL still serves PG
 // 16/17 — emitting native op_bytes, NULL stubs for the new columns,
 // and using the same canonical column list (R081 normalization).
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestPgStatIoDefaultForPG17(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion: 17,
@@ -91,7 +91,7 @@ func TestPgStatIoDefaultForPG17(t *testing.T) {
 // override emits NULL stubs for those columns so downstream consumers
 // see the same schema across majors; the moved counters are now
 // available via pg_stat_io.
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestPgStatWalOverrideForPG18(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{PGMajorVersion: 18})
 	q := findQueryByID(out, "pg_stat_wal_v1")
@@ -120,7 +120,7 @@ func TestPgStatWalOverrideForPG18(t *testing.T) {
 // (`pg_stat_io_v1`) is returned regardless of major. This is R081's
 // stable-ID guarantee — only the SQL underneath changes, never the
 // consumer-facing collector identifier.
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestStableLogicalIDsAcrossMajors(t *testing.T) {
 	for _, m := range []int{16, 17, 18} {
 		out := pgqueries.Filter(pgqueries.FilterParams{PGMajorVersion: m})
@@ -132,7 +132,7 @@ func TestStableLogicalIDsAcrossMajors(t *testing.T) {
 
 // TestSupportedMajors verifies the documented support window and the
 // experimental marker behaviour.
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestSupportedMajors(t *testing.T) {
 	for _, m := range []int{14, 15, 16, 17, 18} {
 		if !pgqueries.IsSupportedMajor(m) {
@@ -157,7 +157,7 @@ func TestSupportedMajors(t *testing.T) {
 // for a logical ID that doesn't exist in the default registry is a
 // programmer error, caught at panic time. This guards against typos
 // in catalog_pgN.go files diverging from canonical IDs.
-// Traces: ARQ-SIGNALS-R081
+// Traces: SIGNALS-R081
 func TestOverrideRejectsUnknownID(t *testing.T) {
 	defer func() {
 		if r := recover(); r == nil {
@@ -170,7 +170,7 @@ func TestOverrideRejectsUnknownID(t *testing.T) {
 // TestPG18OverrideSQLPassesLinter verifies the new PG 18 SQL is
 // accepted by the safety linter — same read-only enforcement (R002)
 // applies to overrides as to default SQL.
-// Traces: ARQ-SIGNALS-R002 / ARQ-SIGNALS-R081
+// Traces: SIGNALS-R002 / SIGNALS-R081
 func TestPG18OverrideSQLPassesLinter(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{PGMajorVersion: 18})
 	for _, id := range []string{"pg_stat_io_v1", "pg_stat_wal_v1"} {

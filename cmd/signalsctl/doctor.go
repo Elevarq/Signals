@@ -10,7 +10,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/elevarq/arq-signals/internal/doctor"
+	"github.com/elevarq/signals/internal/doctor"
 )
 
 // usageError signals an argument-parsing problem from a RunE handler

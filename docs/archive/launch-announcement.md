@@ -21,19 +21,19 @@ Arq Signals makes no outbound network connections except to your PostgreSQL targ
 **Get started in two minutes.**
 
 ```
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals && make build
+git clone https://github.com/elevarq/signals.git
+cd signals && make build
 ./arqctl collect --dsn postgres://monitor@localhost:5432/mydb
 ./arqctl export --output snapshot.zip
 ```
 
-Docker images are available at `ghcr.io/elevarq/arq-signals`.
+Docker images are available at `ghcr.io/elevarq/signals`.
 
 **What is next.**
 
 We will be adding more collectors, improving snapshot tooling, and documenting integration patterns. Contributions are welcome -- see CONTRIBUTING.md for guidelines.
 
-GitHub: [github.com/elevarq/arq-signals](https://github.com/elevarq/arq-signals)
+GitHub: [github.com/elevarq/signals](https://github.com/elevarq/signals)
 License: BSD-3-Clause
 
 ---
@@ -46,6 +46,6 @@ Runs read-only SQL collectors against your Postgres instances, stores results lo
 
 12 collectors. Cadence scheduling. Docker-ready. BSD-3-Clause.
 
-`git clone https://github.com/elevarq/arq-signals.git && make build && ./arqctl collect`
+`git clone https://github.com/elevarq/signals.git && make build && ./arqctl collect`
 
-GitHub: github.com/elevarq/arq-signals
+GitHub: github.com/elevarq/signals

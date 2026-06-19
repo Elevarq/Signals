@@ -16,9 +16,9 @@ collection transaction.
 | `internal/pgqueries/catalog.go` | Changed pg_stat_statements_v1 SQL from fixed 22-column SELECT to raw `SELECT *` |
 | `internal/collector/collector.go` | Added SAVEPOINT/ROLLBACK TO SAVEPOINT around each query |
 | `internal/db/ndjson.go` | Added nil-to-empty-slice guard for zero-row results |
-| `features/arq-signals/specification.md` | Added R037-R039 (dynamic capture, failure isolation, safety preservation) |
-| `features/arq-signals/acceptance-tests.md` | Added TC-SIG-044 through TC-SIG-046 |
-| `features/arq-signals/traceability.md` | Added 3 rows for R037-R039, all COVERED |
+| `features/signals/specification.md` | Added R037-R039 (dynamic capture, failure isolation, safety preservation) |
+| `features/signals/acceptance-tests.md` | Added TC-SIG-044 through TC-SIG-046 |
+| `features/signals/traceability.md` | Added 3 rows for R037-R039, all COVERED |
 | `tests/signals_dynamic_capture_test.go` | 7 new tests |
 | `README.md` | Updated pg_stat_statements table entry |
 | `docs/faq.md` | Added pg_stat_statements version compatibility FAQ |

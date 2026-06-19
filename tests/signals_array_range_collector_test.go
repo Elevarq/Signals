@@ -3,7 +3,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // #128 — pg_stats_array_range_v1 is in the closed

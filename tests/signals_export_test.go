@@ -8,10 +8,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
-	"github.com/elevarq/arq-signals/snapshot"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
+	"github.com/elevarq/signals/internal/pgqueries"
+	"github.com/elevarq/signals/snapshot"
 )
 
 // openTestDB creates a temp SQLite DB, runs migrations, and returns it.
@@ -49,7 +49,7 @@ func buildExportZIP(t *testing.T, store *db.DB) (*bytes.Buffer, *zip.Reader) {
 }
 
 // TestExportMetadataSchemaVersion verifies metadata.json contains schema_version == "signals-snapshot.v1".
-// Traces: ARQ-SIGNALS-R005 / TC-SIG-008
+// Traces: SIGNALS-R005 / TC-SIG-008
 func TestExportMetadataSchemaVersion(t *testing.T) {
 	store := openTestDB(t)
 	_, zr := buildExportZIP(t, store)
@@ -66,7 +66,7 @@ func TestExportMetadataSchemaVersion(t *testing.T) {
 
 // TestExportMetadataCollectorFields verifies metadata.json contains collector_version
 // and collector_commit fields (even if default values).
-// Traces: ARQ-SIGNALS-R005 / TC-SIG-008
+// Traces: SIGNALS-R005 / TC-SIG-008
 func TestExportMetadataCollectorFields(t *testing.T) {
 	store := openTestDB(t)
 	_, zr := buildExportZIP(t, store)
@@ -82,7 +82,7 @@ func TestExportMetadataCollectorFields(t *testing.T) {
 }
 
 // TestExportMetadataCollectedAtRFC3339 verifies collected_at is a valid RFC3339 timestamp.
-// Traces: ARQ-SIGNALS-R005 / TC-SIG-008
+// Traces: SIGNALS-R005 / TC-SIG-008
 func TestExportMetadataCollectedAtRFC3339(t *testing.T) {
 	store := openTestDB(t)
 	_, zr := buildExportZIP(t, store)
@@ -99,7 +99,7 @@ func TestExportMetadataCollectedAtRFC3339(t *testing.T) {
 }
 
 // TestExportMetadataInstanceID verifies instance_id is present and matches what we set.
-// Traces: ARQ-SIGNALS-R005 / TC-SIG-008
+// Traces: SIGNALS-R005 / TC-SIG-008
 func TestExportMetadataInstanceID(t *testing.T) {
 	store := openTestDB(t)
 	_, zr := buildExportZIP(t, store)
@@ -117,7 +117,7 @@ func TestExportMetadataInstanceID(t *testing.T) {
 
 // TestExportZIPContainsRequiredFiles verifies the ZIP contains the required files for
 // the Elevarq Signals export format.
-// Traces: ARQ-SIGNALS-R006 / TC-SIG-009
+// Traces: SIGNALS-R006 / TC-SIG-009
 func TestExportZIPContainsRequiredFiles(t *testing.T) {
 	store := openTestDB(t)
 
@@ -149,7 +149,7 @@ func TestExportZIPContainsRequiredFiles(t *testing.T) {
 
 // TestExportZIPOmitsAnalyzerFiles verifies the ZIP does NOT contain files
 // that belong to the analyzer product (arq-analyzer).
-// Traces: ARQ-SIGNALS-R006 / TC-SIG-009
+// Traces: SIGNALS-R006 / TC-SIG-009
 func TestExportZIPOmitsAnalyzerFiles(t *testing.T) {
 	store := openTestDB(t)
 	seedExportData(t, store)

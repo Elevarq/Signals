@@ -4,13 +4,13 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // ---------------------------------------------------------------------------
 // R099 / per-class retention — config validation and accessor helpers.
 //
-// Spec: features/arq-signals/specification.md § Per-class retention
+// Spec: features/signals/specification.md § Per-class retention
 // ---------------------------------------------------------------------------
 
 // FC-21: flat `retention_days` and structured `retention:` block

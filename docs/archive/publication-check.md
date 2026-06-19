@@ -1,7 +1,7 @@
 # Publication Checklist — Arq Signals v0.1.0
 
 ## Build & Test
-- [ ] `git clone && cd arq-signals && make build` succeeds on clean checkout
+- [ ] `git clone && cd signals && make build` succeeds on clean checkout
 - [ ] `make test` passes (all tests green)
 - [ ] `make boundary` passes (no proprietary leakage)
 - [ ] `make docker-build` produces working image

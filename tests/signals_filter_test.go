@@ -5,12 +5,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // TestFilterExcludesByExtension verifies that Filter with no extensions
 // excludes queries requiring an extension (e.g. pg_stat_statements_v1).
-// Traces: ARQ-SIGNALS-R014 / TC-SIG-020
+// Traces: SIGNALS-R014 / TC-SIG-020
 func TestFilterExcludesByExtension(t *testing.T) {
 	result := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion: 16,
@@ -26,7 +26,7 @@ func TestFilterExcludesByExtension(t *testing.T) {
 
 // TestFilterIncludesWithExtension verifies that Filter includes
 // pg_stat_statements_v1 when that extension is listed.
-// Traces: ARQ-SIGNALS-R015 / TC-SIG-021
+// Traces: SIGNALS-R015 / TC-SIG-021
 func TestFilterIncludesWithExtension(t *testing.T) {
 	result := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion: 16,
@@ -46,7 +46,7 @@ func TestFilterIncludesWithExtension(t *testing.T) {
 }
 
 // TestFilterResultSorted verifies that Filter output is sorted by ID.
-// Traces: ARQ-SIGNALS-R014 / TC-SIG-020
+// Traces: SIGNALS-R014 / TC-SIG-020
 func TestFilterResultSorted(t *testing.T) {
 	result := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion: 16,
@@ -64,7 +64,7 @@ func TestFilterResultSorted(t *testing.T) {
 
 // TestCadenceDuration verifies that all named Cadence constants map to
 // the expected time.Duration values.
-// Traces: ARQ-SIGNALS-R014 / TC-SIG-020
+// Traces: SIGNALS-R014 / TC-SIG-020
 func TestCadenceDuration(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -91,7 +91,7 @@ func TestCadenceDuration(t *testing.T) {
 
 // TestSelectDueBasic verifies that SelectDue correctly identifies queries
 // whose cadence interval has elapsed.
-// Traces: ARQ-SIGNALS-R014 / TC-SIG-020
+// Traces: SIGNALS-R014 / TC-SIG-020
 func TestSelectDueBasic(t *testing.T) {
 	now := time.Date(2026, 1, 15, 12, 0, 0, 0, time.UTC)
 

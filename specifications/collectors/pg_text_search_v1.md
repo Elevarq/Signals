@@ -62,4 +62,4 @@ text.
 ## Downstream use
 
 - Queries using `to_tsvector`/`to_tsquery` with a user configuration
-  can be analysed accurately. Audit: Elevarq/Arq-Signals#212.
+  can be analysed accurately. Audit: Elevarq/Signals#212.

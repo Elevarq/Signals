@@ -48,16 +48,16 @@ LLM integration.
 
 ### Collection
 
-**ARQ-SIGNALS-R001**: The system shall connect to a PostgreSQL instance using
+**SIGNALS-R001**: The system shall connect to a PostgreSQL instance using
 supplied connection parameters (host, port, dbname, user, and one of:
 password, password_file, password_env, pgpass_file).
 
-**ARQ-SIGNALS-R002**: The system shall execute only approved collector queries.
+**SIGNALS-R002**: The system shall execute only approved collector queries.
 Approval is enforced by a static linter that rejects DDL, DML, dangerous
 functions, and multi-statement SQL at registration time. Unapproved queries
 shall cause the process to abort at startup.
 
-**ARQ-SIGNALS-R003**: The system shall collect diagnostic data from PostgreSQL
+**SIGNALS-R003**: The system shall collect diagnostic data from PostgreSQL
 using at minimum the following versioned collectors:
 - `pg_version_v1` — server version
 - `pg_settings_v1` — runtime configuration
@@ -71,41 +71,41 @@ using at minimum the following versioned collectors:
 
 Additional collectors (e.g. wraparound detection) may be registered.
 
-**ARQ-SIGNALS-R004**: The system shall write collected outputs in a structured
+**SIGNALS-R004**: The system shall write collected outputs in a structured
 snapshot format. Each query result shall be stored as NDJSON (one JSON object
 per row, newline-delimited). Payloads exceeding 4096 bytes shall be
 gzip-compressed.
 
-**ARQ-SIGNALS-R005**: The system shall include snapshot metadata with each
+**SIGNALS-R005**: The system shall include snapshot metadata with each
 collection run, including at minimum:
 - collection timestamp (RFC3339)
 - collector version (semver + commit hash)
 - PostgreSQL server version
 - target identifier
 
-**ARQ-SIGNALS-R006**: The system shall package snapshots into a ZIP archive for
+**SIGNALS-R006**: The system shall package snapshots into a ZIP archive for
 transfer or storage. The archive shall contain metadata.json,
 collector_status.json, query_catalog.json, query_runs.ndjson, and
 query_results.ndjson.
 
 ### Safety
 
-**ARQ-SIGNALS-R007**: The system shall not perform scoring, recommendations,
+**SIGNALS-R007**: The system shall not perform scoring, recommendations,
 root-cause analysis, or LLM interaction. No module in the Elevarq Signals
 codebase shall depend on components that implement these functions.
 
-**ARQ-SIGNALS-R008**: The system shall operate without network calls to
+**SIGNALS-R008**: The system shall operate without network calls to
 external AI services. No transport for LLM communication shall be present
 in the codebase.
 
-**ARQ-SIGNALS-R009**: The system shall be suitable for open-source release
+**SIGNALS-R009**: The system shall be suitable for open-source release
 under the BSD-3-Clause license. The repository shall contain no proprietary
 analysis logic, no proprietary prompts, no confidential content, and no
 credentials.
 
 ### Interface
 
-**ARQ-SIGNALS-R010**: The system shall expose a stable CLI with at minimum
+**SIGNALS-R010**: The system shall expose a stable CLI with at minimum
 the following commands:
 - `collect now` — trigger an immediate collection cycle
 - `export` — download a snapshot ZIP archive (with optional output path)
@@ -116,72 +116,72 @@ The CLI shall communicate with the running collector via its HTTP API. The
 API address and authentication token shall be configurable via flags or
 environment variables.
 
-**ARQ-SIGNALS-R011**: The system shall expose an HTTP API on a configurable
+**SIGNALS-R011**: The system shall expose an HTTP API on a configurable
 address with the endpoints, response schemas, and authentication requirements
 defined in Appendix A (API Contract).
 
-**ARQ-SIGNALS-R012**: The system shall use per-query timeouts and a per-target
+**SIGNALS-R012**: The system shall use per-query timeouts and a per-target
 time budget to prevent slow queries from blocking collection of other targets.
 The effective timeout for any single query is the minimum of: the query's own
 timeout, the configured query timeout, and the remaining target time budget.
 
-**ARQ-SIGNALS-R013**: All PostgreSQL connections shall be read-only, enforced
+**SIGNALS-R013**: All PostgreSQL connections shall be read-only, enforced
 by three layers:
 1. Static linter rejecting DDL/DML at registration
 2. Session-level `default_transaction_read_only=on`
 3. Per-query `BEGIN ... READ ONLY` transaction
 
-**ARQ-SIGNALS-R014**: The system shall filter eligible queries by PostgreSQL
+**SIGNALS-R014**: The system shall filter eligible queries by PostgreSQL
 major version and installed extensions. Queries requiring unavailable
 extensions or unsupported versions shall be silently skipped.
 
-**ARQ-SIGNALS-R015**: The system shall support cadence-based scheduling with
+**SIGNALS-R015**: The system shall support cadence-based scheduling with
 at minimum: 5m, 15m, 1h, 6h, 24h, and 7d intervals. Each query declares its
 own cadence. The scheduler shall not catch up missed intervals.
 
-**ARQ-SIGNALS-R016**: Credentials shall never be cached in memory beyond the
+**SIGNALS-R016**: Credentials shall never be cached in memory beyond the
 scope of a single connection attempt, never written to persistent storage,
 and never included in snapshot exports.
 
 ### Runtime Safety
 
-**ARQ-SIGNALS-R017**: The system shall validate that the PostgreSQL session
+**SIGNALS-R017**: The system shall validate that the PostgreSQL session
 can be placed into a read-only transaction posture before executing any
 collector queries. If the session cannot be confirmed as read-only,
 collection for that target shall fail with a clear error.
 
-**ARQ-SIGNALS-R018**: The system shall refuse collection when the effective
+**SIGNALS-R018**: The system shall refuse collection when the effective
 PostgreSQL role has the superuser attribute (rolsuper = true).
 
-**ARQ-SIGNALS-R019**: The system shall refuse collection when the effective
+**SIGNALS-R019**: The system shall refuse collection when the effective
 PostgreSQL role has the replication attribute (rolreplication = true).
 
-**ARQ-SIGNALS-R020**: The system shall refuse collection when the effective
+**SIGNALS-R020**: The system shall refuse collection when the effective
 PostgreSQL role has the bypass RLS attribute (rolbypassrls = true).
 
-**ARQ-SIGNALS-R021**: The system shall enforce read-only transaction execution
+**SIGNALS-R021**: The system shall enforce read-only transaction execution
 for every collector run by using BEGIN ... READ ONLY and verifying
 session-level default_transaction_read_only is set to on.
 
-**ARQ-SIGNALS-R022**: The system shall set conservative session-local timeouts
+**SIGNALS-R022**: The system shall set conservative session-local timeouts
 for collector execution. At minimum: statement_timeout (from configured query
 timeout), lock_timeout (5 seconds), and idle_in_transaction_session_timeout
 (from configured target timeout).
 
-**ARQ-SIGNALS-R023**: The system shall distinguish between hard safety failures
+**SIGNALS-R023**: The system shall distinguish between hard safety failures
 (superuser, replication, bypassrls, read-only verification failure) that block
 collection, and non-critical hygiene warnings (e.g. role is member of
 pg_write_all_data) that are logged but do not block.
 
-**ARQ-SIGNALS-R024**: The system shall not expose database passwords or secrets
+**SIGNALS-R024**: The system shall not expose database passwords or secrets
 in logs, API responses, status output, or exported snapshots. Credential
 resolution errors shall be redacted before logging or returning to callers.
 
-**ARQ-SIGNALS-R025**: The system shall provide clear, actionable operator-facing
+**SIGNALS-R025**: The system shall provide clear, actionable operator-facing
 error messages when safety posture validation fails, including which check
 failed and how to remediate.
 
-**ARQ-SIGNALS-R026**: The system shall support an explicit unsafe override via
+**SIGNALS-R026**: The system shall support an explicit unsafe override via
 the SIGNALS_ALLOW_UNSAFE_ROLE environment variable (default: false). When
 enabled, blocked role attributes are downgraded to warnings. Unsafe mode shall
 be recorded in export metadata as unsafe_mode: true with the specific bypassed
@@ -189,48 +189,48 @@ checks listed.
 
 ### Configuration
 
-**ARQ-SIGNALS-R027**: The system shall support configuration via a YAML file
+**SIGNALS-R027**: The system shall support configuration via a YAML file
 and/or environment variables, with the schema defined in Appendix B
 (Configuration Schema). Environment variables shall take precedence over
 file-based values.
 
-**ARQ-SIGNALS-R028**: The system shall search for configuration files in
+**SIGNALS-R028**: The system shall search for configuration files in
 order: explicit path via CLI flag, then system path `/etc/signals/signals.yaml`,
 then local path `./signals.yaml`. The first file found is used.
 
-**ARQ-SIGNALS-R029**: The system shall support configuring a single
+**SIGNALS-R029**: The system shall support configuring a single
 PostgreSQL target entirely via environment variables (SIGNALS_TARGET_*)
 for containerized deployments. See Appendix B for the full variable list.
 
-**ARQ-SIGNALS-R030**: The system shall validate configuration at startup and
+**SIGNALS-R030**: The system shall validate configuration at startup and
 reject invalid values (e.g. unparseable durations, empty required fields).
 Non-blocking warnings (e.g. weak TLS mode) shall be logged without aborting.
 
 ### Collection Cycle Semantics
 
-**ARQ-SIGNALS-R031**: The system shall run collection cycles at a configurable
+**SIGNALS-R031**: The system shall run collection cycles at a configurable
 interval (default: 5 minutes). The first cycle after startup shall force
 execution of all eligible queries regardless of cadence, to establish a
 baseline.
 
-**ARQ-SIGNALS-R032**: The system shall prevent overlapping collection cycles.
+**SIGNALS-R032**: The system shall prevent overlapping collection cycles.
 If a cycle is still running when the next interval triggers, the new cycle
 shall be skipped with a warning.
 
-**ARQ-SIGNALS-R033**: The system shall collect from multiple targets
+**SIGNALS-R033**: The system shall collect from multiple targets
 concurrently with a configurable maximum parallelism (default: 4). A failure
 on one target shall not block or delay collection from other targets.
 
 ### Data Integrity
 
-**ARQ-SIGNALS-R034**: If the PostgreSQL read-only transaction fails to commit
+**SIGNALS-R034**: If the PostgreSQL read-only transaction fails to commit
 after queries have been executed, the system shall not persist query results
 or record the collection as successful. The transaction commit result must be
 checked and a commit failure must abort the success path for that target.
 
 ### Export Metadata
 
-**ARQ-SIGNALS-R035**: The export metadata.json shall contain at minimum the
+**SIGNALS-R035**: The export metadata.json shall contain at minimum the
 fields defined in Appendix A, section "Export metadata schema." When unsafe
 mode is active, the metadata shall include `unsafe_mode: true` and
 `unsafe_reasons` listing the specific bypassed checks. When the export
@@ -239,7 +239,7 @@ carries snapshot data, the metadata shall additionally include the
 
 ### Export Scope
 
-**ARQ-SIGNALS-R084**: The default export scope is the **latest run of
+**SIGNALS-R084**: The default export scope is the **latest run of
 each collector per active target**. An `signalsctl export` invocation with
 no selector flags shall package, for each target with at least one
 recorded collector run, the most recent run of every collector that
@@ -268,7 +268,7 @@ quadratic-history problem the latest-snapshot default was created to
 solve — each collector contributes exactly one (its most recent) run,
 not its full history. Full history remains behind `--all`.
 
-**ARQ-SIGNALS-R085**: Operators shall be able to widen or narrow the
+**SIGNALS-R085**: Operators shall be able to widen or narrow the
 export scope via mutually-named selectors. The CLI (`signalsctl export`)
 and the HTTP API (`GET /export`) shall support, in addition to the
 default-latest scope from R084:
@@ -287,7 +287,7 @@ When neither `--all`, `--snapshot-id`, `--since`, nor `--until` is
 provided, the export uses the R084 default scope. `--target-id` alone
 narrows the R084 default to one target.
 
-**ARQ-SIGNALS-R086**: The export metadata shall name its scope and
+**SIGNALS-R086**: The export metadata shall name its scope and
 intent explicitly via two new fields under R035:
 
 | Field | Type | Semantics |
@@ -309,7 +309,7 @@ Analyzer as `snapshot_count` equal to the number of distinct
 
 ### Collector Freshness Metadata
 
-**ARQ-SIGNALS-R107**: Because the R084 default export assembles the
+**SIGNALS-R107**: Because the R084 default export assembles the
 latest run *per collector*, runs in one export may carry different
 `collected_at` values, and a low-cadence collector (e.g. 24h) may be
 present but old. A consumer must be able to judge each collector's
@@ -348,57 +348,57 @@ has simply not fired yet.
 
 ### Version-Sensitive Collectors
 
-**ARQ-SIGNALS-R037**: For diagnostic views whose schema varies across
+**SIGNALS-R037**: For diagnostic views whose schema varies across
 PostgreSQL or extension versions (such as pg_stat_statements), the
 collector shall capture the complete returned row shape dynamically.
 Each row shall be serialized using the actual column names returned by
 PostgreSQL at runtime. The collector shall not depend on a fixed column
 list or fixed column positions for these views.
 
-**ARQ-SIGNALS-R038**: If a version-sensitive collector query fails (e.g.
+**SIGNALS-R038**: If a version-sensitive collector query fails (e.g.
 due to a missing or renamed column), the failure shall be isolated to
 that query. Other collector queries in the same collection cycle shall
 continue executing and producing results.
 
-**ARQ-SIGNALS-R039**: Dynamic capture shall not weaken the read-only
+**SIGNALS-R039**: Dynamic capture shall not weaken the read-only
 safety model, credential handling guarantees, or export format
 conventions.
 
 ### Diagnostic Pack 1
 
-**ARQ-SIGNALS-R040**: The system shall collect server identity information
+**SIGNALS-R040**: The system shall collect server identity information
 including PostgreSQL version number, server uptime, connected database name,
 and database size.
 
-**ARQ-SIGNALS-R041**: The system shall collect an inventory of installed
+**SIGNALS-R041**: The system shall collect an inventory of installed
 PostgreSQL extensions with their version information.
 
-**ARQ-SIGNALS-R042**: The system shall collect checkpoint and background
+**SIGNALS-R042**: The system shall collect checkpoint and background
 writer health statistics from pg_stat_bgwriter.
 
-**ARQ-SIGNALS-R043**: The system shall collect long-running transactions
+**SIGNALS-R043**: The system shall collect long-running transactions
 (older than a configurable threshold) including PID, user, age, and a
 truncated query snippet. Query text shall be truncated to prevent
 capturing large query bodies.
 
-**ARQ-SIGNALS-R044**: The system shall collect active lock-blocking chains
+**SIGNALS-R044**: The system shall collect active lock-blocking chains
 showing which sessions are blocking other sessions, including wait
 durations.
 
-**ARQ-SIGNALS-R045**: The system shall collect an inventory of login-capable
+**SIGNALS-R045**: The system shall collect an inventory of login-capable
 roles with their privilege flags (superuser, createdb, createrole,
 replication, bypassrls). The collector shall NOT access password hashes
 or the pg_authid table.
 
-**ARQ-SIGNALS-R046**: The system shall collect connection utilization
+**SIGNALS-R046**: The system shall collect connection utilization
 metrics including total, active, idle, and idle-in-transaction counts
 relative to max_connections.
 
-**ARQ-SIGNALS-R047**: The system shall collect planner statistics staleness
+**SIGNALS-R047**: The system shall collect planner statistics staleness
 indicators including estimated vs actual row counts, modifications since
 last analyze, and estimate drift percentage.
 
-**ARQ-SIGNALS-R048**: When pg_stat_statements is installed and
+**SIGNALS-R048**: When pg_stat_statements is installed and
 pg_stat_statements_info is available (PG 14+), the system shall collect
 the statistics reset timestamp. When pg_stat_statements or
 pg_stat_statements_info is unavailable, this collector shall be
@@ -406,101 +406,101 @@ gracefully skipped.
 
 ### Server Survival Pack
 
-**ARQ-SIGNALS-R049**: The system shall collect replication slot status
+**SIGNALS-R049**: The system shall collect replication slot status
 including retained WAL size and active/inactive state. When no
 replication slots are configured, the collector shall return an empty
 result without error.
 
-**ARQ-SIGNALS-R050**: The system shall collect replication status
+**SIGNALS-R050**: The system shall collect replication status
 including connected replicas, lag indicators, and sync state. When no
 replicas are connected, the collector shall return an empty result
 without error.
 
-**ARQ-SIGNALS-R051**: On PostgreSQL 17 and later, the system shall
+**SIGNALS-R051**: On PostgreSQL 17 and later, the system shall
 collect checkpoint statistics from pg_stat_checkpointer. On earlier
 versions, this collector shall be gracefully skipped.
 
-**ARQ-SIGNALS-R052**: The system shall collect a high-signal vacuum
+**SIGNALS-R052**: The system shall collect a high-signal vacuum
 health diagnostic that includes dead tuple percentage, XID freeze age,
 autovacuum configuration overrides, and vacuum/analyze recency. This
 collector adds operator-oriented context beyond raw table statistics.
 
-**ARQ-SIGNALS-R053**: The system shall collect an actionable list of
+**SIGNALS-R053**: The system shall collect an actionable list of
 backends in idle-in-transaction state, including PID, user, application,
 transaction age, and a truncated query snippet.
 
-**ARQ-SIGNALS-R054**: The system shall collect all database sizes for
+**SIGNALS-R054**: The system shall collect all database sizes for
 growth monitoring and disk-risk triage.
 
-**ARQ-SIGNALS-R055**: The system shall collect the largest user relations
+**SIGNALS-R055**: The system shall collect the largest user relations
 by disk size to support storage triage.
 
-**ARQ-SIGNALS-R056**: The system shall collect per-database temporary
+**SIGNALS-R056**: The system shall collect per-database temporary
 file and byte usage to detect work_mem exhaustion pressure.
 
 ### Schema Intelligence Pack
 
-**ARQ-SIGNALS-R057**: The system shall collect a constraint inventory
+**SIGNALS-R057**: The system shall collect a constraint inventory
 from pg_constraint including constraint type, table, column(s), and
 referenced table for foreign keys. Multi-column constraints shall be
 unnested with ordinal position.
 
-**ARQ-SIGNALS-R058**: The system shall collect an index definition
+**SIGNALS-R058**: The system shall collect an index definition
 inventory from pg_indexes including schema, table, index name, and
 the full CREATE INDEX definition text.
 
-**ARQ-SIGNALS-R059**: The system shall collect column-level planner
+**SIGNALS-R059**: The system shall collect column-level planner
 statistics from pg_stats including n_distinct, correlation, null_frac,
 and avg_width. Data sample columns (most_common_vals, histogram_bounds)
 shall be excluded.
 
-**ARQ-SIGNALS-R060**: The system shall collect a column inventory from
+**SIGNALS-R060**: The system shall collect a column inventory from
 pg_attribute with type information via format_type(). Default expression
 text shall NOT be emitted (security). System columns (attnum <= 0) and
 dropped columns shall be excluded.
 
-**ARQ-SIGNALS-R061**: The system shall collect a schema namespace
+**SIGNALS-R061**: The system shall collect a schema namespace
 inventory from pg_namespace with owner information.
 
-**ARQ-SIGNALS-R062**: The system shall collect a view inventory from
+**SIGNALS-R062**: The system shall collect a view inventory from
 pg_views (metadata only, no definition text).
 
-**ARQ-SIGNALS-R063**: The system shall collect view definitions from
+**SIGNALS-R063**: The system shall collect view definitions from
 pg_get_viewdef in a separate collector from the inventory.
 
-**ARQ-SIGNALS-R064**: The system shall collect a materialized view
+**SIGNALS-R064**: The system shall collect a materialized view
 inventory including populated and indexed status.
 
-**ARQ-SIGNALS-R065**: The system shall collect materialized view
+**SIGNALS-R065**: The system shall collect materialized view
 definitions in a separate collector from the inventory.
 
-**ARQ-SIGNALS-R066**: The system shall collect partition topology
+**SIGNALS-R066**: The system shall collect partition topology
 from pg_partitioned_table and pg_inherits including parent-child
 relationships and partition bounds.
 
-**ARQ-SIGNALS-R067**: The system shall collect a trigger inventory
+**SIGNALS-R067**: The system shall collect a trigger inventory
 from pg_trigger using tgtype bitmask encoding. Internal triggers
 (tgisinternal) shall be excluded.
 
-**ARQ-SIGNALS-R068**: The system shall collect trigger definitions
+**SIGNALS-R068**: The system shall collect trigger definitions
 from pg_get_triggerdef in a separate collector.
 
-**ARQ-SIGNALS-R069**: The system shall collect a function/procedure
+**SIGNALS-R069**: The system shall collect a function/procedure
 inventory from pg_proc (PG 11+) including language, kind (function/
 procedure/aggregate/window), and volatility. Function bodies shall
 NOT be included in the inventory collector.
 
-**ARQ-SIGNALS-R070**: The system shall collect function body
+**SIGNALS-R070**: The system shall collect function body
 definitions from pg_proc.prosrc in a separate high-sensitivity
 collector.
 
-**ARQ-SIGNALS-R071**: The system shall collect a sequence inventory
+**SIGNALS-R071**: The system shall collect a sequence inventory
 from pg_sequences including data type, current value, min/max,
 increment, and cycle configuration.
 
 ### Collector Execution Model
 
-**ARQ-SIGNALS-R072**: The system shall record the execution outcome
+**SIGNALS-R072**: The system shall record the execution outcome
 of every registered collector for each snapshot cycle. The status
 metadata (collector_status.json) shall be included in every export
 ZIP alongside metadata.json. The schema is defined in
@@ -524,7 +524,7 @@ Reason categories for non-success statuses:
 - timeout (failed)
 - savepoint_rollback (failed)
 
-**ARQ-SIGNALS-R108**: When a target's per-cycle time budget elapses
+**SIGNALS-R108**: When a target's per-cycle time budget elapses
 mid-collection, the system shall record a `skipped` run with
 `reason=budget_exhausted` for **every** remaining due collector that
 did not get a turn, so the status inventory is complete. This applies
@@ -548,7 +548,7 @@ successful while leaving the remaining due collectors with no row at
 all — a consumer could not distinguish "ran clean" from "never got a
 turn" (R072 completeness).
 
-**ARQ-SIGNALS-R109**: A disabled or removed target shall not appear in
+**SIGNALS-R109**: A disabled or removed target shall not appear in
 the default export or in `signalsctl status`. Specifically:
 
 - The default export scope (R084 `GetLatestRunsPerCollector`) and the
@@ -569,7 +569,7 @@ This closes the drift where the lazy per-collection `UpsertTarget`
 target's row at `enabled = 1` after it was disabled or removed, so its
 stale snapshots kept appearing in the default export and `/status`.
 
-**ARQ-SIGNALS-R110**: An export shall observe a consistent state of the
+**SIGNALS-R110**: An export shall observe a consistent state of the
 local store across all of its reads. The store issues several
 independent reads to compose one export ZIP
 (`GetLatestRunsPerCollector` -> `GetSnapshotsByIDs` ->
@@ -597,7 +597,7 @@ A future revision MAY upgrade this to a per-export SQLite read
 transaction (true WAL MVCC snapshot) without changing the externally
 observable invariant.
 
-**ARQ-SIGNALS-R073**: The system shall support target-scoped export.
+**SIGNALS-R073**: The system shall support target-scoped export.
 When exporting for a specific target, query_runs, query_results, and
 collector_status shall contain only data for that target. The
 collector_status shall be synthesized from query_runs for target
@@ -605,7 +605,7 @@ exports.
 
 ### Deterministic Ordering
 
-**ARQ-SIGNALS-R074**: All collector output shall be deterministically
+**SIGNALS-R074**: All collector output shall be deterministically
 ordered. Specifically:
 - Query catalog entries: ordered by query_id
 - Collector status entries: ordered by collector id
@@ -616,7 +616,7 @@ ordered. Specifically:
 
 ### Collector Sensitivity
 
-**ARQ-SIGNALS-R075**: The system shall classify as **high-sensitivity**
+**SIGNALS-R075**: The system shall classify as **high-sensitivity**
 the collectors that emit application-authored SQL text or live
 statement text:
 
@@ -680,7 +680,7 @@ explicit and giving operators a clean privacy toggle.
 
 ### Configuration Validation
 
-**ARQ-SIGNALS-R076**: The system shall perform strict configuration
+**SIGNALS-R076**: The system shall perform strict configuration
 validation at startup, before any collection begins. Validation
 distinguishes hard errors (abort with actionable message) from
 warnings (log and continue). The full taxonomy is defined in
@@ -691,14 +691,14 @@ silently dropped.
 
 ### Persistence
 
-**ARQ-SIGNALS-R036**: The system shall persist collected data locally so that
+**SIGNALS-R036**: The system shall persist collected data locally so that
 it survives process restarts. The persistence layer shall support:
 - Atomic writes (collection results stored transactionally)
 - Retention-based cleanup (data older than configured days is deleted)
 - Schema migration (storage schema is versioned and auto-migrated on startup)
 - An instance identifier (generated on first run, stable across restarts)
 
-**ARQ-SIGNALS-R077**: A collection cycle's query runs, query results,
+**SIGNALS-R077**: A collection cycle's query runs, query results,
 and the legacy snapshot row shall be persisted atomically within a
 single local-storage transaction. Partial persistence (e.g., legacy
 snapshot present without query runs, or vice versa) shall not be
@@ -709,7 +709,7 @@ above must be maintained.
 
 ### Audit logging and export metadata
 
-**ARQ-SIGNALS-R078**: The system shall emit structured audit events
+**SIGNALS-R078**: The system shall emit structured audit events
 covering the operationally significant lifecycle moments — startup
 configuration validation, per-target collection cycles, and export
 requests — and shall extend export metadata with the fields required
@@ -767,7 +767,7 @@ export against the daemon version that produced it.
 
 ### Operational metrics endpoint
 
-**ARQ-SIGNALS-R079**: The system shall expose an optional Prometheus
+**SIGNALS-R079**: The system shall expose an optional Prometheus
 `/metrics` endpoint that publishes **operational health metrics
 about the Elevarq Signals daemon itself**. The endpoint shall **never**
 expose collected PostgreSQL data, SQL text, query results, view or
@@ -822,7 +822,7 @@ paths, raw error message bodies, SQL text.
 
 ### Version-aware query catalog
 
-**ARQ-SIGNALS-R081**: The system shall determine the connected
+**SIGNALS-R081**: The system shall determine the connected
 target's PostgreSQL major version, installed extensions, current
 database, and current user via a single discovery probe at the start
 of each collection cycle, before any catalog filtering. The discovery
@@ -871,7 +871,7 @@ the operator did not opt into.
 
 ### Control-plane boundary
 
-**ARQ-SIGNALS-R082**: The system shall operate in one of two modes
+**SIGNALS-R082**: The system shall operate in one of two modes
 — **standalone OSS** (Mode A) and **Elevarq-managed** (Mode B) — and
 shall preserve a clear trust boundary between locally-controlled
 configuration and externally-driven orchestration.
@@ -1076,7 +1076,7 @@ remains in Elevarq's analysis layer, not in obscured collector behaviour.
 
 ### Mode B authentication and configuration
 
-**ARQ-SIGNALS-R083**: When the operator opts into Mode B (R082) by
+**SIGNALS-R083**: When the operator opts into Mode B (R082) by
 setting `signals.mode: managed`, the system shall accept
 authenticated requests from the Elevarq control plane via a **separate
 bearer token** distinct from the local API token. The audit `actor`
@@ -1260,7 +1260,7 @@ Runtime considerations (not startup errors):
   invariant carries forward.
 - **No mTLS / signed JWTs / OIDC.** Higher-strength auth is
   Phase 4+ work.
-- **No `mode: arq_managed_only` (refusing the local API token in
+- **No `mode: managed_only` (refusing the local API token in
   Mode B).** Possible future extension; R083 keeps the local
   token usable in both modes so operators are never locked out
   by an Elevarq outage.
@@ -1283,7 +1283,7 @@ Runtime considerations (not startup errors):
 
 ### Backlog replay (DESIGN-ONLY)
 
-**ARQ-SIGNALS-R087**: When the daemon ships pending snapshots upstream
+**SIGNALS-R087**: When the daemon ships pending snapshots upstream
 after a delivery outage, it shall send **one ZIP per snapshot, in
 ascending `collected_at` order**, never a multi-snapshot bundle. Each
 ZIP shall carry:
@@ -1310,7 +1310,7 @@ independently and tested against the same shape; the actual delivery
 transport (HTTP push, signed upload, or other) is out of scope per
 R088.
 
-**ARQ-SIGNALS-R088**: The delivery transport for upstream snapshot
+**SIGNALS-R088**: The delivery transport for upstream snapshot
 push (the channel R087 describes) is **out of scope of this
 specification slice**. Specifically, this spec does not commit to:
 
@@ -1329,7 +1329,7 @@ defines only the on-the-wire shape any future transport must produce
 
 ### Target identity
 
-**ARQ-SIGNALS-R089**: `UpsertTarget` MUST be **idempotent**.
+**SIGNALS-R089**: `UpsertTarget` MUST be **idempotent**.
 Repeated calls with the same logical target — identified by the
 configured `name` (the table's UNIQUE constraint) — MUST return the
 same `targets.id` and MUST NOT cause `snapshots.target_id` to drift
@@ -1357,7 +1357,7 @@ target; the v0.3.x default export (which then groups by
 `snapshots.target_id` was no longer a true reference. R089 closes
 this drift.
 
-**ARQ-SIGNALS-R090**: `GetLatestRunsPerCollector` (the R084 default
+**SIGNALS-R090**: `GetLatestRunsPerCollector` (the R084 default
 scope, and the same function narrowed to one target) MUST exclude
 `query_runs` rows whose `target_id` does not reference an existing row
 in `targets`. The legacy `GetLatestSnapshotsPerTarget` /
@@ -1387,7 +1387,7 @@ combining `--all --target-id=<orphan>`.
 
 ### Minimum snapshot interval
 
-**ARQ-SIGNALS-R091**: The system shall enforce a **minimum interval
+**SIGNALS-R091**: The system shall enforce a **minimum interval
 between completed snapshots for the same logical target**. The
 interval is configured via the new top-level
 `signals.min_snapshot_interval` (default: `60s`) and is overridable
@@ -1442,7 +1442,7 @@ mask configuration mistakes (e.g. operator setting
 A target with no completed snapshots is never skipped by R091 —
 the first cycle for any target always runs.
 
-**ARQ-SIGNALS-R092**: An explicit operator override (`--force` on
+**SIGNALS-R092**: An explicit operator override (`--force` on
 `signalsctl collect now`, `force=true` on `POST /collect/now`)
 bypasses R091 for that one cycle. The forced collection is
 recorded in audit:
@@ -1484,7 +1484,7 @@ R093 and R094 close that gap end-to-end: a new collector emits the
 cluster fingerprint, and the export contract carries the target's
 connection identity into `metadata.json`.
 
-**ARQ-SIGNALS-R093**: The system shall register a `cluster_identity_v1`
+**SIGNALS-R093**: The system shall register a `cluster_identity_v1`
 collector that emits exactly one row per collection cycle with the
 following identity fields: `inet_server_addr`, `inet_server_port`,
 `is_in_recovery`, `cluster_name`, `server_timezone`,
@@ -1516,7 +1516,7 @@ single transaction, no superuser, no writes, no telemetry, no
 credential material in output (R013, R018–R020, INV-SIGNALS-05,
 INV-SIGNALS-07).
 
-**ARQ-SIGNALS-R094**: Every export ZIP whose `metadata.json` is
+**SIGNALS-R094**: Every export ZIP whose `metadata.json` is
 anchored to a non-orphan `target_id` shall carry a `target_identity`
 block sourced from the daemon's `targets` table for that target.
 The block has the shape:
@@ -1573,10 +1573,10 @@ loader, store path, each target's connectivity, each target's role
 safety) is error-prone and inconsistent across operators.
 
 R095 introduces `signalsctl doctor` as the canonical pre-flight tool,
-promoting the previously informal "before editing arq-signals" check
+promoting the previously informal "before editing signals" check
 into engineering-owned coverage.
 
-**ARQ-SIGNALS-R095**: The system shall provide an `signalsctl doctor`
+**SIGNALS-R095**: The system shall provide an `signalsctl doctor`
 subcommand that runs the following operator-facing read-only checks
 and reports their union (no short-circuit between independent
 checks):
@@ -1624,7 +1624,7 @@ work?" — is poorly served today: the daemon's connect failures
 are buried in journald and `signalsctl doctor` doesn't surface
 classified reasons for one target.
 
-**ARQ-SIGNALS-R096**: The system shall provide an
+**SIGNALS-R096**: The system shall provide an
 `signalsctl connect test` subcommand that opens a single short-lived
 connection attempt per target and classifies the outcome into one
 of these categories:
@@ -1685,7 +1685,7 @@ R097 introduces a per-target circuit breaker with three states
 (`closed`, `open`, `paused`) covering both the auto-backoff and the
 manual-override paths.
 
-**ARQ-SIGNALS-R097**: The system shall track per-target circuit
+**SIGNALS-R097**: The system shall track per-target circuit
 state in memory and gate `collectTarget` invocations on it:
 
 | State | Behaviour |
@@ -1752,7 +1752,7 @@ source text is sensitive) and another isn't.
 R098 introduces per-target profiles layered on top of the daemon-
 wide gate.
 
-**ARQ-SIGNALS-R098**: Each target's config may optionally include a
+**SIGNALS-R098**: Each target's config may optionally include a
 `collectors` block:
 
 ```yaml
@@ -1802,7 +1802,7 @@ history without also keeping a year of activity samples.
 
 R099 honours the existing class metadata.
 
-**ARQ-SIGNALS-R099**: When `signals.retention` (structured) is set,
+**SIGNALS-R099**: When `signals.retention` (structured) is set,
 the collector prunes `query_runs` per retention class:
 
 ```yaml
@@ -1840,7 +1840,7 @@ daemon restart. For 24/7 fleets that's a small availability event
 on every change. R100 introduces in-place reload of the runtime-
 mutable subset of configuration.
 
-**ARQ-SIGNALS-R100**: The system shall accept config reload via
+**SIGNALS-R100**: The system shall accept config reload via
 two equivalent triggers:
 
 - **`SIGHUP`** → daemon re-reads the config file, validates it,
@@ -1891,7 +1891,7 @@ decoded. For shops running logical replication, those counters are
 the leading indicator of slot saturation, under-sized
 `logical_decoding_work_mem`, and downstream consumer back-pressure.
 
-**ARQ-SIGNALS-R101**: The system shall register a
+**SIGNALS-R101**: The system shall register a
 `pg_stat_replication_slots_v1` collector that emits one row per
 logical replication slot from `pg_stat_replication_slots`. The
 collector is gated to PG 14+ via `MinPGVersion`; on older majors it
@@ -1928,7 +1928,7 @@ it has been stuck for six hours. The PostgreSQL
 `pg_stat_progress_*` views close that gap at near-zero cost —
 they are plain SELECT-able system views.
 
-**ARQ-SIGNALS-R102**: The system shall register one collector per
+**SIGNALS-R102**: The system shall register one collector per
 `pg_stat_progress_*` view from the supported family:
 
 - `pg_stat_progress_vacuum_v1` (`pg_stat_progress_vacuum`)
@@ -1980,7 +1980,7 @@ centralises the derivation into a single Signals-side summary so
 the analyzer ingests already-classified rows and operators get
 the same view via `signalsctl` / Workbench.
 
-**ARQ-SIGNALS-R103**: The system shall register an
+**SIGNALS-R103**: The system shall register an
 `index_health_summary_v1` collector that emits one row per
 non-system index in the connected database. Each row carries the
 index's identity (`schemaname`, `tablename`, `indexname`,
@@ -2030,7 +2030,7 @@ Flexible Server). R104 provides the pragmatic statistical
 estimate so operators on managed PG get a workable bloat surface
 out of the box.
 
-**ARQ-SIGNALS-R104**: The system shall register a
+**SIGNALS-R104**: The system shall register a
 `bloat_estimate_v1` collector that emits one row per non-system,
 table-shaped relation (`relkind IN ('r', 'm', 'p')`). Each row
 carries the table identity (`schemaname`, `tablename`,
@@ -2098,7 +2098,7 @@ PG — where `pgstatindex` is unavailable — get a workable index-
 bloat surface out of the box. Pairs with R103 to identify
 bloated unused indexes as drop candidates.
 
-**ARQ-SIGNALS-R105**: The system shall register an
+**SIGNALS-R105**: The system shall register an
 `index_bloat_estimate_v1` collector that emits one row per
 non-system index (`relkind IN ('i', 'I')`). Each row carries the
 index identity (`schemaname`, `tablename`, `indexname`,
@@ -2171,10 +2171,10 @@ that output. Two undesirable consequences follow:
    `dbname`; the connection is scoped to that database. The
    statistics view must follow the same scope.
 
-**ARQ-SIGNALS-R106**: All PostgreSQL connections opened by Elevarq
+**SIGNALS-R106**: All PostgreSQL connections opened by Elevarq
 Signals — collector pool, doctor probe, and conntest probe —
 shall set a fixed `application_name` runtime parameter to the
-single source-of-truth constant `arq-signals`. The value shall
+single source-of-truth constant `signals`. The value shall
 be set in the connection startup parameters (pgx
 `RuntimeParams` / DSN), never via a post-connect `SET`, so
 self-filtering works for the very first statement executed on
@@ -2191,7 +2191,7 @@ The `pg_stat_statements_v1` collector SQL shall:
   Because `pg_stat_statements` does not carry `application_name`
   directly, the filter is implemented as a `NOT EXISTS`
   correlated subquery against `pg_stat_activity` for the
-  `arq-signals` application, joined on `userid` (matching
+  `signals` application, joined on `userid` (matching
   `pg_stat_activity.usesysid`) AND `dbid` (matching
   `pg_stat_activity.datid`). The subquery is a conservative
   upper bound: any in-flight Signals session for the same
@@ -2232,13 +2232,13 @@ data-quality requirement, not a safety control.
   execution and surfaces through the existing query-failure
   isolation path (TC-SIG-045). No additional handling.
 - **FC-33**: Another application sets its own `application_name`
-  to `arq-signals`. Their rows are suppressed; this is
+  to `signals`. Their rows are suppressed; this is
   considered operator misconfiguration, not a Signals defect.
   Documented in `docs/collectors.md`.
 
 ### Per-collector export view
 
-**ARQ-SIGNALS-R080**: The export ZIP shall optionally include a
+**SIGNALS-R080**: The export ZIP shall optionally include a
 per-collector directory of small JSON files alongside the canonical
 NDJSON bundle. The intent is human-friendly browsing of a single
 collector's most recent output without joining `query_runs.ndjson`
@@ -2288,7 +2288,7 @@ work) and is intentionally out of scope here.
 
 ### Diagnostic DSN assembly
 
-**ARQ-SIGNALS-R111**: The shared diagnostic DSN builder
+**SIGNALS-R111**: The shared diagnostic DSN builder
 (`collector.BuildSafeDSN`, used by doctor C4 and `signalsctl connect
 test` — R095/R096) shall quote every string-valued field per libpq
 key=value conventions before assembly: the value is wrapped in
@@ -2319,7 +2319,7 @@ extends the same guarantee to the diagnostic path.
 | Assembled DSN fails to parse downstream | The diagnostic attempt fails with an operator-facing config-level error; credentials never appear in the error (R024, INV-SIGNALS-07). |
 ### Auth lockout scope
 
-**ARQ-SIGNALS-R112**: The per-IP invalid-token rate limiter (R011 /
+**SIGNALS-R112**: The per-IP invalid-token rate limiter (R011 /
 R024 auth middleware) shall never deny a request that presents a
 valid bearer token. Token validity (constant-time comparison against
 `api.token` and, in `managed` mode, `control_plane_token`) is
@@ -2353,7 +2353,7 @@ token, then it shall receive `429`.
 | Invalid/missing token from an IP under threshold | `401`; failure recorded. |
 ### API transport security
 
-**ARQ-SIGNALS-R113**: The HTTP API shall support optional TLS
+**SIGNALS-R113**: The HTTP API shall support optional TLS
 termination at the daemon. Two new `api` configuration fields,
 `tls_cert_file` and `tls_key_file` (env overrides
 `SIGNALS_API_TLS_CERT_FILE` / `SIGNALS_API_TLS_KEY_FILE`),
@@ -2393,7 +2393,7 @@ loopback default.
 | Beyond-loopback bind with neither TLS nor a restricting NetworkPolicy (Helm) | Chart emits an explicit insecure-exposure warning; the `0.0.0.0/0` NetworkPolicy placeholder fails chart rendering when the policy is enabled. |
 ### TimescaleDB collector family
 
-**ARQ-SIGNALS-R114**: Elevarq Signals shall detect TimescaleDB
+**SIGNALS-R114**: Elevarq Signals shall detect TimescaleDB
 (Tiger Data) on a monitored target and collect its metadata through a
 twelve-member collector family (`Category: "timescaledb"`, IDs
 `timescaledb_extension_v1`, `timescaledb_hypertables_v1`,
@@ -2443,7 +2443,7 @@ design rationale and the supported TimescaleDB↔PostgreSQL matrix in
 
 ### Extension-version gating
 
-**ARQ-SIGNALS-R115**: The query catalog shall support gating a
+**SIGNALS-R115**: The query catalog shall support gating a
 collector on a minimum version of the extension it requires.
 Discovery (R081) captures `extversion` for every installed extension;
 `QueryDef` gains an optional `RequiresExtensionMinVersion`

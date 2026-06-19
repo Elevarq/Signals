@@ -1,8 +1,8 @@
 # Feature Specification: AWS RDS/Aurora IAM Credential Provider
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-AWS-`
+- **Spec ID prefix:** `SIGNALS-AUTH-AWS-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#94](https://github.com/Elevarq/Arq-Signals/issues/94)
+- **Tracking issue:** [#94](https://github.com/Elevarq/Signals/issues/94)
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy, and resolved design
@@ -79,15 +79,15 @@ awsRDSIAMProvider implements CredentialProvider:
 
 ## Invariants (AWS-specific; keystone invariants also apply)
 
-- **ARQ-SIGNALS-AUTH-AWS-INV001**: A target with `auth_method:
+- **SIGNALS-AUTH-AWS-INV001**: A target with `auth_method:
   aws_rds_iam` carries no password source (`password_file` /
   `password_env` / `pgpass_file`). (Instance of keystone INV001;
   enforced at startup by FC-AWS-003.)
-- **ARQ-SIGNALS-AUTH-AWS-INV002**: The minted token is never written to
+- **SIGNALS-AUTH-AWS-INV002**: The minted token is never written to
   logs, errors, audit, metrics, the local DB, or exports — only its
   metadata (region, db_user, resolved_at, expires_at). (Instance of
   keystone INV002/INV007.)
-- **ARQ-SIGNALS-AUTH-AWS-INV003**: The token is cached per target and
+- **SIGNALS-AUTH-AWS-INV003**: The token is cached per target and
   re-minted before expiry at `max(60s, min(5m, 15m*0.20))` = **3 minutes**
   before the 15-minute expiry (i.e. re-mint once a cached token is ~12
   minutes old). Cache key = `target_id` + `auth_method` + `db_user` +
@@ -125,15 +125,15 @@ awsRDSIAMProvider implements CredentialProvider:
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-AWS-NFR001 (dependency hygiene)**: Use AWS SDK for Go
+- **SIGNALS-AUTH-AWS-NFR001 (dependency hygiene)**: Use AWS SDK for Go
   v2 (`config` + the RDS auth-token helper) at pinned versions; the
   additions MUST pass the repo's Trivy / govulncheck gates. The AWS SDK
   is linked only on the AWS provider's path — core collection paths that
   don't use `aws_rds_iam` must not require AWS credentials at runtime.
-- **ARQ-SIGNALS-AUTH-AWS-NFR002 (latency)**: steady-state reconnects
+- **SIGNALS-AUTH-AWS-NFR002 (latency)**: steady-state reconnects
   reuse the cached token (no mint); a cold mint completes within the
   existing per-target connection budget.
-- **ARQ-SIGNALS-AUTH-AWS-NFR003 (no test-time AWS calls)**: unit tests use
+- **SIGNALS-AUTH-AWS-NFR003 (no test-time AWS calls)**: unit tests use
   the injected `tokenMinter` fake and make no real AWS or network calls,
   consistent with the repo's "no hidden external network calls" safety
   principle. The live path is exercised only by the env-gated smoke.

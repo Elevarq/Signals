@@ -8,12 +8,12 @@ import (
 	"golang.org/x/oauth2/google"
 	"google.golang.org/api/impersonate"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // gcpScope is the fixed OAuth2 scope for Cloud SQL IAM database
 // authentication. It is hard-pinned and MUST NOT be widened or made
-// operator-configurable (ARQ-SIGNALS-AUTH-GCP-INV004).
+// operator-configurable (SIGNALS-AUTH-GCP-INV004).
 const gcpScope = "https://www.googleapis.com/auth/sqlservice.login"
 
 // gcpTokenTTLFallback is used only if the token source returns no usable
@@ -34,7 +34,7 @@ const gcpFailureHint = "ensure the collector has a usable Google identity " +
 // production implementation builds a token source from Application Default
 // Credentials (optionally impersonating a service account) and requests a
 // token for gcpScope; unit tests inject a fake so no test makes a real GCP
-// call (ARQ-SIGNALS-AUTH-GCP-NFR003). impersonate names the service account
+// call (SIGNALS-AUTH-GCP-NFR003). impersonate names the service account
 // to impersonate ("" = use the ambient ADC identity directly).
 type gcpTokenMinter interface {
 	Mint(ctx context.Context, scope, impersonate string) (token string, expiresAt time.Time, err error)

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/metrics"
+	"github.com/elevarq/signals/internal/metrics"
 )
 
 // #138 drift gate — the failure taxonomy declared in

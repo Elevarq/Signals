@@ -1,6 +1,6 @@
 # Compatibility & support matrix
 
-Tracking: [#139](https://github.com/Elevarq/Arq-Signals/issues/139).
+Tracking: [#139](https://github.com/Elevarq/Signals/issues/139).
 
 This page documents the PostgreSQL versions, managed-database
 providers, extensions, permissions, and network requirements

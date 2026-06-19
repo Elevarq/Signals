@@ -12,7 +12,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // AppName is the single source of truth for the PostgreSQL
@@ -91,7 +91,7 @@ func BuildConnConfig(tgt config.TargetConfig) (*pgx.ConnConfig, error) {
 // It is used by the guided-connect diagnostic (#99) so cloud auth_methods
 // (aws_rds_iam, azure_entra, gcp_cloudsql_iam, secret_store) and mtls are
 // exercised over the credential the resolver produced, reusing — not
-// reimplementing — credential resolution (ARQ-SIGNALS-CONNECT-INV003).
+// reimplementing — credential resolution (SIGNALS-CONNECT-INV003).
 //
 // A password-kind credential (a stored password, fetched secret, or minted
 // cloud token) is applied as ConnConfig.Password. A certificate-kind

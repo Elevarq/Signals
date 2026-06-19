@@ -1,8 +1,8 @@
 # TimescaleDB Analyzer roadmap — collector output → future rules
 
-Issue: [#73](https://github.com/Elevarq/Arq-Signals/issues/73)
+Issue: [#73](https://github.com/Elevarq/Signals/issues/73)
 (collectors; this repo) → follow-up Analyzer rule family TS-R001..TS-R009
-(Elevarq Analyzer repo; no Analyzer rules ship from arq-signals).
+(Elevarq Analyzer repo; no Analyzer rules ship from signals).
 
 This page maps each `timescaledb_*_v1` collector output to the
 Analyzer rules it is designed to unblock, so the Analyzer slice can

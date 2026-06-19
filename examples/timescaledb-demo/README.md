@@ -3,7 +3,7 @@
 A deterministic TimescaleDB sample workload that produces non-trivial
 output from **every** `timescaledb_*_v1` collector (R114). Built for
 Tiger Data demo work and as a reusable development fixture.
-Issue: [#76](https://github.com/Elevarq/Arq-Signals/issues/76).
+Issue: [#76](https://github.com/Elevarq/Signals/issues/76).
 
 Collector contract: `specifications/collectors/timescaledb_family_v1.md`.
 Analyzer rule mapping: `docs/timescaledb-analyzer-roadmap.md`

@@ -1,10 +1,10 @@
 # Feature Specification: Secret-Store Credential Provider
 
-- **Spec ID prefix:** `ARQ-SIGNALS-AUTH-SECRET-`
+- **Spec ID prefix:** `SIGNALS-AUTH-SECRET-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#97](https://github.com/Elevarq/Arq-Signals/issues/97);
+- **Tracking issue:** [#97](https://github.com/Elevarq/Signals/issues/97);
   extended with the AWS Systems Manager Parameter Store backend under
-  [#157](https://github.com/Elevarq/Arq-Signals/issues/157).
+  [#157](https://github.com/Elevarq/Signals/issues/157).
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy (notably FC003 fetch
@@ -78,7 +78,7 @@ backends).
   including a Parameter Store parameter whose value is a JSON document.
 - **`max_cache_ttl`** (new, optional duration) — bounds how long a fetched
   secret may be reused between reconnects when the vault supplies no
-  TTL/lease of its own (see keystone INV004 / ARQ-SIGNALS-AUTH-SECRET-INV003).
+  TTL/lease of its own (see keystone INV004 / SIGNALS-AUTH-SECRET-INV003).
 - **`user`** (existing field) — the PostgreSQL role to authenticate as. The
   fetched secret (or its extracted JSON key) is the password for this role.
 - **Ambient cloud identity** — the provider authenticates to the vault with
@@ -160,15 +160,15 @@ dependency.
 
 ## Invariants (secret-store-specific; keystone invariants also apply)
 
-- **ARQ-SIGNALS-AUTH-SECRET-INV001**: A target with `auth_method:
+- **SIGNALS-AUTH-SECRET-INV001**: A target with `auth_method:
   secret_store` carries no inline password source (`password_file`,
   `password_env`, `pgpass_file`) — the password comes only from the vault.
   (Keystone INV001; enforced by FC-SECRET-005.)
-- **ARQ-SIGNALS-AUTH-SECRET-INV002**: The fetched secret is never written
+- **SIGNALS-AUTH-SECRET-INV002**: The fetched secret is never written
   to logs, errors, audit, metrics, the local DB, or exports — only its
   metadata. (Keystone INV002/INV007.) The `secret_ref` itself is a
   non-secret reference and MAY be logged.
-- **ARQ-SIGNALS-AUTH-SECRET-INV003 (cache / TTL / rotation)**: The secret
+- **SIGNALS-AUTH-SECRET-INV003 (cache / TTL / rotation)**: The secret
   is re-resolved on every new physical connection, so a rotated secret is
   picked up on the next reconnect without a daemon restart. A cached secret
   MUST NOT be reused past its bound, where the bound is:
@@ -177,12 +177,12 @@ dependency.
   on every reconnect** (cache bound = 0). Cache key = `target_id` +
   `auth_method` + `db_user` + host identity; never shared across targets.
   (Keystone INV004 / NFR001 / RULE008.)
-- **ARQ-SIGNALS-AUTH-SECRET-INV004 (verify-full floor)**: A `secret_store`
+- **SIGNALS-AUTH-SECRET-INV004 (verify-full floor)**: A `secret_store`
   target's effective `sslmode` MUST be `verify-full`, in every environment.
   This applies the keystone INV003 transport floor (defined there for token
   methods) to `secret_store` as well — a confirmed local strengthening, not
   a weakening of any keystone rule. Enforced by FC-SECRET-006.
-- **ARQ-SIGNALS-AUTH-SECRET-INV005 (backend isolation)**: Only the SDK for
+- **SIGNALS-AUTH-SECRET-INV005 (backend isolation)**: Only the SDK for
   the inferred backend is invoked for a given target; a non-`secret_store`
   target invokes no vault SDK at all.
 
@@ -219,7 +219,7 @@ dependency.
 
 ## Non-Functional Requirements
 
-- **ARQ-SIGNALS-AUTH-SECRET-NFR001 (dependency hygiene)**: the AWS Secrets
+- **SIGNALS-AUTH-SECRET-NFR001 (dependency hygiene)**: the AWS Secrets
   Manager, AWS Systems Manager (`ssm`), Azure Key Vault (`azsecrets`), and
   GCP Secret Manager SDKs are pinned and MUST pass Trivy / govulncheck
   gates. Each backend SDK is linked only on this provider's path;
@@ -227,11 +227,11 @@ dependency.
   SDK config / Azure `azidentity` are already vendored by #94/#95; the
   `ssm` service client reuses the already-vendored AWS SDK core and shares
   the Secrets Manager credential/region path.)
-- **ARQ-SIGNALS-AUTH-SECRET-NFR002 (latency)**: steady-state reconnects
+- **SIGNALS-AUTH-SECRET-NFR002 (latency)**: steady-state reconnects
   reuse a cached secret within its bound; a cold fetch completes within the
   per-target connection budget. With no cache bound, the per-reconnect
   fetch cost is the documented trade-off for immediate rotation pickup.
-- **ARQ-SIGNALS-AUTH-SECRET-NFR003 (no test-time cloud calls)**: unit tests
+- **SIGNALS-AUTH-SECRET-NFR003 (no test-time cloud calls)**: unit tests
   use the injected `secretFetcher` fake and make no real cloud or network
   calls. The live path is exercised only by the env-gated smoke.
 

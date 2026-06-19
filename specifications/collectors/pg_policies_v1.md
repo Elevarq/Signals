@@ -8,7 +8,7 @@ RLS-protected tables is inaccurate when the policies are absent from the
 snapshot. This collector emits the policies plus the table's RLS-enabled
 flags.
 
-Unlike the custom-types gap (Arq-Signals#213), a missing policy is a
+Unlike the custom-types gap (Signals#213), a missing policy is a
 **fidelity** gap rather than a hard error — hence lower priority.
 
 ## Catalog source
@@ -82,4 +82,4 @@ in `collector_status.json` as `status=skipped, reason=config_disabled`
 ## Downstream use
 
 - RLS-protected tables can be analysed accurately when their policies
-  are present in the snapshot. Audit: Elevarq/Arq-Signals#212.
+  are present in the snapshot. Audit: Elevarq/Signals#212.

@@ -5,13 +5,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
 )
 
 // TestDefaultTimeouts verifies that a Collector created with no timeout options
 // has the expected default query timeout (10s) and target timeout (60s).
-// Traces: ARQ-SIGNALS-R012 / TC-SIG-024
+// Traces: SIGNALS-R012 / TC-SIG-024
 func TestDefaultTimeouts(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "timeout-test.db")
@@ -38,7 +38,7 @@ func TestDefaultTimeouts(t *testing.T) {
 }
 
 // TestWithQueryTimeoutSetsField verifies WithQueryTimeout overrides the default.
-// Traces: ARQ-SIGNALS-R012 / TC-SIG-024
+// Traces: SIGNALS-R012 / TC-SIG-024
 func TestWithQueryTimeoutSetsField(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "timeout-test.db")
@@ -62,7 +62,7 @@ func TestWithQueryTimeoutSetsField(t *testing.T) {
 }
 
 // TestWithTargetTimeoutSetsField verifies WithTargetTimeout overrides the default.
-// Traces: ARQ-SIGNALS-R012 / TC-SIG-024
+// Traces: SIGNALS-R012 / TC-SIG-024
 func TestWithTargetTimeoutSetsField(t *testing.T) {
 	dir := t.TempDir()
 	dbPath := filepath.Join(dir, "timeout-test.db")

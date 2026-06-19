@@ -15,15 +15,15 @@ ARG COMMIT=unknown
 ARG DATE=unknown
 
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION} \
-              -X github.com/elevarq/arq-signals/internal/safety.Commit=${COMMIT} \
-              -X github.com/elevarq/arq-signals/internal/safety.BuildDate=${DATE}" \
+    -ldflags "-X github.com/elevarq/signals/internal/safety.Version=${VERSION} \
+              -X github.com/elevarq/signals/internal/safety.Commit=${COMMIT} \
+              -X github.com/elevarq/signals/internal/safety.BuildDate=${DATE}" \
     -o /out/signals ./cmd/signals
 
 RUN CGO_ENABLED=0 go build \
-    -ldflags "-X github.com/elevarq/arq-signals/internal/safety.Version=${VERSION} \
-              -X github.com/elevarq/arq-signals/internal/safety.Commit=${COMMIT} \
-              -X github.com/elevarq/arq-signals/internal/safety.BuildDate=${DATE}" \
+    -ldflags "-X github.com/elevarq/signals/internal/safety.Version=${VERSION} \
+              -X github.com/elevarq/signals/internal/safety.Commit=${COMMIT} \
+              -X github.com/elevarq/signals/internal/safety.BuildDate=${DATE}" \
     -o /out/signalsctl ./cmd/signalsctl
 
 # Stage 2: Runtime

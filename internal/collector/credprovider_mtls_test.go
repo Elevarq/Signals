@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // genCertKeyPEM produces a self-signed cert + its EC private key as PEM, in

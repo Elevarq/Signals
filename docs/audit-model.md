@@ -5,7 +5,7 @@ Elevarq Signals emits structured slog records keyed by
 moment — startup, collection cycles, on-demand requests, exports.
 This document catalogues the events, defines the correlation rules
 between them, and documents the audit-completeness invariant. Specs:
-ARQ-SIGNALS-R078, R082 (Phase 1 + Phase 2), R083.
+SIGNALS-R078, R082 (Phase 1 + Phase 2), R083.
 
 ## Event catalogue
 

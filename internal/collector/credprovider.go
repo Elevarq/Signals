@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/config"
+	"github.com/elevarq/signals/internal/config"
 )
 
 // CredKind classifies how a resolved Credential is applied to a
@@ -54,7 +54,7 @@ type Credential struct {
 // dispatching on the effective auth_method. It is the exported seam the
 // guided-connect orchestrator (#99) and any other caller use to obtain a
 // credential without reimplementing provider dispatch
-// (ARQ-SIGNALS-CONNECT-INV003). The production implementation is built by
+// (SIGNALS-CONNECT-INV003). The production implementation is built by
 // NewCredentialResolver; unit tests supply their own implementation.
 type CredentialResolver interface {
 	// Resolve returns the credential for a single connection attempt,
@@ -209,7 +209,7 @@ func (c *tokenCache) put(key string, cred Credential, refreshAt time.Time) {
 // refreshSkew is the lead time before expiry at which a cached token is
 // re-minted: max(60s, min(5m, ttl*0.20)). For the 15-minute RDS IAM
 // token this is 3 minutes, so a cached token is reused for ~12 minutes
-// then re-minted (keystone NFR001 / ARQ-SIGNALS-AUTH-AWS-INV003).
+// then re-minted (keystone NFR001 / SIGNALS-AUTH-AWS-INV003).
 func refreshSkew(ttl time.Duration) time.Duration {
 	skew := ttl / 5
 	if skew > 5*time.Minute {

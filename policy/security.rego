@@ -55,7 +55,7 @@ pod_spec contains spec if {
 # Project policy
 # ---------------------------------------------------------------
 
-# arq-signals collectors never call the Kubernetes API at runtime
+# signals collectors never call the Kubernetes API at runtime
 # (read-only PostgreSQL queries + local SQLite + HTTP). Mounting
 # the ServiceAccount token expands blast radius for zero benefit.
 # Standard container hardening rule.
@@ -127,7 +127,7 @@ runs_as_non_root(spec) if {
 }
 
 # hostNetwork / hostPID / hostIPC are escape vectors with no
-# legitimate use in arq-signals workloads.
+# legitimate use in signals workloads.
 deny contains msg if {
 	some spec in pod_spec
 	spec.hostNetwork == true

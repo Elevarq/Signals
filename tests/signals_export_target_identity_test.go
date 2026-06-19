@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // ---------------------------------------------------------------------------
@@ -18,8 +18,8 @@ import (
 // the daemon's targets row. Connection identity only (host/port/dbname/
 // username); never password, secret reference, or sslmode.
 //
-// Specification:  features/arq-signals/specification.md § R094
-// Appendix:       features/arq-signals/appendix-a-api-contract.md
+// Specification:  features/signals/specification.md § R094
+// Appendix:       features/signals/appendix-a-api-contract.md
 // Tests covered:  TC-SIG-118, TC-SIG-119, TC-SIG-120, TC-SIG-121
 // ---------------------------------------------------------------------------
 

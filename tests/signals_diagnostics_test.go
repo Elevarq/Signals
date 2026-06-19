@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ func TestDiagnosticPack1AllPassLinter(t *testing.T) {
 
 // TestDiagnosticPack1CatalogCount verifies that the total catalog now
 // contains at least 22 collectors (12 baseline + 9 diagnostic pack 1
-// + 1 added by Elevarq/Arq-Signals#132 capacity collector).
+// + 1 added by Elevarq/Signals#132 capacity collector).
 func TestDiagnosticPack1CatalogCount(t *testing.T) {
 	all := pgqueries.All()
 	if len(all) < 22 {
@@ -199,7 +199,7 @@ func TestSnapshotIdentityFieldsPresent(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// pgss_capacity_v1 — Elevarq/Arq-Signals#132
+// pgss_capacity_v1 — Elevarq/Signals#132
 // ---------------------------------------------------------------------------
 
 // TestPgssCapacityRequiresExtension verifies the capacity collector

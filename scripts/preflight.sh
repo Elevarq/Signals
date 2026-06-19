@@ -6,7 +6,7 @@
 # enforced by .github/workflows/ci.yml. CI calls each subcommand
 # below; the .githooks/pre-push hook calls `all` before every push.
 #
-# Spec: tracking issue Elevarq/Arq-Signals#141. Sibling of
+# Spec: tracking issue Elevarq/Signals#141. Sibling of
 # Elevarq/Arq-Workbench#255 — same pattern shared across repos.
 #
 # Usage:

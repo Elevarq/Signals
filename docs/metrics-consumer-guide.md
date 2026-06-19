@@ -5,7 +5,7 @@ Operational metrics exposed under `signals.metrics_path` (default
 operator-facing reference for what's published, what labels mean, and
 what to alert on.
 
-Spec: ARQ-SIGNALS-R079 (operational metrics endpoint).
+Spec: SIGNALS-R079 (operational metrics endpoint).
 
 ## Scrape configuration
 

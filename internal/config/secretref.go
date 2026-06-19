@@ -41,7 +41,7 @@ func (b SecretBackend) String() string {
 // ParsedSecretRef is the result of inferring the backend from a secret_ref.
 // AWSRegion is populated only for the AWS backend, where the region is
 // derived authoritatively from the ARN and never from ambient region
-// discovery (ARQ-SIGNALS-AUTH-SECRET, integration-mapping decision).
+// discovery (SIGNALS-AUTH-SECRET, integration-mapping decision).
 type ParsedSecretRef struct {
 	Backend   SecretBackend
 	Ref       string // the original, non-secret reference

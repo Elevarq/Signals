@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/api"
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
-	"github.com/elevarq/arq-signals/internal/metrics"
+	"github.com/elevarq/signals/internal/api"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
+	"github.com/elevarq/signals/internal/metrics"
 )
 
 // makeMetricsTestHandler builds an api.Handler with metrics either
@@ -63,7 +63,7 @@ func makeMetricsTestHandler(t *testing.T, enabled bool, path string) (http.Handl
 // TestMetricsEndpoint404WhenDisabled verifies the safe default: when
 // metrics are not explicitly enabled the endpoint is not registered at
 // all. A scrape against /metrics returns 404, not silent success.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsEndpoint404WhenDisabled(t *testing.T) {
 	handler, reg, cleanup := makeMetricsTestHandler(t, false, "")
 	defer cleanup()
@@ -85,7 +85,7 @@ func TestMetricsEndpoint404WhenDisabled(t *testing.T) {
 // once each metric has been sampled at least once, exposes every
 // R079-required metric name. Vec metrics in client_golang only emit
 // lines after a first observation; the test mirrors that contract.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsEndpointReturnsPromFormat(t *testing.T) {
 	handler, reg, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()
@@ -142,7 +142,7 @@ func TestMetricsEndpointReturnsPromFormat(t *testing.T) {
 
 // TestMetricsEndpointRequiresAuth verifies the endpoint inherits the
 // API's bearer-token auth model. Without a token, the response is 401.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsEndpointRequiresAuth(t *testing.T) {
 	handler, _, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()
@@ -165,7 +165,7 @@ func TestMetricsEndpointRequiresAuth(t *testing.T) {
 // payload had leaked into the metric set. The test is conservative
 // (false positives would mean we pollute legitimate metric names) but
 // the listed substrings have no benign reason to appear.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsOutputContainsNoSQLOrSecrets(t *testing.T) {
 	handler, reg, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()
@@ -213,7 +213,7 @@ func TestMetricsOutputContainsNoSQLOrSecrets(t *testing.T) {
 // TestMetricsCountersUpdateOnExport drives a real export request
 // through the API handler with metrics enabled and asserts that the
 // export counter and duration histogram both moved.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsCountersUpdateOnExport(t *testing.T) {
 	handler, _, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()
@@ -261,7 +261,7 @@ func TestMetricsCountersUpdateOnExport(t *testing.T) {
 // TestMetricsCountersUpdateOnCollection drives the recorder helpers
 // that the collector cycle defer calls and asserts the counter samples
 // appear with the expected labels.
-// Traces: ARQ-SIGNALS-R079
+// Traces: SIGNALS-R079
 func TestMetricsCountersUpdateOnCollection(t *testing.T) {
 	handler, reg, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()
@@ -301,7 +301,7 @@ func TestMetricsCountersUpdateOnCollection(t *testing.T) {
 // TestMetricsHighSensitivityGauge verifies the gauge tracks the R075
 // gate state — auditors can see at a glance whether the daemon is
 // running with high-sensitivity collection enabled.
-// Traces: ARQ-SIGNALS-R079 / ARQ-SIGNALS-R075
+// Traces: SIGNALS-R079 / SIGNALS-R075
 func TestMetricsHighSensitivityGauge(t *testing.T) {
 	handler, reg, cleanup := makeMetricsTestHandler(t, true, "/metrics")
 	defer cleanup()

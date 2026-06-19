@@ -10,7 +10,7 @@ package tests
 import (
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // With high-sensitivity enabled (the new collect-everything default)

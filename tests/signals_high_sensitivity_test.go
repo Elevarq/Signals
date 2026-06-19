@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 // ---------------------------------------------------------------------------
@@ -50,7 +50,7 @@ var highSensitivityCollectors = []string{
 
 // TestHighSensitivityCollectorsAreFlagged verifies all four definition
 // collectors carry the HighSensitivity flag in the registry.
-// Traces: ARQ-SIGNALS-R075
+// Traces: SIGNALS-R075
 func TestHighSensitivityCollectorsAreFlagged(t *testing.T) {
 	for _, id := range highSensitivityCollectors {
 		q := pgqueries.ByID(id)
@@ -69,7 +69,7 @@ func TestHighSensitivityCollectorsAreFlagged(t *testing.T) {
 // SensitiveColumns declared). Redact-path collectors (non-empty
 // SensitiveColumns) keep running and have their sensitive columns
 // nulled at execution time — covered by tests/signals_redact_columns_test.go.
-// Traces: ARQ-SIGNALS-R075 (revised 2026-05, issue #6).
+// Traces: SIGNALS-R075 (revised 2026-05, issue #6).
 func TestFilterExcludesSkipPathHighSensitivityWhenDisabled(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion:         16,
@@ -87,7 +87,7 @@ func TestFilterExcludesSkipPathHighSensitivityWhenDisabled(t *testing.T) {
 // definition queries appear. pg_stats_array_range_v1 (#128) requires
 // an additional per-collector flag — both gates set true here so the
 // drift-against-highSensitivityCollectors check stays meaningful.
-// Traces: ARQ-SIGNALS-R075
+// Traces: SIGNALS-R075
 func TestFilterIncludesHighSensitivityWhenEnabled(t *testing.T) {
 	out := pgqueries.Filter(pgqueries.FilterParams{
 		PGMajorVersion:              16,
@@ -107,7 +107,7 @@ func TestFilterIncludesHighSensitivityWhenEnabled(t *testing.T) {
 
 // TestHighSensitivityIDsReturnsGatedSet verifies HighSensitivityIDs returns
 // the IDs that would be skipped under the supplied filter parameters.
-// Traces: ARQ-SIGNALS-R075
+// Traces: SIGNALS-R075
 func TestHighSensitivityIDsReturnsGatedSet(t *testing.T) {
 	gated := pgqueries.HighSensitivityIDs(pgqueries.FilterParams{
 		PGMajorVersion:         16,
@@ -131,7 +131,7 @@ func TestHighSensitivityIDsReturnsGatedSet(t *testing.T) {
 // does not meet pg_functions_definitions_v1's MinPGVersion=11 doesn't
 // appear in the gated set — gating only applies to collectors that would
 // otherwise be eligible.
-// Traces: ARQ-SIGNALS-R075
+// Traces: SIGNALS-R075
 func TestHighSensitivityIDsRespectsMinPGVersion(t *testing.T) {
 	gated := pgqueries.HighSensitivityIDs(pgqueries.FilterParams{
 		PGMajorVersion:         10,
@@ -146,7 +146,7 @@ func TestHighSensitivityIDsRespectsMinPGVersion(t *testing.T) {
 
 // TestHighSensitivityIDsEmptyWhenEnabled verifies that opting in returns
 // no gated IDs (nothing to mark skipped).
-// Traces: ARQ-SIGNALS-R075
+// Traces: SIGNALS-R075
 func TestHighSensitivityIDsEmptyWhenEnabled(t *testing.T) {
 	gated := pgqueries.HighSensitivityIDs(pgqueries.FilterParams{
 		PGMajorVersion:         16,
@@ -165,7 +165,7 @@ func TestHighSensitivityIDsEmptyWhenEnabled(t *testing.T) {
 // TestBuildStatusFromRunsRendersSkipped verifies a query_run row with
 // status=skipped and reason=config_disabled produces a CollectorStatus
 // with Attempted=false and the reason preserved.
-// Traces: ARQ-SIGNALS-R072 / ARQ-SIGNALS-R075
+// Traces: SIGNALS-R072 / SIGNALS-R075
 func TestBuildStatusFromRunsRendersSkipped(t *testing.T) {
 	runs := []db.QueryRun{
 		{
@@ -228,7 +228,7 @@ func TestBuildStatusFromRunsRendersSkipped(t *testing.T) {
 // TestBuildStatusFromRunsBackfillsLegacyRows verifies that pre-migration
 // rows (Status="" but Error set) still classify correctly. Guards against
 // regressions when reading older databases.
-// Traces: ARQ-SIGNALS-R072
+// Traces: SIGNALS-R072
 func TestBuildStatusFromRunsBackfillsLegacyRows(t *testing.T) {
 	runs := []db.QueryRun{
 		{QueryID: "old_success", Error: "", RowCount: 3},

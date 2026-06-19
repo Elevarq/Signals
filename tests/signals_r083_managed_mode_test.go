@@ -9,11 +9,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/elevarq/arq-signals/internal/api"
-	"github.com/elevarq/arq-signals/internal/collector"
-	"github.com/elevarq/arq-signals/internal/config"
-	"github.com/elevarq/arq-signals/internal/db"
-	"github.com/elevarq/arq-signals/internal/export"
+	"github.com/elevarq/signals/internal/api"
+	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
+	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/export"
 )
 
 // makeR083Handler builds an HTTP handler with R083 Mode B wiring.
@@ -85,7 +85,7 @@ var (
 // ---------------------------------------------------------------------------
 
 // TestR083ModeDefaultsStandalone — TC-SIG-081
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-081
+// Traces: SIGNALS-R083 / TC-SIG-081
 func TestR083ModeDefaultsStandalone(t *testing.T) {
 	cfg := config.DefaultConfig()
 	if cfg.Signals.Mode != config.ModeStandalone {
@@ -100,7 +100,7 @@ func TestR083ModeDefaultsStandalone(t *testing.T) {
 }
 
 // TestR083ManagedRequiresToken — TC-SIG-082
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-082
+// Traces: SIGNALS-R083 / TC-SIG-082
 func TestR083ManagedRequiresToken(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Signals.Mode = config.ModeManaged
@@ -117,7 +117,7 @@ func TestR083ManagedRequiresToken(t *testing.T) {
 }
 
 // TestR083TokensMustDiffer — TC-SIG-083
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-083
+// Traces: SIGNALS-R083 / TC-SIG-083
 func TestR083TokensMustDiffer(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Signals.Mode = config.ModeManaged
@@ -133,7 +133,7 @@ func TestR083TokensMustDiffer(t *testing.T) {
 }
 
 // TestR083TokenLengthFloor — TC-SIG-084
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-084
+// Traces: SIGNALS-R083 / TC-SIG-084
 func TestR083TokenLengthFloor(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Signals.Mode = config.ModeManaged
@@ -150,7 +150,7 @@ func TestR083TokenLengthFloor(t *testing.T) {
 }
 
 // TestR083FileAndEnvMutuallyExclusive — TC-SIG-085
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-085
+// Traces: SIGNALS-R083 / TC-SIG-085
 func TestR083FileAndEnvMutuallyExclusive(t *testing.T) {
 	cfg := config.DefaultConfig()
 	cfg.Signals.Mode = config.ModeManaged
@@ -173,7 +173,7 @@ func TestR083FileAndEnvMutuallyExclusive(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestR083APITokenStaysLocalOperator — TC-SIG-086
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-086
+// Traces: SIGNALS-R083 / TC-SIG-086
 func TestR083APITokenStaysLocalOperator(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
@@ -196,7 +196,7 @@ func TestR083APITokenStaysLocalOperator(t *testing.T) {
 }
 
 // TestR083ControlPlaneTokenSetsControlPlaneActor — TC-SIG-087
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-087
+// Traces: SIGNALS-R083 / TC-SIG-087
 func TestR083ControlPlaneTokenSetsControlPlaneActor(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
@@ -216,7 +216,7 @@ func TestR083ControlPlaneTokenSetsControlPlaneActor(t *testing.T) {
 }
 
 // TestR083StandaloneIgnoresControlPlaneToken — TC-SIG-088
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-088
+// Traces: SIGNALS-R083 / TC-SIG-088
 func TestR083StandaloneIgnoresControlPlaneToken(t *testing.T) {
 	// mode=standalone: even with a control-plane-token-shaped
 	// secret in the request, only api.token is consulted. The
@@ -233,7 +233,7 @@ func TestR083StandaloneIgnoresControlPlaneToken(t *testing.T) {
 }
 
 // TestR083UnknownTokenStill401 — TC-SIG-089
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-089
+// Traces: SIGNALS-R083 / TC-SIG-089
 func TestR083UnknownTokenStill401(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
@@ -248,7 +248,7 @@ func TestR083UnknownTokenStill401(t *testing.T) {
 }
 
 // TestR083TokenRotation — TC-SIG-090
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-090
+// Traces: SIGNALS-R083 / TC-SIG-090
 func TestR083TokenRotation(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
@@ -287,7 +287,7 @@ func TestR083TokenRotation(t *testing.T) {
 }
 
 // TestR083ExportEventsCarryActor — TC-SIG-092
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-092
+// Traces: SIGNALS-R083 / TC-SIG-092
 func TestR083ExportEventsCarryActor(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
@@ -316,7 +316,7 @@ func TestR083ExportEventsCarryActor(t *testing.T) {
 }
 
 // TestR083AuditLogsContainNoTokenValue — TC-SIG-091 (no-secret guard)
-// Traces: ARQ-SIGNALS-R083 / TC-SIG-091 / INV-SIGNALS-07
+// Traces: SIGNALS-R083 / TC-SIG-091 / INV-SIGNALS-07
 func TestR083AuditLogsContainNoTokenValue(t *testing.T) {
 	tokenFile := writeTokenFile(t, testCPToken)
 	handler := makeR083Handler(t, config.ModeManaged, tokenFile)
