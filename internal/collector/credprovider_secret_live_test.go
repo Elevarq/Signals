@@ -27,9 +27,10 @@ import (
 //
 // Required env (in addition to SIGNALS_INTEGRATION_LIVE=1):
 //
-//	SIGNALS_TEST_SECRET_REF         secret reference (AWS ARN / Key Vault URI /
-//	                            GCP Secret Manager resource); shape selects
-//	                            the backend
+//	SIGNALS_TEST_SECRET_REF         secret reference (AWS Secrets Manager ARN /
+//	                            AWS Parameter Store ARN / Key Vault URI / GCP
+//	                            Secret Manager resource); shape selects the
+//	                            backend
 //	SIGNALS_TEST_SECRET_HOST        PostgreSQL host
 //	SIGNALS_TEST_SECRET_DBNAME      database to connect to
 //	SIGNALS_TEST_SECRET_USER        DB role whose password is the stored secret
@@ -112,9 +113,10 @@ func TestLive_SecretStorePasswordlessConnect(t *testing.T) {
 	r := &credentialResolver{
 		cache: newTokenCache(),
 		secretFetcher: productionSecretFetcher{
-			aws:   awsSecretsManagerFetcher{},
-			azure: azureKeyVaultFetcher{},
-			gcp:   gcpSecretManagerFetcher{},
+			aws:               awsSecretsManagerFetcher{},
+			awsParameterStore: awsParameterStoreFetcher{},
+			azure:             azureKeyVaultFetcher{},
+			gcp:               gcpSecretManagerFetcher{},
 		},
 		now:    clock.now,
 		logger: slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelInfo})),

@@ -167,6 +167,8 @@ func secretFailureHint(b config.SecretBackend) string {
 	switch b {
 	case config.SecretBackendAWSSecretsManager:
 		return "ensure the collector's AWS workload identity is allowed secretsmanager:GetSecretValue for this secret and that the ARN region is correct"
+	case config.SecretBackendAWSParameterStore:
+		return "ensure the collector's AWS workload identity is allowed ssm:GetParameter (and kms:Decrypt on the CMK for a SecureString) for this parameter and that the ARN region is correct"
 	case config.SecretBackendAzureKeyVault:
 		return "ensure the collector's Azure managed identity has the Key Vault Secrets User role (get) on this vault"
 	case config.SecretBackendGCPSecretManager:
@@ -196,6 +198,16 @@ func SecretStoreGuidance(tgt config.TargetConfig) string {
   2. Confirm the ARN region (%s) matches the secret's region — the region is
      taken from the ARN, never from AWS_REGION or instance metadata.`,
 			tgt.Name, parsed.Ref, parsed.AWSRegion)
+	case config.SecretBackendAWSParameterStore:
+		return fmt.Sprintf(`secret_store fetch for target %q (AWS Systems Manager Parameter Store) was rejected.
+  1. Grant the collector's AWS workload identity (instance profile / IRSA /
+     Pod Identity) the ssm:GetParameter action for this parameter:
+       {"Effect":"Allow","Action":"ssm:GetParameter","Resource":%q}
+     For a SecureString parameter, also grant kms:Decrypt on the CMK that
+     encrypts it.
+  2. Confirm the ARN region (%s) matches the parameter's region — the region
+     is taken from the ARN, never from AWS_REGION or instance metadata.`,
+			tgt.Name, parsed.Ref, parsed.AWSRegion)
 	case config.SecretBackendAzureKeyVault:
 		return fmt.Sprintf(`secret_store fetch for target %q (Azure Key Vault) was rejected.
   1. Assign the collector's managed identity the "Key Vault Secrets User"
@@ -223,9 +235,10 @@ Grant the collector's workload identity the read permission for the backend:
 // partially-constructed fetcher reports errSecretBackendUnavailable rather
 // than panicking; they are not reached with the production construction.
 type productionSecretFetcher struct {
-	aws   secretFetcher
-	azure secretFetcher
-	gcp   secretFetcher
+	aws               secretFetcher
+	awsParameterStore secretFetcher
+	azure             secretFetcher
+	gcp               secretFetcher
 }
 
 func (f productionSecretFetcher) Fetch(ctx context.Context, ref config.ParsedSecretRef) (string, time.Duration, error) {
@@ -235,6 +248,11 @@ func (f productionSecretFetcher) Fetch(ctx context.Context, ref config.ParsedSec
 			return "", 0, fmt.Errorf("%w: %s", errSecretBackendUnavailable, ref.Backend)
 		}
 		return f.aws.Fetch(ctx, ref)
+	case config.SecretBackendAWSParameterStore:
+		if f.awsParameterStore == nil {
+			return "", 0, fmt.Errorf("%w: %s", errSecretBackendUnavailable, ref.Backend)
+		}
+		return f.awsParameterStore.Fetch(ctx, ref)
 	case config.SecretBackendAzureKeyVault:
 		if f.azure == nil {
 			return "", 0, fmt.Errorf("%w: %s", errSecretBackendUnavailable, ref.Backend)

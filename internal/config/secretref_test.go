@@ -22,6 +22,18 @@ func TestInferSecretBackendShapes(t *testing.T) {
 			wantRegion: "eu-west-1",
 		},
 		{
+			name:       "aws parameter store arn",
+			ref:        "arn:aws:ssm:eu-west-1:123456789012:parameter/prod/pg/monitor",
+			wantBe:     SecretBackendAWSParameterStore,
+			wantRegion: "eu-west-1",
+		},
+		{
+			name:       "aws parameter store arn, single-segment name",
+			ref:        "arn:aws:ssm:us-east-2:123456789012:parameter/monitor-pw",
+			wantBe:     SecretBackendAWSParameterStore,
+			wantRegion: "us-east-2",
+		},
+		{
 			name:   "azure key vault secret uri",
 			ref:    "https://my-vault.vault.azure.net/secrets/pg-monitor",
 			wantBe: SecretBackendAzureKeyVault,
@@ -57,7 +69,8 @@ func TestInferSecretBackendShapes(t *testing.T) {
 			if tc.wantRegion != "" && parsed.AWSRegion != tc.wantRegion {
 				t.Errorf("AWSRegion = %q, want %q (pinned from the ARN, never ambient)", parsed.AWSRegion, tc.wantRegion)
 			}
-			if tc.wantBe != SecretBackendAWSSecretsManager && parsed.AWSRegion != "" {
+			isAWS := tc.wantBe == SecretBackendAWSSecretsManager || tc.wantBe == SecretBackendAWSParameterStore
+			if !isAWS && parsed.AWSRegion != "" {
 				t.Errorf("non-AWS backend should carry no region, got %q", parsed.AWSRegion)
 			}
 		})
@@ -73,6 +86,8 @@ func TestInferSecretBackendRejectsUnrecognised(t *testing.T) {
 		"monitor-password",
 		"arn:aws:s3:::my-bucket/key", // wrong AWS service
 		"arn:aws:secretsmanager::123456789012:secret:prod/pg/monitor", // empty region segment
+		"arn:aws:ssm::123456789012:parameter/prod/pg/monitor",         // ssm: empty region segment
+		"arn:aws:ssm:eu-west-1:123456789012:document/foo",             // ssm: not a parameter resource
 		"https://example.com/secrets/pg-monitor",                      // not a Key Vault host
 		"projects/my-proj/secrets/pg-monitor",                         // missing /versions/
 		"vault://kv/pg-monitor",                                       // unknown scheme
