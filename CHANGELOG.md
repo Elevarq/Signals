@@ -6,6 +6,27 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-beta.7] - 2026-06-19
+
+> **Highlights.** Adds the AWS Systems Manager Parameter Store `secret_store`
+> backend, completes the de-`arq` rename to Elevarq Signals, and closes a
+> credential-redaction gap found during beta testing.
+>
+> **Breaking — first-party importers must update import paths.** The Go
+> module path changed `github.com/elevarq/arq-signals` ->
+> `github.com/elevarq/signals`, and the repository was renamed
+> `Elevarq/Arq-Signals` -> `Elevarq/Signals` (old URLs redirect). The
+> deprecated `arqctl` / `arq-signals` binary aliases were removed — use
+> `signals` / `signalsctl`.
+>
+> **Security.** `pg_stat_statements` query text is now redacted of structured
+> credential literals (role/user `PASSWORD`, libpq conninfo `password=`)
+> before persistence and export (#188).
+>
+> **Upgrade notes.** No config changes required beyond the import-path /
+> binary-name renames above. The committed `Chart.yaml` version is stamped
+> from the release tag at package time, so it may lag the tag.
+
 ### Added
 
 - **`secret_store`: AWS Systems Manager Parameter Store backend (#157).**
