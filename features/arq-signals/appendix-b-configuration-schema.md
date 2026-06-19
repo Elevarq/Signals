@@ -273,22 +273,34 @@ the shape of `secret_ref`**:
 | `secret_ref` shape | Backend | Region source |
 |--------------------|---------|---------------|
 | `arn:aws:secretsmanager:<region>:<acct>:secret:<name>` | AWS Secrets Manager | the ARN's region field, authoritatively — never `AWS_REGION` / the SDK default chain / IMDS |
+| `arn:aws:ssm:<region>:<acct>:parameter/<name>` | AWS Systems Manager Parameter Store | the ARN's region field, authoritatively — never `AWS_REGION` / the SDK default chain / IMDS |
 | `https://<vault>.vault.azure.net/secrets/<name>[/<version>]` | Azure Key Vault | n/a |
 | `projects/<p>/secrets/<s>/versions/<v|latest>` | GCP Secret Manager | n/a |
 
 A reference matching none of these is a hard startup error naming the
-three accepted forms (FC-SECRET-007).
+four accepted forms (FC-SECRET-007). The two AWS forms are distinguished by
+their ARN service segment (`secretsmanager` vs `ssm`), so they never
+collide.
 
-**Backend availability in this release:** the **AWS Secrets Manager** path
-is production-grade. Azure Key Vault and GCP Secret Manager references are
-accepted at startup (the shapes are recognised and validated) but their
-production fetchers are deferred — a target using one fails at connect
-time with a clear "backend is not available in this build" error and does
-not stop collection for other targets. Tracked as a follow-up.
+**AWS Systems Manager Parameter Store** (`arn:aws:ssm:…:parameter/…`) is
+fetched with `GetParameter` and `WithDecryption=true`: a `SecureString`
+parameter is returned decrypted and a plain `String` passes through. The
+fetching identity needs `ssm:GetParameter` (and `kms:Decrypt` on the CMK for
+a `SecureString`). Like Secrets Manager it supplies no TTL, so reuse is
+bounded by `max_cache_ttl`.
+
+**Backend availability in this release:** the **AWS Secrets Manager** and
+**AWS Systems Manager Parameter Store** paths are production-grade. Azure
+Key Vault and GCP Secret Manager references are accepted at startup (the
+shapes are recognised and validated) but their production fetchers are
+deferred — a target using one fails at connect time with a clear "backend
+is not available in this build" error and does not stop collection for
+other targets. Tracked as a follow-up.
 
 The fetched secret is cached per target. The reuse bound is
 `min(vault-supplied TTL if any, max_cache_ttl if set)`; AWS Secrets Manager
-supplies no TTL, so for AWS the bound is whatever `max_cache_ttl` sets. With
+and Parameter Store supply no TTL, so for AWS the bound is whatever
+`max_cache_ttl` sets. With
 neither set the secret is re-fetched on every reconnect, so a rotated secret
 is picked up without a restart (INV003). The secret is never stored,
 exported, or logged — only its metadata. Validation rules:

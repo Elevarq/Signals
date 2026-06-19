@@ -2,14 +2,17 @@
 
 - **Spec ID prefix:** `ARQ-SIGNALS-AUTH-SECRET-`
 - **Lifecycle status:** `ACTIVE`
-- **Tracking issue:** [#97](https://github.com/Elevarq/Arq-Signals/issues/97)
+- **Tracking issue:** [#97](https://github.com/Elevarq/Arq-Signals/issues/97);
+  extended with the AWS Systems Manager Parameter Store backend under
+  [#157](https://github.com/Elevarq/Arq-Signals/issues/157).
 - **Derives from:** `credential-providers.md` (ACTIVE, #93). This spec is a
   behavioral sub-spec; it MUST conform to that abstraction's interface,
   invariants (INV001–INV007), failure taxonomy (notably FC003 fetch
   failure, FC007 missing method config), and RULE008. Where this spec is
   silent, the keystone governs.
-- **Type:** Behavioral + Integration-mapping (three vault backends:
-  AWS Secrets Manager, Azure Key Vault, GCP Secret Manager)
+- **Type:** Behavioral + Integration-mapping (four vault backends:
+  AWS Secrets Manager, AWS Systems Manager Parameter Store, Azure Key
+  Vault, GCP Secret Manager)
 
 ## Purpose
 
@@ -17,8 +20,9 @@ Implement the `secret_store` credential provider: connect Elevarq Signals
 to **self-managed PostgreSQL running in a cloud** using a database password
 that lives in a cloud secret store rather than in Signals' configuration.
 The operator points a target at a **secret reference** (an AWS Secrets
-Manager ARN, an Azure Key Vault secret URI, or a GCP Secret Manager
-resource name); at connection time the provider fetches the secret using
+Manager ARN, an AWS Systems Manager Parameter Store ARN, an Azure Key
+Vault secret URI, or a GCP Secret Manager resource name); at connection
+time the provider fetches the secret using
 the collector's **ambient workload identity** and uses the fetched value as
 the connection password. No password is ever stored in Signals' config.
 
@@ -46,28 +50,32 @@ unambiguous:
 | `secret_ref` shape | Backend |
 |---|---|
 | `arn:aws:secretsmanager:<region>:<acct>:secret:<name>` | AWS Secrets Manager |
+| `arn:aws:ssm:<region>:<acct>:parameter/<name>` | AWS Systems Manager Parameter Store |
 | `https://<vault-name>.vault.azure.net/secrets/<name>[/<version>]` | Azure Key Vault |
 | `projects/<proj>/secrets/<name>/versions/<version|latest>` | GCP Secret Manager |
 
 A `secret_ref` that matches none of these shapes is a **hard config error
-at startup** (FC-SECRET-007) naming the three accepted forms. Inference is
+at startup** (FC-SECRET-007) naming the four accepted forms. Inference is
 total and deterministic: a given reference routes to exactly one backend or
-is rejected. For AWS, the ARN's region segment additionally pins the
-Secrets Manager endpoint — it is never taken from the environment (see
-Integration mapping — vault backends).
+is rejected. The two AWS forms are distinguished by their ARN service
+segment (`secretsmanager` vs `ssm`), so they never collide. For both AWS
+backends, the ARN's region segment additionally pins the service endpoint —
+it is never taken from the environment (see Integration mapping — vault
+backends).
 
 ## Inputs
 
 - **`auth_method: secret_store`** (per target) — selects this provider.
 - **`secret_ref`** (new, required) — the vault reference, in one of the
-  three forms above. Its shape selects the backend. Absent → FC-SECRET-007.
+  four forms above. Its shape selects the backend. Absent → FC-SECRET-007.
   The reference is **not** a secret (it names, but does not contain, the
   credential) and MAY appear in logs/status.
 - **`secret_json_key`** (new, optional) — when set, the fetched secret
   value is parsed as a JSON object and this key's string value is used as
   the password (e.g. `secret_json_key: password` for an AWS RDS-managed
   secret `{"username":"…","password":"…"}`). When unset, the fetched value
-  is used verbatim as the password.
+  is used verbatim as the password. Applies uniformly to all backends,
+  including a Parameter Store parameter whose value is a JSON document.
 - **`max_cache_ttl`** (new, optional duration) — bounds how long a fetched
   secret may be reused between reconnects when the vault supplies no
   TTL/lease of its own (see keystone INV004 / ARQ-SIGNALS-AUTH-SECRET-INV003).
@@ -117,17 +125,29 @@ secretStoreProvider implements CredentialProvider:
 | Backend | Identity | Fetch API | IAM permission |
 |---|---|---|---|
 | AWS Secrets Manager | instance profile / IRSA / Pod Identity | `GetSecretValue` | `secretsmanager:GetSecretValue` |
+| AWS Systems Manager Parameter Store | instance profile / IRSA / Pod Identity | `GetParameter` (`WithDecryption=true`) | `ssm:GetParameter` (+ `kms:Decrypt` on the CMK for a `SecureString`) |
 | Azure Key Vault | Managed Identity / default credential | `GetSecret` | Key Vault Secrets User (get) |
 | GCP Secret Manager | Workload Identity / ADC | `AccessSecretVersion` | `secretmanager.versions.access` |
 
-In all three the fetched payload is applied as `ConnConfig.Password`
+In all four the fetched payload is applied as `ConnConfig.Password`
 (password kind). Transport to PostgreSQL is TLS `verify-full` (INV003,
 applied to `secret_store` by the confirmed decision below).
 
-**AWS region — derived authoritatively from the ARN.** For an AWS Secrets
-Manager `secret_ref`, the region segment of the ARN
-(`arn:aws:secretsmanager:<region>:<acct>:secret:<name>`) selects the
-Secrets Manager endpoint. The provider MUST NOT consult `AWS_REGION`,
+**Parameter Store — `SecureString` and `String`.** The provider calls
+`GetParameter` with `WithDecryption=true`, so a `SecureString` parameter is
+returned decrypted and a plain `String` parameter is returned unchanged;
+both yield a string value used as the password (or parsed via
+`secret_json_key`). A `StringList` whose comma-separated value is not a
+single usable password is treated like any other non-conforming payload
+(empty/extraction handling, FC-SECRET-003/004). Parameter Store supplies no
+lease/TTL, so the returned `ttl` is always zero — reuse between reconnects
+is governed entirely by `max_cache_ttl` (INV003), exactly as for AWS
+Secrets Manager.
+
+**AWS region — derived authoritatively from the ARN.** For an AWS
+`secret_ref` — Secrets Manager (`arn:aws:secretsmanager:<region>:…`) or
+Parameter Store (`arn:aws:ssm:<region>:…`) — the region segment of the ARN
+selects the service endpoint. The provider MUST NOT consult `AWS_REGION`,
 `AWS_DEFAULT_REGION`, the SDK's default region-resolution chain, or IMDS
 region lookup for endpoint selection — the ARN is the single source of
 truth. Ambient workload identity is still resolved normally for
@@ -192,17 +212,21 @@ dependency.
   startup**, regardless of `env`. (Keystone FC006 / INV003.)
 - **FC-SECRET-007 (missing/unrecognised reference)**: `secret_store`
   without `secret_ref`, or with a `secret_ref` that matches none of the
-  three accepted shapes → **hard config error at startup** naming the
-  accepted forms. (Keystone FC007.)
+  four accepted shapes → **hard config error at startup** naming the
+  accepted forms. A well-formed `arn:aws:ssm:` ARN whose region segment is
+  empty, or that does not name a `parameter/…` resource, is rejected here
+  the same way a malformed Secrets Manager ARN is. (Keystone FC007.)
 
 ## Non-Functional Requirements
 
 - **ARQ-SIGNALS-AUTH-SECRET-NFR001 (dependency hygiene)**: the AWS Secrets
-  Manager, Azure Key Vault (`azsecrets`), and GCP Secret Manager SDKs are
-  pinned and MUST pass Trivy / govulncheck gates. Each backend SDK is
-  linked only on this provider's path; non-`secret_store` targets require
-  no vault credentials at runtime. (AWS SDK config / Azure `azidentity` are
-  already vendored by #94/#95.)
+  Manager, AWS Systems Manager (`ssm`), Azure Key Vault (`azsecrets`), and
+  GCP Secret Manager SDKs are pinned and MUST pass Trivy / govulncheck
+  gates. Each backend SDK is linked only on this provider's path;
+  non-`secret_store` targets require no vault credentials at runtime. (AWS
+  SDK config / Azure `azidentity` are already vendored by #94/#95; the
+  `ssm` service client reuses the already-vendored AWS SDK core and shares
+  the Secrets Manager credential/region path.)
 - **ARQ-SIGNALS-AUTH-SECRET-NFR002 (latency)**: steady-state reconnects
   reuse a cached secret within its bound; a cold fetch completes within the
   per-target connection budget. With no cache bound, the per-reconnect
@@ -214,12 +238,20 @@ dependency.
 ## Acceptance Rules
 
 - **AC-SECRET-001 (normal)**: a target with `secret_store`, `verify-full`,
-  and a `secret_ref` for each backend (ARN / Key Vault URI / Secret Manager
-  resource) connects with **no password in config**; the secret is fetched
-  from the inferred backend and applied as the password.
+  and a `secret_ref` for each backend (Secrets Manager ARN / Parameter
+  Store ARN / Key Vault URI / Secret Manager resource) connects with **no
+  password in config**; the secret is fetched from the inferred backend and
+  applied as the password.
 - **AC-SECRET-002 (boundary — backend inference)**: each reference shape
-  routes to the correct backend fetcher; an unrecognised shape aborts
-  startup with an actionable error (FC-SECRET-007).
+  routes to the correct backend fetcher — including the two AWS forms
+  routing to Secrets Manager vs Parameter Store by their `secretsmanager`
+  vs `ssm` ARN service segment; an unrecognised shape, or an `ssm` ARN with
+  an empty region or no `parameter/…` resource, aborts startup with an
+  actionable error (FC-SECRET-007).
+- **AC-SECRET-002a (boundary — Parameter Store SecureString/String)**: a
+  `SecureString` parameter is fetched with `WithDecryption=true` and
+  applied decrypted; a plain `String` parameter is applied unchanged; the
+  fetched `ttl` is zero so reuse is bounded only by `max_cache_ttl`.
 - **AC-SECRET-003 (boundary — JSON key)**: with `secret_json_key` set, the
   value is parsed as JSON and the named key extracted; without it, the raw
   value is used; invalid JSON / missing key / non-string value fails the
@@ -255,9 +287,10 @@ dependency.
   validation path. Documented per backend; not run in default CI.
 - **AC-SECRET-012 (operator guidance)**: when the fetch fails for
   permission/identity reasons, `signalsctl` surfaces the exact IAM grant for
-  the inferred backend (`secretsmanager:GetSecretValue` / Key Vault Secrets
-  User / `secretmanager.versions.access`) and the workload-identity note.
-  (UX may be refined alongside #99; the snippet text is owned here.)
+  the inferred backend (`secretsmanager:GetSecretValue` /
+  `ssm:GetParameter` plus `kms:Decrypt` for a `SecureString` / Key Vault
+  Secrets User / `secretmanager.versions.access`) and the workload-identity
+  note. (UX may be refined alongside #99; the snippet text is owned here.)
 - **AC-SECRET-013 (live rotation validation, env-gated — optional)**: as an
   additional, opt-in step beyond AC-SECRET-011, rotate the stored secret,
   force a reconnect, and verify the new secret is picked up without a daemon
@@ -271,8 +304,9 @@ dependency.
 
 | Test | Maps to | Kind |
 |---|---|---|
-| secret fetched & applied as password, per backend (fake fetcher) | AC-SECRET-001 | unit (fake fetcher) |
-| each ref shape routes to the right backend; bad shape rejected at startup | AC-SECRET-002 / FC-SECRET-007 | unit (routing + config validation) |
+| secret fetched & applied as password, per backend incl. Parameter Store (fake fetcher) | AC-SECRET-001 | unit (fake fetcher) |
+| each ref shape routes to the right backend (incl. `secretsmanager` vs `ssm` ARN split); bad shape / empty-region `ssm` ARN / non-`parameter` `ssm` ARN rejected at startup | AC-SECRET-002 / FC-SECRET-007 | unit (routing + config validation) |
+| Parameter Store fetcher calls `GetParameter` with `WithDecryption=true`; SecureString decrypted & String passthrough applied; ttl is zero | AC-SECRET-002a | unit (fake SSM client) |
 | JSON-key extraction; raw default; invalid/missing key fails without leaking value | AC-SECRET-003 | unit |
 | vault TTL bound; `max_cache_ttl` bound; no-TTL+no-max re-fetches; rotation on reconnect; per-target isolation | AC-SECRET-004 | unit (fake fetcher + clock) |
 | startup rejects `secret_store` + inline password source | AC-SECRET-005 | unit (config validation) |
@@ -313,3 +347,21 @@ _(Confirmed 2026-06-16, #97.)_
    a local strengthening (stricter than the keystone baseline for password
    methods), permitted because sub-specs may not weaken the keystone but
    may add stricter guarantees.
+
+_(Confirmed 2026-06-18, #157 — AWS Systems Manager Parameter Store backend.)_
+
+4. **Parameter Store reference — ARN-only.** A Parameter Store parameter is
+   referenced by its ARN (`arn:aws:ssm:<region>:<acct>:parameter/<name>`),
+   never by a bare name/path. ARN-only keeps backend routing unambiguous
+   (the `ssm` service segment distinguishes it from a `secretsmanager` ARN)
+   and preserves the region-from-ARN invariant with no new region source —
+   a bare path carries no region and was rejected for that reason. The two
+   AWS backends share the same ambient-identity and region-from-ARN path.
+5. **Payload — `WithDecryption=true`, string value.** `GetParameter` is
+   always called with `WithDecryption=true`, so `SecureString` parameters
+   are decrypted and `String` parameters pass through; both produce a
+   string applied as the password (or parsed via `secret_json_key`). Like
+   AWS Secrets Manager, Parameter Store returns no lease, so `ttl=0` and
+   reuse is bounded solely by `max_cache_ttl`. All other behavior (TLS
+   floor, no-inline-password, never-log, cache key, failure taxonomy) is
+   inherited unchanged from the existing `secret_store` provider.

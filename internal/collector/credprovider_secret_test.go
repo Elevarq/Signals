@@ -60,6 +60,7 @@ func (f *fakeSecretFetcher) lastRef() config.ParsedSecretRef {
 }
 
 const testAWSSecretRef = "arn:aws:secretsmanager:eu-west-1:123456789012:secret:prod/pg/monitor-AbCdEf"
+const testAWSParameterStoreRef = "arn:aws:ssm:eu-west-1:123456789012:parameter/prod/pg/monitor"
 
 func secretTestTarget() config.TargetConfig {
 	return config.TargetConfig{
@@ -414,14 +415,15 @@ func TestSecretStoreGuidanceAWS(t *testing.T) {
 
 // INV005 (backend isolation) — the production routing fetcher invokes only
 // the sub-fetcher for the inferred backend, never any other backend's SDK.
-// All three backends (AWS Secrets Manager, Azure Key Vault, GCP Secret
-// Manager) are production-wired (#108); each ref reaches exactly its own
-// fetcher and no other.
+// All four backends (AWS Secrets Manager, AWS Systems Manager Parameter
+// Store, Azure Key Vault, GCP Secret Manager) are production-wired; each ref
+// reaches exactly its own fetcher and no other.
 func TestProductionSecretFetcherRouting(t *testing.T) {
 	awsSub := &fakeSecretFetcher{value: "aws-pw"}
+	psSub := &fakeSecretFetcher{value: "ps-pw"}
 	azureSub := &fakeSecretFetcher{value: "azure-pw"}
 	gcpSub := &fakeSecretFetcher{value: "gcp-pw"}
-	pf := productionSecretFetcher{aws: awsSub, azure: azureSub, gcp: gcpSub}
+	pf := productionSecretFetcher{aws: awsSub, awsParameterStore: psSub, azure: azureSub, gcp: gcpSub}
 	ctx := context.Background()
 
 	cases := []struct {
@@ -431,9 +433,10 @@ func TestProductionSecretFetcherRouting(t *testing.T) {
 		others  []*fakeSecretFetcher
 		backend config.SecretBackend
 	}{
-		{testAWSSecretRef, "aws-pw", awsSub, []*fakeSecretFetcher{azureSub, gcpSub}, config.SecretBackendAWSSecretsManager},
-		{"https://my-vault.vault.azure.net/secrets/pg-monitor", "azure-pw", azureSub, []*fakeSecretFetcher{awsSub, gcpSub}, config.SecretBackendAzureKeyVault},
-		{"projects/my-proj/secrets/pg-monitor/versions/latest", "gcp-pw", gcpSub, []*fakeSecretFetcher{awsSub, gcpSub}, config.SecretBackendGCPSecretManager},
+		{testAWSSecretRef, "aws-pw", awsSub, []*fakeSecretFetcher{psSub, azureSub, gcpSub}, config.SecretBackendAWSSecretsManager},
+		{testAWSParameterStoreRef, "ps-pw", psSub, []*fakeSecretFetcher{awsSub, azureSub, gcpSub}, config.SecretBackendAWSParameterStore},
+		{"https://my-vault.vault.azure.net/secrets/pg-monitor", "azure-pw", azureSub, []*fakeSecretFetcher{awsSub, psSub, gcpSub}, config.SecretBackendAzureKeyVault},
+		{"projects/my-proj/secrets/pg-monitor/versions/latest", "gcp-pw", gcpSub, []*fakeSecretFetcher{awsSub, psSub, azureSub}, config.SecretBackendGCPSecretManager},
 	}
 	for _, tc := range cases {
 		parsed, err := config.InferSecretBackend(tc.ref)

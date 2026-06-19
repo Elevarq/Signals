@@ -119,13 +119,15 @@ func newCredentialResolver(logger *slog.Logger) *credentialResolver {
 		region:      resolveAWSRegion,
 		azureMinter: azureEntraTokenMinter{},
 		gcpMinter:   gcpADCTokenMinter{},
-		// All three secret_store backends are production-wired (#97 AWS,
-		// #108 Azure Key Vault + GCP Secret Manager). Each ref is routed to
-		// exactly its backend's SDK; no other backend is invoked (INV005).
+		// All four secret_store backends are production-wired (#97 AWS Secrets
+		// Manager, #157 AWS Systems Manager Parameter Store, #108 Azure Key
+		// Vault + GCP Secret Manager). Each ref is routed to exactly its
+		// backend's SDK; no other backend is invoked (INV005).
 		secretFetcher: productionSecretFetcher{
-			aws:   awsSecretsManagerFetcher{},
-			azure: azureKeyVaultFetcher{},
-			gcp:   gcpSecretManagerFetcher{},
+			aws:               awsSecretsManagerFetcher{},
+			awsParameterStore: awsParameterStoreFetcher{},
+			azure:             azureKeyVaultFetcher{},
+			gcp:               gcpSecretManagerFetcher{},
 		},
 		certLoader: fileCertLoader{},
 		now:        time.Now,
