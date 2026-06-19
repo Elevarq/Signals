@@ -54,6 +54,7 @@ Operational health, security, and planner diagnostics.
 | `connection_utilization_v1` | `pg_stat_activity` | 5m | Connection counts vs max_connections |
 | `planner_stats_staleness_v1` | `pg_stat_user_tables` + `pg_class` | 1h | Estimate drift and modifications since analyze |
 | `pgss_reset_check_v1` | `pg_stat_statements_info` | 1h | Statistics reset timestamp (requires extension, PG 14+) |
+| `pgss_capacity_v1` | `pg_stat_statements_info` + `pg_stat_statements` | 1h | `pg_stat_statements` capacity pressure: dealloc counter and tracked-statement count (requires extension) |
 
 ## Server Survival Pack
 
@@ -154,6 +155,19 @@ excluded.
 | `pg_stats_v1` | `pg_stats` | 24h | Column-level planner stats (`n_distinct`, `correlation`); MCV / histogram payloads deliberately excluded |
 | `pg_stats_extended_v1` | `pg_statistic_ext` | 24h | Multi-column extended statistics |
 | `pg_vector_columns_v1` | `pg_attribute` + `pg_type` | 24h | `vector` columns inventory (requires `vector` extension, PG 14+) |
+| `pg_types_v1` | `pg_type` + `pg_namespace` (+ `pg_enum`) | 24h | User-defined types and domains (enums, composites, domains) |
+| `pg_aggregates_v1` | `pg_aggregate` + `pg_proc` | 24h | User-defined aggregate inventory (non-extension-owned) |
+| `pg_operators_v1` | `pg_operator` + `pg_proc` | 24h | User-defined operator inventory (non-extension-owned) |
+| `pg_casts_v1` | `pg_cast` + `pg_type` + `pg_proc` | 24h | User-defined cast inventory (non-extension-owned) |
+| `pg_collations_v1` | `pg_collation` + `pg_namespace` | 24h | User-defined collation inventory (non-extension-owned) |
+| `pg_text_search_v1` | `pg_ts_config` + `pg_ts_parser` | 24h | User-defined text-search configuration inventory (non-extension-owned) |
+| `pg_identity_columns_v1` | `pg_attribute` + `pg_class` + `pg_depend` | 24h | Identity / `SERIAL` column metadata for user-schema tables |
+| `pg_statistic_ext_v1` | `pg_statistic_ext` + `pg_class` | 24h | Extended-statistics object metadata (names, kinds, attnums) |
+| `pg_statistic_ext_data_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics data (kinds d/f/e; excludes MCV) |
+| `pg_statistic_ext_data_mcv_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics MCV data (kind m); high-sensitivity, off by default |
+| `pg_stats_array_range_v1` | `pg_stats` | 24h | Per-element / per-range planner stats (array/range MCV & histograms); high-sensitivity, opt-in (`CollectArrayRangeHistograms`) |
+| `pg_policies_v1` | `pg_policies` + `pg_class` | 24h | Row-level security (RLS) policy inventory with table RLS flags; high-sensitivity, off by default |
+| `pg_rules_v1` | `pg_rules` | 24h | Rewrite-rule (`CREATE RULE`) inventory; high-sensitivity, off by default |
 
 ## DDL definitions
 
