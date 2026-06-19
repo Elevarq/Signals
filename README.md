@@ -8,7 +8,7 @@ exposes.
 
 From [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams.
 
-[![CI](https://github.com/elevarq/arq-signals/actions/workflows/ci.yml/badge.svg)](https://github.com/elevarq/arq-signals/actions/workflows/ci.yml)
+[![CI](https://github.com/elevarq/signals/actions/workflows/ci.yml/badge.svg)](https://github.com/elevarq/signals/actions/workflows/ci.yml)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](LICENSE)
 [![Go Report Card](https://goreportcard.com/badge/github.com/elevarq/arq-signals)](https://goreportcard.com/report/github.com/elevarq/arq-signals)
 [![OpenSSF Best Practices](https://www.bestpractices.dev/projects/13020/badge)](https://www.bestpractices.dev/projects/13020)
@@ -33,8 +33,8 @@ From [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams.
 ## Try it in 2 minutes
 
 ```bash
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals
+git clone https://github.com/elevarq/signals.git
+cd signals
 docker compose -f examples/docker-compose.yml up -d
 ```
 
@@ -281,8 +281,8 @@ Full operator checklist (provenance, Trivy re-scan, OCI labels, etc.):
 ### Docker Compose (recommended for trying)
 
 ```bash
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals
+git clone https://github.com/elevarq/signals.git
+cd signals
 docker compose -f examples/docker-compose.yml up -d
 ```
 
@@ -305,8 +305,8 @@ docker run -d --name signals \
 ### Build from source
 
 ```bash
-git clone https://github.com/elevarq/arq-signals.git
-cd arq-signals
+git clone https://github.com/elevarq/signals.git
+cd signals
 make build    # produces bin/signals and bin/signalsctl
 ./bin/signals --config signals.yaml
 ```

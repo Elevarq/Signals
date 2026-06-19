@@ -250,7 +250,7 @@ jobs:
             org.opencontainers.image.description=Open-source PostgreSQL diagnostic signal collector — local-first, no data egress.
             org.opencontainers.image.licenses=BSD-3-Clause
             org.opencontainers.image.vendor=Elevarq
-            org.opencontainers.image.documentation=https://github.com/Elevarq/Arq-Signals/blob/main/README.md
+            org.opencontainers.image.documentation=https://github.com/Elevarq/signals/blob/main/README.md
 
       - name: Build and push (multi-arch + SBOM + SLSA provenance)
         id: push
@@ -527,7 +527,7 @@ jobs:
           Same command works against \`${{ env.DOCKERHUB_IMAGE }}:${VERSION}\` — the certificate identity is bound to the workflow, not the registry.
 
           Full verification checklist (manifest, SBOM, provenance, Trivy):
-          [docs/release-verification.md](https://github.com/Elevarq/Arq-Signals/blob/main/docs/release-verification.md)
+          [docs/release-verification.md](https://github.com/Elevarq/signals/blob/main/docs/release-verification.md)
           EOF
 
       - name: Create GitHub release

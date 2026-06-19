@@ -7,8 +7,8 @@ type: software
 authors:
   - name: Elevarq
     website: https://elevarq.com
-repository-code: https://github.com/elevarq/arq-signals
-url: https://github.com/elevarq/arq-signals
+repository-code: https://github.com/elevarq/signals
+url: https://github.com/elevarq/signals
 abstract: >-
   Read-only PostgreSQL diagnostic collector. Extracts
   operational signals from PostgreSQL system views and

@@ -59,7 +59,7 @@ Any other output means the image is **not** trustworthy — do not deploy.
 Locate the GitHub Actions run for the version you're verifying:
 
 ```
-https://github.com/Elevarq/Arq-Signals/actions/workflows/release.yml
+https://github.com/Elevarq/signals/actions/workflows/release.yml
 ```
 
 Confirm:
@@ -157,13 +157,13 @@ embedded SPDX document has:
 pulling the image at all:
 
 ```bash
-gh release download v<VERSION> --repo Elevarq/Arq-Signals \
+gh release download v<VERSION> --repo Elevarq/signals \
   --pattern 'sbom.spdx.json' \
   --pattern 'SHA256SUMS'
 
 # or via curl:
 curl -L \
-  https://github.com/Elevarq/Arq-Signals/releases/download/v<VERSION>/sbom.spdx.json \
+  https://github.com/Elevarq/signals/releases/download/v<VERSION>/sbom.spdx.json \
   -o sbom.spdx.json
 ```
 
