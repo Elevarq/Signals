@@ -255,12 +255,14 @@ from the shape of `secret_ref`** — there is no separate selector:
 | `secret_ref` shape | Backend | IAM permission |
 |---|---|---|
 | `arn:aws:secretsmanager:<region>:<acct>:secret:<name>` | AWS Secrets Manager | `secretsmanager:GetSecretValue` |
+| `arn:aws:ssm:<region>:<acct>:parameter/<name>` | AWS Systems Manager Parameter Store | `ssm:GetParameter` (+ `kms:Decrypt` for a `SecureString`) |
 | `https://<vault>.vault.azure.net/secrets/<name>[/<version>]` | Azure Key Vault | Key Vault **Secrets User** (get) |
 | `projects/<proj>/secrets/<name>/versions/<version\|latest>` | GCP Secret Manager | `secretmanager.versions.access` |
 
-For AWS the **region is taken from the ARN**, never from the
-environment. A `secret_ref` matching none of the three shapes is a hard
-startup error (FC007).
+For both AWS forms the **region is taken from the ARN**, never from the
+environment, and the `secretsmanager` vs `ssm` ARN service segment
+selects the backend. A `secret_ref` matching none of the four shapes is
+a hard startup error (FC007).
 
 **1. Database — a normal password role** whose password is the value
 stored in the vault:
@@ -294,6 +296,30 @@ permission from the table above on that one secret.
 the secret value *is* the password. Without a vault-supplied TTL and
 without `max_cache_ttl`, the secret is re-fetched on every reconnect so
 a rotation is picked up immediately.
+
+### AWS Parameter Store — and the Azure / GCP equivalents
+
+AWS has two stores that can hold the secret itself: **Secrets Manager**
+and **Systems Manager Parameter Store** (a `SecureString` parameter holds
+an encrypted value directly). Both are supported above — reference a
+Parameter Store parameter by its ARN; a `SecureString` is fetched with
+`GetParameter` + `WithDecryption=true`, and a plain `String` works too.
+
+Azure and GCP have *config* stores that look comparable — **Azure App
+Configuration** and **GCP Parameter Manager** — but they are built to
+**reference** the dedicated vault, not to store the secret themselves:
+
+- **Azure App Configuration** holds a *Key Vault reference*; the secret
+  value stays in **Key Vault**.
+- **GCP Parameter Manager** holds a `__REF__(…)` reference to a Secret
+  Manager secret; the value stays in **Secret Manager**.
+
+So on Azure and GCP there is nothing extra to configure in Signals: keep
+the password in **Key Vault** / **Secret Manager** and point `secret_ref`
+at the vault (the rows above). Do **not** store a database password as a
+plaintext App Configuration key-value or Parameter Manager parameter —
+that defeats the vault's protection, and Signals deliberately does not
+read secrets from those config stores.
 
 ---
 
@@ -362,7 +388,7 @@ Each is actionable and redacted (the credential never appears):
   `pgaadauth_create_principal` mapping, IAM-user mapping, or vault
   permission shows up.
 - **`secret_store` without / with an unrecognised `secret_ref`** →
-  startup error naming the three accepted forms (FC007).
+  startup error naming the four accepted forms (FC007).
 
 ## See also
 
