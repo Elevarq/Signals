@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path/filepath"
 	"syscall"
 	"time"
 
@@ -43,19 +42,7 @@ func redactReloadErr(err error) string {
 	return msg
 }
 
-// warnIfDeprecatedAlias prints a one-line deprecation notice to stderr
-// when the daemon is invoked under its old Arq-branded name. The alias
-// binary (arq-signals) is built from this same package and is removed
-// one release after launch (#62).
-func warnIfDeprecatedAlias() {
-	if filepath.Base(os.Args[0]) == "arq-signals" {
-		fmt.Fprintln(os.Stderr, "warning: \"arq-signals\" is deprecated and will be removed after launch; use \"signals\" instead")
-	}
-}
-
 func main() {
-	warnIfDeprecatedAlias()
-
 	if err := run(); err != nil {
 		fmt.Fprintf(os.Stderr, "signals: %v\n", err)
 		os.Exit(1)
