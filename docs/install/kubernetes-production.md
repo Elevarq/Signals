@@ -100,6 +100,37 @@ Per-component summary for the platform team's review:
 | API auth | Bearer token via Secret; `subtle.ConstantTimeCompare`; strong-token validation |
 | Outbound network | None except Postgres + DNS (NetworkPolicy enforces) |
 | Volumes | PVC for SQLite store; emptyDir for `/tmp` (read-only root) |
+| Encryption at rest | Provide an **encrypted `StorageClass`** for the PVC (see below); Signals stores diagnostic data only — never credentials |
+
+## Encryption at rest
+
+The SQLite store holds collected diagnostic data and snapshot state — **never
+credentials** (they are read at connect time and never written to disk). The
+store is plaintext at the application layer; at-rest encryption is provided by
+the volume, the standard KMS-backed control:
+
+- Back the PVC with an **encrypted `StorageClass`**. With the AWS EBS CSI
+  driver, for example:
+
+  ```yaml
+  apiVersion: storage.k8s.io/v1
+  kind: StorageClass
+  metadata:
+    name: ssd-encrypted-retain
+  provisioner: ebs.csi.aws.com
+  parameters:
+    type: gp3
+    encrypted: "true"          # KMS-encrypted volume
+    # kmsKeyId: <arn>          # optional: a customer-managed key
+  reclaimPolicy: Retain
+  ```
+
+  then set `persistence.storageClass: ssd-encrypted-retain` in your Helm
+  values. Other providers expose an equivalent encrypted-class option.
+
+See [runtime-safety-model.md → Data at Rest](../runtime-safety-model.md#data-at-rest)
+for the rationale (it keeps the airgapped, dependency-free binary intact while
+satisfying encryption-at-rest requirements at the infrastructure layer).
 
 ## Deployment topologies
 

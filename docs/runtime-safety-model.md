@@ -42,6 +42,32 @@ Conservative timeouts are applied via `SET LOCAL` inside the collection transact
 - Never included in snapshot exports or API responses
 - Error messages containing credential information are redacted
 
+## Data at Rest
+The local store (`modernc.org/sqlite`, pure-Go, `CGO_ENABLED=0`) holds
+**collected diagnostic data and snapshot state only**. Per *Credential
+Handling* above, **credentials are never written to it** — the most sensitive
+material never reaches disk.
+
+By design the store is **plaintext at the application layer**: the pure-Go
+SQLite engine has no built-in encryption, and Signals intentionally does not
+add one, because doing so would require a CGO build (e.g. SQLCipher + a C
+crypto library) and forfeit the static, dependency-free, auditable binary that
+is a core property of the project.
+
+**At-rest encryption is provided by the deployment environment** — the
+standard, KMS-backed control for this class of data:
+
+- **Kubernetes:** back the SQLite PVC with an encrypted `StorageClass`
+  (e.g. an EBS CSI class with `encrypted: "true"`, or any provider equivalent).
+- **EC2 / VM:** use an encrypted EBS volume / encrypted host disk for the data
+  directory.
+- **Bare metal:** host full-disk encryption (LUKS or equivalent).
+
+This keeps the airgapped, no-egress design intact while satisfying
+encryption-at-rest requirements (including the AWS FTR control) at the
+infrastructure layer. See the encrypted-`StorageClass` guidance in
+[install/kubernetes-production.md](install/kubernetes-production.md).
+
 ## Unsafe Override
 An explicit override is available for lab/dev environments only:
 ```
