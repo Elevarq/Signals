@@ -94,10 +94,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
     `TestR083ControlPlaneTokenSetsArqActor`,
     `TestHelm_ConfigMapIsMountedAtEtcArq`).
 
-  Unchanged (intentional): the `arqctl` deprecated-binary alias (warns and
-  forwards to `signalsctl` until launch), internal `ARQ-SIGNALS-*`
-  requirement IDs, and the Go module path / `features/arq-signals/` tree
-  (gated on the repository rename #62).
+  Unchanged (intentional): internal `ARQ-SIGNALS-*` requirement IDs, and
+  the Go module path / `features/arq-signals/` tree (gated on the
+  repository rename #62).
+
+### Removed
+
+- **Deprecated binary aliases `arqctl` and `arq-signals` (#168).** The old
+  Arq-branded names introduced as a transitional courtesy in #62 are gone:
+  the daemon and CLI no longer respond to (or warn under) those names, and
+  the container image / `make build` no longer create the symlinks. Use
+  `signals` and `signalsctl`. Brought forward from the originally planned
+  post-launch removal ahead of the repository rename (#62).
 
 ### Fixed
 

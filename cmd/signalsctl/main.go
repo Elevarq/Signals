@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"path/filepath"
 	"strconv"
 	"time"
 
@@ -22,19 +21,7 @@ var (
 	apiToken string
 )
 
-// warnIfDeprecatedAlias prints a one-line deprecation notice to stderr
-// when the CLI is invoked under its old Arq-branded name. The alias
-// binary (arqctl) is built from this same package and is removed one
-// release after launch (#62).
-func warnIfDeprecatedAlias() {
-	if filepath.Base(os.Args[0]) == "arqctl" {
-		fmt.Fprintln(os.Stderr, "warning: \"arqctl\" is deprecated and will be removed after launch; use \"signalsctl\" instead")
-	}
-}
-
 func main() {
-	warnIfDeprecatedAlias()
-
 	root := &cobra.Command{
 		Use:   "signalsctl",
 		Short: "CLI for Elevarq Signals",

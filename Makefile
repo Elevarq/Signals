@@ -10,11 +10,6 @@ LDFLAGS  = -X github.com/elevarq/arq-signals/internal/safety.Version=$(VERSION) 
 build:
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/signals ./cmd/signals
 	CGO_ENABLED=0 go build -ldflags "$(LDFLAGS)" -o bin/signalsctl ./cmd/signalsctl
-	# Deprecation aliases (#62): the old Arq-branded names resolve to the
-	# same binaries and emit a stderr deprecation warning on use. Removed
-	# one release after launch.
-	ln -sf signals bin/arq-signals
-	ln -sf signalsctl bin/arqctl
 
 test:
 	go test -race -count=1 ./...

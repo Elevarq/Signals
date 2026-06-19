@@ -35,12 +35,6 @@ RUN apk add --no-cache tini ca-certificates \
 COPY --from=builder /out/signals /usr/local/bin/signals
 COPY --from=builder /out/signalsctl /usr/local/bin/signalsctl
 
-# Deprecation aliases (#62): the old Arq-branded names resolve to the same
-# binaries and emit a stderr deprecation warning on use. Removed one
-# release after launch.
-RUN ln -s signals /usr/local/bin/arq-signals \
-    && ln -s signalsctl /usr/local/bin/arqctl
-
 RUN mkdir -p /data && chown signals:signals /data
 VOLUME /data
 
