@@ -79,7 +79,7 @@ audit the binary. You own the output.
 ## What Elevarq Signals does
 
 - Connects to one or more PostgreSQL instances (14+)
-- Runs 73 read-only diagnostic collectors covering:
+- Runs 99 read-only diagnostic collectors covering:
   - Server configuration, identity, and cluster fingerprint
   - Session activity and connection pressure
   - Table, index, and I/O statistics (incl. `pg_stat_io` /
@@ -468,7 +468,7 @@ inspect exactly what Elevarq Signals collects without running it.
 
 ## Collected signals
 
-Elevarq Signals includes 73 read-only collectors. Grouped by domain:
+Elevarq Signals includes 99 read-only collectors. Grouped by domain:
 
 - **Baseline & runtime** — server config, sessions, databases,
   tables, indexes, table / index I/O, query stats
@@ -917,7 +917,7 @@ analyzer).
 
 ## Project resources
 
-- [Collector inventory](docs/collectors.md) — all 73 collectors with sources and cadences
+- [Collector inventory](docs/collectors.md) — all 99 collectors with sources and cadences
 - [Database connections](docs/database-connections.md) — per-cloud `auth_method` recipes (RDS IAM, Entra, Cloud SQL IAM, secret stores) + grants
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
 - [Adoption guide](docs/adoption-guide.md) — production deployment guidance
