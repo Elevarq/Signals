@@ -925,6 +925,7 @@ analyzer).
 - [FAQ](docs/faq.md) — common questions
 - [Changelog](CHANGELOG.md) — release history
 - [Security policy](SECURITY.md) — vulnerability reporting
+- [Support](SUPPORT.md) — getting help, response targets, supported versions
 - [Citation](CITATION.cff) — how to cite this project
 
 ## Related
