@@ -81,8 +81,14 @@ apply/deploy, on the collector instance:
 ```bash
 # the collector container should be running and collecting
 docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
-# trigger an export to confirm a successful passwordless connection
-docker exec signals signalsctl export --output /data/snapshot.zip
+
+# the control-plane API requires a bearer token; user-data minted one and
+# stored it root-only on the instance, outside the bind-mounted config.
+TOKEN="$(sudo cat /root/signals-api-token)"
+
+# confirm collector status and trigger an export over the loopback API
+docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl status
+docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
@@ -100,6 +106,11 @@ rejected for `rds_iam`, re-check Step 1 and that the EC2 role's
   `/etc/signals/rds-ca.pem`).
 - IMDSv2 is enforced (`http_tokens = required`); the root volume is encrypted;
   the API listener binds to `127.0.0.1` only.
+- The loopback **control-plane API token** is a separate credential class from
+  the (non-existent) DB password: user-data mints a random 32-byte token, passes
+  it to the container via the environment (`SIGNALS_API_TOKEN`, the same path the
+  Helm chart uses), and stores it root-only at `/root/signals-api-token` — outside
+  the bind-mounted config, so `signals.yaml` itself stays secret-free.
 
 ## Reusing the identity elsewhere
 
