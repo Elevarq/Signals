@@ -6,7 +6,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-<<<<<<< HEAD
 ### Changed
 
 - **Swept all deploy assets to image tag `0.10.0-beta.7` (#199).** The Helm
