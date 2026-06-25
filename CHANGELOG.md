@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **Swept all deploy assets to image tag `0.10.0-beta.7` (#199).** The Helm
+  chart (`Chart.yaml` `version`/`appVersion`, `values.yaml` `image.tag`) had
+  drifted to `beta.6` and the Azure/GCP Terraform + Azure Bicep to `beta.5`;
+  all now pin the smoke-tested `beta.7`. (AWS templates are bumped in #198.)
+
 ### Fixed
 
 - **AWS onboarding templates are now runnable as documented (#198).** The
