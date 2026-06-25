@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+<<<<<<< HEAD
 ### Changed
 
 - **Swept all deploy assets to image tag `0.10.0-beta.7` (#199).** The Helm
@@ -33,6 +34,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   `/root/signals-api-token`, outside the bind mount) so the documented
   `signalsctl status` / `export` verification can authenticate, and makes the
   bind-mounted config world-readable for the non-root container.
+- **Extended-statistics-data collectors degrade as skipped under a
+  least-privilege role, and stop the repeated (incorrect) pg_monitor
+  advisory (#200).** `pg_statistic_ext_data` has PUBLIC SELECT revoked, so
+  `pg_statistic_ext_data_v1` / `pg_statistic_ext_data_mcv_v1` return
+  SQLSTATE 42501 for a `pg_monitor` role (the `LEFT JOIN` does not rescue
+  it; access needs superuser or an explicit GRANT). These collectors now
+  record `status=skipped, reason=privilege_owner_only` instead of
+  `failed`, so the cycle is no longer reported `partial` for an expected
+  privilege boundary. The operator advisory is corrected (the missing
+  privilege is not `pg_monitor`) and logged once per `(target, collector)`
+  per daemon run instead of every poll. Spec:
+  `specifications/owner_only_privilege_degradation.md` (R116, R117);
+  corrects the prior `pg_statistic_ext_data_v1` FC-03 / AT-02, which
+  wrongly assumed the `LEFT JOIN` yields `available=false` rows for a
+  non-owner role.
 
 ## [0.10.0-beta.7] - 2026-06-19
 

@@ -95,6 +95,14 @@ type Collector struct {
 	// configuration: the targets list (R100). Other fields stay
 	// set-at-construction for v1 — see Reload's documented scope.
 	runtimeMu sync.RWMutex
+
+	// warnedOnce deduplicates per-cycle operator advisories so a
+	// persistent condition (e.g. an owner-only or permission-denied
+	// collector) is logged once per (target, collector, kind) for the
+	// daemon's lifetime instead of every poll (R117, #200). Keyed via
+	// warnKey; guarded by warnedOnceMu.
+	warnedOnceMu sync.Mutex
+	warnedOnce   map[string]struct{}
 }
 
 // CollectRequest is the on-demand cycle payload carried over
@@ -156,6 +164,8 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 		// Credential provider dispatch (#93/#94). Default to the
 		// production resolver; tests may override via WithCredentialResolver.
 		credResolver: newCredentialResolver(slog.Default()),
+		// R117 (#200): once-per-daemon-run advisory dedup.
+		warnedOnce: make(map[string]struct{}),
 	}
 	for _, opt := range opts {
 		opt(c)
@@ -692,6 +702,21 @@ func budgetSkippedRuns(remaining []pgqueries.QueryDef, targetID int64, snapID, c
 	return runs
 }
 
+// warnOnce reports whether an advisory for (target, query, kind) has not
+// yet been logged this daemon run, recording it as logged when it returns
+// true. It deduplicates per-cycle warnings so a persistent condition is
+// surfaced once, not on every poll (R117, #200).
+func (c *Collector) warnOnce(target, query, kind string) bool {
+	key := target + "\x00" + query + "\x00" + kind
+	c.warnedOnceMu.Lock()
+	defer c.warnedOnceMu.Unlock()
+	if _, seen := c.warnedOnce[key]; seen {
+		return false
+	}
+	c.warnedOnce[key] = struct{}{}
+	return true
+}
+
 // cycleStatus classifies a completed collection cycle (R108). A non-nil
 // err is "failed"; otherwise any failed collector or any
 // budget-exhausted skip makes the cycle "partial"; else "success".
@@ -1097,18 +1122,32 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 
 		if qErr != nil {
 			run.Error = qErr.Error()
-			run.Status = "failed"
-			run.Reason = classifyRunError(run.Error)
-			if isPermissionDenied(qErr) {
-				slog.Warn("query permission denied — grant pg_monitor to the monitoring role",
-					"query", q.ID, "target", tgt.Name)
-			} else if ctx.Err() != nil {
+			// R116 (#200): an OwnerOnlyDegrade collector that hits a
+			// permission-denied error is recorded skipped, not failed —
+			// an expected privilege boundary, not a fault. Every other
+			// failure keeps status=failed.
+			run.Status, run.Reason = classifyQueryFailure(q.OwnerOnlyDegrade, qErr)
+			switch {
+			case run.Status == "skipped":
+				// R117 (#200): advise once per (target, collector), not
+				// every poll — and with correct wording (ownership, not
+				// pg_monitor, grants the owner-only catalog).
+				if c.warnOnce(tgt.Name, q.ID, "owner_only") {
+					slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not grant it; requires superuser or an explicit GRANT) — recorded skipped, not failed",
+						"query", q.ID, "target", tgt.Name)
+				}
+			case isPermissionDenied(qErr):
+				if c.warnOnce(tgt.Name, q.ID, "permission_denied") {
+					slog.Warn("query permission denied — grant pg_monitor to the monitoring role",
+						"query", q.ID, "target", tgt.Name)
+				}
+			case ctx.Err() != nil:
 				slog.Warn("query timed out (target budget exhausted)",
 					"query", q.ID, "target", tgt.Name, "duration_ms", elapsed.Milliseconds())
-			} else if qTimedOut {
+			case qTimedOut:
 				slog.Warn("query timed out",
 					"query", q.ID, "target", tgt.Name, "timeout", qTimeout, "duration_ms", elapsed.Milliseconds())
-			} else {
+			default:
 				slog.Warn("query failed", "query", q.ID, "target", tgt.Name, "err", qErr)
 			}
 			runs = append(runs, run)

@@ -40,12 +40,17 @@ sampled values.
 (catalog identity) and `pg_class` / `pg_namespace` (target-
 relation naming).
 
-`pg_statistic_ext_data` is **owner-only post-PG12** — non-owner
-roles see no row even if the parent `pg_statistic_ext` row is
-visible. The LEFT JOIN preserves the catalog row and emits NULL
-data columns for objects the role can't read. This is the
-"privilege-degraded path" the issue calls out (one
-per-object availability row, snapshot does not fail).
+`pg_statistic_ext_data` has **PUBLIC SELECT revoked** (the same
+posture as `pg_statistic`). A least-privilege monitoring role
+(`pg_monitor` / `pg_read_all_stats`) cannot read it: the query
+fails with SQLSTATE 42501 and the `LEFT JOIN` does NOT rescue it —
+the collector is recorded `status=skipped,
+reason=privilege_owner_only` (#200; see
+../owner_only_privilege_degradation.md). Under a superuser (or a
+role explicitly granted SELECT on the catalog) the `LEFT JOIN`
+preserves the parent `pg_statistic_ext` row with NULL data columns
+for any object whose statistics have not been computed yet,
+yielding an `available=false` row rather than dropping it.
 
 ## Output columns
 
@@ -60,8 +65,8 @@ One row per `(statistics_object, kind)` where kind is one of
 | table_schema | text | Schema of the target relation. |
 | table_name | text | Target relation name. |
 | kind | text | One of `d` / `f` / `e`. |
-| kind_data | text | The byte-encoded statistics value, cast to text (the planner-consumed form). NULL when the role lacks read access on `pg_statistic_ext_data`. |
-| available | bool | TRUE when `kind_data IS NOT NULL`. FALSE = privilege-degraded row (the statistics object exists per the catalog, but its sampled data is owner-only and the collector's role is not the owner). |
+| kind_data | text | The byte-encoded statistics value, cast to text (the planner-consumed form). NULL when the object has no computed data for this kind yet (privileged read path). |
+| available | bool | TRUE when `kind_data IS NOT NULL`. FALSE = the statistics object exists per the catalog but has no computed data for this kind (e.g. not yet `ANALYZE`d); only observable under a role that can read `pg_statistic_ext_data` (superuser / granted SELECT). A role without that access does not produce these rows — the collector is skipped (#200). |
 
 ## MCV-kind sibling (`pg_statistic_ext_data_mcv_v1`)
 
@@ -87,12 +92,16 @@ MCV / histogram blobs.
 - **INV-01** — Deterministic ordering:
   `ORDER BY table_schema, table_name, stat_name, kind`.
 - **INV-02** — Read-only query (no writes, no temp tables).
-- **INV-03** — Per-object availability row pattern: if the
-  parent `pg_statistic_ext` row is visible but the
-  `pg_statistic_ext_data` row is not, the collector emits the
-  identity columns + `kind_data=NULL` + `available=false` for
-  each kind the object declares (per `stxkind`). The snapshot
-  MUST NOT fail because some objects are owner-restricted.
+- **INV-03** — Per-object availability row pattern (privileged
+  read path): under a role that can read `pg_statistic_ext_data`
+  (superuser / granted SELECT), if the parent `pg_statistic_ext`
+  row is visible but no computed `_data` row exists for an object,
+  the collector emits the identity columns + `kind_data=NULL` +
+  `available=false` for each declared kind (per `stxkind`) rather
+  than dropping the object. A role WITHOUT read access on the
+  catalog does not reach this path: the query fails with 42501 and
+  the collector is recorded skipped (#200), not a per-object
+  availability row.
 - **INV-04** — Default redaction posture: this collector
   (`pg_statistic_ext_data_v1`) NEVER emits the `m` kind. The
   MCV blob is only reachable via the sibling
@@ -106,9 +115,16 @@ MCV / histogram blobs.
 - **FC-02** — Empty rowset (no objects defined OR all objects
   use only kinds outside this collector's set) → success with
   zero rows.
-- **FC-03** — One or more objects owner-restricted on the
-  `_data` table → per-object availability rows
-  (INV-03), snapshot succeeds.
+- **FC-03** — Role lacks privilege to read `pg_statistic_ext_data`
+  (e.g. a `pg_monitor` role): PUBLIC SELECT is revoked on the
+  catalog, so the query fails with SQLSTATE 42501 — the `LEFT JOIN`
+  does NOT degrade to `available=false` rows. This is an expected
+  privilege boundary: the collector is recorded `status=skipped,
+  reason=privilege_owner_only` (NOT failed) and the cycle is not
+  marked partial (#200; see
+  ../owner_only_privilege_degradation.md). Only a superuser (or a
+  role explicitly granted SELECT on the catalog) reads the blobs and
+  reports per-object presence via the `available` column (INV-03).
 
 ## Configuration
 
@@ -142,25 +158,27 @@ is dropped from the eligible set and recorded `status=skipped,
 reason=config_disabled` rather than having columns redacted (nothing
 useful remains after redacting the blob).
 
-`pg_monitor` membership is NOT sufficient. The collecting role
-must either own the underlying tables (so `pg_statistic_ext_data`
-returns rows for them) or be a superuser. Operators who want
-broad coverage and are not running as superuser should grant
-ownership of the relevant tables to the Elevarq Signals role, OR
-accept the privilege-degraded path (per-object availability rows
-with `available=false`).
+`pg_monitor` membership is NOT sufficient: `pg_statistic_ext_data`
+has PUBLIC SELECT revoked, so a `pg_monitor` / `pg_read_all_stats`
+role gets SQLSTATE 42501 and the collector is recorded
+`status=skipped, reason=privilege_owner_only` (#200). Reading the
+blobs requires a superuser, or a role explicitly granted SELECT on
+`pg_statistic_ext_data`. Operators running a least-privilege role
+need take no action — the skip is expected and does not mark the
+cycle partial.
 
 ## Acceptance tests
 
 - **AT-01** — Catalog-drift test (`TestCatalogDriftAcrossPGMajors`
   or equivalent) is green on PG 14..18. The collector's column
   set is identical across majors.
-- **AT-02** — Privilege-degraded path test:
-  fixture creates a stats object owned by `role_a`; the
-  collector runs as `role_b` (no ownership, has `pg_monitor`);
-  the snapshot contains rows with `available=false` and
-  `kind_data IS NULL` for every kind the object declares.
-  Snapshot does NOT error.
+- **AT-02** — Privilege-degraded path: a least-privilege role
+  (`pg_monitor`, no `SELECT` on `pg_statistic_ext_data`) hits
+  SQLSTATE 42501; the collector is recorded `status=skipped,
+  reason=privilege_owner_only` and the cycle is not partial
+  (owner-only degrade, #200). Covered by
+  ../owner_only_privilege_degradation.acceptance.md
+  (TC-OOPD-01..08).
 - **AT-03** — MCV-redaction default: with
   `HighSensitivityEnabled=false`,
   `pg_statistic_ext_data_mcv_v1` is filtered out of the

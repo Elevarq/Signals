@@ -103,6 +103,18 @@ type QueryDef struct {
 	// recorded `status=skipped, reason=config_disabled`. Used by Filter
 	// and by the collector's per-row redaction step.
 	SensitiveColumns []string
+	// OwnerOnlyDegrade marks collectors that read a system catalog whose
+	// PUBLIC SELECT is revoked — specifically pg_statistic_ext_data (the
+	// same posture as pg_statistic). A least-privilege monitoring role
+	// (pg_monitor / pg_read_all_stats) cannot read it and gets a hard
+	// permission-denied (SQLSTATE 42501) on the relation; access requires
+	// superuser or an explicit GRANT. For these collectors a
+	// permission-denied error is an EXPECTED privilege boundary, not a
+	// fault — the run is recorded `status=skipped,
+	// reason=privilege_owner_only` rather than failed, so the cycle is
+	// not reported partial. See
+	// specifications/owner_only_privilege_degradation.md (#200).
+	OwnerOnlyDegrade bool
 }
 
 // FilterParams controls which queries are eligible for a given target.
