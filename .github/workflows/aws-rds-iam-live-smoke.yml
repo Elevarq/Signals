@@ -164,7 +164,7 @@ jobs:
           # 'aws ssm wait command-executed' waiter gives up (~100s) before the
           # on-instance readiness wait + collection finish on a cold instance.
           STATUS=Pending
-          for i in $(seq 1 50); do
+          for _ in $(seq 1 50); do
             STATUS="$(aws ssm get-command-invocation --command-id "$CMD_ID" --instance-id "$IID" --query Status --output text 2>/dev/null || echo Pending)"
             case "$STATUS" in Success|Failed|Cancelled|TimedOut) break;; esac
             sleep 15
