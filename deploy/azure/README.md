@@ -82,8 +82,14 @@ apply/deploy, SSH to the collector VM:
 ```bash
 # the collector container should be running and collecting
 docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
-# trigger an export to confirm a successful passwordless connection
-docker exec signals signalsctl export --output /data/snapshot.zip
+
+# the control-plane API requires a bearer token; cloud-init minted one and
+# stored it root-only on the VM, outside the bind-mounted config.
+TOKEN="$(sudo cat /root/signals-api-token)"
+
+# confirm collector status and trigger an export over the loopback API
+docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl status
+docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
@@ -103,6 +109,11 @@ the server's network rules admit the collector subnet.
   `/etc/signals/azure-ca.pem`); override `db_ca_cert_url` / `dbCaCertUrl` if your
   server chains to a different root.
 - The API listener binds to `127.0.0.1` only.
+- The loopback **control-plane API token** is a separate credential class from
+  the (non-existent) DB password: cloud-init mints a random 32-byte token,
+  passes it to the container via the environment (`SIGNALS_API_TOKEN`), and
+  stores it root-only at `/root/signals-api-token` — outside the bind-mounted
+  config, so `signals.yaml` itself stays secret-free.
 - Network egress is governed by the **subnet's NSG** by default. To pin a
   NIC-level NSG (allowing only egress to the DB on `db_port`), pass
   `network_security_group_id` / `networkSecurityGroupId`.

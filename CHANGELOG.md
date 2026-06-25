@@ -24,6 +24,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   documented `signalsctl status` / `export` verification can authenticate, makes
   the bind-mounted config world-readable for the non-root container, and pins the
   AWS image-tag defaults to `0.10.0-beta.7`.
+- **Azure and GCP onboarding templates are now runnable as documented (#205).**
+  The Azure (Terraform + Bicep) and GCP (Terraform) templates carried the same
+  defects fixed for AWS in #198: they ran the image as `${image} --config …`,
+  which replaced the `signals` `CMD` so tini exec'd `--config`; they now pass
+  the `signals` subcommand explicitly. Cloud-init mints a control-plane API
+  token and passes it via `SIGNALS_API_TOKEN` (stored root-only at
+  `/root/signals-api-token`, outside the bind mount) so the documented
+  `signalsctl status` / `export` verification can authenticate, and makes the
+  bind-mounted config world-readable for the non-root container.
 
 ## [0.10.0-beta.7] - 2026-06-19
 

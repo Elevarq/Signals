@@ -25,7 +25,7 @@ locals {
     #!/bin/bash
     set -euo pipefail
     apt-get update -y
-    apt-get install -y docker.io curl
+    apt-get install -y docker.io curl openssl
     systemctl enable --now docker
     mkdir -p /etc/signals
     # Azure Flexible Server CA bundle for sslmode=verify-full.
@@ -50,12 +50,24 @@ locals {
         sslmode: verify-full
         sslrootcert_file: /etc/signals/azure-ca.pem
     YAML
+    # The config carries no secret; make the bind-mounted files world-readable
+    # so the non-root container (uid 10001) can read them.
+    chmod 0644 /etc/signals/signals.yaml /etc/signals/azure-ca.pem
+    # Mint a strong control-plane API token, passed to the container via the
+    # environment (alongside AZURE_CLIENT_ID) and stored root-only, outside the
+    # bind mount, so the operator can authenticate the verify step.
+    SIGNALS_API_TOKEN="$(openssl rand -hex 32)"
+    umask 077
+    printf '%s\n' "$SIGNALS_API_TOKEN" > /root/signals-api-token
+    # ENTRYPOINT is `tini --` with CMD `signals`; the `signals` arg below is
+    # required, else the image args replace CMD and tini execs --config.
     docker run -d --name signals --restart=always \
       -e AZURE_CLIENT_ID=${azurerm_user_assigned_identity.collector.client_id} \
+      -e SIGNALS_API_TOKEN="$SIGNALS_API_TOKEN" \
       -v /etc/signals:/etc/signals:ro \
       -v signals-data:/data \
       -p 127.0.0.1:8081:8081 \
-      ${var.image_uri} --config /etc/signals/signals.yaml
+      ${var.image_uri} signals --config /etc/signals/signals.yaml
   EOT
 }
 
