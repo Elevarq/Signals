@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.10.0-rc.1] - 2026-06-25
+
+> **Release candidate.** Closes the launch-readiness items found in the
+> deploy/onboarding review: the AWS/Azure/GCP passwordless onboarding
+> templates are runnable as documented, image tags are unified, the
+> extended-statistics-data collectors degrade cleanly under a
+> least-privilege role, the Terraform modules are validated in CI, and the
+> AWS `aws_rds_iam` path is live-validated against an IAM-auth RDS.
+
 ### Added
 
 - **CI: `terraform validate` for the cloud onboarding modules (#202).** A new

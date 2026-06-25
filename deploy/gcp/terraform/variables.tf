@@ -82,7 +82,7 @@ variable "image" {
 variable "image_uri" {
   type        = string
   description = "Elevarq Signals container image (pinned tag)."
-  default     = "ghcr.io/elevarq/signals:0.10.0-beta.7"
+  default     = "ghcr.io/elevarq/signals:0.10.0-rc.1"
 }
 
 variable "env" {
