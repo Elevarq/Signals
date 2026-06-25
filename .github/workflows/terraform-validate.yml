@@ -1,0 +1,50 @@
+name: Terraform Validate
+
+# Validates the cloud onboarding Terraform modules under deploy/*/terraform
+# without provisioning anything: format check + provider init (no backend) +
+# terraform validate. Backend-free, so no cloud credentials are required and
+# nothing is applied. Tracks Elevarq/Signals#202.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "deploy/**/terraform/**"
+      - ".github/workflows/terraform-validate.yml"
+  pull_request:
+    paths:
+      - "deploy/**/terraform/**"
+      - ".github/workflows/terraform-validate.yml"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        module: [aws, azure, gcp]
+    defaults:
+      run:
+        working-directory: deploy/${{ matrix.module }}/terraform
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd  # v3.1.2
+        with:
+          terraform_version: "1.5.7"
+          terraform_wrapper: false
+
+      - name: Format check
+        run: terraform fmt -check -diff
+
+      - name: Init (no backend, no apply)
+        run: terraform init -backend=false -input=false -no-color
+
+      - name: Validate
+        run: terraform validate -no-color

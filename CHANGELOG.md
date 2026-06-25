@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **CI: `terraform validate` for the cloud onboarding modules (#202).** A new
+  `Terraform Validate` workflow runs `fmt -check` + `init -backend=false` +
+  `terraform validate` across `deploy/{aws,azure,gcp}/terraform` on every PR
+  that touches those modules. Backend-free, so no cloud credentials are used
+  and nothing is provisioned. All three modules validate clean; the earlier
+  failure was an environment-specific provider-plugin issue, not a template
+  defect.
+
 ### Changed
 
 - **Swept all deploy assets to image tag `0.10.0-beta.7` (#199).** The Helm
