@@ -15,6 +15,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   and nothing is provisioned. All three modules validate clean; the earlier
   failure was an environment-specific provider-plugin issue, not a template
   defect.
+- **Operator-gated AWS `aws_rds_iam` live-smoke workflow + runbook (#201).**
+  A `workflow_dispatch`-only `AWS RDS IAM Live Smoke` workflow does
+  `terraform apply` against an IAM-auth RDS instance, transiently grants the
+  collector role SSM to reach the loopback-only API, forces a collection,
+  asserts a passwordless snapshot, then always `terraform destroy`s. It is
+  **not** part of default CI — nothing runs and no cloud cost is incurred
+  until an operator dispatches it with an `AWS_LIVE_SMOKE_ROLE_ARN` (GitHub→AWS
+  OIDC, no long-lived keys). See `deploy/aws/LIVE-SMOKE.md`. Azure/GCP variants
+  follow the same shape (follow-up).
 
 ### Changed
 
