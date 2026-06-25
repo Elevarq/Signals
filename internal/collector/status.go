@@ -147,6 +147,30 @@ func BuildStatusFromRuns(runs []db.QueryRun) []CollectorStatus {
 	return statuses
 }
 
+// reasonPrivilegeOwnerOnly marks an OwnerOnlyDegrade collector that hit
+// a permission-denied (SQLSTATE 42501) error reading a catalog whose
+// PUBLIC SELECT is revoked (pg_statistic_ext_data). It is recorded as a
+// skip, not a failure: pg_monitor does not grant access (it requires
+// superuser or an explicit GRANT), so for a least-privilege monitoring
+// role this is an expected, benign privilege boundary (#200).
+//
+// Specification: specifications/owner_only_privilege_degradation.md
+const reasonPrivilegeOwnerOnly = "privilege_owner_only"
+
+// classifyQueryFailure decides the persisted (status, reason) for a
+// collector query that returned an error. An OwnerOnlyDegrade collector
+// that hit a permission-denied error degrades to
+// skipped/privilege_owner_only — an expected privilege boundary that
+// must NOT mark the cycle partial. Every other failure (including a
+// permission-denied error on a non-OwnerOnlyDegrade collector) keeps
+// status=failed with the classified reason (#200, R116).
+func classifyQueryFailure(ownerOnlyDegrade bool, err error) (status, reason string) {
+	if ownerOnlyDegrade && isPermissionDenied(err) {
+		return "skipped", reasonPrivilegeOwnerOnly
+	}
+	return "failed", classifyRunError(err.Error())
+}
+
 // classifyRunError maps an error string to a reason category.
 func classifyRunError(errMsg string) string {
 	lower := strings.ToLower(errMsg)

@@ -425,15 +425,19 @@ func init() {
 	// the HighSensitivity-gated sibling
 	// pg_statistic_ext_data_mcv_v1 below.
 	//
-	// pg_statistic_ext_data is owner-only post-PG12: non-owners
-	// see no row in the view even when the parent
-	// pg_statistic_ext row is visible. The LEFT JOIN preserves
-	// the catalog row with NULL data columns for objects the
-	// role can't read, so the snapshot emits per-object
-	// availability rows (kind_data=NULL, available=false) rather
-	// than failing.
+	// pg_statistic_ext_data has PUBLIC SELECT revoked (like
+	// pg_statistic): a least-privilege monitoring role
+	// (pg_monitor / pg_read_all_stats) gets a hard permission-denied
+	// (SQLSTATE 42501) on the relation, so the LEFT JOIN does NOT
+	// rescue the query — the whole collector errors. Access requires
+	// superuser or an explicit GRANT. That is an expected privilege
+	// boundary, so the collector is flagged OwnerOnlyDegrade: a 42501
+	// is recorded status=skipped/privilege_owner_only rather than
+	// failed (#200). A superuser reads the blobs and the available
+	// column reports per-object presence as normal.
 	//
 	// Specification: specifications/collectors/pg_statistic_ext_data_v1.md
+	// and specifications/owner_only_privilege_degradation.md
 	Register(QueryDef{
 		ID:       "pg_statistic_ext_data_v1",
 		Category: "schema",
@@ -464,11 +468,12 @@ func init() {
 		  AND cn.nspname NOT LIKE 'pg_toast_temp_%'
 		  AND k.kind IN ('d', 'f', 'e')
 		ORDER BY cn.nspname, c.relname, es.stxname, k.kind`,
-		ResultKind:     ResultRowset,
-		RetentionClass: RetentionMedium,
-		Timeout:        15 * time.Second,
-		Cadence:        CadenceDaily,
-		MinPGVersion:   14,
+		ResultKind:       ResultRowset,
+		RetentionClass:   RetentionMedium,
+		Timeout:          15 * time.Second,
+		Cadence:          CadenceDaily,
+		MinPGVersion:     14,
+		OwnerOnlyDegrade: true,
 	})
 
 	// pg_statistic_ext_data_mcv_v1 (#171): the 'm' (multivariate
@@ -503,12 +508,13 @@ func init() {
 		  AND cn.nspname NOT LIKE 'pg_toast_temp_%'
 		  AND 'm' = ANY(es.stxkind)
 		ORDER BY cn.nspname, c.relname, es.stxname`,
-		ResultKind:      ResultRowset,
-		RetentionClass:  RetentionShort,
-		Timeout:         15 * time.Second,
-		Cadence:         CadenceDaily,
-		MinPGVersion:    14,
-		HighSensitivity: true,
+		ResultKind:       ResultRowset,
+		RetentionClass:   RetentionShort,
+		Timeout:          15 * time.Second,
+		Cadence:          CadenceDaily,
+		MinPGVersion:     14,
+		HighSensitivity:  true,
+		OwnerOnlyDegrade: true,
 	})
 
 	// pg_partitions_v1: partition topology — strategy, key, and
