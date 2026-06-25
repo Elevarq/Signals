@@ -79,7 +79,7 @@ fill the inputs:
 | `security_group_ids` | `["sg-0123…"]` | **JSON array** string |
 | `db_user` | `signals` | role granted `rds_iam` + `pg_monitor` |
 | `name_prefix` | `signals-livesmoke` | prefixes the throwaway resources |
-| `image_uri` | `ghcr.io/elevarq/signals:0.10.0-beta.7` | pinned tag |
+| `image_uri` | `ghcr.io/elevarq/signals:0.10.0-rc.1` | pinned tag |
 
 A green run means: the collector minted an RDS IAM token from its instance
 role, connected `verify-full` with **no password on disk**, and produced
