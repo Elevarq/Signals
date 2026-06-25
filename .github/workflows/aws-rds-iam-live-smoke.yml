@@ -144,9 +144,9 @@ jobs:
           {
             "commands": [
               "set -euo pipefail",
-              "TOKEN=$(cat /root/signals-api-token)",
-              "for i in $(seq 1 60); do [ \"$(docker inspect -f '{{.State.Health.Status}}' signals 2>/dev/null)\" = healthy ] && docker exec -e SIGNALS_API_TOKEN=\"$TOKEN\" signals signalsctl status >/dev/null 2>&1 && break; echo \"waiting for collector API ($i/60)\"; sleep 5; done",
+              "for i in $(seq 1 90); do [ \"$(docker inspect -f '{{.State.Health.Status}}' signals 2>/dev/null)\" = healthy ] && break; echo \"waiting for container healthy ($i/90)\"; sleep 5; done",
               "docker logs signals 2>&1 | grep -iE 'collector|snapshot|connected' | tail -5 || true",
+              "TOKEN=$(cat /root/signals-api-token)",
               "docker exec -e SIGNALS_API_TOKEN=\"$TOKEN\" signals signalsctl collect now --force",
               "sleep 20",
               "docker exec -e SIGNALS_API_TOKEN=\"$TOKEN\" signals signalsctl status",
