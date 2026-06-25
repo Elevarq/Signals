@@ -1,8 +1,9 @@
 # Owner-Only Privilege Degradation — Behavioral Specification
 
 Spec version: 1.0
-Status: DRAFT
+Status: ACTIVE
 Issue: [Elevarq/Signals#200](https://github.com/Elevarq/Signals/issues/200)
+Promoted DRAFT → ACTIVE 2026-06-25 after review (#200, PR #207).
 
 ## Purpose
 
@@ -123,7 +124,10 @@ the relation is not selectable at all without ownership.
 - [x] Read-only enforcement preserved — no query, write, or connection
       change; only run classification and log cadence change.
 - [x] No credential handling change.
-- [ ] No new external surface.
+- [x] No new external surface — `privilege_owner_only` is a new value of
+      the existing `reason` field in `collector_status.json` and the
+      existing skip-reason metric label, not a new endpoint, config key,
+      or export schema (NFR-02).
 
 The degrade makes the daemon *more* honest about least-privilege roles:
 an expected privilege boundary is reported as an explicit, named skip
