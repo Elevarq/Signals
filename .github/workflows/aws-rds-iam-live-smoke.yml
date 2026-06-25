@@ -6,9 +6,10 @@ name: AWS RDS IAM Live Smoke
 # provisions real infrastructure and is triggered manually. Tracks
 # Elevarq/Signals#201.
 #
-# It: terraform apply -> (transiently grant the collector role SSM so the
-# loopback-only API can be reached) -> force a collection -> assert a
-# passwordless snapshot was produced -> terraform destroy (always).
+# It: terraform apply (with an injected, never-committed SSM policy attachment
+# so the collector instance can be reached over the loopback-only API) -> force
+# a collection -> assert a passwordless snapshot was produced -> terraform
+# destroy (always, which also detaches the SSM policy).
 #
 # Prerequisites (see deploy/aws/LIVE-SMOKE.md):
 #   - An RDS/Aurora PostgreSQL instance with IAM DB auth ENABLED, and the
@@ -72,7 +73,6 @@ jobs:
     env:
       TF_IN_AUTOMATION: "1"
       TF_INPUT: "0"
-      SSM_POLICY_ARN: arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       TF_VAR_region: ${{ inputs.region }}
       TF_VAR_db_host: ${{ inputs.db_host }}
       TF_VAR_db_name: ${{ inputs.db_name }}
@@ -98,19 +98,27 @@ jobs:
           terraform_version: "1.5.7"
           terraform_wrapper: false
 
+      - name: Inject SSM access for verification (smoke only)
+        run: |
+          # The production template intentionally grants the collector NO SSM
+          # access. The smoke needs it to reach the loopback-only API. Attaching
+          # the managed policy DURING apply (not after) means the instance boots
+          # with SSM in its role, so the agent registers within a minute instead
+          # of waiting on an IMDS credential refresh. This file is written only
+          # in the CI runner (never committed); terraform destroy removes the
+          # attachment at teardown.
+          cat > zz_livesmoke_ssm.tf <<'TF'
+          resource "aws_iam_role_policy_attachment" "smoke_ssm" {
+            role       = aws_iam_role.collector.name
+            policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+          }
+          TF
+
       - name: Terraform init
         run: terraform init -input=false -no-color
 
       - name: Terraform apply
         run: terraform apply -auto-approve -input=false -no-color
-
-      - name: Grant collector role SSM (transient, for verification)
-        run: |
-          set -euo pipefail
-          ROLE_ARN="$(terraform output -raw collector_role_arn)"
-          ROLE_NAME="${ROLE_ARN##*/}"
-          echo "ROLE_NAME=$ROLE_NAME" >> "$GITHUB_ENV"
-          aws iam attach-role-policy --role-name "$ROLE_NAME" --policy-arn "$SSM_POLICY_ARN"
 
       - name: Wait for the instance to register with SSM
         run: |
@@ -168,7 +176,6 @@ jobs:
         if: always()
         run: |
           set +e
-          if [ -n "${ROLE_NAME:-}" ]; then
-            aws iam detach-role-policy --role-name "$ROLE_NAME" --policy-arn "$SSM_POLICY_ARN"
-          fi
+          # The SSM policy attachment is a terraform resource now, so destroy
+          # detaches it before deleting the collector role.
           terraform destroy -auto-approve -input=false -no-color
