@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **AWS onboarding templates are now runnable as documented (#198).** The
+  CloudFormation and Terraform templates ran the image as
+  `${ImageUri} --config …`, which replaced the `signals` `CMD` so tini tried to
+  exec `--config`; they now pass the `signals` subcommand explicitly. User-data
+  mints a control-plane API token and passes it via `SIGNALS_API_TOKEN` (stored
+  root-only at `/root/signals-api-token`, outside the bind mount) so the
+  documented `signalsctl status` / `export` verification can authenticate, makes
+  the bind-mounted config world-readable for the non-root container, and pins the
+  AWS image-tag defaults to `0.10.0-beta.7`.
+
 ## [0.10.0-beta.7] - 2026-06-19
 
 > **Highlights.** Adds the AWS Systems Manager Parameter Store `secret_store`
