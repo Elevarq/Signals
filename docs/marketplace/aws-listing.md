@@ -14,10 +14,10 @@ Catalog API.
 
 ## 0. Pre-publish gate
 
-- [ ] Seller account is a **registered seller** (not "registration pending").
-      Free publishing needs an account in good standing + accepted T&Cs + a
-      valid email — **no tax/bank**. Independent of the paid Analyzer review,
-      provided registration itself is complete.
+- [x] Seller account is a **registered seller** — confirmed: the AMMP
+      products console (`.../marketplace/management/products/server`) loads and
+      reports the account ready. Free publishing needs no tax/bank, and is
+      independent of the paid Analyzer review.
 - [ ] **v1.0.0** is tagged and published (non-prerelease) — `release.yml`.
 
 ## 1. Product metadata
@@ -74,11 +74,19 @@ in [`deploy/helm/signals/README.md`](../../deploy/helm/signals/README.md) and
 
 ## 4. License terms
 
-- Decision _(confirm)_: offer under a **custom EULA** that points to the
-  BSD-3-Clause license, **or** adopt the **Standard Contract for AWS
-  Marketplace (SCMP)**. For a free OSS product the custom-EULA-referencing-the
-  OSS-license path is usually simplest — confirm acceptable for a free
-  listing.
+- Draft EULA: [`EULA.md`](EULA.md) — a custom EULA referencing the
+  BSD-3-Clause license (recommended for a free OSS product over the Standard
+  Contract for AWS Marketplace / SCMP). **Needs legal review** before
+  submission.
+
+## Related artifacts
+
+- **Buyer install guide:** [`install-from-aws-marketplace.md`](install-from-aws-marketplace.md)
+  (the source for the delivery option's usage instructions).
+- **Architecture diagram (upload asset):** [`assets/architecture.png`](assets/architecture.png)
+  — generated from [`docs/architecture.md`](../architecture.md).
+- **Catalog-API automation:** [`catalog-api/`](catalog-api/) + `scripts/marketplace-changeset.sh`.
+- **ECR re-host:** `scripts/marketplace-ecr-push.sh`.
 
 ## 5. Submit checklist (ordered)
 
