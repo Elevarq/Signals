@@ -53,7 +53,7 @@ on:
       image_uri:
         description: Signals container image (pinned tag)
         required: false
-        default: ghcr.io/elevarq/signals:0.10.0-rc.1
+        default: ghcr.io/elevarq/signals:1.0.0
 
 permissions:
   contents: read

@@ -6,6 +6,28 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-06-30
+
+> **1.0 — first stable release.** Promotes `0.10.0-rc.1` to GA with **no
+> functional changes** — the same bits, validated across a wide range of AWS
+> tests, re-tagged `1.0.0`.
+>
+> **Highlights since the beta line.** AWS passwordless onboarding validated
+> end-to-end across **all four credential methods** — `password`,
+> `secret_store` (AWS Secrets Manager), `secret_store` (AWS SSM Parameter
+> Store), and `aws_rds_iam`; runnable AWS / Azure / GCP onboarding templates;
+> least-privilege owner-only collector degradation (`pg_statistic_ext_data`
+> collectors skip rather than fail under a `pg_monitor` role); CI-validated
+> Terraform modules; and a live-validated AWS `aws_rds_iam` deploy path
+> (operator-gated smoke).
+>
+> **Scope.** GA support is the **AWS** deploy paths. The Azure (`azure_entra`)
+> and GCP (`gcp_cloudsql_iam`) templates are runnable and unit/integration-
+> tested; end-to-end live validation is in progress and tracked for 1.1.
+>
+> **Upgrade.** No config or behavior changes from `0.10.0-rc.1`. Pin the
+> `1.0.0` image / chart.
+
 ## [0.10.0-rc.1] - 2026-06-25
 
 > **Release candidate.** Closes the launch-readiness items found in the
