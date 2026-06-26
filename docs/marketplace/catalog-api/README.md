@@ -34,8 +34,9 @@ Run them with [`scripts/marketplace-changeset.sh`](../../../scripts/marketplace-
    aws ecr describe-repositories \
      --query 'repositories[?contains(repositoryName, `elevarq`)].repositoryUri'
    ```
-   AWS prepends a seller namespace, so the full path is
-   `<acct>.dkr.ecr.<region>.amazonaws.com/<seller-ns>/elevarq/signals` etc.
+   AWS prepends a seller namespace, so the full paths are
+   `<acct>.dkr.ecr.<region>.amazonaws.com/<seller-ns>/elevarq-signals` (image)
+   and `…/<seller-ns>/elevarq-signals-chart` (chart).
 
 3. **Push the 1.0.0 image + chart** into those repos. The script also
    **repackages the chart** so its default image points at the Marketplace ECR

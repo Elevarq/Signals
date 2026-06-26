@@ -87,7 +87,8 @@ rm -f "$chartdir/values.yaml.bak"
 
 echo "==> Validating repackaged chart (helm lint + no external images)"
 helm lint "$chartdir"
-RENDERED="$(helm template signals "$chartdir" --set target.host=example.invalid)"
+printf 'target:\n  host: example.invalid\n' > "$workdir/lint-values.yaml"
+RENDERED="$(helm template signals "$chartdir" -f "$workdir/lint-values.yaml")"
 printf '%s\n' "$RENDERED" | grep -E '^[[:space:]]*image:' || true
 if printf '%s\n' "$RENDERED" | grep -q 'ghcr.io'; then
   die "repackaged chart still renders a ghcr.io image — AWS rejects external chart images (INVALID_HELM_CHART_IMAGES)"
