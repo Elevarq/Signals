@@ -66,7 +66,7 @@ variable "admin_ssh_public_key" {
 variable "image_uri" {
   type        = string
   description = "Elevarq Signals container image (pinned tag)."
-  default     = "ghcr.io/elevarq/signals:0.10.0-rc.1"
+  default     = "ghcr.io/elevarq/signals:1.0.0"
 }
 
 variable "db_ca_cert_url" {
