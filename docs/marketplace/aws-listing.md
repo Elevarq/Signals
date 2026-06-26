@@ -91,8 +91,9 @@ in [`deploy/helm/signals/README.md`](../../deploy/helm/signals/README.md) and
 
 - **Buyer install guide:** [`install-from-aws-marketplace.md`](install-from-aws-marketplace.md)
   (the source for the delivery option's usage instructions).
-- **Architecture diagram (upload asset):** [`assets/architecture.png`](assets/architecture.png)
-  — generated from [`docs/architecture.md`](../architecture.md).
+- **Architecture diagram (upload asset):** [`assets/architecture-listing.png`](assets/architecture-listing.png)
+  (simplified/branded for the listing); the full engineering diagram is
+  [`assets/architecture.png`](assets/architecture.png) from [`docs/architecture.md`](../architecture.md).
 - **Catalog-API automation:** [`catalog-api/`](catalog-api/) + `scripts/marketplace-changeset.sh`.
 - **ECR re-host:** `scripts/marketplace-ecr-push.sh`.
 

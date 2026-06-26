@@ -1,0 +1,18 @@
+flowchart LR
+    op(["Operator / signalsctl"])
+
+    subgraph aws["Your AWS account — no telemetry or diagnostic-data egress to Elevarq"]
+        direction TB
+        eks["Elevarq Signals<br/>Amazon EKS · one non-root pod<br/>read-only by design"]
+        rds[("Amazon RDS / Aurora<br/>PostgreSQL")]
+        snap["Diagnostic snapshot<br/>(stays in your cluster)"]
+        eks -->|"passwordless RDS IAM token<br/>read-only · verify-full TLS · pg_monitor"| rds
+        eks -->|"signalsctl export"| snap
+    end
+
+    op -->|"bearer-token API"| eks
+
+    classDef prod fill:#0e2f44,stroke:#0e2f44,color:#ffffff;
+    classDef store fill:#e8f0fe,stroke:#5dade2,color:#0e2f44;
+    class eks prod;
+    class rds,snap store;
