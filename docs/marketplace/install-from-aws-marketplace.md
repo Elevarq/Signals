@@ -44,15 +44,20 @@ target:
 ```
 
 ```sh
-helm install signals oci://<marketplace-ecr-chart-repo>/signals \
+helm install signals \
+  oci://<marketplace-ecr-registry>/<seller-ns>/elevarq-signals-chart \
   --version 1.0.0 \
   --namespace signals --create-namespace \
   -f signals-values.yaml
 ```
 
-The chart is the **same chart** as
-[`deploy/helm/signals`](../../deploy/helm/signals/) — only the registry
-differs. Its values are documented in
+The chart URI ends at the **granted Marketplace ECR repo**
+(`elevarq-signals-chart`), not a `…/signals` sub-path — the chart artifact is
+renamed to land there. Your Kubernetes resource names are unaffected: they
+derive from the Helm **release name** (`signals` above), not the chart name. It
+is otherwise the **same chart** as
+[`deploy/helm/signals`](../../deploy/helm/signals/); only the registry and the
+chart artifact name differ. Its values are documented in
 [`deploy/helm/signals/README.md`](../../deploy/helm/signals/README.md).
 
 ## 4. Complete the passwordless onboarding

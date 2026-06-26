@@ -25,8 +25,10 @@
 #   AWS_REGION      default us-east-1
 #   AWS_PROFILE     default elevarq
 #
-# Requires: aws, skopeo (multi-arch-preserving copy), helm. Auth is via
-# `aws ecr get-login-password` (no long-lived creds).
+# Requires: aws, docker (with buildx), helm. Auth is via
+# `aws ecr get-login-password` (no long-lived creds). skopeo is NOT required —
+# `docker buildx imagetools create` copies the multi-arch manifest
+# registry-to-registry.
 
 set -euo pipefail
 
@@ -50,30 +52,32 @@ SOURCE_IMAGE="${SOURCE_IMAGE:-ghcr.io/elevarq/signals:${VERSION}}"
 SOURCE_CHART="${SOURCE_CHART:-oci://ghcr.io/elevarq/charts/signals}"
 export AWS_REGION AWS_PROFILE
 
-for bin in aws skopeo helm; do
+for bin in aws docker helm; do
   command -v "$bin" >/dev/null 2>&1 || die "missing required tool: $bin"
 done
+docker buildx version >/dev/null 2>&1 || die "docker buildx is required"
 
 echo "==> Authenticating to Marketplace ECR (${MP_REGISTRY})"
 PW="$(aws ecr get-login-password --region "$AWS_REGION")"
-printf '%s' "$PW" | skopeo login --username AWS --password-stdin "$MP_REGISTRY"
+printf '%s' "$PW" | docker login --username AWS --password-stdin "$MP_REGISTRY"
 printf '%s' "$PW" | helm registry login --username AWS --password-stdin "$MP_REGISTRY"
 
 DEST_IMAGE="${MP_REGISTRY}/${MP_IMAGE_REPO}:${VERSION}"
 
 echo "==> Copying image (multi-arch manifest preserved)"
 echo "    ${SOURCE_IMAGE}  ->  ${DEST_IMAGE}"
-# --all copies the full manifest list (linux/amd64 + linux/arm64) as-is.
-# Note: cosign signatures live under separate .sig tags and are NOT copied;
-# AWS Marketplace scans (and may re-sign) the image on ingestion regardless.
-skopeo copy --all "docker://${SOURCE_IMAGE}" "docker://${DEST_IMAGE}"
+# `imagetools create` copies the full manifest list (linux/amd64 + linux/arm64)
+# registry-to-registry, as-is. Note: cosign signatures live under separate .sig
+# tags and are NOT copied; AWS Marketplace scans (and may re-sign) the image on
+# ingestion regardless.
+docker buildx imagetools create -t "${DEST_IMAGE}" "${SOURCE_IMAGE}"
 
 echo "==> Repackaging + pushing Helm chart"
 # AWS rejects Helm charts whose images live outside the Marketplace ECR repos
 # (INVALID_HELM_CHART_IMAGES). The published chart must default its image to the
 # Marketplace ECR image we just pushed — NOT ghcr.io. Pull the released chart,
 # repoint image.repository, prove via `helm template` that no ghcr.io image
-# remains, then repackage and push.
+# remains, then rename + repackage + push.
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
 helm pull "${SOURCE_CHART}" --version "${VERSION}" --untar --untardir "$workdir"
@@ -84,6 +88,24 @@ chartdir="$workdir/signals"
 # (The chart's default tag is already ${VERSION}; buyers can still override.)
 sed -i.bak "s#ghcr.io/elevarq/signals#${DEST_IMAGE%:*}#g" "$chartdir/values.yaml"
 rm -f "$chartdir/values.yaml.bak"
+
+# Chart-path 403 gotcha: ECR repos are NOT hierarchical. `helm push` appends the
+# chart name, so pushing the "signals" chart to oci://$MP/$MP_CHART_REPO tries to
+# create $MP_CHART_REPO/signals — a separate, non-existent repo the seller cannot
+# auto-create cross-account (403). Fix: rename the chart so its name is the
+# repo's last path segment and push to the PARENT namespace; the chart then lands
+# exactly at the granted repo. Deployed resource names are unaffected — the
+# Signals chart keys off the Helm release name ({{ .Release.Name }}-signals),
+# not .Chart.Name, so no nameOverride is needed.
+CHART_ARTIFACT_NAME="$(basename "$MP_CHART_REPO")"
+CHART_PARENT="$(dirname "$MP_CHART_REPO")"
+if [ "$CHART_PARENT" = "." ]; then
+  CHART_PUSH_TARGET="oci://${MP_REGISTRY}"
+else
+  CHART_PUSH_TARGET="oci://${MP_REGISTRY}/${CHART_PARENT}"
+fi
+sed -i.bak "s#^name:.*#name: ${CHART_ARTIFACT_NAME}#" "$chartdir/Chart.yaml"
+rm -f "$chartdir/Chart.yaml.bak"
 
 echo "==> Validating repackaged chart (helm lint + no external images)"
 helm lint "$chartdir"
@@ -97,15 +119,14 @@ printf '%s\n' "$RENDERED" | grep -q "${DEST_IMAGE%:*}" \
   || die "repackaged chart does not reference the Marketplace ECR image ${DEST_IMAGE%:*}"
 
 helm package "$chartdir" --destination "$workdir"
-chart_tgz="$(ls "$workdir"/signals-*.tgz)"
-helm push "$chart_tgz" "oci://${MP_REGISTRY}/${MP_CHART_REPO}"
+chart_tgz="$(ls "$workdir/${CHART_ARTIFACT_NAME}"-*.tgz)"
+helm push "$chart_tgz" "$CHART_PUSH_TARGET"
 
 echo
 echo "==> Done. Digests for the Marketplace AddVersion / delivery option:"
 echo "    image: ${DEST_IMAGE}"
-skopeo inspect --raw "docker://${DEST_IMAGE}" >/dev/null 2>&1 \
-  && echo "    image digest: $(skopeo inspect --format '{{.Digest}}' "docker://${DEST_IMAGE}" 2>/dev/null || echo '(inspect manually)')"
-echo "    chart: oci://${MP_REGISTRY}/${MP_CHART_REPO}/signals:${VERSION}"
+echo "    image digest: $(docker buildx imagetools inspect "${DEST_IMAGE}" 2>/dev/null | awk '/^Digest:/{print $2; exit}' || echo '(inspect manually)')"
+echo "    chart: oci://${MP_REGISTRY}/${MP_CHART_REPO}:${VERSION}"
 echo
 echo "Next: reference these in the container product's Helm delivery option,"
 echo "submit, then approve the limited listing URL (docs/marketplace/aws-listing.md)."

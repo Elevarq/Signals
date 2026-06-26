@@ -1,29 +1,4 @@
-# End User License Agreement — Elevarq Signals (AWS Marketplace)
-
-> **Draft — requires legal review before use on the listing.** This is the
-> proposed EULA text for the free AWS Marketplace listing. Confirm the legal
-> entity name and terms with counsel before submitting.
->
-> **For counsel — entity/license alignment:** this EULA names **Scantr LLC,
-> doing business as Elevarq**, while the repository `LICENSE` (BSD-3-Clause)
-> carries the copyright line **"Elevarq"**. Decide whether the `LICENSE`
-> copyright line should also read **"Scantr LLC dba Elevarq"** so the two are
-> consistent, and confirm the entity named in the Marketplace seller
-> registration matches.
-
-## Recommended option
-
-For a **free, open-source** product, the simplest path is a short EULA that
-grants use under the product's existing open-source license (BSD-3-Clause).
-The alternative is AWS's pre-built **Standard Contract for AWS Marketplace
-(SCMP)** — selectable in the listing instead of a custom EULA. We recommend
-the **custom EULA below (referencing BSD-3-Clause)** because Signals is
-already distributed under that permissive license and the SCMP's
-commercial-support/warranty framing fits paid products better.
-
----
-
-## Elevarq Signals — End User License Agreement
+# Elevarq Signals — End User License Agreement
 
 This End User License Agreement ("Agreement") governs your use of **Elevarq
 Signals** (the "Software"), made available by **Scantr LLC, doing business as
@@ -36,17 +11,26 @@ Elevarq** ("Elevarq"), through AWS Marketplace.
    license, which govern your rights to use, copy, modify, and redistribute
    the Software.
 
-2. **No fees.** The Software is provided at no charge through AWS Marketplace.
-   AWS Marketplace terms also apply to your subscription.
+2. **No software fee.** The Software is offered at no software charge through
+   AWS Marketplace. You remain responsible for the AWS infrastructure and
+   service charges you incur while running the Software (for example, Amazon
+   EKS, Amazon EC2, Amazon EBS storage, Amazon RDS or Aurora, and — where you
+   use them — AWS Secrets Manager, AWS Systems Manager Parameter Store, and AWS
+   KMS). The AWS Marketplace terms also apply to your subscription.
 
-3. **Data.** The Software is local-first: it sends **no telemetry and no
-   diagnostic data to Elevarq**. All data the Software collects remains within
-   your AWS account / infrastructure. The Software's only outbound network
-   calls are the optional cloud-authentication and TLS requests you configure
-   (e.g. RDS IAM, AWS Secrets Manager, AWS Systems Manager Parameter Store),
-   which are made to your own cloud's services and never to Elevarq. Elevarq
-   does not receive telemetry, usage data, or any data collected by the
-   Software.
+3. **Data.** The Software is local-first and read-only: as packaged, it sends
+   **no telemetry and no diagnostic data to Elevarq**. The diagnostic snapshots
+   it collects remain within your own AWS account and customer-controlled
+   infrastructure; the Software exports data only to the local destination you
+   explicitly choose. The Software's only outbound network calls are the
+   optional cloud-authentication and TLS requests you configure (for example,
+   Amazon RDS IAM authentication, AWS Secrets Manager, or AWS Systems Manager
+   Parameter Store), which are made to your own cloud's services and never to
+   Elevarq. Any data associated with your AWS Marketplace subscription, Amazon
+   ECR access, or AWS account (for example, subscription and entitlement
+   records) is handled by AWS under the applicable AWS Marketplace and AWS
+   service terms; it is not collected by the Software, which sends no telemetry
+   to Elevarq.
 
 4. **No warranty.** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
    KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
@@ -58,13 +42,13 @@ Elevarq** ("Elevarq"), through AWS Marketplace.
    arising from or in connection with the Software or its use, as set out in
    the BSD 3-Clause License.
 
-6. **Support.** Community support is provided as described at
-   https://github.com/Elevarq/Signals/blob/main/SUPPORT.md. Commercial or
-   enterprise support, if desired, is available separately from Elevarq and is
-   not part of this free offering.
+6. **Support.** Community support is provided through GitHub Issues at
+   https://github.com/Elevarq/Signals. Security vulnerabilities should be
+   reported as described in Section 7.
 
-7. **Security.** Vulnerability reporting and supported-version policy are
-   described at https://github.com/Elevarq/Signals/blob/main/SECURITY.md.
+7. **Security.** Vulnerability reporting and the supported-version policy are
+   described at https://github.com/Elevarq/Signals/blob/main/SECURITY.md
+   (security contact: security@elevarq.com).
 
 In the event of any conflict between this Agreement and the BSD 3-Clause
 License with respect to the license grant, warranty, and liability, the BSD
