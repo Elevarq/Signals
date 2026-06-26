@@ -16,9 +16,9 @@
 #   MP_REGISTRY     Marketplace ECR registry host
 #                   (e.g. 123456789012.dkr.ecr.us-east-1.amazonaws.com)
 #   MP_IMAGE_REPO   Marketplace ECR image repo path (from AddRepositories),
-#                   e.g. <prefix>/elevarq/signals
+#                   e.g. <seller-ns>/elevarq-signals
 #   MP_CHART_REPO   Marketplace ECR chart repo path,
-#                   e.g. <prefix>/elevarq/charts
+#                   e.g. <seller-ns>/elevarq-signals-chart
 # Optional env:
 #   SOURCE_IMAGE    default ghcr.io/elevarq/signals:${VERSION}
 #   SOURCE_CHART    default oci://ghcr.io/elevarq/charts/signals (version ${VERSION})

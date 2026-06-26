@@ -53,8 +53,8 @@ Run them with [`scripts/marketplace-changeset.sh`](../../../scripts/marketplace-
    IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq-signals:1.0.0 \
    CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq-signals-chart/signals:1.0.0 \
    RELEASE_NOTES="Elevarq Signals 1.0.0 — first stable release." \
-   DELIVERY_DESCRIPTION="Helm install on Amazon EKS. Local-first, read-only PostgreSQL diagnostic collector; passwordless onboarding; no data egress." \
-   USAGE_INSTRUCTIONS="aws ecr get-login-password | helm registry login --username AWS --password-stdin <registry>; helm install signals oci://<chart-repo> --version 1.0.0 --set target.host=<rds> --set target.authMethod=aws_rds_iam --set target.sslmode=verify-full" \
+   DELIVERY_DESCRIPTION="Helm install on Amazon EKS. Local-first, read-only PostgreSQL diagnostic collector; passwordless onboarding; no diagnostic-data egress to Elevarq." \
+   USAGE_INSTRUCTIONS="1) aws ecr get-login-password --region <region> | helm registry login --username AWS --password-stdin <registry>. 2) Create signals-values.yaml with: target.host, target.dbname, target.user=signals, target.authMethod=aws_rds_iam, target.sslmode=verify-full. 3) helm install signals oci://<chart-repo>/signals --version 1.0.0 -n signals --create-namespace -f signals-values.yaml. Full onboarding: docs/marketplace/install-from-aws-marketplace.md" \
      scripts/marketplace-changeset.sh docs/marketplace/catalog-api/02-add-helm-delivery.json
    ```
 

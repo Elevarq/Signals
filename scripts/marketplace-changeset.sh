@@ -13,8 +13,8 @@
 #
 #   # For 02-add-helm-delivery.json, export the variables it references first:
 #   PRODUCT_ID=prod-xxxx VERSION=1.0.0 \
-#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq/signals:1.0.0 \
-#   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq/charts/signals:1.0.0 \
+#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq-signals:1.0.0 \
+#   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq-signals-chart/signals:1.0.0 \
 #   RELEASE_NOTES="..." DELIVERY_DESCRIPTION="..." USAGE_INSTRUCTIONS="..." \
 #     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/02-add-helm-delivery.json
 #

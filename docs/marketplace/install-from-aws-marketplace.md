@@ -28,18 +28,26 @@ shown on the listing's launch page.
 
 ## 3. Install the chart
 
-Onto an existing Amazon EKS cluster (or a self-managed cluster):
+Onto an existing Amazon EKS cluster (or a self-managed cluster). Put your
+configuration in a values file (`signals-values.yaml`) rather than `--set`
+flags:
+
+```yaml
+# signals-values.yaml
+target:
+  host: <rds-endpoint>
+  dbname: <db>
+  user: signals
+  authMethod: aws_rds_iam      # passwordless RDS IAM
+  sslmode: verify-full
+  sslRootCertFile: /etc/ssl/db/rds-ca.pem
+```
 
 ```sh
 helm install signals oci://<marketplace-ecr-chart-repo>/signals \
   --version 1.0.0 \
   --namespace signals --create-namespace \
-  --set target.host=<rds-endpoint> \
-  --set target.dbname=<db> \
-  --set target.user=signals \
-  --set target.authMethod=aws_rds_iam \
-  --set target.sslmode=verify-full \
-  --set target.sslRootCertFile=/etc/ssl/db/rds-ca.pem
+  -f signals-values.yaml
 ```
 
 The chart is the **same chart** as

@@ -49,15 +49,23 @@ Catalog API.
 # Authenticate Helm to the AWS Marketplace registry (buyer side)
 aws ecr get-login-password --region <region> \
   | helm registry login --username AWS --password-stdin <marketplace-ecr-registry>
+```
 
-# Install (minimal — set your target DB + a verify-full CA bundle)
+Configure in a values file (`signals-values.yaml`), then install with `-f`:
+
+```yaml
+# signals-values.yaml
+target:
+  host: <rds-endpoint>
+  dbname: <db>
+  user: signals
+  authMethod: aws_rds_iam
+  sslmode: verify-full
+```
+
+```sh
 helm install signals oci://<marketplace-ecr-chart-repo>/signals \
-  --version 1.0.0 \
-  --set target.host=<rds-endpoint> \
-  --set target.dbname=<db> \
-  --set target.user=signals \
-  --set target.authMethod=aws_rds_iam \
-  --set target.sslmode=verify-full
+  --version 1.0.0 -f signals-values.yaml
 ```
 
 Full passwordless onboarding (IAM role / DB grant / CA bundle) is documented
