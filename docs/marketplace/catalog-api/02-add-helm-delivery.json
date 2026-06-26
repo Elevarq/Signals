@@ -1,0 +1,34 @@
+{
+  "Catalog": "AWSMarketplace",
+  "ChangeSet": [
+    {
+      "ChangeType": "AddDeliveryOptions",
+      "Entity": {
+        "Type": "ContainerProduct@1.0",
+        "Identifier": "${PRODUCT_ID}"
+      },
+      "DetailsDocument": {
+        "Version": {
+          "VersionTitle": "${VERSION}",
+          "ReleaseNotes": "${RELEASE_NOTES}"
+        },
+        "DeliveryOptions": [
+          {
+            "DeliveryOptionTitle": "Helm chart (Amazon EKS)",
+            "Details": {
+              "HelmDeliveryOptionDetails": {
+                "CompatibleServices": ["EKS"],
+                "ContainerImages": ["${IMAGE_URI}"],
+                "HelmChartUri": "${CHART_URI}",
+                "Description": "${DELIVERY_DESCRIPTION}",
+                "UsageInstructions": "${USAGE_INSTRUCTIONS}",
+                "ReleaseName": "signals",
+                "Namespace": "signals"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
