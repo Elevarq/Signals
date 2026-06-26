@@ -37,19 +37,21 @@ Run them with [`scripts/marketplace-changeset.sh`](../../../scripts/marketplace-
    AWS prepends a seller namespace, so the full path is
    `<acct>.dkr.ecr.<region>.amazonaws.com/<seller-ns>/elevarq/signals` etc.
 
-3. **Push the 1.0.0 image + chart** into those repos:
+3. **Push the 1.0.0 image + chart** into those repos. The script also
+   **repackages the chart** so its default image points at the Marketplace ECR
+   repo (not ghcr) — required, see Constraints below:
    ```sh
    MP_REGISTRY=<acct>.dkr.ecr.us-east-1.amazonaws.com \
-   MP_IMAGE_REPO=<seller-ns>/elevarq/signals \
-   MP_CHART_REPO=<seller-ns>/elevarq/charts \
+   MP_IMAGE_REPO=<seller-ns>/elevarq-signals \
+   MP_CHART_REPO=<seller-ns>/elevarq-signals-chart \
    VERSION=1.0.0 scripts/marketplace-ecr-push.sh
    ```
 
 4. **Add the Helm delivery version:**
    ```sh
    PRODUCT_ID=<product-id> VERSION=1.0.0 \
-   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq/signals:1.0.0 \
-   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq/charts/signals:1.0.0 \
+   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq-signals:1.0.0 \
+   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<seller-ns>/elevarq-signals-chart/signals:1.0.0 \
    RELEASE_NOTES="Elevarq Signals 1.0.0 — first stable release." \
    DELIVERY_DESCRIPTION="Helm install on Amazon EKS. Local-first, read-only PostgreSQL diagnostic collector; passwordless onboarding; no data egress." \
    USAGE_INSTRUCTIONS="aws ecr get-login-password | helm registry login --username AWS --password-stdin <registry>; helm install signals oci://<chart-repo> --version 1.0.0 --set target.host=<rds> --set target.authMethod=aws_rds_iam --set target.sslmode=verify-full" \
@@ -65,7 +67,17 @@ Run them with [`scripts/marketplace-changeset.sh`](../../../scripts/marketplace-
 - Helm `HelmChartUri` tag must be **SemVer 2** (our chart tag `1.0.0` qualifies).
 - Don't use the `latest` image tag (`INVALID_CONTAINER_IMAGE_TAG`).
 - All Helm chart images must be in repos created via `AddRepositories`
-  (`INVALID_HELM_CHART_IMAGES`) — i.e. re-host everything (no ghcr).
+  (`INVALID_HELM_CHART_IMAGES`) — i.e. re-host everything (no ghcr). The chart's
+  **default `image.repository` must point at the Marketplace ECR repo**, not
+  ghcr — `marketplace-ecr-push.sh` repackages the chart and `helm template`-
+  asserts no ghcr image remains before pushing.
+- Repository names are **flat** (`elevarq-signals`, `elevarq-signals-chart`) —
+  the API rejects names that aren't in the `nginx-web-app` format.
+- **Cosign decision:** the GHCR cosign signature does **not** carry over — the
+  `skopeo` copy moves only the image, not the `.sig` tag, and AWS re-scans (and
+  may re-sign) on ingestion. Marketplace artifacts are AWS-scanned, not
+  verifiable with our GHCR `cosign verify` commands. We accept this for 1.0
+  (re-signing the Marketplace ECR artifacts is a possible later enhancement).
 - `SCAN_ERROR` blocks the version if image scanning finds vulnerabilities —
   our Trivy-clean base helps; patch before submitting.
 - We list `CompatibleServices: ["EKS"]` only. **Adding `EKS-Anywhere` requires

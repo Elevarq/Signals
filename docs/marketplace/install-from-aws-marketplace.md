@@ -68,8 +68,33 @@ kubectl -n signals exec deploy/signals -- signalsctl export --output /data/snaps
 ```
 
 A healthy install connects **passwordless** over `verify-full` TLS with a
-least-privilege `pg_monitor` role, and produces a local snapshot — **no data
-leaves your account** (Signals has no egress to Elevarq).
+least-privilege `pg_monitor` role, and produces a local snapshot. Signals sends
+**no telemetry and no diagnostic data to Elevarq**; the only outbound calls are
+the cloud-auth/TLS requests you configure, made to your own cloud's services.
+
+## 6. Operational details (AWS Marketplace)
+
+- **Secrets / sensitive info.** With `aws_rds_iam` there is **no password** —
+  the collector mints a short-lived RDS IAM token from its IRSA / Pod Identity
+  role. For the `secret_store` or `password` methods, the credential is a
+  Kubernetes `Secret` you provide (referenced by `api.tokenSecretName` for the
+  control-plane token and `target.passwordSecretName` for a DB password); it is
+  injected as an environment variable and never written to a ConfigMap. The
+  control-plane API requires a bearer token.
+- **Data location & at-rest encryption.** Collected diagnostics are written to
+  a local SQLite database on the pod's `/data` volume (the chart's PVC,
+  `persistence.size` default 1Gi). Encryption at rest is **customer-managed**:
+  back the PVC with an encrypted `StorageClass` (e.g. EBS `gp3` with a KMS
+  key). No data leaves the cluster except the snapshot you explicitly export.
+- **Health checks.** The container exposes `GET /health` (unauthenticated) on
+  `:8081`; the chart wires liveness/readiness probes to it.
+- **AWS infrastructure cost (customer responsibility).** Signals is free, but
+  you pay AWS for the resources it runs on: the EKS cluster + worker node
+  capacity, the EBS volume backing the PVC, RDS/Aurora, and — if you use the
+  `secret_store` method — AWS Secrets Manager / SSM Parameter Store and KMS.
+- **Service quotas.** No special quotas beyond normal cluster compute and
+  storage capacity; the collector is a single, low-footprint pod
+  (default requests 50m CPU / 64Mi).
 
 ## Notes
 

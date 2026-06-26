@@ -15,8 +15,8 @@
       },
       "DetailsDocument": {
         "Repositories": [
-          { "RepositoryName": "elevarq/signals", "RepositoryType": "ECR" },
-          { "RepositoryName": "elevarq/charts", "RepositoryType": "ECR" }
+          { "RepositoryName": "elevarq-signals", "RepositoryType": "ECR" },
+          { "RepositoryName": "elevarq-signals-chart", "RepositoryType": "ECR" }
         ]
       }
     }

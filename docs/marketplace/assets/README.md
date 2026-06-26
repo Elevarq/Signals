@@ -13,3 +13,8 @@ npx -y @mermaid-js/mermaid-cli -i /tmp/arch.mmd -o docs/marketplace/assets/archi
 
 Use `architecture.png` for the AWS Marketplace product architecture-diagram
 upload.
+
+> **Draft quality.** This is the default Mermaid render — accurate but wide and
+> unstyled. It is fine as a working/review asset, but for the **public listing
+> image** a cleaner, narrower, branded diagram is recommended before going
+> Public.

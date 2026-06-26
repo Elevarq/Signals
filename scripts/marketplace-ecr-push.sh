@@ -68,10 +68,34 @@ echo "    ${SOURCE_IMAGE}  ->  ${DEST_IMAGE}"
 # AWS Marketplace scans (and may re-sign) the image on ingestion regardless.
 skopeo copy --all "docker://${SOURCE_IMAGE}" "docker://${DEST_IMAGE}"
 
-echo "==> Pushing Helm chart"
+echo "==> Repackaging + pushing Helm chart"
+# AWS rejects Helm charts whose images live outside the Marketplace ECR repos
+# (INVALID_HELM_CHART_IMAGES). The published chart must default its image to the
+# Marketplace ECR image we just pushed — NOT ghcr.io. Pull the released chart,
+# repoint image.repository, prove via `helm template` that no ghcr.io image
+# remains, then repackage and push.
 workdir="$(mktemp -d)"
 trap 'rm -rf "$workdir"' EXIT
-helm pull "${SOURCE_CHART}" --version "${VERSION}" --destination "$workdir"
+helm pull "${SOURCE_CHART}" --version "${VERSION}" --untar --untardir "$workdir"
+chartdir="$workdir/signals"
+[ -d "$chartdir" ] || die "chart not found after pull at $chartdir"
+
+# Repoint the default image from ghcr.io to the Marketplace ECR repository.
+# (The chart's default tag is already ${VERSION}; buyers can still override.)
+sed -i.bak "s#ghcr.io/elevarq/signals#${DEST_IMAGE%:*}#g" "$chartdir/values.yaml"
+rm -f "$chartdir/values.yaml.bak"
+
+echo "==> Validating repackaged chart (helm lint + no external images)"
+helm lint "$chartdir"
+RENDERED="$(helm template signals "$chartdir" --set target.host=example.invalid)"
+printf '%s\n' "$RENDERED" | grep -E '^[[:space:]]*image:' || true
+if printf '%s\n' "$RENDERED" | grep -q 'ghcr.io'; then
+  die "repackaged chart still renders a ghcr.io image — AWS rejects external chart images (INVALID_HELM_CHART_IMAGES)"
+fi
+printf '%s\n' "$RENDERED" | grep -q "${DEST_IMAGE%:*}" \
+  || die "repackaged chart does not reference the Marketplace ECR image ${DEST_IMAGE%:*}"
+
+helm package "$chartdir" --destination "$workdir"
 chart_tgz="$(ls "$workdir"/signals-*.tgz)"
 helm push "$chart_tgz" "oci://${MP_REGISTRY}/${MP_CHART_REPO}"
 

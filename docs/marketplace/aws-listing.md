@@ -8,9 +8,9 @@ Requirements are summarized in the issue; this file is the content + steps we
 paste into the AWS Marketplace Management Portal (AMMP) / drive via the
 Catalog API.
 
-> **Status:** draft. Fields marked _(confirm)_ depend on open questions in
-> #218 (cosign-signature survival, multi-arch in one delivery option, exact
-> field limits, EULA vs Standard Contract).
+> **Status:** draft. Fields marked _(confirm)_ depend on the open questions in
+> §6 (multi-arch in one delivery option, exact field limits). The EULA and
+> cosign questions are now decided — see §6.
 
 ## 0. Pre-publish gate
 
@@ -25,8 +25,8 @@ Catalog API.
 | Field | Value |
 |-------|-------|
 | Product title | Elevarq Signals |
-| Short description | Local-first, read-only PostgreSQL diagnostic signal collector — no data egress. |
-| Long description | Elevarq Signals is an open-source (BSD-3-Clause) diagnostic collector for PostgreSQL. It runs next to your database, collects a structured, read-only diagnostic snapshot on a schedule, and keeps everything local — there is no data egress. It onboards **passwordlessly** against managed Postgres (Amazon RDS / Aurora via `aws_rds_iam`, or a cloud secret store) over `verify-full` TLS, using a least-privilege `pg_monitor` role. Snapshots are exported as a portable archive for downstream analysis. |
+| Short description | Local-first, read-only PostgreSQL diagnostic collector — no diagnostic-data egress to Elevarq. |
+| Long description | Elevarq Signals is an open-source (BSD-3-Clause) diagnostic collector for PostgreSQL. It runs next to your database, collects a structured, read-only diagnostic snapshot on a schedule, and keeps the data local: **no telemetry and no diagnostic-data egress to Elevarq** — the only outbound calls are the optional cloud-auth requests (RDS IAM / Secrets Manager / SSM / TLS), which stay within your own cloud's control plane. It onboards **passwordlessly** against managed Postgres (Amazon RDS / Aurora via `aws_rds_iam`, or a cloud secret store) over `verify-full` TLS, using a least-privilege `pg_monitor` role. Snapshots are exported as a portable archive for downstream analysis. |
 | Categories _(confirm)_ | Database / Monitoring & Observability |
 | Vendor | Elevarq (DBA of Scantr LLC) |
 | Pricing | Free |
@@ -100,11 +100,21 @@ in [`deploy/helm/signals/README.md`](../../deploy/helm/signals/README.md) and
 7. [ ] Preview + approve the **limited listing URL**.
 8. [ ] Request **Limited → Public** (Update visibility) → live.
 
-## 6. Open questions (resolve during submission)
+## 6. Decisions & open questions
 
-- Do **cosign signatures survive** the copy into Marketplace ECR, or does AWS
-  re-sign/scan? (Affects whether buyers can verify our signature.)
+**Decided**
+
+- **Cosign signature does not carry over.** The `skopeo` copy moves only the
+  image (not the `.sig` tag); AWS re-scans and may re-sign on ingestion.
+  Marketplace artifacts are AWS-scanned, not verifiable with our GHCR `cosign
+  verify` commands. Accepted for 1.0; re-signing the Marketplace ECR artifacts
+  is a possible later enhancement.
+- **EULA:** custom EULA referencing BSD-3-Clause (see [`EULA.md`](EULA.md)),
+  not SCMP. Pending legal review.
+
+**Open (confirm during submission)**
+
 - **Multi-arch** (linux/amd64 + linux/arm64) as a single manifest-list
-  delivery option — supported?
-- Exact **listing-content field limits** + **EULA vs SCMP** for a free listing.
+  delivery option — supported? (We ship a multi-arch manifest.)
+- Exact **listing-content field limits**.
 - Does the **90-day paid-equivalent** rule bind a standalone free OSS product?

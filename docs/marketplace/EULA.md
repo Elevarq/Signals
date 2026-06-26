@@ -3,6 +3,13 @@
 > **Draft — requires legal review before use on the listing.** This is the
 > proposed EULA text for the free AWS Marketplace listing. Confirm the legal
 > entity name and terms with counsel before submitting.
+>
+> **For counsel — entity/license alignment:** this EULA names **Scantr LLC,
+> doing business as Elevarq**, while the repository `LICENSE` (BSD-3-Clause)
+> carries the copyright line **"Elevarq"**. Decide whether the `LICENSE`
+> copyright line should also read **"Scantr LLC dba Elevarq"** so the two are
+> consistent, and confirm the entity named in the Marketplace seller
+> registration matches.
 
 ## Recommended option
 
@@ -32,10 +39,14 @@ Elevarq** ("Elevarq"), through AWS Marketplace.
 2. **No fees.** The Software is provided at no charge through AWS Marketplace.
    AWS Marketplace terms also apply to your subscription.
 
-3. **Data.** The Software is local-first and performs no data egress to
-   Elevarq. All data the Software collects remains within your AWS account /
-   infrastructure. Elevarq does not receive telemetry, usage data, or any
-   data collected by the Software.
+3. **Data.** The Software is local-first: it sends **no telemetry and no
+   diagnostic data to Elevarq**. All data the Software collects remains within
+   your AWS account / infrastructure. The Software's only outbound network
+   calls are the optional cloud-authentication and TLS requests you configure
+   (e.g. RDS IAM, AWS Secrets Manager, AWS Systems Manager Parameter Store),
+   which are made to your own cloud's services and never to Elevarq. Elevarq
+   does not receive telemetry, usage data, or any data collected by the
+   Software.
 
 4. **No warranty.** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY
    KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
