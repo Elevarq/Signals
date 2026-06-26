@@ -1,0 +1,24 @@
+{
+  "Catalog": "AWSMarketplace",
+  "ChangeSet": [
+    {
+      "ChangeType": "CreateProduct",
+      "ChangeName": "CreateProduct",
+      "Entity": { "Type": "ContainerProduct@1.0" },
+      "DetailsDocument": { "ProductTitle": "Elevarq Signals" }
+    },
+    {
+      "ChangeType": "AddRepositories",
+      "Entity": {
+        "Type": "ContainerProduct@1.0",
+        "Identifier": "$CreateProduct.Entity.Identifier"
+      },
+      "DetailsDocument": {
+        "Repositories": [
+          { "RepositoryName": "elevarq/signals", "RepositoryType": "ECR" },
+          { "RepositoryName": "elevarq/charts", "RepositoryType": "ECR" }
+        ]
+      }
+    }
+  ]
+}
