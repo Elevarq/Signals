@@ -8,10 +8,13 @@ This file is the content + steps we drive via the AWS Marketplace Catalog API
 (`StartChangeSet`); no AMMP web UI is required. The verified publish sequence
 and per-call gotchas live in [`catalog-api/README.md`](catalog-api/README.md).
 
-> **Status: GATED on EULA legal sign-off.** Signals is GA at **v1.0.0**, so
-> the release gate is met. One gate remains before anything is submitted:
-> **legal sign-off** on the EULA / entity wording (§4). Do **not** run the
-> publish / visibility change-sets until it clears. The
+> **Status: EULA signed off; pre-submission items remain.** Signals is GA at
+> **v1.0.0** (release gate met) and the **EULA wording is finalized and signed
+> off** (product/compliance, 2026-06-30 — see
+> [`EULA-review-notes.md`](EULA-review-notes.md)). Before public submission:
+> (1) add the **website Marketplace-install path**, and (2) operationally
+> confirm the AWS seller-registration entity matches "Scantr LLC d/b/a
+> Elevarq". Then run the Catalog-API sequence (§5). The
 > `SignatureVerificationKey` question is resolved (§6 — it is the inert
 > metering key, not an image-signing requirement).
 

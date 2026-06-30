@@ -6,11 +6,12 @@ Tracks [Elevarq/Signals#218](https://github.com/Elevarq/Signals/issues/218);
 schemas are from the official
 [container-products Catalog API reference](https://docs.aws.amazon.com/marketplace-catalog/latest/api-reference/container-products.html).
 
-> **Gated on EULA legal sign-off.** Signals is GA at **v1.0.0**. These
-> change-sets are still docs prep — **do not run any of them** until the EULA
-> clears legal sign-off (see [`../aws-listing.md`](../aws-listing.md) §4). The
-> product does not exist yet; the identifiers below are populated once
-> `CreateProduct` runs.
+> **EULA signed off; pre-submission items remain.** Signals is GA at
+> **v1.0.0** and the EULA is finalized + signed off. Before running these
+> change-sets, land the website Marketplace-install path and confirm the
+> seller-registration entity (see [`../aws-listing.md`](../aws-listing.md)
+> status banner). The product does not exist yet; the identifiers below are
+> populated once `CreateProduct` runs.
 
 Run a change-set with
 [`scripts/marketplace-changeset.sh`](../../../scripts/marketplace-changeset.sh)
