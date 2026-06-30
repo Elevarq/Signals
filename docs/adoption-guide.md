@@ -21,7 +21,7 @@ This produces `bin/signals` (daemon) and `bin/signalsctl` (CLI).
 **Docker:**
 
 ```bash
-docker pull ghcr.io/elevarq/signals:latest
+docker pull ghcr.io/elevarq/signals:1.0.0
 ```
 
 ### 2. Configure
@@ -91,7 +91,7 @@ docker run -d \
   -v /etc/signals/signals.yaml:/etc/signals/signals.yaml:ro \
   -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/signals:latest
+  ghcr.io/elevarq/signals:1.0.0
 ```
 
 The container runs as a non-root user (UID 10001) on Alpine 3.21. The API listens on port 8081. Bind it to loopback unless you need external access.
@@ -113,7 +113,7 @@ docker run -d \
   -v /run/secrets/pg_password:/run/secrets/pg_password:ro \
   -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/signals:latest
+  ghcr.io/elevarq/signals:1.0.0
 ```
 
 The following target-level env vars are supported:
