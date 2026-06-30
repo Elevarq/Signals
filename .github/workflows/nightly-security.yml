@@ -64,7 +64,7 @@ jobs:
       # rejects workflows with any top-level env block. See #194.
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           # Full history — push/PR gates already cover HEAD; this
           # job exists specifically to catch deeper-history
@@ -119,7 +119,7 @@ jobs:
       # rejects top-level env, so declared per-job).
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Generate source SBOM (SPDX-JSON)
         uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610  # v0
@@ -148,7 +148,7 @@ jobs:
       # rejects top-level env, so declared per-job).
       FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
 
       - name: Download source SBOM
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8
@@ -206,7 +206,7 @@ jobs:
       # Needed for the `publish_results: true` path to publish to
       # api.scorecard.dev for the public Scorecard badge.
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10  # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0  # v7.0.0
         with:
           persist-credentials: false
 
