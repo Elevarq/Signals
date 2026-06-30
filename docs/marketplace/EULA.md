@@ -22,10 +22,11 @@ Elevarq** ("Elevarq"), through AWS Marketplace.
    **no telemetry and no diagnostic data to Elevarq**. The diagnostic snapshots
    it collects remain within your own AWS account and customer-controlled
    infrastructure; the Software exports data only to the local destination you
-   explicitly choose. The Software's only outbound network calls are the
-   optional cloud-authentication and TLS requests you configure (for example,
-   Amazon RDS IAM authentication, AWS Secrets Manager, or AWS Systems Manager
-   Parameter Store), which are made to your own cloud's services and never to
+   explicitly choose. The Software's outbound network calls are limited to the
+   PostgreSQL targets you configure and the optional cloud-authentication,
+   secret-store, and TLS-related requests you configure (for example, Amazon
+   RDS IAM authentication, AWS Secrets Manager, or AWS Systems Manager
+   Parameter Store), which are made to your own cloud services and never to
    Elevarq. Any data associated with your AWS Marketplace subscription, Amazon
    ECR access, or AWS account (for example, subscription and entitlement
    records) is handled by AWS under the applicable AWS Marketplace and AWS

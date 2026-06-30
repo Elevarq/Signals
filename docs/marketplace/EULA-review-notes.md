@@ -5,9 +5,11 @@ customer-facing contract — the upload-ready EULA is [`EULA.md`](EULA.md), whic
 must contain clean customer-facing text only. This file holds the rationale and
 the open counsel gates.
 
-> This is not legal advice. The items under "Counsel gates" must be confirmed
-> with counsel before the listing is submitted. Signals is GA at v1.0.0; the
-> listing — and therefore this EULA — is gated on counsel's legal sign-off.
+> This is not legal advice. Signals is GA at v1.0.0; the EULA wording is
+> finalized and the gates below were **reviewed and signed off (2026-06-30,
+> product/compliance)** — see "Sign-off" at the end. The remaining
+> pre-submission items are the website Marketplace-install path and the
+> Catalog-API execution itself.
 
 ## Custom EULA vs Standard Contract (SCMP)
 
@@ -43,6 +45,26 @@ the free offer's legal term then references that S3 URL
    and the absence of any support upsell satisfy AWS's container-product
    policies for free products (no metadata redirecting buyers to offerings not
    available on AWS Marketplace).
+
+## Sign-off (2026-06-30)
+
+Product/compliance sign-off given after a review against AWS container-product
+policies. Resolutions to the gates above:
+
+- **Section 3 wording corrected.** The outbound-network sentence now states
+  that calls are limited to the configured **PostgreSQL targets** plus the
+  optional cloud-authentication / secret-store / TLS requests the operator
+  configures — made to the operator's own cloud services, never to Elevarq.
+  (Previously it omitted the PostgreSQL targets.)
+- **Gate 1 (entity).** **Scantr LLC, doing business as Elevarq** is the
+  contracting party; confirmed it must match the AWS seller registration
+  record operationally before submit.
+- **Gate 2 (LICENSE copyright).** Accepted as-is — `LICENSE` reads
+  `Copyright (c) 2026, Elevarq`. Tightening it to "Scantr LLC d/b/a Elevarq"
+  is a separate entity-cleanup decision, **not** a blocker to the EULA text.
+- **Gate 3 (free-listing framing).** Confirmed: no software fee (§2), no
+  support upsell, listing support copy is community-only, and no metadata
+  redirects buyers to offerings unavailable on AWS Marketplace.
 
 ## Customer-facing hygiene
 
