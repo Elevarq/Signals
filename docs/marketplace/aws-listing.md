@@ -8,12 +8,12 @@ This file is the content + steps we drive via the AWS Marketplace Catalog API
 (`StartChangeSet`); no AMMP web UI is required. The verified publish sequence
 and per-call gotchas live in [`catalog-api/README.md`](catalog-api/README.md).
 
-> **Status: GATED — docs prep only.** Signals is still pre-1.0 (latest tag
-> `v0.10.0-rc.1`). Two gates remain before anything is submitted: (1) the
-> **v1.0.0 release** must ship, and (2) **legal sign-off** on the EULA / entity
-> wording (§4). Do **not** run the publish / visibility change-sets until both
-> clear. The `SignatureVerificationKey` question is resolved (§6 — it is the
-> inert metering key, not an image-signing requirement).
+> **Status: GATED on EULA legal sign-off.** Signals is GA at **v1.0.0**, so
+> the release gate is met. One gate remains before anything is submitted:
+> **legal sign-off** on the EULA / entity wording (§4). Do **not** run the
+> publish / visibility change-sets until it clears. The
+> `SignatureVerificationKey` question is resolved (§6 — it is the inert
+> metering key, not an image-signing requirement).
 
 ## 0. Pre-publish gate
 
@@ -169,10 +169,9 @@ chart README, and [`docs/database-connections.md`](../database-connections.md).
 
 **Open (must clear before submit)**
 
-- **v1.0.0 release** — Signals is pre-1.0 (`v0.10.0-rc.1`); the listing is
-  gated on the stable release.
 - **EULA / entity wording** — counsel review (Scantr LLC dba Elevarq); see
-  [`EULA-review-notes.md`](EULA-review-notes.md).
+  [`EULA-review-notes.md`](EULA-review-notes.md). This is the remaining gate
+  before submit (the v1.0.0 GA release is cut).
 
 **Decided**
 

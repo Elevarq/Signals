@@ -338,7 +338,7 @@ docker run -d --name signals \
   -e SIGNALS_ENV=dev \
   -v signals-data:/data \
   -p 8081:8081 \
-  ghcr.io/elevarq/signals:latest
+  ghcr.io/elevarq/signals:1.0.0
 ```
 
 ### Build from source

@@ -35,18 +35,17 @@ the cadence is the next routine release.
 
 ## Supported versions
 
-Elevarq Signals is **pre-1.0 / Beta**. Only the **latest tagged release on
-the active line** receives security fixes:
+Elevarq Signals is **1.0 (GA)**. The latest stable release on the most
+recent minor receives security fixes:
 
 | Version line | Status |
 |---|---|
-| `v0.10.0-beta.x` | **Active** — receives security fixes |
-| `v0.9.x` | End-of-life (superseded by the Beta line) |
-| `v0.3.x` and older | Unsupported |
+| `v1.0.x` | **Active** — receives security fixes |
+| `v0.10.0-rc.x` / `v0.10.0-beta.x` | End-of-life (superseded by 1.0) |
+| `v0.9.x` and older | Unsupported |
 
-Once `v0.10.0` (stable) ships, the latest stable release on the most
-recent minor will be the supported line; earlier minors will receive
-only Critical fixes for one minor cycle.
+When a new minor ships, the previous minor receives only Critical fixes
+for one minor cycle.
 
 ## Security model
 

@@ -6,9 +6,8 @@ must contain clean customer-facing text only. This file holds the rationale and
 the open counsel gates.
 
 > This is not legal advice. The items under "Counsel gates" must be confirmed
-> with counsel before the listing is submitted. Signals is still pre-1.0
-> (latest tag `v0.10.0-rc.1`); the listing — and therefore this EULA — is
-> gated on the v1.0.0 release and legal sign-off.
+> with counsel before the listing is submitted. Signals is GA at v1.0.0; the
+> listing — and therefore this EULA — is gated on counsel's legal sign-off.
 
 ## Custom EULA vs Standard Contract (SCMP)
 
