@@ -57,8 +57,16 @@ for bin in aws docker helm; do
 done
 docker buildx version >/dev/null 2>&1 || die "docker buildx is required"
 
-echo "==> Authenticating to Marketplace ECR (${MP_REGISTRY})"
-PW="$(aws ecr get-login-password --region "$AWS_REGION")"
+# The ECR login token is scoped to the REGISTRY's region, which is fixed by the
+# MP_REGISTRY host (<acct>.dkr.ecr.<region>.amazonaws.com) — not by the operator's
+# AWS_REGION. Deriving it here keeps an exported AWS_REGION=<other> from minting a
+# token for the wrong region and authenticating the push to the wrong registry.
+# Falls back to us-east-1 if the host cannot be parsed.
+MP_REGION="$(printf '%s' "$MP_REGISTRY" | sed -n 's/.*\.dkr\.ecr\.\([a-z0-9-]\{1,\}\)\.amazonaws\.com.*/\1/p')"
+MP_REGION="${MP_REGION:-us-east-1}"
+
+echo "==> Authenticating to Marketplace ECR (${MP_REGISTRY}, region ${MP_REGION})"
+PW="$(aws ecr get-login-password --region "$MP_REGION")"
 printf '%s' "$PW" | docker login --username AWS --password-stdin "$MP_REGISTRY"
 printf '%s' "$PW" | helm registry login --username AWS --password-stdin "$MP_REGISTRY"
 
