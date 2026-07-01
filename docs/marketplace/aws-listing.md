@@ -68,7 +68,7 @@ These are the `UpdateInformation` fields — captured in
 
 ```sh
 # Authenticate Helm to the AWS Marketplace registry (buyer side)
-aws ecr get-login-password --region <region> \
+aws ecr get-login-password --region us-east-1 \
   | helm registry login --username AWS --password-stdin <marketplace-ecr-registry>
 ```
 
