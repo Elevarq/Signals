@@ -22,6 +22,16 @@
 #   RELEASE_NOTES="..." DELIVERY_DESCRIPTION="..." USAGE_INSTRUCTIONS="..." \
 #     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/02-add-helm-delivery.json
 #
+#   # For 04-add-container-image-delivery.json (adds the ECS / Fargate /
+#   # docker-pull delivery option alongside Helm — same re-hosted image), export:
+#   PRODUCT_ID=prod-xxxx VERSION=1.0.0 \
+#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/elevarq/elevarq-signals:1.0.0 \
+#   RELEASE_NOTES="..." CI_DELIVERY_DESCRIPTION="..." CI_USAGE_INSTRUCTIONS="..." \
+#     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/04-add-container-image-delivery.json
+#   # IMAGE_URI MUST be the same Marketplace-ECR image the Helm option ships
+#   # (one artifact, two delivery options). CI_USAGE_INSTRUCTIONS must document
+#   # durable snapshot storage (EFS on Fargate; the task filesystem is ephemeral).
+#
 # Env: AWS_PROFILE (default elevarq), AWS_REGION (default us-east-1).
 # Requires: aws, jq, envsubst (gettext).
 
@@ -66,6 +76,19 @@ if LC_ALL=C tr -d '\11\12\15\40-\176' < "$rendered" | grep -q .; then
   exit 1
 fi
 jq . "$rendered" >/dev/null || { echo "error: rendered change set is not valid JSON" >&2; exit 1; }
+
+# Fail fast on an unsupported CompatibleServices value. AWS validates this only
+# after submission (a typo like "Fargate" or "GKE" burns a change-set); the valid
+# set is ECS, EKS, ECS-Anywhere, EKS-Anywhere, Bedrock-AgentCore. Fargate is an
+# ECS launch type -> use "ECS". See spec FC-CID-03.
+bad_services="$(jq -r '[.. | objects | .CompatibleServices? // empty] | add // [] | .[]' "$rendered" \
+  | grep -vxE 'ECS|EKS|ECS-Anywhere|EKS-Anywhere|Bedrock-AgentCore' | sort -u || true)"
+if [ -n "$bad_services" ]; then
+  echo "error: unsupported CompatibleServices value(s) in the rendered change set:" >&2
+  echo "$bad_services" | awk '{print "       " $0}' >&2
+  echo "       valid: ECS, EKS, ECS-Anywhere, EKS-Anywhere, Bedrock-AgentCore" >&2
+  exit 1
+fi
 
 echo "==> Submitting change set from $TEMPLATE"
 CHANGE_SET_ID="$(aws marketplace-catalog start-change-set \

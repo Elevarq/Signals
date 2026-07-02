@@ -33,6 +33,16 @@ sequence is API-driven:
 | 6 | Add the Helm delivery version | `AddDeliveryOptions` (`02-add-helm-delivery.json`) — **only once Limited** | Limited |
 | 7 | Make public | `UpdateVisibility` `TargetVisibility: Public` (own change-set; AWS Seller-Ops manual review) | Limited → Public |
 
+### Reach expansion — additional delivery options (post-launch, #233)
+
+Once the listing is live, extra delivery options can be added — each reuses the
+**same** re-hosted Marketplace-ECR image and is its **own** AWS review round
+(never bundle). See `specifications/marketplace-container-image-delivery.md`.
+
+| Lever | Change type | Details type | Notes |
+|-------|-------------|--------------|-------|
+| Container image (ECS / Fargate / `docker pull`), #234 | `AddDeliveryOptions` (`04-add-container-image-delivery.json`) | `EcrDeliveryOptionDetails`, `CompatibleServices: ["ECS"]` | Additive; does not touch the Helm option. `ContainerImages` MUST equal the Helm option's image (one artifact, two options). Buyer runs it with no Helm/K8s, so `CI_USAGE_INSTRUCTIONS` must document durable snapshot storage — the Fargate task filesystem is ephemeral, attach EFS (or an EBS/bind volume on EC2-backed ECS). |
+
 Notes on the ordering, all verified on the pgAgroal launch:
 
 1. **`UpdateInformation` requires all core fields in one call** and works on a
