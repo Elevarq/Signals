@@ -11,10 +11,14 @@
 # Usage:
 #   scripts/marketplace-changeset.sh docs/marketplace/catalog-api/01-create-product-and-repos.json
 #
-#   # For 02-add-helm-delivery.json, export the variables it references first:
+#   # For 02-add-helm-delivery.json, export the variables it references first.
+#   # The Marketplace ECR is namespaced under elevarq/, and the chart is
+#   # re-hosted by RENAMING it to the granted repo's last segment
+#   # (elevarq-signals-chart) and pushing to the parent, so it lands at
+#   # elevarq/elevarq-signals-chart (NOT .../elevarq-signals-chart/signals).
 #   PRODUCT_ID=prod-xxxx VERSION=1.0.0 \
-#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq-signals:1.0.0 \
-#   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/<ns>/elevarq-signals-chart/signals:1.0.0 \
+#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/elevarq/elevarq-signals:1.0.0 \
+#   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/elevarq/elevarq-signals-chart:1.0.0 \
 #   RELEASE_NOTES="..." DELIVERY_DESCRIPTION="..." USAGE_INSTRUCTIONS="..." \
 #     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/02-add-helm-delivery.json
 #
@@ -45,6 +49,20 @@ if grep -q '\${' "$rendered"; then
   echo "error: unsubstituted variables remain in the rendered change set:" >&2
   # shellcheck disable=SC2016
   grep -o '\${[A-Z_]*}' "$rendered" | sort -u >&2
+  exit 1
+fi
+
+# Fail fast on non-ASCII (em/en-dashes, curly quotes, ellipsis, ...). AWS
+# Marketplace text fields (LongDescription, ReleaseNotes, UsageInstructions,
+# ...) reject them with INVALID_INPUT "Remove unsupported characters". This
+# commonly sneaks in from copy-pasted prose or the RELEASE_NOTES /
+# USAGE_INSTRUCTIONS values. Replace with ASCII (-, ', "). Byte-wise via tr
+# (portable across BSD/GNU; [:print:] is locale-dependent and unreliable).
+# Keep only TAB(011) NL(012) CR(015) and printable ASCII (040-176); if
+# anything survives, the file has non-ASCII or stray control bytes.
+if LC_ALL=C tr -d '\11\12\15\40-\176' < "$rendered" | grep -q .; then
+  echo "error: non-ASCII/control characters in the rendered change set (AWS rejects these)." >&2
+  echo "       Replace em/en-dashes with '-', curly quotes with ' or \", ellipsis with '...'." >&2
   exit 1
 fi
 jq . "$rendered" >/dev/null || { echo "error: rendered change set is not valid JSON" >&2; exit 1; }
