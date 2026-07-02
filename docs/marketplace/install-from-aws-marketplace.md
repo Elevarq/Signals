@@ -19,11 +19,11 @@ account pull access to the Marketplace ECR repositories for the product.
 ## 2. Authenticate Helm to the Marketplace registry
 
 ```sh
-aws ecr get-login-password --region <region> \
+aws ecr get-login-password --region us-east-1 \
   | helm registry login --username AWS --password-stdin <marketplace-ecr-registry>
 ```
 
-`<marketplace-ecr-registry>` is the `*.dkr.ecr.<region>.amazonaws.com` host
+`<marketplace-ecr-registry>` is the `*.dkr.ecr.us-east-1.amazonaws.com` host
 shown on the listing's launch page.
 
 ## 3. Install the chart
