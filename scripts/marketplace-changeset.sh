@@ -32,6 +32,19 @@
 #   # (one artifact, two delivery options). CI_USAGE_INSTRUCTIONS must document
 #   # durable snapshot storage (EFS on Fargate; the task filesystem is ephemeral).
 #
+#   # For 05-add-eks-addon-delivery.json (adds the EKS add-on delivery option —
+#   # same re-hosted image AND chart), export. K8S_VERSIONS is a JSON array of
+#   # the EKS Kubernetes versions ACTUALLY validated for this release (declare
+#   # only tested versions):
+#   PRODUCT_ID=prod-xxxx VERSION=1.0.0 \
+#   IMAGE_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/elevarq/elevarq-signals:1.0.0 \
+#   CHART_URI=<acct>.dkr.ecr.us-east-1.amazonaws.com/elevarq/elevarq-signals-chart:1.0.0 \
+#   K8S_VERSIONS='["1.30","1.31","1.32"]' \
+#   RELEASE_NOTES="..." ADDON_DELIVERY_DESCRIPTION="..." ADDON_USAGE_INSTRUCTIONS="..." \
+#     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/05-add-eks-addon-delivery.json
+#   # AddOnName/AddOnType/Namespace in the template are IMMUTABLE across versions
+#   # (signals / observability / signals) — do not change once published.
+#
 # Env: AWS_PROFILE (default elevarq), AWS_REGION (default us-east-1).
 # Requires: aws, jq, envsubst (gettext).
 
@@ -87,6 +100,19 @@ if [ -n "$bad_services" ]; then
   echo "error: unsupported CompatibleServices value(s) in the rendered change set:" >&2
   echo "$bad_services" | awk '{print "       " $0}' >&2
   echo "       valid: ECS, EKS, ECS-Anywhere, EKS-Anywhere, Bedrock-AgentCore" >&2
+  exit 1
+fi
+
+# Fail fast on an unsupported EKS add-on AddOnType. AWS validates this only after
+# submission (INVALID_ADDON_TYPE), and AddOnType is immutable across versions
+# once published, so a typo is costly. See spec FC-EAO-03.
+addon_valid='Gitops|monitoring|logging|cert-management|policy-management|cost-management|autoscaling|storage|kubernetes-management|service-mesh|etcd-backup|ingress-service-type|load-balancer|local-registry|networking|Security|backup|ingress-controller|observability'
+bad_addon_type="$(jq -r '[.. | objects | .AddOnType? // empty] | .[]' "$rendered" \
+  | grep -vxE "$addon_valid" | sort -u || true)"
+if [ -n "$bad_addon_type" ]; then
+  echo "error: unsupported EKS AddOnType value(s) in the rendered change set:" >&2
+  echo "$bad_addon_type" | awk '{print "       " $0}' >&2
+  echo "       valid: $(echo "$addon_valid" | tr '|' ' ')" >&2
   exit 1
 fi
 

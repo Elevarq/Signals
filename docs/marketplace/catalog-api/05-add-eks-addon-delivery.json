@@ -1,0 +1,38 @@
+{
+  "Catalog": "AWSMarketplace",
+  "ChangeSet": [
+    {
+      "ChangeType": "AddDeliveryOptions",
+      "Entity": {
+        "Type": "ContainerProduct@1.0",
+        "Identifier": "${PRODUCT_ID}"
+      },
+      "DetailsDocument": {
+        "Version": {
+          "VersionTitle": "${VERSION}",
+          "ReleaseNotes": "${RELEASE_NOTES}"
+        },
+        "DeliveryOptions": [
+          {
+            "DeliveryOptionTitle": "Amazon EKS add-on",
+            "Visibility": "Limited",
+            "Details": {
+              "EksAddOnDeliveryOptionDetails": {
+                "AddOnName": "signals",
+                "AddOnType": "observability",
+                "AddOnVersion": "${VERSION}",
+                "Namespace": "signals",
+                "ContainerImages": ["${IMAGE_URI}"],
+                "HelmChartUri": "${CHART_URI}",
+                "CompatibleKubernetesVersions": ${K8S_VERSIONS},
+                "SupportedArchitectures": ["amd64", "arm64"],
+                "Description": "${ADDON_DELIVERY_DESCRIPTION}",
+                "UsageInstructions": "${ADDON_USAGE_INSTRUCTIONS}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -42,6 +42,7 @@ Once the listing is live, extra delivery options can be added — each reuses th
 | Lever | Change type | Details type | Notes |
 |-------|-------------|--------------|-------|
 | Container image (ECS / Fargate / `docker pull`), #234 | `AddDeliveryOptions` (`04-add-container-image-delivery.json`) | `EcrDeliveryOptionDetails`, `CompatibleServices: ["ECS"]` | Additive; does not touch the Helm option. `ContainerImages` MUST equal the Helm option's image (one artifact, two options). Buyer runs it with no Helm/K8s, so `CI_USAGE_INSTRUCTIONS` must document durable snapshot storage — the Fargate task filesystem is ephemeral, attach EFS (or an EBS/bind volume on EC2-backed ECS). |
+| EKS add-on, #236 | `AddDeliveryOptions` (`05-add-eks-addon-delivery.json`) | `EksAddOnDeliveryOptionDetails` | Additive; reuses the same image **and** chart as the Helm option. `AddOnName: signals`, `AddOnType: observability`, `Namespace: signals` are **immutable across all future versions** — do not change once published (`INCOMPATIBLE_ADDON_*`). Only **one** add-on option per version. `K8S_VERSIONS` must list only tested EKS versions. Unlike Helm/container options, the add-on option is **not** auto-Public — publishing it is a separate visibility step. See `specifications/marketplace-eks-addon-delivery.md`. |
 
 Notes on the ordering, all verified on the pgAgroal launch:
 
