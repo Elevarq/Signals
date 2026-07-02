@@ -1,0 +1,31 @@
+{
+  "Catalog": "AWSMarketplace",
+  "ChangeSet": [
+    {
+      "ChangeType": "AddDeliveryOptions",
+      "Entity": {
+        "Type": "ContainerProduct@1.0",
+        "Identifier": "${PRODUCT_ID}"
+      },
+      "DetailsDocument": {
+        "Version": {
+          "VersionTitle": "${VERSION}",
+          "ReleaseNotes": "${RELEASE_NOTES}"
+        },
+        "DeliveryOptions": [
+          {
+            "DeliveryOptionTitle": "Container image (Amazon ECS / Fargate)",
+            "Details": {
+              "EcrDeliveryOptionDetails": {
+                "CompatibleServices": ["ECS"],
+                "ContainerImages": ["${IMAGE_URI}"],
+                "Description": "${CI_DELIVERY_DESCRIPTION}",
+                "UsageInstructions": "${CI_USAGE_INSTRUCTIONS}"
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
