@@ -1,0 +1,145 @@
+# AWS EC2 Image Builder (AWSTOE) component: bake the Elevarq Signals collector
+# into a golden AMI. Mirrors the deploy/aws/terraform run path (docker-run the
+# published image under a systemd unit) so a customer's baked AMI ships the
+# collector pre-installed.
+#
+# SECURITY (R-AMI-01 / INV-AMI-01): this component bakes ONLY docker, the pinned
+# image, and the systemd unit. It bakes NO credentials, API token, database
+# config, or TLS material. Config (/etc/signals/signals.yaml, CA file) and the
+# control-plane token are supplied by the buyer AT LAUNCH (user-data / SSM),
+# never at bake time. Base AMI: Amazon Linux 2023.
+name: signals-collector
+description: >-
+  Install the Elevarq Signals read-only PostgreSQL diagnostic collector as a
+  docker-run systemd service. Config and credentials are supplied at launch, not
+  baked. See specifications/marketplace-ami-image-builder.md.
+schemaVersion: 1.0
+
+parameters:
+  - SignalsImage:
+      type: string
+      default: "ghcr.io/elevarq/elevarq-signals:1.0.0"
+      description: >-
+        Pinned Signals image reference to pre-pull into the AMI. MUST be a
+        specific version tag (no 'latest') so the AMI is reproducible (R-AMI-02).
+
+phases:
+  - name: build
+    steps:
+      - name: InstallDocker
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - dnf install -y docker
+            - systemctl enable docker
+
+      - name: PrePullImage
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - systemctl start docker
+            - docker pull "{{ SignalsImage }}"
+
+      - name: CreateConfigDir
+        action: ExecuteBash
+        inputs:
+          commands:
+            # Launch-time mount point for buyer-supplied config. Left EMPTY at
+            # bake (no signals.yaml, no CA, no token baked in).
+            - set -euo pipefail
+            - install -d -m 0755 /etc/signals
+
+      - name: InstallSystemdUnit
+        action: CreateFile
+        inputs:
+          - path: /etc/systemd/system/signals.service
+            permissions: 0644
+            content: |
+              [Unit]
+              Description=Elevarq Signals collector
+              After=docker.service network-online.target
+              Requires=docker.service
+              Wants=network-online.target
+
+              [Service]
+              Restart=always
+              RestartSec=5
+              # Buyer supplies /etc/signals/signals.env at launch with
+              # SIGNALS_API_TOKEN=... (root-only). ENTRYPOINT is `tini --`;
+              # the `signals` arg is required so image args do not replace CMD.
+              EnvironmentFile=/etc/signals/signals.env
+              ExecStartPre=-/usr/bin/docker rm -f signals
+              ExecStart=/usr/bin/docker run --rm --name signals \
+                -e SIGNALS_API_TOKEN \
+                -v /etc/signals:/etc/signals:ro \
+                -v signals-data:/data \
+                {{ SignalsImage }} signals --config /etc/signals/signals.yaml
+              ExecStop=/usr/bin/docker stop signals
+
+              [Install]
+              WantedBy=multi-user.target
+
+      - name: EnableUnit
+        action: ExecuteBash
+        inputs:
+          commands:
+            # Enable (start on boot) but do NOT start now: config/token are not
+            # present at bake time. The unit starts on first boot once the buyer
+            # has provided /etc/signals via user-data / SSM.
+            - set -euo pipefail
+            - systemctl daemon-reload
+            - systemctl enable signals.service
+
+  - name: validate
+    steps:
+      - name: DockerInstalledAndEnabled
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - command -v docker >/dev/null
+            - systemctl is-enabled docker
+
+      - name: ImagePresent
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - docker image inspect "{{ SignalsImage }}" >/dev/null
+
+      - name: UnitInstalledAndEnabled
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - test -f /etc/systemd/system/signals.service
+            - systemctl is-enabled signals.service
+
+      - name: NoBakedSecrets
+        action: ExecuteBash
+        inputs:
+          commands:
+            # INV-AMI-01: fail the bake if any credential/config leaked in.
+            - set -euo pipefail
+            - test ! -e /etc/signals/signals.yaml
+            - test ! -e /etc/signals/signals.env
+            - test -z "$(ls -A /etc/signals 2>/dev/null)"
+
+  - name: test
+    steps:
+      - name: UnitEnabledOnBoot
+        action: ExecuteBash
+        inputs:
+          commands:
+            - set -euo pipefail
+            - systemctl is-enabled signals.service
+
+      - name: ImagePresentForRun
+        action: ExecuteBash
+        inputs:
+          commands:
+            # The pinned image the unit runs is present in the AMI.
+            - set -euo pipefail
+            - docker image inspect "{{ SignalsImage }}" >/dev/null
