@@ -34,7 +34,7 @@ same posture as the container and Helm deliveries.
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `SignalsImage` | `ghcr.io/elevarq/elevarq-signals:1.0.0` | Pinned version (no `latest`). Bump per release. |
+| `SignalsImage` | `ghcr.io/elevarq/signals:1.0.0` | Pinned version (no `latest`). Bump per release. |
 
 ### Baking locally / in a pipeline
 

@@ -18,7 +18,7 @@ schemaVersion: 1.0
 parameters:
   - SignalsImage:
       type: string
-      default: "ghcr.io/elevarq/elevarq-signals:1.0.0"
+      default: "ghcr.io/elevarq/signals:1.0.0"
       description: >-
         Pinned Signals image reference to pre-pull into the AMI. MUST be a
         specific version tag (no 'latest') so the AMI is reproducible (R-AMI-02).
