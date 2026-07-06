@@ -62,6 +62,10 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
+      # Session Manager / Run Command access for the operator-gated verify
+      # steps — the template provisions no SSH key pair.
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
         - PolicyName: rds-iam-connect
           PolicyDocument:
@@ -110,6 +114,10 @@ Resources:
           set -euo pipefail
           dnf install -y docker
           systemctl enable --now docker
+          # AL2023 ships the SSM agent; ensure it is running so the operator
+          # can reach the instance via Session Manager / Run Command (no SSH
+          # key pair).
+          systemctl enable --now amazon-ssm-agent || true
           mkdir -p /etc/signals
           curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
             -o /etc/signals/rds-ca.pem
