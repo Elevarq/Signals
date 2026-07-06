@@ -86,8 +86,11 @@ docker logs signals 2>&1 | grep -iE "collector|snapshot|connected"
 # stored it root-only on the instance, outside the bind-mounted config.
 TOKEN="$(sudo cat /root/signals-api-token)"
 
-# confirm collector status and trigger an export over the loopback API
+# confirm collector status over the loopback API
 docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl status
+
+# force an immediate collection (bypasses min_snapshot_interval), then export
+docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl collect now --force
 docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl export --output /data/snapshot.zip
 ```
 
@@ -95,6 +98,28 @@ A healthy run connects with **no password in config**, mints a token from the
 instance role, and collects at least one snapshot. If the connection is
 rejected for `rds_iam`, re-check Step 1 and that the EC2 role's
 `rds-db:connect` resource ARN matches the instance `DbiResourceId` + DB user.
+
+## Other AWS credential options
+
+These templates are intentionally focused on the passwordless `aws_rds_iam`
+path. If IAM database authentication is not enabled on your instance, Signals
+also supports secret-store backed password auth (`auth_method: secret_store`);
+the backend is selected by the shape of `secret_ref`:
+
+- **AWS Secrets Manager** — `secret_ref:
+  arn:aws:secretsmanager:<region>:<account>:secret:<name>`. Grant the
+  collector role `secretsmanager:GetSecretValue` on that one secret.
+- **AWS Systems Manager Parameter Store** — `secret_ref:
+  arn:aws:ssm:<region>:<account>:parameter/<name>`. Grant `ssm:GetParameter`
+  (+ `kms:Decrypt` for a `SecureString`).
+- If the secret value is a JSON document (e.g. an RDS-managed secret), set
+  `secret_json_key: password` to extract the password field; omit it when the
+  secret value is the bare password.
+
+Secret-store targets require `sslmode: verify-full` in every environment —
+same as the token methods. See
+[`docs/database-connections.md`](../../docs/database-connections.md) for the
+full configuration examples.
 
 ## Security notes
 
