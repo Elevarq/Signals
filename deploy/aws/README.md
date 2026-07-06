@@ -17,6 +17,11 @@ pre-wired for `aws_rds_iam`. See
 [`docs/database-connections.md`](../../docs/database-connections.md) for the
 full `auth_method` reference.
 
+The collector role also carries the AWS-managed
+`AmazonSSMManagedInstanceCore` policy, so the verify steps below run over
+Systems Manager Session Manager / Run Command — no SSH key pair is
+provisioned.
+
 ## Prerequisites
 
 - An RDS / Aurora PostgreSQL instance with **IAM database authentication
@@ -76,7 +81,8 @@ aws cloudformation deploy \
 
 Live verification provisions real infrastructure and is operator-gated —
 it is not part of default CI (mirrors the provider live smokes, #94). After
-apply/deploy, on the collector instance:
+apply/deploy, open a shell on the collector instance via SSM Session Manager
+(`aws ssm start-session --target <instance-id>`) or SSM Run Command, then:
 
 ```bash
 # the collector container should be running and collecting
@@ -106,6 +112,9 @@ rejected for `rds_iam`, re-check Step 1 and that the EC2 role's
   `/etc/signals/rds-ca.pem`).
 - IMDSv2 is enforced (`http_tokens = required`); the root volume is encrypted;
   the API listener binds to `127.0.0.1` only.
+- **No SSH.** Shell access for the verify steps goes through SSM Session
+  Manager (`AmazonSSMManagedInstanceCore` on the collector role); no key pair
+  exists and no inbound port is open.
 - The loopback **control-plane API token** is a separate credential class from
   the (non-existent) DB password: user-data mints a random 32-byte token, passes
   it to the container via the environment (`SIGNALS_API_TOKEN`, the same path the

@@ -27,6 +27,9 @@ locals {
     set -euo pipefail
     dnf install -y docker
     systemctl enable --now docker
+    # AL2023 ships the SSM agent; ensure it is running so the operator can
+    # reach the instance via Session Manager / Run Command (no SSH key pair).
+    systemctl enable --now amazon-ssm-agent || true
     mkdir -p /etc/signals
     # RDS server CA bundle for sslmode=verify-full.
     curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
@@ -101,6 +104,13 @@ resource "aws_iam_role_policy" "rds_connect" {
   name   = "${var.name_prefix}-rds-connect"
   role   = aws_iam_role.collector.id
   policy = data.aws_iam_policy_document.rds_connect.json
+}
+
+# Session Manager / Run Command access for the operator-gated verify steps —
+# the templates provision no SSH key pair.
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.collector.name
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
 resource "aws_iam_instance_profile" "collector" {
