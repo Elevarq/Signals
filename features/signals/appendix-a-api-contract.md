@@ -393,6 +393,32 @@ by version, extension, or config) carry `attempted = false` and the
 gating reason. Failed entries (mid-execution faults) carry
 `attempted = true` and the runtime reason.
 
+## Query runs schema
+
+Each line of `query_runs.ndjson` records one collector execution:
+
+```json
+{
+  "id": "<run ID>",
+  "target_id": <integer>,
+  "snapshot_id": "<string>",
+  "query_id": "<collector ID>",
+  "collected_at": "<RFC3339 timestamp>",
+  "pg_version": "<string>",
+  "duration_ms": <integer>,
+  "row_count": <integer>,
+  "error": "<underlying driver error text, empty on success>",
+  "status": "success | failed | skipped",
+  "reason": "<enum, e.g. privilege_owner_only | permission_denied | execution_error | config_disabled; empty on success>"
+}
+```
+
+`status` and `reason` mirror the persisted `query_runs` columns
+verbatim (R118, `specifications/export-query-run-status.md`). The
+run classification — including the R116 owner-only skip — is read
+from these fields, never re-derived from `error`; `error` remains
+diagnostic detail and may be non-empty on a skipped row.
+
 ## General conventions
 
 - All responses use `Content-Type: application/json` except `/export`

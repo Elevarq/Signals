@@ -6,6 +6,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Snapshot export: `query_runs.ndjson` rows now carry the persisted
+  `status` and `reason` fields (R118, #250). Owner-only privilege skips
+  (`skipped`/`privilege_owner_only`, R116) previously serialized as bare
+  permission-denied errors, indistinguishable from genuine collector
+  failures; ZIP consumers can now read the classification instead of
+  re-deriving it from the SQLSTATE. Additive change — all pre-existing
+  fields are unchanged.
+
 ## [1.0.0] - 2026-06-30
 
 > **1.0 — first stable release.** Promotes `0.10.0-rc.1` to GA with **no

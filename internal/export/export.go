@@ -536,6 +536,12 @@ func (b *Builder) writeQueryRuns(zw *zip.Writer, opts Options) error {
 			"duration_ms":  r.DurationMS,
 			"row_count":    r.RowCount,
 			"error":        r.Error,
+			// R118 (#250): the persisted classification crosses the
+			// snapshot boundary verbatim, so consumers read an R116
+			// owner-only skip as a skip instead of re-deriving it
+			// from the SQLSTATE in `error`.
+			"status": r.Status,
+			"reason": r.Reason,
 		}
 		if err := enc.Encode(row); err != nil {
 			return err
