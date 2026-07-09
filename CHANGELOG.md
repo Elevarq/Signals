@@ -13,6 +13,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   connection pool, HTTP server, and cloud credential fetchers). No code
   changes.
 
+### Added
+
+- Canonical collector inventory: `specifications/collectors/collector-inventory.json`
+  is a committed, machine-readable list of every registered collector ID and
+  category, regenerated with `go run ./cmd/gen-collector-inventory` and held
+  in sync with the query registry by a CI gate (R119-R122, #252). Gives
+  out-of-module consumers (the Workbench bundled-catalogue generator, the
+  Analyzer's catalogue freshness checks) a mechanical view of the wire-name
+  enum instead of the spec-filename walk that let the downstream catalogue
+  go stale.
+
 ### Fixed
 
 - Snapshot export: `query_runs.ndjson` rows now carry the persisted
