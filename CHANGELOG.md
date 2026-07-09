@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+
+- Go toolchain bumped 1.26.4 -> 1.26.5 (#253): remediates GO-2026-5856
+  (Encrypted Client Hello privacy leak in `crypto/tls`, reachable via the
+  connection pool, HTTP server, and cloud credential fetchers). No code
+  changes.
+
 ### Fixed
 
 - Snapshot export: `query_runs.ndjson` rows now carry the persisted
