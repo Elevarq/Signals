@@ -12,6 +12,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   (Encrypted Client Hello privacy leak in `crypto/tls`, reachable via the
   connection pool, HTTP server, and cloud credential fetchers). No code
   changes.
+- Documented risk acceptance for GO-2026-5932 (`.grype.yaml`, #256):
+  `golang.org/x/crypto/openpgp` is unmaintained upstream with no fixed
+  version; the package is not imported by this module (`go mod why`
+  confirms), and the symbol-level govulncheck gate would flag any future
+  import. Nightly grype SARIF uploads also hardened against
+  SBOM-sourced results without artifact locations, which broke the
+  code-scanning upload on the first real finding.
 
 ### Added
 

@@ -167,6 +167,29 @@ jobs:
           severity-cutoff: high
           output-format: sarif
 
+      - name: Normalise SARIF artifact locations
+        if: always()
+        # SBOM-sourced grype results carry an empty (or missing)
+        # physicalLocation.artifactLocation.uri — there is no file
+        # path inside an SBOM. The code-scanning upload rejects such
+        # results ("locationFromSarifResult: expected artifact
+        # location", #256), which only surfaces on the FIRST real
+        # finding: empty result sets upload fine. Point empty
+        # locations at go.mod, the manifest that pulls the flagged
+        # module.
+        run: |
+          jq '
+            .runs[].results[]? |= (
+              if ((.locations // []) | length) == 0 then
+                .locations = [{"physicalLocation":{"artifactLocation":{"uri":"go.mod"},"region":{"startLine":1}}}]
+              else . end
+            )
+            | .runs[].results[]?.locations[]?.physicalLocation.artifactLocation |= (
+                if (.uri // "") == "" then .uri = "go.mod" else . end
+              )
+          ' "${{ steps.grype.outputs.sarif }}" > grype-normalised.sarif
+          mv grype-normalised.sarif "${{ steps.grype.outputs.sarif }}"
+
       - name: Upload SARIF to Security tab
         if: always()
         uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a  # v4

@@ -1,0 +1,21 @@
+# Grype configuration — documented vulnerability risk acceptances.
+#
+# Same policy as our .trivyignore usage: every entry carries the
+# reachability rationale and a removal trigger. Do not add entries
+# without both.
+
+ignore:
+  # GO-2026-5932 — golang.org/x/crypto/openpgp is unmaintained and
+  # unsafe by design (no fixed version exists; the package is frozen
+  # upstream forever).
+  #
+  # Reachability: `go mod why golang.org/x/crypto/openpgp` reports
+  # the main module does not need the package — x/crypto is an
+  # indirect dependency and nothing in our build imports openpgp.
+  # The symbol-level govulncheck preflight gate stays enabled and
+  # would flag any future import that makes it reachable.
+  #
+  # Removal trigger: drop this entry if x/crypto ever removes the
+  # openpgp package, or if the dependency that pulls x/crypto is
+  # removed. Issue: #256.
+  - vulnerability: GO-2026-5932
