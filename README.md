@@ -338,8 +338,12 @@ docker run -d --name signals \
   -e SIGNALS_ENV=dev \
   -v signals-data:/data \
   -p 8081:8081 \
-  ghcr.io/elevarq/signals:1.0.0
+  ghcr.io/elevarq/signals:<version>
 ```
+
+`<version>` is a concrete released tag — for example `1.0.0`. Pin the tag
+you deploy (see the [releases page](https://github.com/Elevarq/Signals/releases));
+the image publishes no `latest` tag.
 
 ### Build from source
 
