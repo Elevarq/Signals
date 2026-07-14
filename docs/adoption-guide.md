@@ -21,8 +21,13 @@ This produces `bin/signals` (daemon) and `bin/signalsctl` (CLI).
 **Docker:**
 
 ```bash
-docker pull ghcr.io/elevarq/signals:1.0.0
+docker pull ghcr.io/elevarq/signals:<version>
 ```
+
+Throughout this guide, `<version>` stands for a concrete released tag —
+for example `1.0.0`. Pin the exact tag you deploy (see the
+[releases page](https://github.com/Elevarq/Signals/releases)); the image
+does not publish a `latest` tag, so do not rely on one.
 
 ### 2. Configure
 
@@ -91,7 +96,7 @@ docker run -d \
   -v /etc/signals/signals.yaml:/etc/signals/signals.yaml:ro \
   -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/signals:1.0.0
+  ghcr.io/elevarq/signals:<version>
 ```
 
 The container runs as a non-root user (UID 10001) on Alpine 3.21. The API listens on port 8081. Bind it to loopback unless you need external access.
@@ -113,7 +118,7 @@ docker run -d \
   -v /run/secrets/pg_password:/run/secrets/pg_password:ro \
   -v signals-data:/data \
   -p 127.0.0.1:8081:8081 \
-  ghcr.io/elevarq/signals:1.0.0
+  ghcr.io/elevarq/signals:<version>
 ```
 
 The following target-level env vars are supported:
@@ -129,6 +134,12 @@ The following target-level env vars are supported:
 | `SIGNALS_TARGET_PASSWORD_ENV` | Env var containing the password | -- |
 | `SIGNALS_TARGET_PGPASS_FILE` | Path to pgpass file | -- |
 | `SIGNALS_TARGET_SSLMODE` | TLS mode | -- |
+| `SIGNALS_TARGET_SSLROOTCERT_FILE` | Path to CA certificate (required for `verify-ca`/`verify-full`) | -- |
+
+The single-target environment path covers the `password` auth method
+only (password file, env var, or pgpass). The cloud-identity,
+`secret_store`, and `mtls` methods below need a config file — set
+`auth_method` and its fields in `signals.yaml`.
 
 ### TLS
 
@@ -155,9 +166,53 @@ For the HTTP API, place Elevarq Signals behind a TLS-terminating reverse proxy (
 
 ## Credential Management
 
-Elevarq Signals supports three credential sources. Choose whichever fits your environment. Only one may be specified per target.
+Each target picks one `auth_method`. The method decides *how* Elevarq
+Signals obtains the credential it connects with; it never changes *what*
+the connection may do — the read-only, least-privilege model is identical
+for every method. Omitting `auth_method` keeps the default `password`
+behaviour, so existing deployments need no change.
 
-| Method | Config field | Description |
+**No database password has to live in Signals' config.** The
+cloud-identity methods (`aws_rds_iam`, `azure_entra`, `gcp_cloudsql_iam`)
+mint a short-lived token from the collector's ambient cloud identity at
+connect time, and `secret_store` fetches the password live from a cloud
+vault. The credential is re-resolved on every reconnect (automatic
+rotation) and is never written to disk, logs, audit events, metrics, or
+exports.
+
+### Choosing a method by platform
+
+| Platform | `auth_method` | Credential |
+|----------|--------------|------------|
+| Amazon RDS / Aurora | `aws_rds_iam` | Short-lived RDS IAM token — **passwordless** |
+| Amazon RDS / Aurora | `secret_store` | Password from AWS Secrets Manager or SSM Parameter Store |
+| Azure Flexible Server | `azure_entra` | Entra ID token via Managed Identity — **passwordless** |
+| Azure Flexible Server | `secret_store` | Password from Azure Key Vault |
+| Google Cloud SQL | `gcp_cloudsql_iam` | Google IAM token via Workload Identity / ADC — **passwordless** |
+| Google Cloud SQL | `secret_store` | Password from GCP Secret Manager |
+| Self-managed | `password` (default) | Password from a file, env var, or pgpass file |
+| Self-managed | `mtls` | Client X.509 certificate |
+| Self-managed | `secret_store` | Password from any of the four cloud vaults |
+
+Every method authenticates **as the same read-only role** — a `LOGIN`
+role granted `pg_monitor` (see [Monitoring Role Setup](#monitoring-role-setup)).
+The cloud-identity and `secret_store` methods also require
+`sslmode: verify-full` with an `sslrootcert_file`, in **every**
+environment (stricter than the general prod-only TLS rule below).
+
+Full per-cloud recipes — the exact database grants, least-privilege IAM
+policies, prerequisites, and limitations for `aws_rds_iam`,
+`azure_entra`, `gcp_cloudsql_iam`, `secret_store` (all four vaults), and
+`mtls` — live in the canonical reference:
+**[docs/database-connections.md](database-connections.md)**. The rest of
+this section covers the default `password` method.
+
+### The `password` method (default)
+
+The credential is a password supplied locally via **exactly one** of
+`password_file`, `password_env`, or `pgpass_file` per target:
+
+| Source | Config field | Description |
 |--------|-------------|-------------|
 | Password file | `password_file: /path/to/file` | Reads the password from a file. Compatible with Docker secrets and Kubernetes secret volumes. |
 | Environment variable | `password_env: PG_PASSWORD` | Reads the password from the named environment variable. The value of that variable is the password. |
@@ -208,6 +263,11 @@ GRANT pg_monitor TO signals;
 -- Optional: enable query-level statistics
 CREATE EXTENSION IF NOT EXISTS pg_stat_statements;
 ```
+
+For the passwordless cloud-identity methods (`aws_rds_iam`,
+`azure_entra`, `gcp_cloudsql_iam`) and `mtls`, create the role **without**
+a password (`CREATE ROLE signals LOGIN;`) and add the method-specific
+binding — see [docs/database-connections.md](database-connections.md).
 
 On **Amazon RDS / Aurora**, `pg_monitor` is available on all supported versions (14+).
 
@@ -303,7 +363,9 @@ targets:
     port: 5432
     dbname: postgres
     user: signals
-    password_file: /path/to/password    # or password_env or pgpass_file
+    auth_method: password               # password (default), aws_rds_iam, azure_entra,
+                                        # gcp_cloudsql_iam, secret_store, mtls
+    password_file: /path/to/password    # password method: or password_env or pgpass_file
     sslmode: prefer
     sslrootcert_file: /path/to/ca.crt   # required for verify-ca/verify-full
     enabled: true
@@ -315,6 +377,12 @@ api:
   read_timeout: 30s
   write_timeout: 180s
 ```
+
+The per-target fields for the non-`password` methods (`region`,
+`azure_client_id`, `gcp_impersonate_service_account`, `secret_ref`,
+`secret_json_key`, `max_cache_ttl`, `sslcert`, `sslkey`,
+`sslkey_passphrase_file`) are documented with each method in
+[docs/database-connections.md](database-connections.md).
 
 ---
 
