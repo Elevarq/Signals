@@ -38,6 +38,9 @@ jobs:
       - name: Test
         run: bash scripts/preflight.sh test
 
+      - name: Docs drift guard
+        run: bash scripts/preflight.sh docs
+
       - name: Boundary tests
         run: >
           go test -v -run

@@ -16,6 +16,7 @@
 #   scripts/preflight.sh vet         # go vet ./...
 #   scripts/preflight.sh build       # go build ./...
 #   scripts/preflight.sh test        # go test -count=1 -race ./...
+#   scripts/preflight.sh docs        # check-docs.sh (link/version drift guard)
 #   scripts/preflight.sh secrets     # gitleaks protect --staged + current-commit detect
 #   scripts/preflight.sh vuln        # govulncheck ./...
 #   scripts/preflight.sh semgrep     # semgrep --config p/golang --config p/security-audit
@@ -107,6 +108,19 @@ run_test() {
     return 1
   fi
   log_ok "go test: passing"
+}
+
+# #261: documentation-drift guard. Dependency-free, so it sits with the
+# fast Go gates rather than the security bundle. Asserts docs/adoption
+# -guide.md carries no hard-coded image version and no broken relative
+# links.
+run_docs() {
+  log_step "check-docs.sh"
+  if ! bash "${SCRIPT_DIR}/check-docs.sh"; then
+    log_fail "docs check failed"
+    return 1
+  fi
+  log_ok "docs: clean"
 }
 
 # #160: secrets / vuln / lint are local-fast security gates. CI keeps
@@ -248,6 +262,7 @@ run_all() {
   run_vet
   run_build
   run_test
+  run_docs
   run_security
   echo ""
   printf "%spreflight: all checks passed%s\n" "${C_GREEN}" "${C_RESET}"
@@ -262,6 +277,7 @@ case "${1:-all}" in
   vet)      run_vet ;;
   build)    run_build ;;
   test)     run_test ;;
+  docs)     run_docs ;;
   secrets)  run_secrets ;;
   vuln)     run_vuln ;;
   semgrep)  run_semgrep ;;
