@@ -120,3 +120,9 @@ specification (this file) -> acceptance cases
 (`marketplace-ami-image-builder.acceptance.md`) ->
 `deploy/aws/imagebuilder/signals-collector-component.yaml` +
 `deploy/aws/imagebuilder/README.md`.
+
+The statically-checkable cases **TC-AMI-01..04** are enforced in CI by
+`scripts/check-imagebuilder-component.sh` (wired into `scripts/preflight.sh`
+as the `imagebuilder` gate and into `.github/workflows/ci.yml`), so the
+demand-gated groundwork cannot regress (#266). **TC-AMI-05** (live baked-AMI
+smoke) remains deferred until #235's demand gate opens.

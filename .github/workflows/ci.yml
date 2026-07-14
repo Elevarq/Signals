@@ -41,6 +41,9 @@ jobs:
       - name: Docs drift guard
         run: bash scripts/preflight.sh docs
 
+      - name: AMI Image Builder component guard
+        run: bash scripts/preflight.sh imagebuilder
+
       - name: Boundary tests
         run: >
           go test -v -run

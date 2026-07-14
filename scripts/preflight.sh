@@ -17,6 +17,7 @@
 #   scripts/preflight.sh build       # go build ./...
 #   scripts/preflight.sh test        # go test -count=1 -race ./...
 #   scripts/preflight.sh docs        # check-docs.sh (link/version drift guard)
+#   scripts/preflight.sh imagebuilder # check-imagebuilder-component.sh (AMI groundwork)
 #   scripts/preflight.sh secrets     # gitleaks protect --staged + current-commit detect
 #   scripts/preflight.sh vuln        # govulncheck ./...
 #   scripts/preflight.sh semgrep     # semgrep --config p/golang --config p/security-audit
@@ -121,6 +122,18 @@ run_docs() {
     return 1
   fi
   log_ok "docs: clean"
+}
+
+# #266: static guard for the demand-gated AMI / EC2 Image Builder groundwork
+# (specifications/marketplace-ami-image-builder.md, TC-AMI-01..04). Dependency
+# -light and runs no AWS call, so it sits with the fast gates.
+run_imagebuilder() {
+  log_step "check-imagebuilder-component.sh"
+  if ! bash "${SCRIPT_DIR}/check-imagebuilder-component.sh"; then
+    log_fail "imagebuilder-component check failed"
+    return 1
+  fi
+  log_ok "imagebuilder-component: clean"
 }
 
 # #160: secrets / vuln / lint are local-fast security gates. CI keeps
@@ -263,6 +276,7 @@ run_all() {
   run_build
   run_test
   run_docs
+  run_imagebuilder
   run_security
   echo ""
   printf "%spreflight: all checks passed%s\n" "${C_GREEN}" "${C_RESET}"
@@ -278,6 +292,7 @@ case "${1:-all}" in
   build)    run_build ;;
   test)     run_test ;;
   docs)     run_docs ;;
+  imagebuilder) run_imagebuilder ;;
   secrets)  run_secrets ;;
   vuln)     run_vuln ;;
   semgrep)  run_semgrep ;;
