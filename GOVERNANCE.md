@@ -113,13 +113,14 @@ Company intent on an ownership or strategy change, in order of preference:
 3. In all cases, the license guarantee in the first bullet continues to
    apply to every released version.
 
-> **Owner to confirm before this policy is marked final:** whether a
-> specific successor maintainer or steward organisation is designated in
-> advance. Absent a named successor, the license-plus-public-history
-> guarantee above stands on its own and is the honest baseline. (The
-> archival notice itself is written at the time of archival — GitHub's
-> archived state is already read-only and self-describing — so no wording
-> is pre-committed here.)
+**No successor is designated in advance.** That is the honest current
+state: the project's continuity guarantee is the license plus fully public
+source, specs, build, and signed provenance described above — the
+community can fork and continue regardless of company fate. If a successor
+maintainer or steward organisation is ever named, it is added here by PR.
+The archival notice, if it ever comes to that, is written at the time of
+archival — GitHub's archived state is already read-only and
+self-describing — so no wording is pre-committed here.
 
 ## Communication
 
