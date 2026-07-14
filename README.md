@@ -954,6 +954,12 @@ written to satisfy those rules. The development policy is defined in
 We welcome contributions. See [CONTRIBUTING.md](CONTRIBUTING.md) for
 guidelines and [GOVERNANCE.md](GOVERNANCE.md) for project governance.
 
+Signals is a **company-led, single-maintainer** open-source project
+published by Elevarq (Scantr LLC d/b/a Elevarq) under BSD-3-Clause.
+[GOVERNANCE.md](GOVERNANCE.md) covers maintainer roles, release and
+security authority, and — for anyone deciding whether to depend on it —
+project continuity and succession.
+
 **In scope:** new collectors, bug fixes, performance, documentation.
 **Out of scope:** analysis, scoring, AI (those belong in a downstream
 analyzer).
