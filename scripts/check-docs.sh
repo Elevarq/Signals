@@ -37,10 +37,18 @@ log_step() { printf "%s==> %s%s\n" "${C_YELLOW}" "$1" "${C_RESET}"; }
 log_ok()   { printf "%s   ✓ %s%s\n" "${C_GREEN}" "$1" "${C_RESET}"; }
 log_fail() { printf "%s   ✗ %s%s\n" "${C_RED}"   "$1" "${C_RESET}" >&2; }
 
-# The docs whose examples and links are load-bearing for adopters.
-# Add files here as their content becomes release-sensitive.
+# Prose docs whose `docker pull` / `docker run` examples must use the
+# ghcr.io/elevarq/signals:<version> placeholder (the image publishes no
+# `latest`). Add a file here when it instructs adopters to pull the image.
+#
+# Deliberately NOT guarded (policy, Elevarq/Signals#263): deployable
+# defaults must stay a concrete, runnable tag — a placeholder would not
+# deploy — so CloudFormation / EC2 Image Builder / workflow `default:`
+# values (deploy/**, .github/workflows/**) and version-specific factual
+# references (e.g. docs/release-verification.md) are intentionally excluded.
 GUARDED_DOCS=(
   "docs/adoption-guide.md"
+  "README.md"
 )
 
 fail=0
