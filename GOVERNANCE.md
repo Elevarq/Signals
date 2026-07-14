@@ -115,9 +115,11 @@ Company intent on an ownership or strategy change, in order of preference:
 
 > **Owner to confirm before this policy is marked final:** whether a
 > specific successor maintainer or steward organisation is designated in
-> advance, and the exact wording of the archival notice. Absent a named
-> successor, the license-plus-public-history guarantee above stands on its
-> own and is the honest baseline.
+> advance. Absent a named successor, the license-plus-public-history
+> guarantee above stands on its own and is the honest baseline. (The
+> archival notice itself is written at the time of archival — GitHub's
+> archived state is already read-only and self-describing — so no wording
+> is pre-committed here.)
 
 ## Communication
 
