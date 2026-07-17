@@ -9,6 +9,40 @@ block is emitted.
 > [`docs/database-connections.md`](../../../docs/database-connections.md).
 > This README covers only the Helm wiring.
 
+## Persistent volume prerequisites
+
+Persistence is enabled by default. Set `persistence.storageClass` to a class
+whose CSI provisioner is installed and Ready before running Helm. On EKS, use
+the Amazon EBS CSI add-on and an encrypted `gp3` class; the complete Marketplace
+procedure is in
+[`docs/marketplace/install-from-aws-marketplace.md`](../../../docs/marketplace/install-from-aws-marketplace.md).
+
+The pod runs as UID/GID 10001 and applies `fsGroup: 10001` with
+`fsGroupChangePolicy: OnRootMismatch`, so a freshly provisioned volume is
+writable without running the application container as root. Disabling
+`persistence.enabled` uses `emptyDir` and loses the database and snapshots when
+the pod is replaced; use it only for disposable evaluation.
+
+## Additional environment variables
+
+Use `extraEnv` for supported non-secret daemon settings such as TLS certificate
+file paths. Use `valueFrom.secretKeyRef` for secret-backed values; never place a
+credential literal in Helm values or release history. Environment variables
+managed directly by the chart cannot be overridden through `extraEnv`.
+
+```yaml
+extraEnv:
+  - name: SIGNALS_API_TLS_CERT_FILE
+    value: /etc/ssl/signals/tls.crt
+  - name: SIGNALS_API_TLS_KEY_FILE
+    value: /etc/ssl/signals/tls.key
+  - name: EXTERNAL_SERVICE_TOKEN
+    valueFrom:
+      secretKeyRef:
+        name: external-service
+        key: token
+```
+
 ## Authentication methods
 
 `target.authMethod` selects how the collector authenticates. The
