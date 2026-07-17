@@ -40,6 +40,12 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   failures; ZIP consumers can now read the classification instead of
   re-deriving it from the SQLSTATE. Additive change — all pre-existing
   fields are unchanged.
+- AWS Marketplace install guide: the verification commands targeted the
+  wrong Helm Deployment name (`deploy/signals`); the chart renders the
+  Deployment as `<release>-signals`, so the documented `helm install
+  signals` produces `deploy/signals-signals`. Corrected the commands
+  and noted the `<release>-signals` mapping / label-selector fallback
+  (#276).
 
 ## [1.0.0] - 2026-06-30
 

@@ -75,9 +75,15 @@ setup is the same as the open-source path:
 
 ## 5. Verify
 
+The Deployment is named `<release>-signals` (the Helm release name plus the
+chart name); with the `helm install signals …` release name above, this is
+`signals-signals`. The commands below use that name. If you installed under a
+different release name, substitute `<your-release>-signals`, or use the label
+selector `deploy -l app.kubernetes.io/name=signals` instead.
+
 ```sh
-kubectl -n signals exec deploy/signals -- signalsctl status
-kubectl -n signals exec deploy/signals -- signalsctl export --output /data/snapshot.zip
+kubectl -n signals exec deploy/signals-signals -- signalsctl status
+kubectl -n signals exec deploy/signals-signals -- signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy install connects **passwordless** over `verify-full` TLS with a
