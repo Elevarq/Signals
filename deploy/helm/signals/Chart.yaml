@@ -5,8 +5,8 @@ type: application
 # Policy: chart `version`, `appVersion`, and `image.tag` in values.yaml
 # are kept in lockstep with the released container image. Bump all three
 # together at release time; do not float chart version independently.
-version: 1.0.0
-appVersion: "1.0.0"
+version: 1.0.1
+appVersion: "1.0.1"
 keywords:
   - postgresql
   - monitoring
