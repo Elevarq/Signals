@@ -96,29 +96,42 @@ Spec: square 1:1, 120–640px, transparent PNG, <5MB (the hosted asset is a
 
 ## Re-host the image + chart (verified commands)
 
-Push the released 1.0.0 image and Helm chart into the Marketplace ECR repos.
+Push the released image and Helm chart into the Marketplace ECR repos.
 **skopeo is not required or installed** — `docker buildx imagetools create`
-copies the full multi-arch manifest registry-to-registry:
+rebuilds the multi-arch index registry-to-registry. **Copy the platform image
+manifests by digest, never the whole index:** a release built with `sbom: true`
+/ `provenance: mode=max` carries SBOM/SLSA **attestation manifests**
+(`unknown/unknown` entries), and copying them makes AWS ingestion fail
+`SECURITY_ISSUES_DETECTED: ...UnsupportedImageType` (Elevarq/Signals#283):
 
 ```sh
 MP=<acct>.dkr.ecr.us-east-1.amazonaws.com   # Marketplace ECR registry host
 NS=<seller-ns>                              # AWS prepends a seller namespace
+SRC=ghcr.io/elevarq/signals:<version>
 
 aws ecr get-login-password --region us-east-1 \
   | docker login --username AWS --password-stdin "$MP"
 aws ecr get-login-password --region us-east-1 \
   | helm registry login --username AWS --password-stdin "$MP"
 
-# Image: multi-arch copy ghcr -> Marketplace ECR (no skopeo)
+# Image: select the platform manifests only (skip attestation-manifest /
+# unknown/unknown), then rebuild the index from those digests.
+mapfile -t D < <(docker buildx imagetools inspect --raw "$SRC" \
+  | jq -r '.manifests[]
+      | select((.platform.architecture // "") != "unknown")
+      | select((.annotations["vnd.docker.reference.type"] // "") != "attestation-manifest")
+      | .digest')
 docker buildx imagetools create \
-  -t "$MP/$NS/elevarq-signals:1.0.0" ghcr.io/elevarq/signals:1.0.0
+  -t "$MP/$NS/elevarq-signals:<version>" "${D[@]/#/ghcr.io/elevarq/signals@}"
 
 # Chart: pull, repoint default image to the MP ECR repo, rename so it lands at
 # the granted repo path, repackage, push (see "Chart path gotcha" below).
 ```
 
 [`scripts/marketplace-ecr-push.sh`](../../../scripts/marketplace-ecr-push.sh)
-automates the chart repackage/rename and asserts no `ghcr.io` image remains.
+automates both: it copies platform manifests only (asserting the destination
+index has zero `unknown/unknown` manifests), and repackages/renames the chart
+(asserting no `ghcr.io` image remains).
 
 To find the created ECR repo URIs after step 1:
 
