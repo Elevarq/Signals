@@ -96,6 +96,11 @@ artifacts in `features/signals/` and add corresponding tests.
 - Add comments only where the logic is not self-evident
 - Use table-driven tests where appropriate
 
+## Acknowledgements
+
+Contributors are recognized in [ACKNOWLEDGEMENTS.md](ACKNOWLEDGEMENTS.md).
+New contributors are added there as their first pull request is merged.
+
 ## License
 
 By contributing to Elevarq Signals, you agree that your contributions will be
