@@ -25,10 +25,11 @@
 #   AWS_REGION      default us-east-1
 #   AWS_PROFILE     default elevarq
 #
-# Requires: aws, docker (with buildx), helm. Auth is via
+# Requires: aws, docker (with buildx), helm, jq. Auth is via
 # `aws ecr get-login-password` (no long-lived creds). skopeo is NOT required —
-# `docker buildx imagetools create` copies the multi-arch manifest
-# registry-to-registry.
+# `docker buildx imagetools create` rebuilds the multi-arch index from the
+# source platform digests, registry-to-registry (attestation manifests
+# excluded — see the image-copy step below).
 
 set -euo pipefail
 
@@ -52,7 +53,7 @@ SOURCE_IMAGE="${SOURCE_IMAGE:-ghcr.io/elevarq/signals:${VERSION}}"
 SOURCE_CHART="${SOURCE_CHART:-oci://ghcr.io/elevarq/charts/signals}"
 export AWS_REGION AWS_PROFILE
 
-for bin in aws docker helm; do
+for bin in aws docker helm jq; do
   command -v "$bin" >/dev/null 2>&1 || die "missing required tool: $bin"
 done
 docker buildx version >/dev/null 2>&1 || die "docker buildx is required"
@@ -72,13 +73,45 @@ printf '%s' "$PW" | helm registry login --username AWS --password-stdin "$MP_REG
 
 DEST_IMAGE="${MP_REGISTRY}/${MP_IMAGE_REPO}:${VERSION}"
 
-echo "==> Copying image (multi-arch manifest preserved)"
+echo "==> Copying image (platform manifests only; attestations stripped)"
 echo "    ${SOURCE_IMAGE}  ->  ${DEST_IMAGE}"
-# `imagetools create` copies the full manifest list (linux/amd64 + linux/arm64)
-# registry-to-registry, as-is. Note: cosign signatures live under separate .sig
-# tags and are NOT copied; AWS Marketplace scans (and may re-sign) the image on
-# ingestion regardless.
-docker buildx imagetools create -t "${DEST_IMAGE}" "${SOURCE_IMAGE}"
+# Copy ONLY the platform image manifests, by digest — never the whole index.
+# A release built with `sbom: true` / `provenance: mode=max` carries SBOM/SLSA
+# attestation manifests (the `unknown/unknown` entries) in its OCI index.
+# Copying the whole index makes AWS Marketplace ingestion fail with
+# SECURITY_ISSUES_DETECTED "...UnsupportedImageType" (a format error, not a
+# CVE). So select the `image`-type platform manifests and rebuild the index
+# from those digests. cosign signatures live under separate .sig tags and are
+# NOT copied; AWS re-scans (and may re-sign) on ingestion regardless.
+# See Elevarq/Signals#283.
+SOURCE_REPO="${SOURCE_IMAGE%:*}"
+SRC_REFS=()
+while IFS= read -r digest; do
+  [ -n "$digest" ] || continue
+  SRC_REFS+=("${SOURCE_REPO}@${digest}")
+done < <(
+  docker buildx imagetools inspect --raw "${SOURCE_IMAGE}" \
+    | jq -r '.manifests[]
+        | select((.platform.os // "") != "unknown"
+                 and (.platform.architecture // "") != "unknown")
+        | select((.annotations["vnd.docker.reference.type"] // "")
+                 != "attestation-manifest")
+        | .digest'
+)
+[ "${#SRC_REFS[@]}" -ge 1 ] \
+  || die "no platform manifests found in ${SOURCE_IMAGE}"
+echo "    platform manifests: ${#SRC_REFS[@]}"
+docker buildx imagetools create -t "${DEST_IMAGE}" "${SRC_REFS[@]}"
+
+# Fail closed: assert the destination index carries no attestation/unknown
+# manifest. If any slipped through, AWS ingestion would fail UnsupportedImageType.
+unknown_count="$(
+  docker buildx imagetools inspect --raw "${DEST_IMAGE}" \
+    | jq '[.manifests[]
+        | select((.platform.architecture // "") == "unknown")] | length'
+)"
+[ "${unknown_count}" = "0" ] \
+  || die "destination index has ${unknown_count} unknown/unknown manifest(s) — AWS ingestion would fail UnsupportedImageType"
 
 echo "==> Repackaging + pushing Helm chart"
 # AWS rejects Helm charts whose images live outside the Marketplace ECR repos
