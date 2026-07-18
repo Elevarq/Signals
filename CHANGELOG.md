@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-07-17
+
 ### Security
 
 - Go toolchain and container builder bumped 1.26.4 -> 1.26.5 (#253): remediates GO-2026-5856
