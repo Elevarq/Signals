@@ -8,10 +8,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Security
 
-- Go toolchain bumped 1.26.4 -> 1.26.5 (#253): remediates GO-2026-5856
+- Go toolchain and container builder bumped 1.26.4 -> 1.26.5 (#253): remediates GO-2026-5856
   (Encrypted Client Hello privacy leak in `crypto/tls`, reachable via the
   connection pool, HTTP server, and cloud credential fetchers). No code
-  changes.
+  changes. The release Dockerfile now pins the same fixed patch release as CI,
+  so published binaries do not retain the vulnerable standard library.
 - Documented risk acceptance for GO-2026-5932 (`.grype.yaml`, #256):
   `golang.org/x/crypto/openpgp` is unmaintained upstream with no fixed
   version; the package is not imported by this module (`go mod why`
@@ -33,6 +34,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ### Fixed
 
+- Helm persistence now applies `fsGroup: 10001` with
+  `fsGroupChangePolicy: OnRootMismatch`, allowing the hardened non-root process
+  to initialize SQLite on a freshly provisioned EBS volume (#275).
+- Helm now implements the documented, schema-validated `extraEnv` path for
+  daemon TLS file settings and controlled non-secret overrides; secret-backed
+  entries use `valueFrom`, and chart-managed environment names fail closed
+  instead of rendering duplicates (#274).
+- AWS Marketplace installation instructions now provision the EBS CSI driver
+  and an explicit `gp3` StorageClass before enabling the default persistent
+  volume, preventing clean EKS installs from waiting forever on an unbound PVC
+  (#273).
+- AWS Marketplace verification commands now target the chart's actual
+  `<release>-signals` Deployment name instead of a non-existent `signals`
+  Deployment (#276).
 - Snapshot export: `query_runs.ndjson` rows now carry the persisted
   `status` and `reason` fields (R118, #250). Owner-only privilege skips
   (`skipped`/`privilege_owner_only`, R116) previously serialized as bare
@@ -40,12 +55,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   failures; ZIP consumers can now read the classification instead of
   re-deriving it from the SQLSTATE. Additive change — all pre-existing
   fields are unchanged.
-- AWS Marketplace install guide: the verification commands targeted the
-  wrong Helm Deployment name (`deploy/signals`); the chart renders the
-  Deployment as `<release>-signals`, so the documented `helm install
-  signals` produces `deploy/signals-signals`. Corrected the commands
-  and noted the `<release>-signals` mapping / label-selector fallback
-  (#276).
 
 ## [1.0.0] - 2026-06-30
 

@@ -16,7 +16,57 @@ In **AWS Marketplace → Elevarq Signals → View purchase options**, accept the
 terms and subscribe (Signals is **free** — no charges). This grants your
 account pull access to the Marketplace ECR repositories for the product.
 
-## 2. Authenticate Helm to the Marketplace registry
+## 2. Prepare durable EBS storage
+
+The chart enables persistence by default. A fresh EKS cluster must have the
+Amazon EBS CSI driver and an explicit StorageClass before Helm creates the
+Signals PVC. The following IRSA setup keeps the driver permissions separate
+from the Signals collector identity:
+
+```sh
+export CLUSTER=<eks-cluster-name>
+export REGION=us-east-1
+export ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+export EBS_CSI_ROLE=signals-ebs-csi-${CLUSTER}
+
+eksctl utils associate-iam-oidc-provider \
+  --cluster "$CLUSTER" --region "$REGION" --approve
+eksctl create iamserviceaccount \
+  --cluster "$CLUSTER" --region "$REGION" \
+  --namespace kube-system --name ebs-csi-controller-sa \
+  --role-name "$EBS_CSI_ROLE" --role-only \
+  --attach-policy-arn arn:aws:iam::aws:policy/service-role/AmazonEBSCSIDriverPolicy \
+  --approve
+eksctl create addon \
+  --cluster "$CLUSTER" --region "$REGION" \
+  --name aws-ebs-csi-driver \
+  --service-account-role-arn "arn:aws:iam::${ACCOUNT_ID}:role/${EBS_CSI_ROLE}" \
+  --force --wait
+```
+
+Create a CSI-backed `gp3` class dedicated to this installation:
+
+```sh
+kubectl apply -f - <<'EOF'
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: signals-gp3
+provisioner: ebs.csi.aws.com
+volumeBindingMode: WaitForFirstConsumer
+allowVolumeExpansion: true
+parameters:
+  type: gp3
+  encrypted: "true"
+EOF
+kubectl get storageclass signals-gp3
+```
+
+If the driver already exists, verify it is `ACTIVE` and skip its creation. Do
+not reuse an unrelated IAM role or make another StorageClass the cluster-wide
+default merely for Signals.
+
+## 3. Authenticate Helm to the Marketplace registry
 
 ```sh
 aws ecr get-login-password --region us-east-1 \
@@ -26,7 +76,7 @@ aws ecr get-login-password --region us-east-1 \
 `<marketplace-ecr-registry>` is the `*.dkr.ecr.us-east-1.amazonaws.com` host
 shown on the listing's launch page.
 
-## 3. Install the chart
+## 4. Install the chart
 
 Onto an existing Amazon EKS cluster (or a self-managed cluster). Put your
 configuration in a values file (`signals-values.yaml`) rather than `--set`
@@ -41,6 +91,9 @@ target:
   authMethod: aws_rds_iam      # passwordless RDS IAM
   sslmode: verify-full
   sslRootCertFile: /etc/ssl/db/rds-ca.pem
+
+persistence:
+  storageClass: signals-gp3
 ```
 
 ```sh
@@ -60,7 +113,15 @@ is otherwise the **same chart** as
 chart artifact name differ. Its values are documented in
 [`deploy/helm/signals/README.md`](../../deploy/helm/signals/README.md).
 
-## 4. Complete the passwordless onboarding
+After Helm returns, require both storage and workload readiness:
+
+```sh
+kubectl -n signals wait --for=jsonpath='{.status.phase}'=Bound \
+  pvc/signals-signals-data --timeout=5m
+kubectl -n signals rollout status deployment/signals-signals --timeout=5m
+```
+
+## 5. Complete the passwordless onboarding
 
 The Marketplace install is just the chart; the one-time identity + database
 setup is the same as the open-source path:
@@ -73,7 +134,7 @@ setup is the same as the open-source path:
   `verify-full` CA bundle: the Helm README (`#114` snippets) and
   [`docs/install/kubernetes-production.md`](../install/kubernetes-production.md).
 
-## 5. Verify
+## 6. Verify
 
 The Deployment is named `<release>-signals` (the Helm release name plus the
 chart name); with the `helm install signals …` release name above, this is
@@ -82,8 +143,9 @@ different release name, substitute `<your-release>-signals`, or use the label
 selector `deploy -l app.kubernetes.io/name=signals` instead.
 
 ```sh
-kubectl -n signals exec deploy/signals-signals -- signalsctl status
-kubectl -n signals exec deploy/signals-signals -- signalsctl export --output /data/snapshot.zip
+kubectl -n signals exec deployment/signals-signals -- signalsctl status
+kubectl -n signals exec deployment/signals-signals -- \
+  signalsctl export --output /data/snapshot.zip
 ```
 
 A healthy install connects **passwordless** over `verify-full` TLS with a
@@ -91,7 +153,7 @@ least-privilege `pg_monitor` role, and produces a local snapshot. Signals sends
 **no telemetry and no diagnostic data to Elevarq**; the only outbound calls are
 the cloud-auth/TLS requests you configure, made to your own cloud's services.
 
-## 6. Operational details (AWS Marketplace)
+## 7. Operational details (AWS Marketplace)
 
 - **Secrets / sensitive info.** With `aws_rds_iam` there is **no password** —
   the collector mints a short-lived RDS IAM token from its IRSA / Pod Identity

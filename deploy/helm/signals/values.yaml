@@ -111,6 +111,17 @@ serviceAccount:
 #     azure.workload.identity/use: "true"
 podLabels: {}
 
+# Additional non-secret environment variables for the Signals container.
+# Secret values must use valueFrom.secretKeyRef; do not put credential values
+# in Helm values or release history. Built-in SIGNALS_* variables managed by
+# the chart cannot be overridden here. Example:
+#   extraEnv:
+#     - name: SIGNALS_API_TLS_CERT_FILE
+#       value: /etc/ssl/signals/tls.crt
+#     - name: SIGNALS_API_TLS_KEY_FILE
+#       value: /etc/ssl/signals/tls.key
+extraEnv: []
+
 # Extra volumes / mounts (#114). Use to mount a CA bundle for
 # sslmode: verify-full (set target.sslRootCertFile to the mount path),
 # or any other operator-supplied file. No secrets in values — mount a
@@ -182,4 +193,9 @@ securityContext:
   runAsNonRoot: true
   runAsUser: 10001
   runAsGroup: 10001
+  # Make dynamically provisioned persistent volumes writable by the non-root
+  # process. OnRootMismatch avoids an unnecessary recursive ownership walk
+  # when a retained volume already has the expected root directory group.
+  fsGroup: 10001
+  fsGroupChangePolicy: OnRootMismatch
   readOnlyRootFilesystem: true

@@ -1,3 +1,8 @@
+{{- range $entry := .Values.extraEnv }}
+{{- if has $entry.name (list "SIGNALS_ENV" "SIGNALS_POLL_INTERVAL" "SIGNALS_RETENTION_DAYS" "SIGNALS_TARGET_TIMEOUT" "SIGNALS_QUERY_TIMEOUT" "SIGNALS_LISTEN_ADDR" "PG_PASSWORD" "SIGNALS_API_TOKEN") }}
+{{- fail (printf "extraEnv name %q is managed by the chart and cannot be overridden" $entry.name) }}
+{{- end }}
+{{- end }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -31,6 +36,8 @@ spec:
         runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
         runAsUser: {{ .Values.securityContext.runAsUser }}
         runAsGroup: {{ .Values.securityContext.runAsGroup | default 10001 }}
+        fsGroup: {{ .Values.securityContext.fsGroup | default 10001 }}
+        fsGroupChangePolicy: {{ .Values.securityContext.fsGroupChangePolicy | default "OnRootMismatch" }}
         seccompProfile:
           type: RuntimeDefault
       containers:
@@ -90,6 +97,9 @@ spec:
                 secretKeyRef:
                   name: {{ .Values.api.tokenSecretName }}
                   key: {{ .Values.api.tokenSecretKey | default "token" }}
+            {{- end }}
+            {{- with .Values.extraEnv }}
+            {{- toYaml . | nindent 12 }}
             {{- end }}
           volumeMounts:
             - name: config

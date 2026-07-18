@@ -74,6 +74,12 @@ aws ecr get-login-password --region us-east-1 \
 
 Configure a values file, then install with `-f`:
 
+First install/verify the Amazon EBS CSI driver and create an encrypted
+`signals-gp3` StorageClass using the exact commands in
+[`install-from-aws-marketplace.md`](install-from-aws-marketplace.md). The chart
+enables durable storage by default; installation is not ready until its PVC is
+`Bound`.
+
 ```yaml
 # signals-values.yaml
 target:
@@ -82,12 +88,17 @@ target:
   user: signals
   authMethod: aws_rds_iam      # passwordless RDS IAM
   sslmode: verify-full
+persistence:
+  storageClass: signals-gp3
 ```
 
 ```sh
 helm install signals \
   oci://<marketplace-ecr-registry>/<seller-ns>/elevarq-signals-chart \
   --version 1.0.0 -n signals --create-namespace -f signals-values.yaml
+kubectl -n signals wait --for=jsonpath='{.status.phase}'=Bound \
+  pvc/signals-signals-data --timeout=5m
+kubectl -n signals rollout status deployment/signals-signals --timeout=5m
 ```
 
 Note the chart URI ends at the **granted repo** (`elevarq-signals-chart`), not
