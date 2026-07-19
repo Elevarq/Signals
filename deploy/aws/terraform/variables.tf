@@ -64,7 +64,7 @@ variable "instance_type" {
 variable "image_uri" {
   type        = string
   description = "Elevarq Signals container image (pinned tag)."
-  default     = "ghcr.io/elevarq/signals:1.0.1"
+  default     = "ghcr.io/elevarq/signals:1.0.2"
 }
 
 variable "env" {
