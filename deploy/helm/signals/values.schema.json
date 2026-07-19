@@ -1,8 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
-  "additionalProperties": false,
-  "description": "Elevarq Signals chart values. Also the source of the Amazon EKS add-on configuration schema (AWS derives describe-addon-configuration from this file), so the buyer-configurable surface must be declared here for the add-on to reach behavioral parity with the Helm delivery (marketplace-eks-addon-delivery.md, R-EAO-07 / INV-EAO-02).",
+  "description": "Elevarq Signals chart values. Also the source of the Amazon EKS add-on configuration schema (AWS derives describe-addon-configuration from this file), so the buyer-configurable surface must be declared here for the add-on to reach behavioral parity with the Helm delivery (marketplace-eks-addon-delivery.md, R-EAO-07 / INV-EAO-02). NOTE: the top-level object stays open (no additionalProperties:false) because AWS add-on ingestion renders the chart with Helm's reserved `global` value injected, and a closed top level fails `helm template` -> INVALID_HELM_TEMPLATE (#290).",
   "properties": {
     "image": {
       "type": "object",

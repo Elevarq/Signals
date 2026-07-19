@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.0.3] - 2026-07-19
+
+### Fixed
+
+- Chart `values.schema.json` no longer sets top-level `additionalProperties:
+  false`. AWS's Amazon EKS add-on ingestion renders the chart with Helm's
+  reserved `global` value injected, and a closed top level made `helm template`
+  fail (`additional properties 'global' not allowed`), so the add-on version
+  failed ingestion with `INVALID_HELM_TEMPLATE`. The declared buyer-configurable
+  properties (from #285) and enum validation are retained, so the derived add-on
+  configuration schema is unchanged; only the top level is left open (#290).
+  Buyer Helm/ECS installs were unaffected (pure-default render always passed).
+
 ## [1.0.2] - 2026-07-19
 
 ### Fixed
