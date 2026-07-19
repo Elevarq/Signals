@@ -3,8 +3,31 @@ package tests
 import (
 	"encoding/json"
 	"os"
+	"os/exec"
+	"strings"
 	"testing"
 )
+
+// AWS EKS add-on ingestion renders the chart with Helm's reserved `global`
+// value injected. A top-level `additionalProperties: false` in values.schema.json
+// makes `helm template` fail ("additional properties 'global' not allowed") ->
+// the add-on change-set fails INVALID_HELM_TEMPLATE. The top-level object must
+// stay open. Guards Elevarq/Signals#290 (regression from #285).
+func TestHelm_ValuesSchemaToleratesInjectedGlobal(t *testing.T) {
+	if _, err := exec.LookPath("helm"); err != nil {
+		t.Skip("helm CLI not on PATH; skipping helm-template assertion")
+	}
+	cmd := exec.Command("helm", "template", "signals", "../deploy/helm/signals",
+		"--set", "global.foo=bar")
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		t.Fatalf("helm template with an injected `global` value must render "+
+			"(add-on ingestion injects it); got error: %v\n%s", err, out)
+	}
+	if strings.Contains(string(out), "additional properties") {
+		t.Fatalf("schema rejected an injected top-level key:\n%s", out)
+	}
+}
 
 // The Amazon EKS add-on configuration schema is derived by AWS from the chart's
 // values.schema.json (aws eks describe-addon-configuration). If the required

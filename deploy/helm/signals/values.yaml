@@ -2,7 +2,7 @@
 
 image:
   repository: ghcr.io/elevarq/signals
-  tag: "1.0.2"
+  tag: "1.0.3"
   pullPolicy: IfNotPresent
 
 # PostgreSQL target configuration. Rendered into the mounted
