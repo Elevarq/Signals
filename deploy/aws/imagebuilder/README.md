@@ -34,7 +34,7 @@ same posture as the container and Helm deliveries.
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `SignalsImage` | `ghcr.io/elevarq/signals:1.0.1` | Pinned version (no `latest`). Bump per release. |
+| `SignalsImage` | `ghcr.io/elevarq/signals:1.0.2` | Pinned version (no `latest`). Bump per release. |
 
 ### Baking locally / in a pipeline
 
@@ -44,7 +44,7 @@ Linux 2023 base image. Register it and reference it from a recipe:
 ```bash
 aws imagebuilder create-component \
   --name signals-collector \
-  --semantic-version 1.0.1 \
+  --semantic-version 1.0.2 \
   --platform Linux \
   --data file://signals-collector-component.yaml
 # -> ComponentArn, referenced by an image recipe + pipeline that produces the AMI.

@@ -46,7 +46,7 @@ param adminUsername string = 'azureuser'
 param adminSshPublicKey string
 
 @description('Elevarq Signals container image (pinned tag).')
-param imageUri string = 'ghcr.io/elevarq/signals:1.0.1'
+param imageUri string = 'ghcr.io/elevarq/signals:1.0.2'
 
 @description('URL of the CA bundle for sslmode=verify-full. Default is the DigiCert Global Root G2 that Azure Database for PostgreSQL Flexible Server chains to.')
 param dbCaCertUrl string = 'https://cacerts.digicert.com/DigiCertGlobalRootG2.crt.pem'
