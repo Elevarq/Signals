@@ -1,10 +1,78 @@
 {
   "$schema": "https://json-schema.org/draft-07/schema#",
   "type": "object",
+  "additionalProperties": false,
+  "description": "Elevarq Signals chart values. Also the source of the Amazon EKS add-on configuration schema (AWS derives describe-addon-configuration from this file), so the buyer-configurable surface must be declared here for the add-on to reach behavioral parity with the Helm delivery (marketplace-eks-addon-delivery.md, R-EAO-07 / INV-EAO-02).",
   "properties": {
+    "image": {
+      "type": "object",
+      "description": "Container image. Pinned to the Marketplace-ECR artifact for the add-on; override only for private mirrors.",
+      "properties": {
+        "repository": { "type": "string" },
+        "tag": { "type": "string" },
+        "pullPolicy": { "type": "string", "enum": ["Always", "IfNotPresent", "Never"] }
+      }
+    },
+    "target": {
+      "type": "object",
+      "description": "PostgreSQL target. Set host to enable collection; token/secret auth methods require sslmode verify-full.",
+      "properties": {
+        "host": { "type": "string", "description": "PostgreSQL hostname (e.g. the RDS endpoint). Required to enable collection." },
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "dbname": { "type": "string" },
+        "user": { "type": "string" },
+        "sslmode": { "type": "string", "enum": ["disable", "allow", "prefer", "require", "verify-ca", "verify-full"] },
+        "authMethod": { "type": "string", "enum": ["", "aws_rds_iam", "azure_entra", "gcp_cloudsql_iam", "secret_store"] },
+        "region": { "type": "string" },
+        "azureClientId": { "type": "string" },
+        "gcpImpersonateServiceAccount": { "type": "string" },
+        "secretRef": { "type": "string" },
+        "sslRootCertFile": { "type": "string" },
+        "passwordSecretName": { "type": "string" },
+        "passwordSecretKey": { "type": "string" }
+      }
+    },
+    "collector": {
+      "type": "object",
+      "properties": {
+        "pollInterval": { "type": "string" },
+        "retentionDays": { "type": "integer", "minimum": 0 },
+        "targetTimeout": { "type": "string" },
+        "queryTimeout": { "type": "string" }
+      }
+    },
+    "api": {
+      "type": "object",
+      "properties": {
+        "port": { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "tokenSecretName": { "type": "string", "description": "Kubernetes Secret holding the API bearer token; recommended for production so the token survives restarts." },
+        "tokenSecretKey": { "type": "string" },
+        "tls": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      }
+    },
+    "env": { "type": "string", "enum": ["dev", "lab", "prod"], "description": "Runtime environment. prod hard-fails on weak API tokens and requires verify-full for token auth." },
+    "serviceAccount": {
+      "type": "object",
+      "properties": {
+        "create": { "type": "boolean" },
+        "annotations": {
+          "type": "object",
+          "description": "Identity binding, e.g. eks.amazonaws.com/role-arn for IRSA (passwordless RDS IAM)."
+        }
+      }
+    },
+    "podLabels": {
+      "type": "object"
+    },
     "extraEnv": {
       "type": "array",
       "default": [],
+      "description": "Additional non-secret environment variables. Secret values must use valueFrom. Chart-managed SIGNALS_* names are rejected at render.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -27,6 +95,28 @@
           { "required": ["valueFrom"] }
         ]
       }
-    }
+    },
+    "extraVolumes": {
+      "type": "array",
+      "description": "Extra pod volumes, e.g. a Secret/ConfigMap holding the verify-full CA bundle.",
+      "items": { "type": "object" }
+    },
+    "extraVolumeMounts": {
+      "type": "array",
+      "description": "Mounts for extraVolumes, e.g. the CA bundle at target.sslRootCertFile.",
+      "items": { "type": "object" }
+    },
+    "networkPolicy": { "type": "object" },
+    "podDisruptionBudget": { "type": "object" },
+    "resources": { "type": "object" },
+    "persistence": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "size": { "type": "string" },
+        "storageClass": { "type": "string", "description": "StorageClass for the collector's PersistentVolume. On EKS set an EBS-CSI class (e.g. an encrypted gp3)." }
+      }
+    },
+    "securityContext": { "type": "object" }
   }
 }
