@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Helm chart `values.schema.json` now declares the buyer-configurable surface
+  (`target.*`, `persistence.storageClass`, `serviceAccount.annotations`, `api`,
+  `env`, `extraVolumes`/`extraVolumeMounts`, alongside the existing `extraEnv`
+  guard). AWS derives the Amazon EKS add-on configuration schema from this file,
+  so the previous `extraEnv`-only schema left the add-on reporting "No
+  configuration support" — a buyer could not point it at a database. The schema
+  also adds enum validation for `target.sslmode`/`authMethod`, `env`, and
+  `image.pullPolicy`. No change to rendered manifests for existing values
+  (#285). Reaches the live EKS add-on only via a re-hosted, re-submitted release.
+
 ## [1.0.1] - 2026-07-17
 
 ### Security

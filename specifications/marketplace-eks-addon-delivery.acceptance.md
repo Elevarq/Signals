@@ -133,3 +133,29 @@ add-on flow, against a reachable RDS target.
 - The script exits non-zero before `start-change-set`.
 - The unsubstituted-`${...}` guard (FC-EAO-01) or the non-ASCII guard
   (FC-EAO-02) reports the offending content.
+
+---
+
+### TC-EAO-07: Chart values.schema.json exposes the add-on config contract (invariant)
+
+**Rule:** R-EAO-07 / FC-EAO-05 / INV-EAO-02
+
+**Scenario:** Guard against shipping an add-on that `aws eks
+describe-addon-configuration` reports as "No configuration support", which leaves
+a buyer unable to point the add-on at a database.
+
+**Given:**
+- `deploy/helm/signals/values.schema.json`.
+
+**When:**
+- The schema is parsed and its declared properties are inspected.
+
+**Then:**
+- `target` declares `host`, `user`, `authMethod`, `sslmode`, and
+  `sslRootCertFile`.
+- `persistence` declares `storageClass`.
+- `serviceAccount` declares `annotations`.
+- `extraEnv` is still declared (the chart-managed-name guard is preserved).
+- `helm template` with the default values and with a representative buyer values
+  file both still validate against the schema (no regression for existing Helm
+  installs).

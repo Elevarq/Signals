@@ -81,6 +81,19 @@ In scope:
 - **R-EAO-06**: EKS add-on delivery-option visibility is **not** auto-Public
   (unlike Helm/container options). Making the add-on public is a separate
   `UpdateDeliveryOptions`/visibility step, gated on an explicit go.
+- **R-EAO-07**: The add-on's buyer configuration surface is **derived by AWS from
+  the Helm chart's `values.schema.json`** (`aws eks describe-addon-configuration`
+  returns it; a chart with no declared configurable properties yields *"No
+  configuration support"*). Because `create-addon` is the only way an add-on
+  buyer supplies values, `deploy/helm/signals/values.schema.json` MUST declare
+  the buyer-configurable contract — at minimum `target.host`, `target.user`,
+  `target.authMethod`, `target.sslmode`, `target.sslRootCertFile`,
+  `persistence.storageClass`, and `serviceAccount.annotations` — so the add-on
+  can be pointed at a database (and given passwordless-IAM identity + TLS +
+  durable storage). Without it, INV-EAO-02 is unreachable via the add-on path.
+  The schema change ships in the chart and reaches the live add-on only via a
+  new released version that is re-hosted and re-submitted (the config schema is
+  derived at ingestion, per release).
 
 ## Invariants
 
@@ -106,6 +119,12 @@ In scope:
 - **FC-EAO-04**: `ContainerImages`/`HelmChartUri` pointing at a
   non-Marketplace-ECR (e.g. `ghcr.io`) artifact → AWS rejects on ingestion;
   preflight asserts MP-ECR.
+- **FC-EAO-05**: The chart's `values.schema.json` declares no buyer-configurable
+  properties (or omits the required keys in R-EAO-07) →
+  `describe-addon-configuration` reports *"No configuration support"* → the
+  add-on cannot be pointed at a database and INV-EAO-02 is unreachable. Guard: a
+  chart test asserts `values.schema.json` exposes the required configurable keys
+  (Elevarq/Signals#285).
 
 ## Constraints
 
