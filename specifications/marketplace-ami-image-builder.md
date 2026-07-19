@@ -35,9 +35,10 @@ In scope (shipped now):
 - `deploy/aws/imagebuilder/signals-collector-component.yaml` — an AWSTOE
   (`schemaVersion: 1.0`) component with `build`, `validate`, and `test` phases.
 - `deploy/aws/imagebuilder/README.md` — how the component works, and the
-  demand-gated `AmiProduct@1.0` publish path scaffolding (Catalog API
-  `CreateProduct` + `AddDeliveryOptions` with `ComponentArn` + `AccessRoleArn` +
-  visibility), documented but not run.
+  `AmiProduct@1.0` publish path (Catalog API `CreateProduct` +
+  `AddDeliveryOptions` with `AmiDeliveryOptionDetails`/`AmiSource` — the component
+  is the AMI *build input*, not a delivery field; the live standup is #235,
+  governed by `specifications/marketplace-ami-product.md`).
 - This spec + acceptance cases.
 
 Out of scope (deferred, demand-gated):

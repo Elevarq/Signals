@@ -50,24 +50,30 @@ aws imagebuilder create-component \
 # -> ComponentArn, referenced by an image recipe + pipeline that produces the AMI.
 ```
 
-## Live AMI product (deferred — demand-gated, #235)
+## Live AMI product (#235 — un-deferred 2026-07-19)
 
-Publishing the baked AMI as a Marketplace **`AmiProduct@1.0`** is a *separate
-product* with its own onboarding and review, pursued only on **real demand for
-non-container, EC2-baked deployment** (#235's gate). It is NOT set up here and no
-runnable change-set is committed for it. When demand justifies it, the Catalog
-API path is:
+Publishing Signals as a Marketplace **`AmiProduct@1.0`** is a *separate product*
+with its own onboarding and review (#235; un-deferred per the #233 decision log).
+Governed by `specifications/marketplace-ami-product.md`.
 
-1. `CreateProduct` with `Type: AmiProduct@1.0` (separate from the container
+**The AMI product ships a *pre-baked AMI*, not the component.** The AWS
+Marketplace Catalog API AMI delivery option is `AmiDeliveryOptionDetails` →
+`AmiSource` (a built `AmiId` + an `AccessRoleArn` AWS uses to scan/copy it); there
+is **no** `ComponentArn` field. This component is the reproducible **build input**
+for that AMI, not the thing sold. The Catalog-API path is:
+
+1. Bake a golden AMI: an EC2 Image Builder image recipe (Amazon Linux 2023 base +
+   this `signals-collector` component at the released version) → `AmiId`.
+2. `CreateProduct` with `Type: AmiProduct@1.0` (separate from the container
    product `prod-...`).
-2. `UpdateInformation` — title, descriptions, logo (S3), categories, keywords
+3. `UpdateInformation` — title, descriptions, logo (S3), categories, keywords
    (reuse the shared Elevarq assets).
-3. Offer + legal terms (`CustomEula`) + support terms; free offer takes no
+4. Offer + legal terms (`CustomEula`) + support terms; free offer takes no
    pricing term.
-4. `AddDeliveryOptions` for the AMI, providing the Image Builder integration:
-   the component `ComponentArn` and an `AccessRoleArn` AWS Marketplace assumes to
-   read it, so buyers find the component in EC2 Image Builder.
-5. `ReleaseProduct` + `ReleaseOffer`, then `UpdateVisibility: Public` (Seller-Ops
+5. `AddDeliveryOptions` with `AmiDeliveryOptionDetails`: the `AmiSource`
+   (`AmiId` + the AMI-product `AccessRoleArn`), `OperatingSystem`,
+   `RecommendedInstanceType`, supported instance types, and regions.
+6. `ReleaseProduct` + `ReleaseOffer`, then `UpdateVisibility: Public` (Seller-Ops
    review).
 
 Human gates (never automate): the EULA/entity wording (counsel), the AMI build
