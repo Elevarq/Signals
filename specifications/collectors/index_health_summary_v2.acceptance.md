@@ -41,9 +41,10 @@ no dangerous function, single statement.
 `idx_tup_read`, `idx_tup_fetch`, `is_valid`, `is_ready`, `is_live`,
 `is_primary`, `is_unique`, `is_exclusion`, `is_immediate`,
 `is_replica_identity`, `is_constraint_backed`, `constraint_type`,
-`build_state`, `access_method`, `key_column_count`, `include_column_count`,
-`structure_version`, `structure_fingerprint`, `exact_duplicate_of`,
-`prefix_candidate_of`, `prefix_candidate_basis`.
+`build_state`, `access_method`, `relation_kind`, `is_partitioned`,
+`key_column_count`, `include_column_count`, `structure_version`,
+`structure_fingerprint`, `exact_duplicate_of`, `prefix_candidate_of`,
+`prefix_candidate_basis`.
 
 ---
 
@@ -127,3 +128,22 @@ implicitly through `pg_get_indexdef`, so PG14 does not error).
 **Then:** `specifications/collectors/collector-inventory.json` lists
 `index_health_summary_v2` in the `indexes` category alongside v1 (CI gate
 R119–R122).
+
+---
+
+### TC-IHV2-15: Concurrent-DDL capability evidence (R-IHV2-08, #294)
+
+**Rule:** R-IHV2-08 — partitioning / relation-kind evidence
+
+**Given:** the collector is registered.
+**When:** the SQL is inspected, and executed against a database with an ordinary
+index, a partitioned parent index, and a partition-local index.
+**Then:**
+- The SQL emits `relation_kind` and `is_partitioned`, derived from
+  `pg_class.relkind` (`'I'` → `partitioned_index` / true; `'i'` → `index` /
+  false), with no `COALESCE` to a safe default.
+- The controlled literals `'index'` and `'partitioned_index'` are present.
+- On execution: a partitioned parent index reports
+  `relation_kind = partitioned_index`, `is_partitioned = true`; an ordinary
+  index and a partition-local index report `relation_kind = index`,
+  `is_partitioned = false` (parent vs partition-local distinguished).

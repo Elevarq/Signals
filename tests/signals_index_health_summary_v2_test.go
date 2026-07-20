@@ -73,7 +73,8 @@ func TestIndexHealthV2OutputColumns(t *testing.T) {
 		"is_valid", "is_ready", "is_live", "is_primary", "is_unique",
 		"is_exclusion", "is_immediate", "is_replica_identity",
 		"is_constraint_backed", "constraint_type", "build_state",
-		"access_method", "key_column_count", "include_column_count",
+		"access_method", "relation_kind", "is_partitioned",
+		"key_column_count", "include_column_count",
 		"structure_version", "structure_fingerprint",
 		"exact_duplicate_of", "prefix_candidate_of", "prefix_candidate_basis",
 	}
@@ -197,6 +198,23 @@ func TestIndexHealthV2V1StillRegistered(t *testing.T) {
 		q.RetentionClass != pgqueries.RetentionMedium || q.Timeout != 30*time.Second ||
 		q.ResultKind != pgqueries.ResultRowset {
 		t.Error("v1 configuration must be unchanged")
+	}
+}
+
+// TC-IHV2-15: concurrent-DDL capability evidence (#294).
+func TestIndexHealthV2PartitioningEvidence(t *testing.T) {
+	q := v2(t)
+	// Derived from pg_class.relkind, not coerced.
+	if !strings.Contains(q.SQL, "ic.relkind = 'I'") {
+		t.Error("is_partitioned must derive from pg_class.relkind = 'I'")
+	}
+	for _, lit := range []string{"'index'", "'partitioned_index'"} {
+		if !strings.Contains(q.SQL, lit) {
+			t.Errorf("controlled relation_kind literal %s must be present", lit)
+		}
+	}
+	if strings.Contains(strings.ToLower(q.SQL), "coalesce(ic.relkind") {
+		t.Error("relation_kind/is_partitioned must not be COALESCEd to a safe default")
 	}
 }
 

@@ -60,6 +60,8 @@ One deterministic row per non-system index in the connected database.
 | `constraint_type` | text | Controlled: `primary` / `unique` / `exclusion` / `other` when constraint-backed; NULL otherwise. Derived from `pg_constraint.contype`. |
 | `build_state` | text | Controlled: `active_build` / `active_reindex` (in `pg_stat_progress_create_index`), else `invalid_residue` (not valid), `not_ready_residue` (valid but not ready), else `ready`. |
 | `access_method` | text | `pg_am.amname` (btree/hash/gist/gin/spgist/brin/…). |
+| `relation_kind` | text | Controlled: `index` (`pg_class.relkind = 'i'`, ordinary or partition-local index) / `partitioned_index` (`'I'`, a partitioned parent index) / `other` (reserved). |
+| `is_partitioned` | boolean | True when the index is a **partitioned (parent) index** (`pg_class.relkind = 'I'`). PostgreSQL does not support `DROP INDEX CONCURRENTLY` on such an index, so a consumer must require `is_partitioned = false` before choosing the concurrent DDL form. `pg_class.relkind` is NOT NULL, so this is always a known boolean — never synthesized. |
 | `key_column_count` | int | `pg_index.indnkeyatts`. |
 | `include_column_count` | int | `indnatts - indnkeyatts` (INCLUDE columns). |
 | `structure_version` | int | Fingerprint-algorithm version (currently `1`). Consumers gate equality on matching versions. |
@@ -97,6 +99,16 @@ One deterministic row per non-system index in the connected database.
 - **R-IHV2-07** (fingerprint derived in-DB): the fingerprint is computed inside
   PostgreSQL from `pg_get_indexdef` + flags; raw expression/predicate literals
   are not emitted as output columns.
+- **R-IHV2-08** (concurrent-DDL capability evidence, #294): `relation_kind` and
+  `is_partitioned` are derived from `pg_class.relkind` — `'I'` →
+  `partitioned_index` / `is_partitioned = true`, `'i'` → `index` /
+  `is_partitioned = false`. Because `relkind` is NOT NULL the fact is always
+  known and never coerced. A partitioned parent index (`is_partitioned = true`)
+  does not support `DROP INDEX CONCURRENTLY`; a partition-local index is
+  `relkind = 'i'` (`is_partitioned = false`) and is distinguished from the
+  parent. Target and peer partitioning are both available: each row carries its
+  own `is_partitioned`, and every peer resolves to a row in the same result set
+  (INV-IHV2-02), so a consumer reads the peer's value from the peer's row.
 
 ## Invariants
 
@@ -167,6 +179,11 @@ System schemas excluded: `pg_catalog`, `information_schema`, `pg_toast`,
   actively being built.
 - **Prefix as candidate**: `prefix_candidate_of` feeds a review queue, not an
   automated drop.
+- **Concurrent-DDL gating (#294)**: the analyzer must require the target
+  `is_partitioned = false` before emitting `DROP INDEX CONCURRENTLY`
+  (unsupported on partitioned indexes), retain the fact in decision evidence,
+  and revalidate it at the remediation boundary. `relation_kind` reuses the
+  same relkind evidence for other DDL decisions.
 
 ## Out of scope
 
