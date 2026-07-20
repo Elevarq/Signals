@@ -90,7 +90,7 @@ defaults.
 | Query ID | PostgreSQL source | Cadence | Notes |
 |----------|-------------------|---------|-------|
 | `index_health_summary_v1` | `pg_index` + `pg_class` + `pg_namespace` + `pg_attribute` + `pg_stat_user_indexes` | 6h | One row per non-system index with derived `health_findings` array (`unused`, `large_unused`, `invalid`, `not_ready`, `redundant`, `duplicate`) plus `duplicate_of` / `redundant_with` pointers |
-| `index_health_summary_v2` | `pg_index` + `pg_class` + `pg_namespace` + `pg_am` + `pg_stat_user_indexes` + `pg_constraint` + `pg_stat_progress_create_index` + `pg_get_indexdef` | 6h | Decision-grade: one row per non-system index with explicit safety/constraint/build state, access method, key/INCLUDE counts, and a versioned semantic structure fingerprint. `exact_duplicate_of` is fingerprint-proven; `prefix_candidate_of` is a labelled review candidate. Usage/state emitted raw (no NULL→0/false). Additive; v1 unchanged |
+| `index_health_summary_v2` | `pg_index` + `pg_class` + `pg_namespace` + `pg_am` + `pg_stat_user_indexes` + `pg_constraint` + `pg_stat_progress_create_index` + `pg_get_indexdef` | 6h | Decision-grade: one row per non-system index with explicit safety/constraint/build state, `relation_kind`/`is_partitioned` concurrent-DDL capability evidence, access method, key/INCLUDE counts, and a versioned semantic structure fingerprint. `exact_duplicate_of` is fingerprint-proven; `prefix_candidate_of` is a labelled review candidate. Usage/state emitted raw (no NULL→0/false). Additive; v1 unchanged |
 
 ## Bloat estimates
 

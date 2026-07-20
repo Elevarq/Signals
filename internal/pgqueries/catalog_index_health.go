@@ -173,6 +173,16 @@ idx AS (
             ELSE 'ready'
         END                                                  AS build_state,
         am.amname                                            AS access_method,
+        -- pg_class.relkind is NOT NULL, so these are always known booleans/codes,
+        -- never synthesized. 'I' = partitioned (parent) index, 'i' = ordinary or
+        -- partition-local index. Concurrent index removal is unsupported on a
+        -- partitioned index, so the analyzer gates on is_partitioned = false (#294).
+        CASE ic.relkind
+            WHEN 'i' THEN 'index'
+            WHEN 'I' THEN 'partitioned_index'
+            ELSE 'other'
+        END                                                  AS relation_kind,
+        (ic.relkind = 'I')                                   AS is_partitioned,
         i.indnkeyatts                                        AS key_column_count,
         (i.indnatts - i.indnkeyatts)                         AS include_column_count,
         1                                                    AS structure_version,
@@ -233,6 +243,8 @@ SELECT
     m.constraint_type,
     m.build_state,
     m.access_method,
+    m.relation_kind,
+    m.is_partitioned,
     m.key_column_count,
     m.include_column_count,
     m.structure_version,
