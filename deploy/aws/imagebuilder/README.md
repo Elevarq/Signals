@@ -23,8 +23,14 @@ buyer **at launch**:
 
 - `/etc/signals/signals.yaml` — collector config + target (user-data / SSM).
 - `/etc/signals/rds-ca.pem` — RDS CA bundle if using verify-full TLS.
-- `/etc/signals/signals.env` — `SIGNALS_API_TOKEN=...` (root-only), read by the
-  unit's `EnvironmentFile`.
+- `/etc/signals/signals.env` — `SIGNALS_API_TOKEN=...` (root-only) plus **any
+  other `SIGNALS_*`** the collector reads (e.g. `SIGNALS_LOG_LEVEL`, or the
+  dev-only `SIGNALS_ALLOW_INSECURE_PG_TLS`). The unit forwards the **whole file**
+  to the container via `docker run --env-file /etc/signals/signals.env` (#292),
+  so every buyer-supplied variable reaches the collector — not only the token.
+  `EnvironmentFile=/etc/signals/signals.env` is also kept so systemd fails
+  cleanly if the file is absent. Both pass values **by reference**: neither the
+  file's contents nor the token is ever printed to the journal.
 
 On first boot, once `/etc/signals` is populated, `signals.service` starts the
 collector. This keeps the AMI credential-free (credentials-by-reference), the

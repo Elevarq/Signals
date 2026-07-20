@@ -66,13 +66,21 @@ phases:
               [Service]
               Restart=always
               RestartSec=5
-              # Buyer supplies /etc/signals/signals.env at launch with
-              # SIGNALS_API_TOKEN=... (root-only). ENTRYPOINT is `tini --`;
-              # the `signals` arg is required so image args do not replace CMD.
+              # Buyer supplies /etc/signals/signals.env at launch (root-only)
+              # with SIGNALS_API_TOKEN=... and any other SIGNALS_* the collector
+              # reads (e.g. SIGNALS_LOG_LEVEL, or the dev-only
+              # SIGNALS_ALLOW_INSECURE_PG_TLS). #292: the WHOLE file is
+              # forwarded to the container via `--env-file` so every
+              # buyer-supplied SIGNALS_* var reaches the collector, not only
+              # the token.
+              # EnvironmentFile= is kept so systemd fails cleanly if the file is
+              # absent. Both are by-reference: neither prints the file or the
+              # token to the journal (R-AMI-06). ENTRYPOINT is `tini --`; the
+              # `signals` arg is required so image args do not replace CMD.
               EnvironmentFile=/etc/signals/signals.env
               ExecStartPre=-/usr/bin/docker rm -f signals
               ExecStart=/usr/bin/docker run --rm --name signals \
-                -e SIGNALS_API_TOKEN \
+                --env-file /etc/signals/signals.env \
                 -v /etc/signals:/etc/signals:ro \
                 -v signals-data:/data \
                 {{ SignalsImage }} signals --config /etc/signals/signals.yaml
