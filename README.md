@@ -82,7 +82,7 @@ audit the binary. You own the output.
   cloud IAM** (RDS / Cloud SQL / Azure), or with the password fetched **live
   from a cloud secret store**, so no database secret lives in config
   ([details](#connecting-to-your-databases--passwordless--secret-store-auth))
-- Runs 99 read-only diagnostic collectors covering:
+- Runs 100 read-only diagnostic collectors covering:
   - Server configuration, identity, and cluster fingerprint
   - Session activity and connection pressure
   - Table, index, and I/O statistics (incl. `pg_stat_io` /
@@ -511,7 +511,7 @@ inspect exactly what Elevarq Signals collects without running it.
 
 ## Collected signals
 
-Elevarq Signals includes 99 read-only collectors. Grouped by domain:
+Elevarq Signals includes 100 read-only collectors. Grouped by domain:
 
 - **Baseline & runtime** — server config, sessions, databases,
   tables, indexes, table / index I/O, query stats
@@ -967,7 +967,7 @@ analyzer).
 ## Project resources
 
 - [Architecture](docs/architecture.md) — components, data flow, trust boundary, and no-egress design
-- [Collector inventory](docs/collectors.md) — all 99 collectors with sources and cadences
+- [Collector inventory](docs/collectors.md) — all 100 collectors with sources and cadences
 - [Database connections](docs/database-connections.md) — per-cloud `auth_method` recipes (RDS IAM, Entra, Cloud SQL IAM, secret stores) + grants
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
 - [Adoption guide](docs/adoption-guide.md) — production deployment guidance

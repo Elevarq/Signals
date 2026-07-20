@@ -61,6 +61,10 @@
       "name": "index_health_summary_v1"
     },
     {
+      "category": "indexes",
+      "name": "index_health_summary_v2"
+    },
+    {
       "category": "tables",
       "name": "largest_relations_v1"
     },
