@@ -106,3 +106,55 @@ collector.
 
 **Note:** This case is realized only if #235's demand gate opens; it is
 documented here so the contract is defined, not run in the groundwork slice.
+
+---
+
+### TC-AMI-06: Buyer-supplied SIGNALS_* env reaches the collector, in parity (normal + invariant)
+
+**Rule:** Normal / invariant — R-AMI-05, INV-AMI-03, FC-AMI-04 (#292)
+
+**Scenario:** A buyer places an arbitrary `SIGNALS_*` variable (e.g. the dev-only
+`SIGNALS_ALLOW_INSECURE_PG_TLS=true`, which surfaced this in the #235 AMI
+launch-test) in `/etc/signals/signals.env`. It must reach the containerized
+collector, and the AMI component and the terraform run path must forward env the
+same way.
+
+**Given:**
+- `deploy/aws/imagebuilder/signals-collector-component.yaml`.
+- `deploy/aws/terraform/main.tf`.
+- `deploy/aws/cloudformation/signals-rds-iam.yaml`.
+
+**When:**
+- The `signals.service` unit's `docker run` line (component) and the terraform /
+  cloudformation `docker run` invocations are inspected.
+
+**Then:**
+- All three docker-run the image with `--env-file /etc/signals/signals.env`,
+  forwarding the whole file — not only `-e SIGNALS_API_TOKEN`.
+- The component's `EnvironmentFile=/etc/signals/signals.env` is retained (systemd
+  fails cleanly if absent).
+- All three paths forward env identically (INV-AMI-03 parity).
+
+---
+
+### TC-AMI-07: The env-forwarding path never logs a secret (invariant / security)
+
+**Rule:** Invariant — R-AMI-06, INV-AMI-04, FC-AMI-05 (#292)
+
+**Scenario:** Env is passed to the container through the process environment,
+never rendered to a log stream, so a buyer's `SIGNALS_API_TOKEN` value cannot
+leak into the journal / stdout.
+
+**Given:**
+- The component YAML, `deploy/aws/terraform/main.tf`, and
+  `deploy/aws/cloudformation/signals-rds-iam.yaml`.
+
+**When:**
+- Every line that references `signals.env` or a token value is inspected.
+
+**Then:**
+- No step `cat`s, `echo`s, `tee`s, or otherwise prints the contents of
+  `signals.env`.
+- No `-e SIGNALS_API_TOKEN=<value>` or token value appears on a docker command
+  line (env is passed by reference via `--env-file` / `-e NAME` only).
+- No `set -x` is enabled around a line carrying a token value.

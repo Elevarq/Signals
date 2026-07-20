@@ -76,6 +76,28 @@ Out of scope (deferred, demand-gated):
 - **R-AMI-04**: The live `AmiProduct@1.0` listing is a **separate product** with
   its own onboarding/review, pursued only on real demand (#235 gate). The
   groundwork here MUST NOT trigger any live Marketplace change-set.
+- **R-AMI-05** (env passthrough — #292): The unit MUST forward the **whole**
+  buyer-supplied `/etc/signals/signals.env` to the container via docker's
+  `--env-file /etc/signals/signals.env`, so **any** `SIGNALS_*` variable a buyer
+  places there (not only `SIGNALS_API_TOKEN`) reaches the collector. The
+  `deploy/aws/terraform` and `deploy/aws/cloudformation` IaC run paths forward
+  the same env file the same way for parity (INV-AMI-03). **Decision (#292,
+  forward-all vs document-only):**
+  forward-all — chosen 2026-07-20 by Frank. Rationale: the collector already
+  reads its full runtime config from `SIGNALS_*` env (`internal/config`), so a
+  buyer tuning any of those (e.g. the dev-only `SIGNALS_ALLOW_INSECURE_PG_TLS`
+  that surfaced this in the #235 AMI launch-test) must be able to set it in
+  `signals.env` without editing the baked unit; document-only would leave the
+  unit silently ignoring buyer env and diverge from the container/Helm env
+  contract. `EnvironmentFile=` still loads the file into the unit's environment
+  so systemd fails cleanly if it is absent; `--env-file` is what actually
+  crosses the container boundary.
+- **R-AMI-06** (env secrets never logged — #292): The env-forwarding mechanism
+  MUST NOT echo, `cat`, `tee`, or otherwise print the contents of `signals.env`
+  or any token value to the journal / stdout / stderr. `--env-file` and
+  `EnvironmentFile=` pass values into the process environment without rendering
+  them on the command line or in logs; no bake or launch step may `cat`/`echo`
+  the file, and no `set -x` may be enabled around a line carrying a token value.
 
 ## Invariants
 
@@ -88,7 +110,14 @@ Out of scope (deferred, demand-gated):
   passwordless onboarding.
 - **INV-AMI-03** (single EC2 contract): the component and
   `deploy/aws/terraform` install the collector the same way (docker-run the
-  image), differing only in bake-time vs launch-time.
+  image), differing only in bake-time vs launch-time. This parity extends to env
+  forwarding: both paths forward the buyer-supplied `signals.env` into the
+  container via `--env-file /etc/signals/signals.env` (R-AMI-05).
+- **INV-AMI-04** (env secrets never leak to logs — #292): no artifact in either
+  EC2 path prints the contents of `signals.env` or a token value to any log
+  stream. A buyer's `SIGNALS_API_TOKEN` (or any other `SIGNALS_*` secret) reaches
+  the collector only through the process environment, never through stdout /
+  stderr / the systemd journal (R-AMI-06).
 
 ## Failure Conditions
 
@@ -99,6 +128,11 @@ Out of scope (deferred, demand-gated):
 - **FC-AMI-03**: The component writes a credential/config/token value into the
   image (e.g. a hardcoded token or a `signals.yaml` with a password) → violates
   R-AMI-01 / INV-AMI-01.
+- **FC-AMI-04**: The unit forwards only `SIGNALS_API_TOKEN` (not the whole
+  `signals.env`), so a buyer-supplied `SIGNALS_*` var is silently ignored →
+  violates R-AMI-05 (the #292 defect).
+- **FC-AMI-05**: A step `cat`/`echo`/`tee`s `signals.env` or a token value to a
+  log stream → violates R-AMI-06 / INV-AMI-04.
 
 ## Constraints
 
@@ -125,5 +159,8 @@ specification (this file) -> acceptance cases
 The statically-checkable cases **TC-AMI-01..04** are enforced in CI by
 `scripts/check-imagebuilder-component.sh` (wired into `scripts/preflight.sh`
 as the `imagebuilder` gate and into `.github/workflows/ci.yml`), so the
-demand-gated groundwork cannot regress (#266). **TC-AMI-05** (live baked-AMI
-smoke) remains deferred until #235's demand gate opens.
+demand-gated groundwork cannot regress (#266). **TC-AMI-06** and **TC-AMI-07**
+(#292: env passthrough parity + secrets-never-logged) are enforced by
+`tests/signals_ami_env_forwarding_test.go` (run under `go test`, the repo's
+`test` gate). **TC-AMI-05** (live baked-AMI smoke) remains deferred until #235's
+demand gate opens.

@@ -141,10 +141,13 @@ full configuration examples.
   Manager (`AmazonSSMManagedInstanceCore` on the collector role); no key pair
   exists and no inbound port is open.
 - The loopback **control-plane API token** is a separate credential class from
-  the (non-existent) DB password: user-data mints a random 32-byte token, passes
-  it to the container via the environment (`SIGNALS_API_TOKEN`, the same path the
-  Helm chart uses), and stores it root-only at `/root/signals-api-token` — outside
-  the bind-mounted config, so `signals.yaml` itself stays secret-free.
+  the (non-existent) DB password: user-data mints a random 32-byte token and
+  writes it to `/etc/signals/signals.env` (root-only, `0600`), which the
+  container receives via `docker run --env-file` (`SIGNALS_API_TOKEN`, the same
+  env path the Helm chart uses) — by reference, so the value is never on the
+  docker command line or in the journal (#292). A plain copy of just the token is
+  also stored at `/root/signals-api-token` for the operator verify step. The
+  world-readable `signals.yaml` stays secret-free.
 
 ## Reusing the identity elsewhere
 
