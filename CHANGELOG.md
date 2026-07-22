@@ -6,6 +6,30 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.1.0] - 2026-07-22
+
+### Added
+
+- `index_health_summary_v2` collector: decision-grade index health evidence
+  (#295).
+- Partitioned-index and relation-kind evidence in `index_health_summary_v2`
+  (#298).
+
+### Fixed
+
+- AWS EC2 deploy paths now forward the whole `signals.env` to the collector,
+  not a partial subset (#299).
+
+### Changed
+
+- Bump `google.golang.org/api` 0.288.0 -> 0.289.0 (#296).
+
+### Security
+
+- Bump `google.golang.org/grpc` v1.82.0 -> v1.82.1 to remediate
+  GHSA-hrxh-6v49-42gf ("gRPC-Go: xDS RBAC and HTTP/2 Vulnerabilities", HIGH).
+  grpc is an indirect dependency; patch release, no API change (#301).
+
 ## [1.0.3] - 2026-07-19
 
 ### Fixed
