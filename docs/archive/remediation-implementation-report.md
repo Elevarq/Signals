@@ -89,7 +89,7 @@ Evidence quality per requirement is documented in the traceability matrix with t
 
 ## Remaining limitations
 
-1. **Role attribute checks execute against live pg_roles**: Unit tests verify SafetyResult logic. The actual `SELECT rolsuper, rolreplication, rolbypassrls FROM pg_roles` query can only be verified against a running PostgreSQL. An integration test is provided but requires `ARQ_TEST_PG_DSN`.
+1. **Role attribute checks execute against live pg_roles**: Unit tests verify SafetyResult logic. The actual `SELECT rolsuper, rolreplication, rolbypassrls FROM pg_roles` query can only be verified against a running PostgreSQL. An integration test is provided but requires `SIGNALS_TEST_PG_DSN`.
 
 2. **SET LOCAL execution not unit-testable**: Verifying that `SET LOCAL statement_timeout = X` actually takes effect requires a live PostgreSQL transaction. Structural tests confirm the SET LOCAL call is present in the correct code path (inside the transaction, on the acquired connection).
 
@@ -109,7 +109,7 @@ Evidence quality per requirement is documented in the traceability matrix with t
       "host": "db.example.com",
       "port": 5432,
       "dbname": "myapp",
-      "user": "arq_monitor",
+      "user": "signals",
       "sslmode": "verify-full",
       "enabled": true,
       "last_collected": "2026-03-14T10:30:00Z"
@@ -127,7 +127,7 @@ Note: `secret_type` and `secret_ref` are no longer present.
 
 ```json
 {
-  "schema_version": "arq-snapshot.v1",
+  "schema_version": "signals-snapshot.v1",
   "collector_version": "0.1.0",
   "collector_commit": "abc1234",
   "collected_at": "2026-03-14T10:30:00Z",
@@ -140,7 +140,7 @@ Note: `secret_type` and `secret_ref` are no longer present.
 }
 ```
 
-Note: reasons now contain specific role attribute details, not generic "ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true".
+Note: reasons now contain specific role attribute details, not generic "SIGNALS_ALLOW_UNSAFE_ROLE=true".
 
 ## Publication readiness
 

@@ -305,7 +305,7 @@ intent explicitly via two new fields under R035:
 | `ingest_mode` | string | One of `"analyze"` or `"history_only"`. Indicates how the consuming Analyzer should process this export. The default `signalsctl export` (R084 scope) sets `ingest_mode = "analyze"` — the consumer treats it as a current snapshot and may run full report generation. The backlog-replay flow defined in R087 sets `ingest_mode = "history_only"` for snapshots that pre-date the most recent one in a replay burst. |
 
 `ingest_mode` is advisory metadata, not enforcement. The Analyzer side
-of this contract (a sibling specification in the `arq` repository)
+of this contract (a sibling specification in the `analyzer` repository)
 chooses what stages to run for each mode. R086 only specifies the
 producer's labelling discipline.
 
@@ -1390,7 +1390,7 @@ snapshots restore lifecycle history (the Analyzer ingests them into
 its internal SQLite without firing Insight or generating reports);
 the most recent triggers a single current analysis. The Analyzer's
 contract for honouring `ingest_mode` lives in a sibling specification
-in the `arq` repository.
+in the `analyzer` repository.
 
 This rule is **DESIGN-ONLY**, consistent with R082's posture. It
 fixes the contract so the producer and consumer can be implemented

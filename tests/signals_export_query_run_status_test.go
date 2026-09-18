@@ -17,7 +17,7 @@ func seedRunStatusData(t *testing.T, store *db.DB, runs []db.QueryRun) {
 
 	now := time.Now().UTC().Format(time.RFC3339)
 
-	targetID, err := store.UpsertTarget("test-pg", "localhost", 5432, "testdb", "arq", "disable", "NONE", "", true)
+	targetID, err := store.UpsertTarget("test-pg", "localhost", 5432, "testdb", "elevarq", "disable", "NONE", "", true)
 	if err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}

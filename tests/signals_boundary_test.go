@@ -77,7 +77,7 @@ func TestNoAnalyzerImports(t *testing.T) {
 	// allowedImports are exact third-party import paths that contain a
 	// forbidden segment by coincidence but are NOT analyzer/product
 	// boundary violations. The guard targets first-party analyzer
-	// packages (github.com/elevarq/arq/...); vetted external SDKs that
+	// packages (github.com/elevarq/analyzer/...); vetted external SDKs that
 	// happen to use one of the reserved words as a path segment are
 	// exempted here explicitly.
 	allowedImports := map[string]bool{

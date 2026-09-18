@@ -9,7 +9,7 @@
 -- has a real target), plus a plain PK table.
 
 -- --- Monitoring role (non-superuser, pg_monitor) ---------------------
--- Named `signals` to match docs/database-connections.md. NOT `arq_*`.
+-- Named `signals` to match docs/database-connections.md.
 CREATE ROLE signals WITH LOGIN PASSWORD 'monitor_pass';
 GRANT pg_monitor TO signals;
 

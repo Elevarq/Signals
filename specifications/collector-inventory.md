@@ -13,7 +13,7 @@ family specs (`pg_stat_progress_family_v1.md` covers six registered
 IDs, `timescaledb_family_v1.md` covers twelve) and a handful of
 spec-less IDs mean a filename walk under-counts and mis-names the
 registry. Downstream consumers that need the closed collector-name
-enum (the Arq-Workbench bundled catalogue generator, the Analyzer's
+enum (the Workbench bundled catalogue generator, the Analyzer's
 WPS-R008 producer-side gate and its freshness checks) cannot import
 `internal/pgqueries` cross-module, and had no mechanical view of the
 registry at all — which is how the bundled catalogue silently went

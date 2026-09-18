@@ -14,8 +14,8 @@ that same connection/transaction.
 
 ## CRITICAL: STDD artifacts not in repository
 
-The STDD artifacts exist at `/Users/frankheikens/Projects/elevarq/arq/features/signals/`
-which is **outside** the Arq Signals repository root. The repo at
+The STDD artifacts exist at `/Users/frankheikens/Projects/Analyzer/features/signals/`
+which is **outside** the Elevarq Signals repository root. The repo at
 `repo-split/signals/` has no `features/` directory. Any CI or
 contributor clone would not have these files.
 
@@ -31,7 +31,7 @@ The adoption guide references config fields that do not exist:
   config uses these under `signals:`
 - Port 8065 — the actual default is 8081
 - Config filename `signals.yaml` — the actual lookup is `signals.yaml`
-- `arqctl collect --config` — the CLI uses `arqctl collect now` with
+- `signalsctl collect --config` — the CLI uses `signalsctl collect now` with
   API token, not `--config`
 
 ## MAJOR: /status exposes secret_type and secret_ref
@@ -47,7 +47,7 @@ as `SecretRef` but the handler uses `t.SecretType`). However,
 ## MAJOR: Unsafe mode metadata records generic reason
 
 `export.go:88-90` records `unsafe_reasons` but `cmd/signals/main.go`
-sets this to `["ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true"]` — a generic
+sets this to `["SIGNALS_ALLOW_UNSAFE_ROLE=true"]` — a generic
 string, not the actual bypassed role checks. The collector knows the
 specific bypassed checks (from `safetyResult.HardFailures`) but does
 not propagate them to the exporter.
@@ -62,10 +62,10 @@ behavior is correct. Should be supplemented with behavioral tests.
 ## MINOR: Missing env vars in README
 
 The README env var table omits:
-- `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE`
-- `ARQ_SIGNALS_LOG_JSON`
-- `ARQ_SIGNALS_MAX_CONCURRENT_TARGETS`
-- `ARQ_SIGNALS_TARGET_TIMEOUT`
-- `ARQ_SIGNALS_QUERY_TIMEOUT`
-- `ARQ_SIGNALS_TARGET_NAME`
-- `ARQ_SIGNALS_TARGET_PGPASS_FILE`
+- `SIGNALS_ALLOW_UNSAFE_ROLE`
+- `SIGNALS_LOG_JSON`
+- `SIGNALS_MAX_CONCURRENT_TARGETS`
+- `SIGNALS_TARGET_TIMEOUT`
+- `SIGNALS_QUERY_TIMEOUT`
+- `SIGNALS_TARGET_NAME`
+- `SIGNALS_TARGET_PGPASS_FILE`

@@ -365,7 +365,7 @@ semantics are:
   burst; `"history_only"` for every other snapshot of an R087 burst.
   Indicates how the consuming Analyzer should process this export
   (advisory; the Analyzer side of the contract is specified in the
-  sibling `arq` repository).
+  sibling `analyzer` repository).
 - **`collection_status`** — required as of SIGNALS-R125. Marks whether
   the packaged data represents a healthy collection so a consumer never
   has to infer emptiness or failure from an absent snapshot row

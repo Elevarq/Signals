@@ -57,14 +57,14 @@ func seedSnapshotsTwoTargets(t *testing.T, store *db.DB) {
 	// the two targets up front so the snapshots below land as
 	// canonical (non-orphan) rows. UpsertTarget on a fresh DB
 	// returns 1, then 2, matching the literal ids used below.
-	idA, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true)
+	idA, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true)
 	if err != nil {
 		t.Fatalf("UpsertTarget target-A: %v", err)
 	}
 	if idA != 1 {
 		t.Fatalf("first UpsertTarget returned id=%d, want 1 (test fixture assumes AUTOINCREMENT starts at 1)", idA)
 	}
-	idB, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "arq", "disable", "NONE", "", true)
+	idB, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "elevarq", "disable", "NONE", "", true)
 	if err != nil {
 		t.Fatalf("UpsertTarget target-B: %v", err)
 	}

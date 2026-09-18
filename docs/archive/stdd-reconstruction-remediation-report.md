@@ -122,7 +122,7 @@ Date: 2026-03-14
 
 The STDD layer has moved from "partially sufficient" to "materially
 sufficient" for language-independent reconstruction. A competent
-engineer can now rebuild Arq Signals from the specification,
+engineer can now rebuild Elevarq Signals from the specification,
 appendices, and acceptance tests without reading the Go implementation
 for all major subsystems. The three remaining PARTIAL areas (CLI,
 connection pooling, logging) are low-risk and can be addressed

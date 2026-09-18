@@ -980,7 +980,7 @@ analyzer).
 ## Related
 
 - [Elevarq](https://elevarq.com) — PostgreSQL tools for engineering teams
-- [Elevarq Analyzer](https://elevarq.com/products/arq) — commercial PostgreSQL intelligence
+- [Elevarq Analyzer](https://elevarq.com/analyzer) — commercial PostgreSQL intelligence
   platform; Elevarq Signals is its open-source collection layer
 - [pgAgroal Container](https://github.com/Elevarq/pgAgroal) — production-ready
   container distribution of pgagroal, a high-performance PostgreSQL connection

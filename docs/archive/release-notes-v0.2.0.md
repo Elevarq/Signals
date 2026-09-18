@@ -1,8 +1,8 @@
-# Arq Signals v0.2.0 — Expanded Diagnostics and Server Survival Pack
+# Elevarq Signals v0.2.0 — Expanded Diagnostics and Server Survival Pack
 
-## What is Arq Signals
+## What is Elevarq Signals
 
-Arq Signals is an open-source, read-only PostgreSQL diagnostic
+Elevarq Signals is an open-source, read-only PostgreSQL diagnostic
 collector. It connects to your databases, runs approved SQL queries,
 and produces portable snapshots of diagnostic data. No AI, no cloud,
 no write operations.
@@ -74,12 +74,12 @@ Create a dedicated monitoring role — do not use the `postgres`
 superuser:
 
 ```sql
-CREATE ROLE arq_signals LOGIN;
-GRANT pg_monitor TO arq_signals;
+CREATE ROLE signals LOGIN;
+GRANT pg_monitor TO signals;
 ```
 
 The safety model blocks superuser, replication, and bypassrls roles
-by default. An explicit override (`ARQ_SIGNALS_ALLOW_UNSAFE_ROLE=true`)
+by default. An explicit override (`SIGNALS_ALLOW_UNSAFE_ROLE=true`)
 is available for lab/dev use and is recorded in export metadata.
 
 ## Trust model

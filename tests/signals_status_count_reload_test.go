@@ -53,10 +53,10 @@ func TestStatusTargetCountExcludesDisabled(t *testing.T) {
 	store, handler, cleanup := makeStatusTestStack(t)
 	defer cleanup()
 
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget A: %v", err)
 	}
-	if _, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget B: %v", err)
 	}
 	// Soft-disable B (the reload path would do this on a config change).

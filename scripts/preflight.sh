@@ -7,7 +7,7 @@
 # below; the .githooks/pre-push hook calls `all` before every push.
 #
 # Spec: tracking issue Elevarq/Signals#141. Sibling of
-# Elevarq/Arq-Workbench#255 — same pattern shared across repos.
+# Elevarq/Workbench#255 — same pattern shared across repos.
 #
 # Usage:
 #   scripts/preflight.sh             # default: run `all`
@@ -124,18 +124,18 @@ run_docs() {
   log_ok "docs: clean"
 }
 
-# de-arq guard (Elevarq/Analyzer#2568 replication, #398): baseline ratchet
-# that blocks NEW legacy-arq naming while the rename debt is burned down.
-# Fails if any file's legacy-arq count exceeds the committed baseline or a
-# new file appears. (Wording uses the hyphenated "legacy-arq" form on
-# purpose — the guard excludes it, so this file stays at baseline.)
+# de-arq guard (Elevarq/Analyzer#2568 replication, Signals#416): burn-to-zero
+# gate that forbids ANY legacy-arq naming. The rename debt was burned to zero
+# in #416; this fails on the first legacy-arq hit — it is not a baseline
+# ratchet. (Wording uses the hyphenated "legacy-arq" form on purpose — the
+# guard excludes it, so this file does not trip the gate.)
 run_no_legacy_arq() {
-  log_step "de-arq guard (no new legacy-arq)"
+  log_step "de-arq guard (zero legacy-arq)"
   if ! bash "${SCRIPT_DIR}/check-no-legacy-arq.sh"; then
-    log_fail "de-arq guard: new legacy-arq introduced beyond the baseline"
+    log_fail "de-arq guard: legacy-arq present in the tracked tree"
     return 1
   fi
-  log_ok "de-arq guard: no new legacy-arq beyond the baseline"
+  log_ok "de-arq guard: zero legacy-arq"
 }
 
 # #266: static guard for the demand-gated AMI / EC2 Image Builder groundwork

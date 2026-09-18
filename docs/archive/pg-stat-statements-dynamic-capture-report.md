@@ -73,7 +73,7 @@ The collector is now more version-tolerant:
 ## Smoke test verification
 
 Tested against PostgreSQL 18.1 (localhost:54318) with the `frs`
-database and `arq_signals` role:
+database and `signals` role:
 - Before fix: `pg_stat_statements_v1` failed with "column
   blk_read_time does not exist", cascading to abort all queries
 - After fix: `pg_stat_statements_v1` succeeds with all PG 18 columns

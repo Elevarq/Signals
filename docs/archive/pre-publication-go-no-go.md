@@ -1,7 +1,7 @@
 # Pre-Publication Go/No-Go Report
 
 **Date:** 2026-03-14
-**Repository:** Arq Signals
+**Repository:** Elevarq Signals
 **Version:** v0.1.0
 
 ---
@@ -75,7 +75,7 @@ The 5 structural-only requirements are boundary enforcement (R007-R009: no analy
 - FAQ: Accurate on fail-closed behavior, credential handling, no DSN references
 - Runtime safety model: Documents SET LOCAL (transaction-scoped), /status omits secret fields
 
-No `dsn:`, `dsn_env:`, port 8065, or `arqctl --config` patterns remain in any documentation.
+No `dsn:`, `dsn_env:`, port 8065, or `signalsctl --config` patterns remain in any documentation.
 
 ### 8. No secrets or proprietary logic
 

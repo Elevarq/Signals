@@ -148,7 +148,7 @@ func TestExportZIPContainsRequiredFiles(t *testing.T) {
 }
 
 // TestExportZIPOmitsAnalyzerFiles verifies the ZIP does NOT contain files
-// that belong to the analyzer product (arq-analyzer).
+// that belong to the analyzer product (elevarq-analyzer).
 // Traces: SIGNALS-R006 / TC-SIG-009
 func TestExportZIPOmitsAnalyzerFiles(t *testing.T) {
 	store := openTestDB(t)
@@ -179,7 +179,7 @@ func seedExportData(t *testing.T, store *db.DB) {
 	now := time.Now().UTC().Format(time.RFC3339)
 
 	// Insert target.
-	targetID, err := store.UpsertTarget("test-pg", "localhost", 5432, "testdb", "arq", "disable", "NONE", "", true)
+	targetID, err := store.UpsertTarget("test-pg", "localhost", 5432, "testdb", "elevarq", "disable", "NONE", "", true)
 	if err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}

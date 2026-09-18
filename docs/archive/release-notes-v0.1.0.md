@@ -1,6 +1,6 @@
-# Arq Signals v0.1.0 — Initial Release
+# Elevarq Signals v0.1.0 — Initial Release
 
-The first public release of Arq Signals, an open-source PostgreSQL
+The first public release of Elevarq Signals, an open-source PostgreSQL
 diagnostic signal collector.
 
 ## What's included
@@ -8,9 +8,9 @@ diagnostic signal collector.
 - **12 versioned SQL collectors** covering server configuration,
   active sessions, database statistics, table and index I/O, query
   statistics, and transaction wraparound detection
-- **Three-layer read-only enforcement** to guarantee Arq Signals
+- **Three-layer read-only enforcement** to guarantee Elevarq Signals
   never modifies your database
-- **Portable snapshot format** (`arq-snapshot.v1`) for transferring
+- **Portable snapshot format** (`signals-snapshot.v1`) for transferring
   collected data to downstream tools
 - **Configurable scheduling** from 5-minute to 7-day cadences per
   collector, with automatic catch-up skipping
@@ -23,12 +23,12 @@ diagnostic signal collector.
 
 We believe database diagnostic collection should be transparent. You
 should be able to read every SQL query that runs against your database,
-audit the binary, and own the output. Arq Signals is licensed under
+audit the binary, and own the output. Elevarq Signals is licensed under
 BSD-3-Clause with no usage limits or feature gates.
 
 ## Intentionally out of scope
 
-Arq Signals is a collector, not an analyzer. The following capabilities
+Elevarq Signals is a collector, not an analyzer. The following capabilities
 are deliberately excluded from this project:
 
 - Scoring, grading, or health assessments
@@ -36,8 +36,8 @@ are deliberately excluded from this project:
 - AI, LLM, or machine learning integration
 - Cloud connectivity or external service calls
 
-These capabilities belong in a downstream analyzer. Arq Signals
-snapshots are compatible with [Arq Analyzer](https://elevarq.com/analyzer)
+These capabilities belong in a downstream analyzer. Elevarq Signals
+snapshots are compatible with [Elevarq Analyzer](https://elevarq.com/analyzer)
 but can be consumed by any tool that reads JSON.
 
 ## Get started in 2 minutes

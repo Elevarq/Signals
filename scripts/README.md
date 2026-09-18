@@ -56,8 +56,8 @@ git push --no-verify
 
 Tracked under [Elevarq/Signals#141](https://github.com/Elevarq/Signals/issues/141).
 Sibling of the same pattern shipped on Workbench
-([Elevarq/Arq-Workbench#255](https://github.com/Elevarq/Arq-Workbench/issues/255) /
-[Elevarq/Arq-Workbench#261](https://github.com/Elevarq/Arq-Workbench/pull/261)) —
+([Elevarq/Workbench#255](https://github.com/Elevarq/Workbench/issues/255) /
+[Elevarq/Workbench#261](https://github.com/Elevarq/Workbench/pull/261)) —
 unified developer ergonomics across the three Go repos.
 
 Catching gofmt / vet / build / test failures pre-push removes the

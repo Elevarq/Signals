@@ -16,7 +16,7 @@
 # watching CI fail, fixing, and pushing again.
 #
 # Spec: tracking issue Elevarq/Signals#141. Sibling of
-# Elevarq/Arq-Workbench#255 — same pattern shared across repos.
+# Elevarq/Workbench#255 — same pattern shared across repos.
 
 set -euo pipefail
 

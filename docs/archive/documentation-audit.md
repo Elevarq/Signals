@@ -101,15 +101,15 @@ The following documentation areas match the implementation:
 |------|---------------|--------|
 | Three-layer read-only enforcement | README, safety model, SECURITY, spec | Correct |
 | Role safety checks (super/repl/bypass) | README, safety model, FAQ, spec | Correct |
-| Unsafe override (ARQ_SIGNALS_ALLOW_UNSAFE_ROLE) | README, safety model, FAQ, adoption guide | Correct |
+| Unsafe override (SIGNALS_ALLOW_UNSAFE_ROLE) | README, safety model, FAQ, adoption guide | Correct |
 | Credential handling | README, credential review, SECURITY, spec | Correct |
 | /status field exclusions (no secret_type/ref) | credential review, safety model | Correct |
 | Export metadata (unsafe_mode, unsafe_reasons) | safety model, spec | Correct |
 | API endpoints (/health, /status, /collect/now, /export) | README, adoption guide | Correct |
-| CLI commands (version, status, collect now, export) | README, adoption guide, arqctl main.go | Correct |
+| CLI commands (version, status, collect now, export) | README, adoption guide, signalsctl main.go | Correct |
 | Environment variables (22 vars) | README table, config.go applyEnvOverrides | Correct |
 | Config defaults | README, adoption guide, examples/signals.yaml, config.go | Correct |
-| Snapshot format (arq-snapshot.v1) | README, spec, snapshot/schema.go | Correct |
+| Snapshot format (signals-snapshot.v1) | README, spec, snapshot/schema.go | Correct |
 | NDJSON compression threshold (4096 bytes) | spec, db/ndjson.go | Correct |
 | Dedicated connection + SET LOCAL timeouts | safety model, collector.go | Correct |
 | Query catalog (9 core + 3 wraparound) | README, spec, catalog.go, catalog_wraparound.go | Correct (except cadences) |

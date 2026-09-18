@@ -169,7 +169,7 @@ sum(rate(signals_sqlite_persistence_failures_total[15m])) > 0
 
 ## Workbench integration
 
-The Workbench Signals page (Arq-Workbench #53) consumes Signals
+The Workbench Signals page (Workbench #53) consumes Signals
 state via the Analyzer-mediated import contract, not directly off
 `/metrics`. This guide is for **operator** consumption — Prometheus
 scrapes, on-call alerting, capacity planning. The analyzer-side

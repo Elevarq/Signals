@@ -73,7 +73,7 @@ func TestClassify_TLSHandshake(t *testing.T) {
 }
 
 func TestClassify_AuthSQLSTATE28P01(t *testing.T) {
-	err := &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "arq"`}
+	err := &pgconn.PgError{Code: "28P01", Message: `password authentication failed for user "elevarq"`}
 	cat, detail := Classify(err)
 	if cat != CategoryAuth {
 		t.Errorf("28P01: got %q, want %q (detail=%q)", cat, CategoryAuth, detail)

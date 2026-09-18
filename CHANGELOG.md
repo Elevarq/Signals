@@ -21,6 +21,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   and rewrote the `Codex post-0.3.1 <id>` review-finding comments to
   `post-0.3.1 <id>` across the tree. No behaviour change; no git-history
   rewrite.
+- Completed the de-arq rename to zero (#416, replicating Elevarq/Analyzer#2568).
+  Burned every remaining legacy standalone `arq` occurrence (44 files) out of
+  code identifiers, comments, live docs, and archived docs — no runtime
+  contract changed (the live env prefix `SIGNALS_*`, binaries `signals` /
+  `signalsctl`, and snapshot format `signals-snapshot.v1` were already
+  de-arq'd; only stale references to the old names remained). Stale references
+  to the already-renamed sibling repos were updated to their current canonical
+  names (`Elevarq/Arq` -> `Elevarq/Analyzer`, `Elevarq/Arq-Workbench` ->
+  `Elevarq/Workbench`, `github.com/elevarq/arq` -> `github.com/elevarq/analyzer`,
+  spec dir `arq-analyzer-v0.1` -> `elevarq-analyzer-v0.1`). The
+  `check-no-legacy-arq.sh` guard was converted from a baseline ratchet to a
+  **burn-to-zero gate** (fails on the first legacy-arq hit) and its scan engine
+  was fixed to be honest on macOS: it now uses Python 3 (the authoritative
+  regex engine) instead of `git grep -P`, which silently matches nothing where
+  `git` lacks PCRE. The obsolete `scripts/de-arq-baseline.txt` was removed.
 
 ### Added
 
