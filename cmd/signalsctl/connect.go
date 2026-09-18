@@ -211,7 +211,7 @@ func connectTestCmd() *cobra.Command {
 
 	cmd.Flags().StringVar(&configPath, "config", defaultConfigPath(), "Path to config file (ignored when --dsn is supplied)")
 	cmd.Flags().BoolVar(&jsonOut, "json", false, "Emit a JSON report instead of human-readable text")
-	cmd.Flags().StringVar(&dsnArg, "dsn", "", "Ad-hoc DSN fields (e.g. \"host=db port=5432 dbname=app user=arq sslmode=disable\")")
+	cmd.Flags().StringVar(&dsnArg, "dsn", "", "Ad-hoc DSN fields (e.g. \"host=db port=5432 dbname=app user=elevarq sslmode=disable\")")
 	return cmd
 }
 

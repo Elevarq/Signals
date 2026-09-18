@@ -2,118 +2,146 @@
 # Copyright (c) 2026 Scantr LLC. All rights reserved.
 # Elevarq is a trade name of Scantr LLC.
 #
-# De-arq guard (#2568): a baseline ratchet that blocks NEW legacy "arq"
-# naming (the pre-rebrand product name) while the remaining rename debt is
-# burned down.
+# De-arq guard (#2568 / Signals#416): a BURN-TO-ZERO gate that forbids ANY
+# legacy "arq" naming (the pre-rebrand product name) anywhere in the tracked
+# tree except the immutable/history surfaces allow-listed below.
 #
-# The product is Elevarq; legacy standalone "arq" must not reappear in
-# runtime strings (container names, /var/lib/arq, arq-license.json, image
-# refs, helm chart dirs), code identifiers, or live docs.
+# The product is Elevarq; legacy standalone "arq" must not appear in runtime
+# strings (container names, /var/lib/arq, arq-license.json, image refs, helm
+# chart dirs), code identifiers, or live docs. The rename debt has been burned
+# to zero (Signals#416); this guard keeps it there — the check FAILS on the
+# first legacy-arq hit, it is not a "no new beyond a baseline" ratchet.
 #
-# Detection: case-insensitive "arq" at a WORD BOUNDARY (\barq). This is the
-# whole trick that makes de-arq reliable — a word boundary cannot fall inside
-# "elev|arq" (the "a" is preceded by the word char "v"), so `\barq` matches
-# standalone `arq` / `arq-*` / `/…/arq` but NEVER matches `elevarq`. It also
-# never matches `pgagroal` (no "arq" at all).
+# Detection: case-insensitive "arq" at a WORD BOUNDARY (\barq), excluding the
+# tooling's own vocabulary "de-arq" / "legacy-arq" (and thus "no-legacy-arq").
+# The word boundary is the whole trick — it cannot fall inside "elev|arq" (the
+# "a" is preceded by the word char "v"), so `\barq` matches standalone `arq` /
+# `arq-*` / `/…/arq` but NEVER matches `elevarq`, and never matches `pgagroal`.
+#
+# ENGINE — honest by construction. macOS `git` is frequently built WITHOUT
+# PCRE, and `git grep -P` then silently matches nothing and reports GREEN — the
+# exact bug that let this rename stay "done" for months. So the primary engine
+# is Python 3 (the authoritative engine used to produce the census). We fall
+# back to `git grep -P` ONLY after probing that it really supports PCRE, and if
+# NEITHER is available we hard-error (exit 2) rather than pass silently.
 #
 # Modes:
-#   check   (default) — fail if any file's legacy-arq count EXCEEDS the
-#                       committed baseline, or a NEW file appears. This is
-#                       the CI gate: new `arq` can never land.
+#   check  (default) — exit 1 if any legacy-arq remains; exit 0 only at zero.
 #   list             — print the current per-file inventory (path:count).
-#   update           — regenerate the baseline (run after you fix a file, or
-#                       after a legitimate, allow-listed addition).
 #
-# Burn the baseline down to empty to complete the rename; the guard then
-# permanently forbids any `arq` at all.
-#
-# Scope decision (#2568, product owner): runtime + code/docs, NOT GitHub repo
-# renames. History and immutable files are excluded below.
+# Scope decision (#2568): runtime + code/docs, NOT GitHub repo names. History
+# and immutable files are excluded below. Note the Elevarq repos have already
+# been renamed (Arq -> Analyzer, Arq-Workbench -> Workbench, Arq-Signals ->
+# Signals), so references to those old names are stale and were updated to the
+# current names during the burn-down, not left as "repo names".
 
 set -euo pipefail
 
 cd "$(git rev-parse --show-toplevel)"
 
-BASELINE="scripts/de-arq-baseline.txt"
 SELF="scripts/check-no-legacy-arq.sh"
 
-# The scan uses `git grep`, which is present on every dev machine and CI runner
-# (no ripgrep dependency) and searches only TRACKED files (so build output and
-# gitignored trees are excluded for free). `-I` skips binary files; `-P` selects
-# PCRE (lookbehind + word boundary). git built with PCRE is standard on Linux
-# CI and modern macOS.
-
-# Excluded surfaces (allow-list): history + immutable + the guard's own files,
-# expressed as git pathspecs. GitHub repo names (Arq, Arq-Signals,
-# Arq-Workbench) are out of scope and are NOT renamed, so references that
-# resolve to a real repo/module path are expected to remain until a future
-# repo-rename program.
-EXCLUDES=(
-  ':!CHANGELOG.md'
-  ':!LICENSE'
-  ':!NOTICE'
-  ":!$BASELINE"
-  ":!$SELF"
-  ':!**/CHANGELOG.md'
-)
-
-# scan prints "path:count" (rg -c) for every tracked file with >=1 legacy-arq
-# match, sorted. rg honours .gitignore and skips binary files.
-# The pattern is case-insensitive `arq` at a word boundary, EXCEPT when it is
-# the anti-arq vocabulary itself — "de-arq" / "legacy-arq" (and thus
-# "no-legacy-arq"). Those are the tooling's own terms, not the legacy product
-# name, so the guard must not count them as debt anywhere.
+# The canonical pattern, shared by both engines.
 PATTERN='(?i)(?<!de-)(?<!legacy-)\barq'
 
-scan() {
-  git grep -I -c -P "$PATTERN" -- "${EXCLUDES[@]}" 2>/dev/null \
+# Excluded surfaces (allow-list): history + immutable + the guard's own file.
+# Kept in sync between the Python engine and the git-grep fallback.
+EXCLUDES_GREP=(
+  ':!CHANGELOG.md'
+  ':!**/CHANGELOG.md'
+  ':!LICENSE'
+  ':!NOTICE'
+  ":!$SELF"
+)
+
+# Python engine: authoritative. Reads tracked files, skips binaries, applies
+# the same allow-list, prints "path:count" for every file with >=1 match.
+scan_python() {
+  python3 - "$SELF" <<'PY'
+import os, re, subprocess, sys
+self_path = sys.argv[1]
+pattern = re.compile(r'(?i)(?<!de-)(?<!legacy-)\barq')
+excluded_basenames = {'CHANGELOG.md', 'LICENSE', 'NOTICE'}
+excluded_paths = {self_path}
+def is_binary(p):
+    try:
+        with open(p, 'rb') as f:
+            return b'\x00' in f.read(8192)
+    except OSError:
+        return True
+files = subprocess.check_output(['git', 'ls-files'], text=True).splitlines()
+out = []
+for f in files:
+    if f in excluded_paths:
+        continue
+    if os.path.basename(f) in excluded_basenames:
+        continue
+    if not os.path.isfile(f) or is_binary(f):
+        continue
+    try:
+        with open(f, encoding='utf-8', errors='replace') as fh:
+            n = sum(len(pattern.findall(line)) for line in fh)
+    except OSError:
+        continue
+    if n:
+        out.append(f'{f}:{n}')
+out.sort()
+print('\n'.join(out))
+PY
+}
+
+# git-grep fallback: only used when Python is absent AND git grep -P really
+# supports PCRE (probed below). Counts matching lines per file.
+scan_gitgrep() {
+  git grep -I -c -P "$PATTERN" -- "${EXCLUDES_GREP[@]}" 2>/dev/null \
     | LC_ALL=C sort || true
+}
+
+# Probe whether `git grep -P` actually supports PCRE on this machine. A git
+# built without PCRE errors out on a lookbehind pattern; one with PCRE matches
+# the literal "arq". Probe against a temp file via --no-index.
+gitgrep_has_pcre() {
+  local tmp rc=0
+  tmp="$(mktemp)"
+  printf 'arq\n' > "$tmp"
+  git grep --no-index -P -q "$PATTERN" -- "$tmp" >/dev/null 2>&1 || rc=$?
+  rm -f "$tmp"
+  return $rc
+}
+
+scan() {
+  if command -v python3 >/dev/null 2>&1; then
+    scan_python
+  elif gitgrep_has_pcre; then
+    scan_gitgrep
+  else
+    echo "de-arq guard: no usable regex engine (python3 absent and git grep" >&2
+    echo "lacks PCRE). Cannot verify legacy-arq honestly — refusing to pass." >&2
+    exit 2
+  fi
 }
 
 case "${1:-check}" in
   list)
     scan
     ;;
-  update)
-    scan > "$BASELINE"
-    files=$(wc -l < "$BASELINE" | tr -d ' ')
-    lines=$(awk -F: '{s+=$NF} END{print s+0}' "$BASELINE")
-    echo "de-arq baseline updated: $files files, $lines legacy-arq lines"
-    ;;
   check)
-    # Compare current scan against the baseline with awk (portable to macOS
-    # bash 3.2 — no associative arrays). The count is the LAST colon-field, so
-    # paths that themselves contain a colon still parse correctly.
-    rc=0
-    scan | awk -F: -v base="$BASELINE" '
-      BEGIN {
-        while ((getline line < base) > 0) {
-          n = split(line, a, ":")
-          cnt = a[n]
-          key = substr(line, 1, length(line) - length(cnt) - 1)
-          b[key] = cnt
-        }
-      }
-      {
-        cnt = $NF + 0
-        key = substr($0, 1, length($0) - length($NF) - 1)
-        if (!(key in b)) { print "NEW legacy-arq file: " key " (" cnt ")"; f = 1 }
-        else if (cnt > b[key] + 0) { print "MORE legacy-arq in " key ": " cnt " (baseline " b[key] ")"; f = 1 }
-      }
-      END { exit f ? 1 : 0 }
-    ' || rc=$?
-    if [ "$rc" -ne 0 ]; then
+    hits="$(scan)"
+    if [ -n "$hits" ]; then
+      files=$(printf '%s\n' "$hits" | grep -c ':' || true)
+      lines=$(printf '%s\n' "$hits" | awk -F: '{s+=$NF} END{print s+0}')
+      echo "de-arq guard FAILED: legacy 'arq' still present"
+      echo "  ${files} file(s), ${lines} occurrence(s):"
+      printf '%s\n' "$hits" | sed 's/^/    /'
       echo ""
-      echo "de-arq guard FAILED: new legacy 'arq' was introduced."
-      echo "Rename it to 'elevarq'. If the addition is legitimate and allow-listed,"
-      echo "record it with:  bash $SELF update"
+      echo "Rename every occurrence to 'elevarq' (or the current canonical"
+      echo "name for a renamed repo/module/contract). This gate burns to zero."
       exit 1
     fi
-    echo "de-arq guard OK: no new legacy 'arq' beyond the baseline ($BASELINE)."
-    echo "Burn the baseline to zero to finish the rename."
+    echo "de-arq guard OK: zero legacy 'arq' in the tracked tree."
     ;;
   *)
-    echo "usage: $SELF [check|list|update]" >&2
+    echo "usage: $SELF [check|list]" >&2
     exit 2
     ;;
 esac

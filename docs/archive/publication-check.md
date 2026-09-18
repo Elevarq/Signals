@@ -1,4 +1,4 @@
-# Publication Checklist — Arq Signals v0.1.0
+# Publication Checklist — Elevarq Signals v0.1.0
 
 ## Build & Test
 - [ ] `git clone && cd signals && make build` succeeds on clean checkout

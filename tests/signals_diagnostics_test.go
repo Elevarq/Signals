@@ -184,7 +184,7 @@ func containsCI(s, substr string) bool {
 // TestSnapshotIdentityFieldsPresent verifies that the snapshot
 // contract includes the fields required by the Elevarq Analyzer for
 // database key derivation.
-// Spec: Elevarq specifications/arq-analyzer-v0.1/snapshot-identity.md
+// Spec: Elevarq specifications/elevarq-analyzer-v0.1/snapshot-identity.md
 func TestSnapshotIdentityFieldsPresent(t *testing.T) {
 	// metadata.json must include instance_id
 	q := pgqueries.ByID("server_identity_v1")

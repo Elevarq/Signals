@@ -63,9 +63,9 @@
 
 ## Config/env handling for unsafe modes
 
-- `ARQ_ALLOW_INSECURE_PG_TLS`: Exists for TLS downgrade in non-prod.
+- `SIGNALS_ALLOW_INSECURE_PG_TLS`: Exists for TLS downgrade in non-prod.
   Not related to role safety.
-- No equivalent for unsafe role override. No `ARQ_SIGNALS_ALLOW_UNSAFE_ROLE`
+- No equivalent for unsafe role override. No `SIGNALS_ALLOW_UNSAFE_ROLE`
   or similar.
 
 ## Summary of gaps

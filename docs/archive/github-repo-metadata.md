@@ -1,6 +1,6 @@
 # GitHub Repository Metadata
 
-Recommended settings for the Arq Signals GitHub repository to maximize
+Recommended settings for the Elevarq Signals GitHub repository to maximize
 discoverability and trust.
 
 ## Repository settings
@@ -59,7 +59,7 @@ golang
 If creating a social preview image, the message should be:
 
 ```
-Arq Signals
+Elevarq Signals
 Read-only PostgreSQL diagnostic collector
 No AI · No cloud · Every query visible in source
 BSD-3-Clause
@@ -96,8 +96,8 @@ Create these labels for community engagement:
   contributions and should be clearly welcoming.
 
 - **`wontfix`**: Apply to requests for analysis, scoring, AI, or
-  recommendation features. Link to the "What Arq Signals does NOT do"
-  section and redirect to Arq Analyzer if appropriate.
+  recommendation features. Link to the "What Elevarq Signals does NOT do"
+  section and redirect to Elevarq Analyzer if appropriate.
 
 ## Pinned sections in README
 
@@ -116,4 +116,4 @@ all within the first scroll.
 - **Discussions**: Enable for community Q&A (reduces noise in Issues)
 - **Wiki**: Disable (documentation lives in docs/)
 - **Projects**: Optional (useful for tracking collector contributions)
-- **Sponsorship**: Disable (commercial support via Arq Analyzer)
+- **Sponsorship**: Disable (commercial support via Elevarq Analyzer)

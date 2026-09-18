@@ -26,9 +26,9 @@ Date: 2026-03-14
 | Test | Requirement | What it proves |
 |------|-------------|----------------|
 | TestConfigLoadFromYAML | R027 | YAML file parsed with correct field values (env, signals, targets, database, api) |
-| TestConfigEnvOverridesFile | R027 | ARQ_SIGNALS_POLL_INTERVAL and ARQ_SIGNALS_RETENTION_DAYS override file values |
+| TestConfigEnvOverridesFile | R027 | SIGNALS_POLL_INTERVAL and SIGNALS_RETENTION_DAYS override file values |
 | TestConfigDefaultsWithNoFile | R028 | Sensible defaults returned when no config file exists |
-| TestConfigSingleTargetFromEnv | R029 | ARQ_SIGNALS_TARGET_* env vars create a target with correct fields |
+| TestConfigSingleTargetFromEnv | R029 | SIGNALS_TARGET_* env vars create a target with correct fields |
 | TestConfigSingleTargetDefaultName | R029 | Target name defaults to "default", dbname defaults to "postgres" |
 | TestConfigValidateCatchesIssues | R030 | Validate catches short poll interval, zero retention, empty fields, no targets |
 | TestConfigValidateRejectsMultipleSecretSources | R030 | Validate flags password_file + password_env on same target |

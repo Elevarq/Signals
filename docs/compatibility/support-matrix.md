@@ -34,7 +34,7 @@ Source of truth: `internal/pgqueries/discovery.go::SupportedMajors`.
 |---|---|---|
 | Self-hosted PostgreSQL | **Supported** | The reference deployment. |
 | AWS RDS for PostgreSQL | **Supported** | Standard read permissions; `pg_monitor` role required for some signal collectors. The `rds_superuser` role is NOT required. |
-| AWS RDS Aurora PostgreSQL-compatible | **Best-effort** | Aurora's catalog implements PG-compatible system views; common collectors work. The `pg_stat_statements_info.dealloc` column (used by `pgss_capacity_v1`) is present in Aurora. Aurora-Serverless's elastic-IOPS surface is invisible to the collector — operator-declared values in the analyzer's TargetContext are the right path (Elevarq/Arq-Workbench#242). |
+| AWS RDS Aurora PostgreSQL-compatible | **Best-effort** | Aurora's catalog implements PG-compatible system views; common collectors work. The `pg_stat_statements_info.dealloc` column (used by `pgss_capacity_v1`) is present in Aurora. Aurora-Serverless's elastic-IOPS surface is invisible to the collector — operator-declared values in the analyzer's TargetContext are the right path (Elevarq/Workbench#242). |
 | Google Cloud SQL for PostgreSQL | **Supported** | Standard read permissions. The `cloudsqlsuperuser` role is sufficient; the collector does NOT require superuser. |
 | AlloyDB | **Best-effort** | PG-compatible catalog. Storage / IOPS abstraction is invisible to the collector; same TargetContext path applies. |
 | Azure Database for PostgreSQL — Flexible Server | **Supported** | Standard read permissions; `azure_pg_admin` is NOT required. |

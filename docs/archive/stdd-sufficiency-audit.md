@@ -1,11 +1,11 @@
 # STDD Sufficiency Audit — Language-Independent Reconstruction
 
 Audit date: 2026-03-14
-Question: Can Arq Signals be rebuilt from the STDD documents alone?
+Question: Can Elevarq Signals be rebuilt from the STDD documents alone?
 
 ## 1. Executive Summary
 
-The STDD layer defines the **what** of Arq Signals well — its purpose,
+The STDD layer defines the **what** of Elevarq Signals well — its purpose,
 boundaries, safety model, and interfaces. However, it does not define
 enough of the **how** to enable faithful reconstruction in another
 language without reading the Go implementation. Approximately 148
@@ -18,7 +18,7 @@ on safety constraints and boundaries but weak on operational mechanics,
 data formats, configuration details, API contracts, and failure
 handling.
 
-## 2. Can Arq Signals Be Rebuilt from STDD Alone?
+## 2. Can Elevarq Signals Be Rebuilt from STDD Alone?
 
 A competent engineer reading only the STDD documents could build a
 system that:
@@ -46,7 +46,7 @@ But they would get wrong or miss:
 ## 3. Strengths in the Current STDD Layer
 
 **Product boundaries are well defined.** Requirements R007-R009 clearly
-state what Arq Signals must NOT do. The invariants (INV-01 through
+state what Elevarq Signals must NOT do. The invariants (INV-01 through
 INV-07) are strong, language-neutral constraints.
 
 **Safety model is well specified.** R017-R026 define the role validation,
@@ -95,16 +95,16 @@ concrete samples.
 - Request ID generation
 
 ### 4.5 CLI Details (R010 is too sparse)
-- arqctl subcommand structure (collect now is a subcommand of collect)
+- signalsctl subcommand structure (collect now is a subcommand of collect)
 - Default API address (http://127.0.0.1:8081)
-- Token from ARQ_SIGNALS_API_TOKEN env var
+- Token from SIGNALS_API_TOKEN env var
 - Export --output flag with default filename pattern
 - Per-command timeouts
 
 ### 4.6 Configuration Model (not in any requirement)
 - YAML structure with named sections (signals, targets, api, database)
-- Config file search order (/etc/arq/signals.yaml → ./signals.yaml)
-- Environment variable naming convention (ARQ_SIGNALS_*)
+- Config file search order (/etc/signals/signals.yaml → ./signals.yaml)
+- Environment variable naming convention (SIGNALS_*)
 - Single-target container mode via env vars
 - Duration string parsing
 - TLS validation logic (prod vs non-prod, AllowInsecurePgTLS)

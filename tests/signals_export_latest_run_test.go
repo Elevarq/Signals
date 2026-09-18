@@ -85,7 +85,7 @@ func collectorStatusByID(t *testing.T, store *db.DB, opts export.Options) map[st
 // latest run lives in an older snapshot than the newest cycle.
 func TestExportDefaultScopeIncludesLowerCadenceCollector(t *testing.T) {
 	store := openTestDB(t)
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 
@@ -140,7 +140,7 @@ func TestExportDefaultScopeIncludesLowerCadenceCollector(t *testing.T) {
 // TC-SIG-122 — run_scope metadata marker.
 func TestExportRunScopeMarker(t *testing.T) {
 	store := openTestDB(t)
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 	seedRun(t, store, "snap-1", 1, "cadence_5m_v1", "2026-04-25T10:00:00Z", "success")
@@ -172,7 +172,7 @@ func TestExportRunScopeMarker(t *testing.T) {
 // TC-SIG-123 — collector freshness metadata (fresh / stale / never_run).
 func TestExportCollectorFreshness(t *testing.T) {
 	store := openTestDB(t)
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 

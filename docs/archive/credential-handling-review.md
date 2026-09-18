@@ -1,7 +1,7 @@
 # Credential Handling Review
 
 ## Credential Sources
-Arq Signals supports three credential sources, each read fresh per connection:
+Elevarq Signals supports three credential sources, each read fresh per connection:
 - password_file -- reads from a file path (Docker secrets compatible)
 - password_env -- reads from an environment variable
 - pgpass_file -- reads from a pgpass-format file

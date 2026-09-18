@@ -16,7 +16,7 @@ must stay within this boundary.
 - Test coverage improvements
 - Performance optimizations for collection
 
-**Out of scope (these belong in arq-analyzer):**
+**Out of scope (these belong in elevarq-analyzer):**
 - Analysis, scoring, or grading logic
 - LLM or AI integration
 - Recommendations or remediation guidance

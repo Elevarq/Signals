@@ -64,7 +64,7 @@ func makeTestHandlerWithStore(t *testing.T) (http.Handler, *db.DB, func()) {
 // successful cycle so the default export has real data to package.
 func seedOneSuccessfulSnapshot(t *testing.T, store *db.DB) {
 	t.Helper()
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 	snap := db.Snapshot{ID: "snap-A1", TargetID: 1, CollectedAt: "2026-07-28T12:00:00Z", PGVersion: "PostgreSQL 18.0", Payload: json.RawMessage(`{}`)}
@@ -119,7 +119,7 @@ func TestExportRefusesDefaultFailedCycle(t *testing.T) {
 	handler, store, cleanup := makeTestHandlerWithStore(t)
 	defer cleanup()
 
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 	if err := store.RecordCycleOutcome("target-A", "failed", "connect_error"); err != nil {
@@ -171,7 +171,7 @@ func TestExportAllScopeMarksCollectionStatus(t *testing.T) {
 	handler, store, cleanup := makeTestHandlerWithStore(t)
 	defer cleanup()
 
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
 	if err := store.RecordCycleOutcome("target-A", "failed", "safety_check"); err != nil {

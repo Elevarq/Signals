@@ -125,7 +125,7 @@ func TestR083TokensMustDiffer(t *testing.T) {
 	apiToken := strings.Repeat("a", 32)             // 32 chars, low entropy
 	err := config.ValidateModeBTokens(cfg, apiToken, apiToken)
 	if err == nil {
-		t.Fatal("expected error when arq token equals api token")
+		t.Fatal("expected error when control-plane token equals api token")
 	}
 	if !strings.Contains(err.Error(), "must differ from api.token") {
 		t.Errorf("error wording must call out the duplication: %v", err)

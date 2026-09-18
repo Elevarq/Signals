@@ -5,7 +5,7 @@ Generated: 2026-03-14
 ## Summary
 
 Implemented fail-closed runtime safety enforcement for PostgreSQL
-role validation and session posture in Arq Signals. Collection is now
+role validation and session posture in Elevarq Signals. Collection is now
 blocked by default when the connected role has unsafe attributes.
 
 ## Test Results
@@ -94,8 +94,8 @@ collection blocked for target prod-primary: safety check failed for connected ro
   BLOCKED: role "postgres" has superuser attribute (rolsuper=true) — collection requires a non-superuser role
 
 Remediation: create a dedicated monitoring role:
-  CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
-  GRANT pg_monitor TO arq_monitor;
+  CREATE ROLE signals WITH LOGIN PASSWORD '...';
+  GRANT pg_monitor TO signals;
 ```
 
 ### Multiple attributes blocked
@@ -105,8 +105,8 @@ collection blocked for target staging: safety check failed for connected role:
   BLOCKED: role "admin" has replication attribute (rolreplication=true) — collection requires a role without replication privileges
 
 Remediation: create a dedicated monitoring role:
-  CREATE ROLE arq_monitor WITH LOGIN PASSWORD '...';
-  GRANT pg_monitor TO arq_monitor;
+  CREATE ROLE signals WITH LOGIN PASSWORD '...';
+  GRANT pg_monitor TO signals;
 ```
 
 ### Unsafe override active

@@ -1709,7 +1709,7 @@ func TestSequencesCollectorResultKind(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// Schema Metadata Collectors — pg_statistic_ext_v1 (Arq#393 / Signals#130)
+// Schema Metadata Collectors — pg_statistic_ext_v1 (Analyzer#393 / Signals#130)
 // ---------------------------------------------------------------------------
 
 func TestStatisticExtCollectorRegistered(t *testing.T) {
@@ -2049,7 +2049,7 @@ func TestStatisticExtDataMCVCollectorEmitsOnlyMCV(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// pg_identity_columns_v1 — Signals#202 / Arq#652 dependency
+// pg_identity_columns_v1 — Signals#202 / Analyzer#652 dependency
 // ---------------------------------------------------------------------------
 
 func TestIdentityColumnsCollectorRegistered(t *testing.T) {

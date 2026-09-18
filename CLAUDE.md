@@ -179,12 +179,12 @@ stdd/templates/
 The **canonical working copy** of signals is this repository,
 checked out at a stable sibling location alongside the other Elevarq
 product repos — convention:
-`<projects>/signals/` alongside `<projects>/arq/`,
+`<projects>/signals/` alongside `<projects>/analyzer/`,
 `<projects>/agent/`, `<projects>/pgagroal-container/`.
 
 A copy of this source may also appear at
-`<arq-repo>/.cache/repo-split/signals/`. That location is a
-**disposable build-input reflection** governed by the arq analyzer's
+`<analyzer-repo>/.cache/repo-split/signals/`. That location is a
+**disposable build-input reflection** governed by the analyzer's
 `workspace-policy.md` spec (WS-R001..WS-R016, Status: ACTIVE). It
 may be a symlink to the canonical checkout (preferred — WS-R015),
 a secondary clone (WS-R016), or absent — the analyzer's setup
@@ -215,6 +215,6 @@ cd <projects>
 git clone git@github.com:elevarq/signals.git
 
 # Optionally point the analyzer's cache at the canonical checkout:
-mkdir -p arq/.cache/repo-split
-ln -s $(pwd)/signals arq/.cache/repo-split/signals
+mkdir -p analyzer/.cache/repo-split
+ln -s $(pwd)/signals analyzer/.cache/repo-split/signals
 ```

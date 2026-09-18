@@ -26,10 +26,10 @@ func enabledByName(t *testing.T, store *db.DB) map[string]bool {
 
 func seedTwoEnabledTargetsWithRuns(t *testing.T, store *db.DB) {
 	t.Helper()
-	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget A: %v", err)
 	}
-	if _, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "arq", "disable", "NONE", "", true); err != nil {
+	if _, err := store.UpsertTarget("target-B", "host-b", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget B: %v", err)
 	}
 	seedRun(t, store, "snap-a", 1, "pg_settings_v1", "2026-04-25T10:00:00Z", "success")
