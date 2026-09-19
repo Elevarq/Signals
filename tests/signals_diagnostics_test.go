@@ -157,6 +157,30 @@ func TestLoginRolesDoesNotExposePasswords(t *testing.T) {
 	}
 }
 
+// TestExtensionInventoryEmitsAvailableButNotInstalled verifies the
+// extension_inventory_v1 query no longer filters to installed-only, so
+// available-but-not-installed extensions (installed_version IS NULL) are
+// carried in the evidence (#415, spec AC-03). The live behavior (AC-01 /
+// AC-02) is exercised by the integration test against a real PG.
+func TestExtensionInventoryEmitsAvailableButNotInstalled(t *testing.T) {
+	q := pgqueries.ByID("extension_inventory_v1")
+	if q == nil {
+		t.Fatal("extension_inventory_v1 not registered")
+	}
+	if containsCI(q.SQL, "installed_version is not null") {
+		t.Errorf("extension_inventory_v1 must NOT filter to installed-only "+
+			"(installed_version IS NOT NULL) — it drops available-but-not-installed "+
+			"extensions (#415): %s", q.SQL)
+	}
+	if !containsCI(q.SQL, "pg_available_extensions") {
+		t.Errorf("extension_inventory_v1 must read from pg_available_extensions: %s", q.SQL)
+	}
+	if !containsCI(q.SQL, "installed_version") {
+		t.Errorf("extension_inventory_v1 must project installed_version "+
+			"(NULL marks available-but-not-installed): %s", q.SQL)
+	}
+}
+
 func containsCI(s, substr string) bool {
 	sl := len(substr)
 	for i := 0; i <= len(s)-sl; i++ {

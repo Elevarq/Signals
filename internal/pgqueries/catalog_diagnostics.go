@@ -59,7 +59,12 @@ func init() {
 		Cadence:        Cadence6h,
 	})
 
-	// Extension inventory: all installed extensions with versions.
+	// Extension inventory: every extension visible to the collecting
+	// role — installed (installed_version non-NULL) AND available but
+	// not installed (installed_version NULL). No installed-only filter,
+	// so a consumer can distinguish "available to install" from
+	// "unavailable on this managed platform" (#415). Platform visibility
+	// still bounds the set via pg_available_extensions (FC-01).
 	Register(QueryDef{
 		ID:       "extension_inventory_v1",
 		Category: "server",
@@ -69,7 +74,6 @@ func init() {
 			installed_version,
 			comment
 		FROM pg_available_extensions
-		WHERE installed_version IS NOT NULL
 		ORDER BY name`,
 		ResultKind:     ResultRowset,
 		RetentionClass: RetentionLong,

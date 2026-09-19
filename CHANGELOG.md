@@ -7,6 +7,16 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- `extension_inventory_v1` now emits **available-but-not-installed** extensions,
+  not only installed ones (#415). Dropped the `WHERE installed_version IS NOT
+  NULL` filter, so every extension visible to the collecting role in
+  `pg_available_extensions` is carried in the evidence — a NULL
+  `installed_version` marks "available to install but not created". This lets a
+  downstream consumer distinguish "available to install" from "unavailable on
+  this managed platform"; platform visibility still bounds the set (FC-01).
+  Evidence only — no diagnosis in Signals. Collector spec + acceptance cases
+  (AC-01..AC-04) updated first per STDD; live behavior covered by a new
+  integration test.
 - Scheduled directory-push: the **destination is the switch** (#403). Setting
   `export_dest` / `SIGNALS_EXPORT_DEST` now enables the per-cycle push on its
   own; `export_on_collect` becomes an explicit opt-OUT (`false` suppresses the
