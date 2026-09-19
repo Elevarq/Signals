@@ -46,7 +46,7 @@ Operational health, security, and planner diagnostics.
 | Query ID | PostgreSQL source | Cadence | Notes |
 |----------|-------------------|---------|-------|
 | `server_identity_v1` | `version()`, uptime, db size | 6h | Server version, uptime, database context |
-| `extension_inventory_v1` | `pg_available_extensions` | 6h | Installed extensions with versions |
+| `extension_inventory_v1` | `pg_available_extensions` | 6h | Installed and available-but-not-installed extensions with versions |
 | `bgwriter_stats_v1` | `pg_stat_bgwriter` | 15m | Checkpoint and background writer health |
 | `long_running_txns_v1` | `pg_stat_activity` | 5m | Transactions older than 5 minutes |
 | `blocking_locks_v1` | `pg_stat_activity` | 5m | Lock-blocking chains with wait durations |
