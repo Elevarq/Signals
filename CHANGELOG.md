@@ -7,6 +7,27 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`pg_hba_file_rules_v1` collector — host-based authentication posture**
+  (#305). A new read-only collector emits one row per `pg_hba.conf` rule
+  from the SQL-queryable `pg_hba_file_rules` view (no filesystem access):
+  `rule_number`/`file_name` (PG16+), `line_number`, `type`, `database`,
+  `user_name`, `address`, `netmask`, `auth_method`, `options`, `error`.
+  This lets the analysis layer flag weak host-auth by pointing at the
+  specific rule (Analyzer #1757 `weak-host-auth`). Transport-security GUCs
+  (`ssl`, `ssl_min_protocol_version`, `ssl_ciphers`) are already carried by
+  `pg_settings_v1` and are not duplicated. Reading the view needs an
+  explicit `GRANT SELECT ON pg_catalog.pg_hba_file_rules` plus `GRANT
+  EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules()` (verified on PG16 —
+  `pg_monitor`/`pg_read_all_settings` grant neither); a role lacking them
+  degrades gracefully via the new `PrivilegedViewDegrade` flag — a
+  permission-denied (42501) is recorded `skipped`/`privilege_restricted`,
+  not failed, so the default `pg_monitor` deployment never marks the cycle
+  partial.
+  Config metadata only, no secrets (not high-sensitivity). Behavioral spec
+  + acceptance cases added first per STDD
+  (`specifications/collectors/pg_hba_file_rules_v1.md`,
+  `pg_hba_file_rules_v1.acceptance.md`); live behavior covered by the
+  output-contract integration harness.
 - **`signals_instance` label on every Prometheus metric** (#408). Each
   exposed series now carries a `signals_instance` constant label whose
   value is the daemon's stable `instance_id` (the same identifier in

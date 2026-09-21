@@ -157,16 +157,35 @@ func BuildStatusFromRuns(runs []db.QueryRun) []CollectorStatus {
 // Specification: specifications/owner_only_privilege_degradation.md
 const reasonPrivilegeOwnerOnly = "privilege_owner_only"
 
+// reasonPrivilegeRestricted marks a PrivilegedViewDegrade collector that
+// hit a permission-denied (SQLSTATE 42501) reading a system view whose
+// access needs an explicit grant the collecting role lacks — specifically
+// pg_hba_file_rules, which needs SELECT on the view plus EXECUTE on
+// pg_hba_file_rules() (neither pg_monitor nor pg_read_all_settings grants
+// them). It is recorded as a skip, not a failure: for a role missing those
+// grants it is an expected, benign privilege boundary, so it must NOT mark
+// the cycle partial (#305). Distinct from reasonPrivilegeOwnerOnly, which
+// covers owner-only catalogs whose PUBLIC SELECT is revoked
+// (pg_statistic_ext_data, #200).
+//
+// Specification: specifications/collectors/pg_hba_file_rules_v1.md
+const reasonPrivilegeRestricted = "privilege_restricted"
+
 // classifyQueryFailure decides the persisted (status, reason) for a
-// collector query that returned an error. An OwnerOnlyDegrade collector
-// that hit a permission-denied error degrades to
-// skipped/privilege_owner_only — an expected privilege boundary that
-// must NOT mark the cycle partial. Every other failure (including a
-// permission-denied error on a non-OwnerOnlyDegrade collector) keeps
-// status=failed with the classified reason (#200, R116).
-func classifyQueryFailure(ownerOnlyDegrade bool, err error) (status, reason string) {
-	if ownerOnlyDegrade && isPermissionDenied(err) {
-		return "skipped", reasonPrivilegeOwnerOnly
+// collector query that returned an error. A collector flagged for a
+// privilege degrade (OwnerOnlyDegrade or PrivilegedViewDegrade) that hit a
+// permission-denied error degrades to a skip — an expected privilege
+// boundary that must NOT mark the cycle partial. Every other failure
+// (including a permission-denied error on a collector with neither flag)
+// keeps status=failed with the classified reason (#200 R116, #305).
+func classifyQueryFailure(ownerOnlyDegrade, privilegedViewDegrade bool, err error) (status, reason string) {
+	if isPermissionDenied(err) {
+		switch {
+		case ownerOnlyDegrade:
+			return "skipped", reasonPrivilegeOwnerOnly
+		case privilegedViewDegrade:
+			return "skipped", reasonPrivilegeRestricted
+		}
 	}
 	return "failed", classifyRunError(err.Error())
 }

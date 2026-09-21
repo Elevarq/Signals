@@ -125,6 +125,10 @@
       "name": "pg_functions_v1"
     },
     {
+      "category": "server",
+      "name": "pg_hba_file_rules_v1"
+    },
+    {
       "category": "schema",
       "name": "pg_identity_columns_v1"
     },

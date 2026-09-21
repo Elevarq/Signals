@@ -217,6 +217,7 @@ per-pid rows for every cycle.
 | Query ID | PostgreSQL source | Cadence | Notes |
 |----------|-------------------|---------|-------|
 | `pg_role_capabilities_v1` | `pg_roles` + `has_*_privilege(...)` | 6h | Role privilege fingerprint — what the connected role can do (privilege bits only, no password material) |
+| `pg_hba_file_rules_v1` | `pg_hba_file_rules` | 24h | Host-based authentication rules, one row per `pg_hba.conf` entry (type, method, matched db/role tokens, address/netmask, options, parse error). Transport-security GUCs (`ssl`, `ssl_min_protocol_version`, `ssl_ciphers`) live in `pg_settings_v1`. Needs `GRANT SELECT ON pg_catalog.pg_hba_file_rules` + `GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules()` (pg_monitor/pg_read_all_settings do NOT grant them); a role lacking them degrades to skipped, not failed. Config metadata only, no secrets. |
 
 ## Two-phase commit
 

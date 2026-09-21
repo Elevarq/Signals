@@ -1305,18 +1305,28 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 
 		if qErr != nil {
 			run.Error = qErr.Error()
-			// R116 (#200): an OwnerOnlyDegrade collector that hits a
-			// permission-denied error is recorded skipped, not failed —
+			// R116 (#200) / #305: a collector flagged for a privilege
+			// degrade (OwnerOnlyDegrade or PrivilegedViewDegrade) that hits
+			// a permission-denied error is recorded skipped, not failed —
 			// an expected privilege boundary, not a fault. Every other
 			// failure keeps status=failed.
-			run.Status, run.Reason = classifyQueryFailure(q.OwnerOnlyDegrade, qErr)
+			run.Status, run.Reason = classifyQueryFailure(q.OwnerOnlyDegrade, q.PrivilegedViewDegrade, qErr)
 			switch {
-			case run.Status == "skipped":
+			case run.Status == "skipped" && run.Reason == reasonPrivilegeOwnerOnly:
 				// R117 (#200): advise once per (target, collector), not
 				// every poll — and with correct wording (ownership, not
 				// pg_monitor, grants the owner-only catalog).
 				if c.warnOnce(tgt.Name, q.ID, "owner_only") {
 					slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not grant it; requires superuser or an explicit GRANT) — recorded skipped, not failed",
+						"query", q.ID, "target", tgt.Name)
+				}
+			case run.Status == "skipped" && run.Reason == reasonPrivilegeRestricted:
+				// #305: pg_hba_file_rules needs SELECT on the view plus
+				// EXECUTE on pg_hba_file_rules() (pg_monitor /
+				// pg_read_all_settings do not grant them). Advise once per
+				// (target, collector) how to grant read access.
+				if c.warnOnce(tgt.Name, q.ID, "privilege_restricted") {
+					slog.Warn("collector skipped: pg_hba_file_rules needs GRANT SELECT ON pg_catalog.pg_hba_file_rules and GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() to the monitoring role (pg_monitor/pg_read_all_settings do not grant them) — recorded skipped, not failed",
 						"query", q.ID, "target", tgt.Name)
 				}
 			case isPermissionDenied(qErr):

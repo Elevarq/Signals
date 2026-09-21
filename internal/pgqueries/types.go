@@ -115,6 +115,20 @@ type QueryDef struct {
 	// not reported partial. See
 	// specifications/owner_only_privilege_degradation.md (#200).
 	OwnerOnlyDegrade bool
+	// PrivilegedViewDegrade marks collectors that read a system view whose
+	// access needs an explicit privilege a least-privilege monitoring role
+	// may lack — specifically pg_hba_file_rules, whose view SELECT is
+	// owner-only and whose underlying pg_hba_file_rules() EXECUTE is revoked
+	// from PUBLIC (neither pg_monitor nor pg_read_all_settings grants
+	// either). When the collecting role lacks those grants the view raises a
+	// hard permission-denied (SQLSTATE 42501); for these collectors that is
+	// an EXPECTED privilege boundary, not a fault — the run is recorded
+	// `status=skipped, reason=privilege_restricted` rather than failed, so
+	// the cycle is not reported partial. Distinct from OwnerOnlyDegrade,
+	// which covers owner-only catalogs whose PUBLIC SELECT is revoked
+	// (pg_statistic_ext_data). See
+	// specifications/collectors/pg_hba_file_rules_v1.md (#305).
+	PrivilegedViewDegrade bool
 }
 
 // FilterParams controls which queries are eligible for a given target.
