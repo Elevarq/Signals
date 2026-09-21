@@ -26,7 +26,7 @@ func permDeniedErr() error {
 // R116 / TC-OOPD-01 (normal): an OwnerOnlyDegrade collector that hits a
 // permission-denied error degrades to skipped/privilege_owner_only.
 func TestClassifyQueryFailureOwnerOnlyPermissionDeniedDegradesToSkipped(t *testing.T) {
-	status, reason := classifyQueryFailure(true, permDeniedErr())
+	status, reason := classifyQueryFailure(true, false, permDeniedErr())
 	if status != "skipped" {
 		t.Errorf("status = %q, want skipped", status)
 	}
@@ -38,7 +38,7 @@ func TestClassifyQueryFailureOwnerOnlyPermissionDeniedDegradesToSkipped(t *testi
 // R116 / TC-OOPD-02 (boundary): only a permission-denied error degrades —
 // any other failure on an OwnerOnlyDegrade collector stays failed.
 func TestClassifyQueryFailureOwnerOnlyNonPermissionStaysFailed(t *testing.T) {
-	status, reason := classifyQueryFailure(true, errors.New("connection reset by peer"))
+	status, reason := classifyQueryFailure(true, false, errors.New("connection reset by peer"))
 	if status != "failed" {
 		t.Errorf("status = %q, want failed", status)
 	}
@@ -51,7 +51,7 @@ func TestClassifyQueryFailureOwnerOnlyNonPermissionStaysFailed(t *testing.T) {
 // permission-denied error on a non-OwnerOnlyDegrade collector is a genuine
 // failure (the role is missing pg_monitor it actually needs).
 func TestClassifyQueryFailureNonOwnerPermissionDeniedStaysFailed(t *testing.T) {
-	status, reason := classifyQueryFailure(false, permDeniedErr())
+	status, reason := classifyQueryFailure(false, false, permDeniedErr())
 	if status != "failed" {
 		t.Errorf("status = %q, want failed", status)
 	}

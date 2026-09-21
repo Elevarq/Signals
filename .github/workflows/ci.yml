@@ -132,6 +132,13 @@ jobs:
           GRANT pg_monitor TO signals;
           GRANT CREATE ON DATABASE postgres TO signals;
           CREATE EXTENSION IF NOT EXISTS postgres_fdw;
+          -- #305: pg_hba_file_rules is owner-only (view SELECT) and its
+          -- backing function's EXECUTE is revoked from PUBLIC; pg_monitor
+          -- does NOT grant either. Grant both so the output-contract
+          -- harness exercises pg_hba_file_rules_v1's columns instead of
+          -- recording it skipped/privilege_restricted.
+          GRANT SELECT ON pg_catalog.pg_hba_file_rules TO signals;
+          GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() TO signals;
           SQL
 
       - name: Run collector output-contract + type-contract integration tests
