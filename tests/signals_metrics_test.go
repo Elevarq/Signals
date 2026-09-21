@@ -16,6 +16,10 @@ import (
 	"github.com/elevarq/signals/internal/metrics"
 )
 
+// metricsTestInstanceID is the stable instance identifier stamped onto
+// every metric series as the `signals_instance` const label (#408).
+const metricsTestInstanceID = "inst-test-408"
+
 // makeMetricsTestHandler builds an api.Handler with metrics either
 // disabled (registry == nil, path == "") or enabled at the given path
 // with a fresh registry. Returns the registry so tests can poke it
@@ -42,7 +46,7 @@ func makeMetricsTestHandler(t *testing.T, enabled bool, path string) (http.Handl
 
 	var reg *metrics.Registry
 	if enabled {
-		reg = metrics.New()
+		reg = metrics.New(metricsTestInstanceID)
 	}
 
 	deps := &api.Deps{
@@ -137,6 +141,55 @@ func TestMetricsEndpointReturnsPromFormat(t *testing.T) {
 		if !strings.Contains(out, "# HELP "+m) {
 			t.Errorf("metric %q missing HELP line in /metrics output", m)
 		}
+	}
+}
+
+// TestMetricsCarrySignalsInstanceLabel verifies that every exposed
+// series carries the `signals_instance` const label set to the daemon's
+// instance_id (#408). Without it, the multi-instance Grafana dashboard's
+// `label_values(signals_collection_cycles_total, signals_instance)`
+// variable is empty and every panel shows "No Data". The assertion is
+// applied to EVERY sample line (vec metrics, unlabelled counters/gauges,
+// and histogram _bucket/_sum/_count series alike), because a const label
+// that only lands on some series would still break grouping.
+// Traces: SIGNALS-R079
+func TestMetricsCarrySignalsInstanceLabel(t *testing.T) {
+	handler, reg, _, cleanup := makeMetricsTestHandler(t, true, "/metrics")
+	defer cleanup()
+
+	// Sample across the metric shapes: a labelled vec + histogram, an
+	// unlabelled counter, and an unlabelled gauge.
+	reg.ObserveCollection("primary", "success", 0.1) // vec counter + histogram
+	reg.IncSQLitePersistenceFailure()                // unlabelled counter
+	reg.SetHighSensitivityEnabled(true)              // unlabelled gauge
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	req.Header.Set("Authorization", "Bearer "+testAPIToken)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d", w.Code)
+	}
+
+	body, _ := io.ReadAll(w.Body)
+	want := `signals_instance="` + metricsTestInstanceID + `"`
+
+	sawSample := false
+	for _, line := range strings.Split(string(body), "\n") {
+		// Only sample lines (skip # HELP/# TYPE comments and blanks).
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if !strings.HasPrefix(line, "signals_") {
+			continue
+		}
+		sawSample = true
+		if !strings.Contains(line, want) {
+			t.Errorf("series without %s label: %q", want, line)
+		}
+	}
+	if !sawSample {
+		t.Fatal("no signals_* sample lines found in /metrics output")
 	}
 }
 
@@ -250,11 +303,11 @@ func TestMetricsCountersUpdateOnExport(t *testing.T) {
 	out := string(body)
 
 	for _, want := range []string{
-		`signals_export_requests_total{status="success"} 1`,
-		`signals_export_requests_total{status="failed"} 1`,
-		`signals_export_failures_total{error_category="invalid_target_id"} 1`,
-		`signals_export_duration_seconds_count{status="success"} 1`,
-		`signals_export_duration_seconds_count{status="failed"} 1`,
+		`signals_export_requests_total{signals_instance="inst-test-408",status="success"} 1`,
+		`signals_export_requests_total{signals_instance="inst-test-408",status="failed"} 1`,
+		`signals_export_failures_total{error_category="invalid_target_id",signals_instance="inst-test-408"} 1`,
+		`signals_export_duration_seconds_count{signals_instance="inst-test-408",status="success"} 1`,
+		`signals_export_duration_seconds_count{signals_instance="inst-test-408",status="failed"} 1`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in metrics output, got:\n%s", want, out)
@@ -289,12 +342,12 @@ func TestMetricsCountersUpdateOnCollection(t *testing.T) {
 	out := string(body)
 
 	for _, want := range []string{
-		`signals_collection_cycles_total{status="success",target="primary"} 1`,
-		`signals_collection_cycles_total{status="failed",target="standby"} 1`,
-		`signals_collection_failures_total{reason="connect_error",target="standby"} 1`,
-		`signals_collectors_succeeded_total{target="primary"} 7`,
-		`signals_collectors_skipped_total{reason="config_disabled",target="primary"} 4`,
-		`signals_last_successful_collection_timestamp{target="primary"} 1.7e+09`,
+		`signals_collection_cycles_total{signals_instance="inst-test-408",status="success",target="primary"} 1`,
+		`signals_collection_cycles_total{signals_instance="inst-test-408",status="failed",target="standby"} 1`,
+		`signals_collection_failures_total{reason="connect_error",signals_instance="inst-test-408",target="standby"} 1`,
+		`signals_collectors_succeeded_total{signals_instance="inst-test-408",target="primary"} 7`,
+		`signals_collectors_skipped_total{reason="config_disabled",signals_instance="inst-test-408",target="primary"} 4`,
+		`signals_last_successful_collection_timestamp{signals_instance="inst-test-408",target="primary"} 1.7e+09`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("expected %q in metrics output, got:\n%s", want, out)
@@ -312,13 +365,13 @@ func TestMetricsHighSensitivityGauge(t *testing.T) {
 
 	reg.SetHighSensitivityEnabled(true)
 	body := scrapeMetrics(t, handler)
-	if !strings.Contains(body, "signals_high_sensitivity_collectors_enabled 1") {
+	if !strings.Contains(body, `signals_high_sensitivity_collectors_enabled{signals_instance="inst-test-408"} 1`) {
 		t.Errorf("expected gauge=1 when enabled, got:\n%s", body)
 	}
 
 	reg.SetHighSensitivityEnabled(false)
 	body = scrapeMetrics(t, handler)
-	if !strings.Contains(body, "signals_high_sensitivity_collectors_enabled 0") {
+	if !strings.Contains(body, `signals_high_sensitivity_collectors_enabled{signals_instance="inst-test-408"} 0`) {
 		t.Errorf("expected gauge=0 when disabled, got:\n%s", body)
 	}
 }
