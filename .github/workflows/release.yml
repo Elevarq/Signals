@@ -159,10 +159,36 @@ jobs:
       - name: Gitleaks detect
         run: gitleaks detect --source . --verbose --exit-code 1
 
+  # ── Gate A step 4: smoke the BUILT artifact before publishing ──────────
+  # Release Protocol Gate A step 4 / Elevarq/Signals#421 (umbrella
+  # elevarq-website#529): run the image built from the release commit
+  # against a real PostgreSQL through the real collect -> export path, so a
+  # broken artifact blocks publish. Spec: specifications/built-image-smoke.md.
+  built-image-smoke:
+    name: Built-image smoke
+    needs: validate
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Build image (single-arch, load into local Docker)
+        run: |
+          VERSION="${{ needs.validate.outputs.version }}"
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker build \
+            --build-arg VERSION="${VERSION}" \
+            --build-arg COMMIT="${COMMIT}" \
+            --build-arg DATE="${DATE}" \
+            -t signals:smoke .
+
+      - name: Smoke the built image against real PostgreSQL
+        run: SIGNALS_SMOKE_IMAGE=signals:smoke bash scripts/smoke-built-image.sh
+
   # ── Gate D + E: Build, Sign & Publish ─────────────────────────────────
   publish:
     name: Publish to GHCR
-    needs: [validate, test, lint, security-scan]
+    needs: [validate, test, lint, security-scan, built-image-smoke]
     runs-on: ubuntu-24.04
     permissions:
       contents: read

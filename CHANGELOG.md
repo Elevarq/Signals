@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Post-build smoke against the **built container image** (#421, umbrella
+  elevarq-website#529; Release Protocol Gate A step 4). `scripts/smoke-built-image.sh`
+  runs the image built from the current commit against an ephemeral real
+  PostgreSQL (seeded from `examples/init.sql`) through the actual
+  collect → export path and asserts a non-empty, well-formed snapshot
+  (`metadata.json` + `collector_status.json`). Wired into CI as `built-image-smoke`
+  on every PR, and into the release pipeline as a gate the `publish` job
+  depends on — a broken Dockerfile entrypoint, missing binary, or `/data`
+  permission that source-level `go test` cannot see now fails before the
+  image is published, instead of shipping green. Behavioral spec +
+  acceptance cases (`specifications/built-image-smoke.md`,
+  `built-image-smoke.acceptance.md`, TC-BIS-01..05) added first per STDD.
+
 ### Changed
 - `extension_inventory_v1` now emits **available-but-not-installed** extensions,
   not only installed ones (#415). Dropped the `WHERE installed_version IS NOT
