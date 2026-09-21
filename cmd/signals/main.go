@@ -181,7 +181,7 @@ func run() error {
 	// no-op contract for every recorder.
 	var metricsReg *metrics.Registry
 	if cfg.Signals.MetricsEnabled {
-		metricsReg = metrics.New()
+		metricsReg = metrics.New(instanceID)
 		metricsReg.SetHighSensitivityEnabled(cfg.Signals.HighSensitivityCollectorsEnabled)
 	}
 

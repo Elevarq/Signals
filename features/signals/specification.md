@@ -908,6 +908,20 @@ would create unbounded cardinality or reintroduce sensitive content:
 collector / query IDs, database names, host names, user names, file
 paths, raw error message bodies, SQL text.
 
+**Every exposed metric shall additionally carry a `signals_instance`
+label** whose value is the daemon's stable `instance_id` — the same
+identifier persisted in DB meta (R-instance) and emitted in export
+metadata and the `/status` payload. It is applied as a **registry-wide
+constant label**, so it appears identically on every series exported by
+the endpoint (including histograms' `_bucket`/`_sum`/`_count`). This lets
+multi-instance dashboards group and filter by daemon instance
+(`label_values(signals_collection_cycles_total, signals_instance)`);
+without it, a dashboard scraping several daemons cannot tell their series
+apart. `signals_instance` is a stable per-deployment identifier — one
+value per running daemon — so it does not widen cardinality: it does not
+vary within a daemon and is never derived from collected data, host, or
+user identity.
+
 ### Version-aware query catalog
 
 **SIGNALS-R081**: The system shall determine the connected

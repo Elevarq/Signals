@@ -45,8 +45,23 @@ type Registry struct {
 
 // New constructs a Registry with all R079 metrics registered. The
 // caller plugs the returned *prometheus.Registry into promhttp.
-func New() *Registry {
+//
+// instanceID is the daemon's stable identifier (DB meta `instance_id`,
+// the same value carried in export metadata and the /status payload). It
+// is attached as a registry-wide constant label `signals_instance` on
+// every exported series, so multi-instance dashboards can group and
+// filter by daemon instance (#408). It is a per-deployment constant, so
+// it does not widen cardinality.
+func New(instanceID string) *Registry {
 	r := prometheus.NewRegistry()
+
+	// Register every collector through a wrapping registerer that stamps
+	// the constant `signals_instance` label onto all series — no per-metric
+	// label plumbing and no recorder-signature changes. Gathering still
+	// happens from r (which sees the labelled collectors).
+	registerer := prometheus.WrapRegistererWith(
+		prometheus.Labels{"signals_instance": instanceID}, r,
+	)
 
 	m := &Registry{
 		reg: r,
@@ -150,7 +165,7 @@ func New() *Registry {
 		),
 	}
 
-	r.MustRegister(
+	registerer.MustRegister(
 		m.collectionCycles,
 		m.collectionFailures,
 		m.collectionDuration,

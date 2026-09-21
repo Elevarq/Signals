@@ -78,11 +78,20 @@ default Go runtime / process metrics are exposed. Names follow
 
 | Label | Source | Cardinality bound |
 |-------|--------|-------------------|
+| `signals_instance` | Daemon `instance_id` (DB meta), applied as a registry-wide const label on **every** metric | One value per running daemon. |
 | `target` | `signals.targets[].name` from config | Number of configured targets. Operator-bounded. |
 | `status` | Closed daemon enum | ≤ 3 values per metric. |
 | `reason` | Closed daemon enum | ≤ 5 values per metric. |
 | `state` | Circuit-breaker enum (R097) | Exactly 3 values. |
 | `error_category` | Closed export error enum | ≤ 6 values. |
+
+Every series carries a `signals_instance` label whose value is the
+daemon's stable `instance_id` (the same identifier in export metadata and
+the `/status` payload). Scraping several daemons into one Prometheus,
+group or filter by it — e.g.
+`label_values(signals_collection_cycles_total, signals_instance)` drives
+the multi-instance dashboard's instance selector. It is a per-deployment
+constant, so it does not widen cardinality.
 
 **INV-SIGNALS-07** is enforced at every label-write site: no SQL
 text, query payload, database name, hostname, username, secret, or

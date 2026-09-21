@@ -7,6 +7,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`signals_instance` label on every Prometheus metric** (#408). Each
+  exposed series now carries a `signals_instance` constant label whose
+  value is the daemon's stable `instance_id` (the same identifier in
+  export metadata and the `/status` payload), applied registry-wide via
+  `prometheus.WrapRegistererWith` in `metrics.New(instanceID)` — no
+  per-metric label plumbing or recorder-signature changes. Multi-instance
+  dashboards can now group/filter by instance
+  (`label_values(signals_collection_cycles_total, signals_instance)`);
+  previously the label did not exist, so the multi-instance Grafana
+  dashboard's mandatory instance variable was empty and every panel
+  showed "No Data". It is a per-deployment constant, so cardinality is
+  unchanged. Behavioral spec (SIGNALS-R079) + metrics test asserting the
+  label on every series added per STDD; the timeseries-demo static
+  scrape-label workaround (timeseries-demo#419) can be retired once this
+  ships.
 - Post-build smoke against the **built container image** (#421, umbrella
   elevarq-website#529; Release Protocol Gate A step 4). `scripts/smoke-built-image.sh`
   runs the image built from the current commit against an ephemeral real
