@@ -17,6 +17,10 @@ on:
       - ".github/workflows/terraform-validate.yml"
   workflow_dispatch: {}
 
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
 
