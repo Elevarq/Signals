@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-09-21
+
 ### Added
 - **`pg_hba_file_rules_v1` collector — host-based authentication posture**
   (#305). A new read-only collector emits one row per `pg_hba.conf` rule
@@ -55,6 +57,36 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   image is published, instead of shipping green. Behavioral spec +
   acceptance cases (`specifications/built-image-smoke.md`,
   `built-image-smoke.acceptance.md`, TC-BIS-01..05) added first per STDD.
+- New collector `wal_archiving_v1` (#304): WAL-archiving and backup-readiness
+  signals from `pg_stat_archiver` (archived/failed counts, last archived/failed
+  WAL + times, stats_reset) plus recovery-posture settings (`archive_mode`,
+  `archive_timeout`, `wal_level`) and **presence-only** flags for
+  `archive_command` / `restore_command`. Read-only, one row per cluster, 15m
+  cadence. Credential-safe: the archive/restore command strings are never
+  persisted — only a boolean indicating whether each is configured.
+- Bounded retention for the scheduled auto-export directory (#385, #350
+  follow-up). `SIGNALS_EXPORT_RETENTION_DAYS` / `export_retention_days` and
+  `SIGNALS_EXPORT_MAX_FILES` / `export_max_files` cap the per-target ZIPs the
+  export-on-collect writer accumulates (~288/db/day at a 5m cadence): after
+  each cycle the exporter prunes its OWN older ZIPs per target — keeping at
+  most `max_files` and deleting any older than `retention_days`. Both default 0
+  = unbounded (pre-#385 behaviour); instances sharing one directory never
+  delete each other's exports. Pruning is best-effort and never fails a cycle.
+- Startup warning when an enabled target's connect host is **non-canonical** —
+  a loopback (`localhost` / `127.0.0.0/8` / `::1`) or a bare IP literal (#396).
+  The Analyzer keys database identity on `(lower(trim(host)):port, dbname)` with
+  the host echoed verbatim, so collecting the same database under a different
+  host string (e.g. its DNS endpoint from another Signals instance) produces a
+  second, unrecognized identity whose snapshots are silently held unprocessed.
+  Signals cannot know the canonical host, so the guard is advisory — but it
+  surfaces the split loudly at boot (target name + reason class only; never the
+  host value or credentials).
+- de-arq guard (CI): `scripts/check-no-legacy-arq.sh` blocks legacy `arq`
+  naming — case-insensitive `arq` at a word boundary (cleanly excludes
+  `elevarq` and the `de-arq`/`legacy-arq` tooling vocabulary) — wired as the
+  `no-legacy-arq` preflight subcommand and a CI gate (#398). Introduced as a
+  per-file baseline ratchet; subsequently burned to zero and converted to a
+  hard burn-to-zero gate (see Changed, #416).
 
 ### Changed
 - `extension_inventory_v1` now emits **available-but-not-installed** extensions,
@@ -96,42 +128,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   was fixed to be honest on macOS: it now uses Python 3 (the authoritative
   regex engine) instead of `git grep -P`, which silently matches nothing where
   `git` lacks PCRE. The obsolete `scripts/de-arq-baseline.txt` was removed.
-
-### Added
-
-- New collector `wal_archiving_v1` (#304): WAL-archiving and backup-readiness
-  signals from `pg_stat_archiver` (archived/failed counts, last archived/failed
-  WAL + times, stats_reset) plus recovery-posture settings (`archive_mode`,
-  `archive_timeout`, `wal_level`) and **presence-only** flags for
-  `archive_command` / `restore_command`. Read-only, one row per cluster, 15m
-  cadence. Credential-safe: the archive/restore command strings are never
-  persisted — only a boolean indicating whether each is configured.
-- Bounded retention for the scheduled auto-export directory (#385, #350
-  follow-up). `SIGNALS_EXPORT_RETENTION_DAYS` / `export_retention_days` and
-  `SIGNALS_EXPORT_MAX_FILES` / `export_max_files` cap the per-target ZIPs the
-  export-on-collect writer accumulates (~288/db/day at a 5m cadence): after
-  each cycle the exporter prunes its OWN older ZIPs per target — keeping at
-  most `max_files` and deleting any older than `retention_days`. Both default 0
-  = unbounded (pre-#385 behaviour); instances sharing one directory never
-  delete each other's exports. Pruning is best-effort and never fails a cycle.
-- Startup warning when an enabled target's connect host is **non-canonical** —
-  a loopback (`localhost` / `127.0.0.0/8` / `::1`) or a bare IP literal (#396).
-  The Analyzer keys database identity on `(lower(trim(host)):port, dbname)` with
-  the host echoed verbatim, so collecting the same database under a different
-  host string (e.g. its DNS endpoint from another Signals instance) produces a
-  second, unrecognized identity whose snapshots are silently held unprocessed.
-  Signals cannot know the canonical host, so the guard is advisory — but it
-  surfaces the split loudly at boot (target name + reason class only; never the
-  host value or credentials).
-
-- de-arq guard (CI): `scripts/check-no-legacy-arq.sh` is a baseline ratchet
-  (replicated from Elevarq/Analyzer#2568) that blocks NEW legacy `arq` naming —
-  case-insensitive `arq` at a word boundary (cleanly excludes `elevarq` and the
-  `de-arq`/`legacy-arq` tooling vocabulary), compared per-file against the
-  committed `scripts/de-arq-baseline.txt`; it fails if any file's count rises or
-  a new file appears. Wired as the `no-legacy-arq` preflight subcommand and a CI
-  gate. The baseline (44 files) is frozen; burning it down is follow-on work.
-  (#398)
 
 ### Fixed
 
