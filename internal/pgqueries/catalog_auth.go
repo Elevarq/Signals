@@ -27,9 +27,10 @@ func init() {
 	// not failed, so the default pg_monitor deployment does not turn the
 	// cycle partial (the "empty + completeness note" contract).
 	//
-	// Columns: rule_number and file_name exist only on PG15+. The base SQL
-	// emits them as typed NULL stubs so the column set is stable across
-	// majors (#210), and RegisterOverride(15..18) supplies the real columns.
+	// Columns: rule_number and file_name exist only on PG16+ (verified in
+	// the integration matrix — PG15 raises 42703 for rule_number). The base
+	// SQL emits them as typed NULL stubs so the column set is stable across
+	// majors (#210), and RegisterOverride(16..18) supplies the real columns.
 	//
 	// Sanitization: config metadata only — addresses, role names, and
 	// database names in HBA rules are configuration (the same class already
@@ -62,15 +63,14 @@ func init() {
 		PrivilegedViewDegrade: true,
 	})
 
-	// PG15+ exposes rule_number (stable ordinal) and file_name (the
+	// PG16+ exposes rule_number (stable ordinal) and file_name (the
 	// including file for @-referenced HBA fragments).
-	RegisterOverride(15, "pg_hba_file_rules_v1", pgHbaFileRulesV15SQL)
-	RegisterOverride(16, "pg_hba_file_rules_v1", pgHbaFileRulesV15SQL)
-	RegisterOverride(17, "pg_hba_file_rules_v1", pgHbaFileRulesV15SQL)
-	RegisterOverride(18, "pg_hba_file_rules_v1", pgHbaFileRulesV15SQL)
+	RegisterOverride(16, "pg_hba_file_rules_v1", pgHbaFileRulesV16SQL)
+	RegisterOverride(17, "pg_hba_file_rules_v1", pgHbaFileRulesV16SQL)
+	RegisterOverride(18, "pg_hba_file_rules_v1", pgHbaFileRulesV16SQL)
 }
 
-const pgHbaFileRulesV15SQL = `SELECT
+const pgHbaFileRulesV16SQL = `SELECT
 	rule_number  AS rule_number,
 	file_name    AS file_name,
 	line_number  AS line_number,

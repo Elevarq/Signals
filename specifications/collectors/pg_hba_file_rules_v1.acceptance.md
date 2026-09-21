@@ -36,11 +36,11 @@ registered collector against ephemeral PostgreSQL 14–18.*
 
 ---
 
-### TC-HBA-02: Boundary — version columns stubbed on PG ≤ 14, real on PG ≥ 15
+### TC-HBA-02: Boundary — version columns stubbed on PG ≤ 15, real on PG ≥ 16
 
 **Rule:** Invariant (stable column set; #210 stub pattern)
 
-**Scenario:** The same collector runs on PG14 and on PG15+.
+**Scenario:** The same collector runs on PG15 and on PG16+.
 
 **Given:**
 - The default (base) SQL and the registered version overrides.
@@ -50,9 +50,9 @@ registered collector against ephemeral PostgreSQL 14–18.*
 
 **Then:**
 - The column set is identical across majors.
-- On PG ≤ 14 `rule_number` and `file_name` are typed NULL stubs (no
-  override registered for PG14).
-- On PG 15, 16, 17, 18 an override supplies the real `rule_number` and
+- On PG ≤ 15 `rule_number` and `file_name` are typed NULL stubs (no
+  override registered for PG14/PG15).
+- On PG 16, 17, 18 an override supplies the real `rule_number` and
   `file_name` columns.
 
 *Covered by `TestPgHbaFileRulesVersionColumns`.*

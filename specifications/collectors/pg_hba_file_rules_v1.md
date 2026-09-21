@@ -40,8 +40,8 @@ until the operator adds the grants above.
 
 | Column | Type | Description |
 |---|---|---|
-| rule_number | integer | Ordinal of the rule within the HBA file; NULL on PG < 15 (column added in PG15) |
-| file_name | text | HBA file containing the rule; NULL on PG < 15 (column added in PG15) |
+| rule_number | integer | Ordinal of the rule within the HBA file; NULL on PG < 16 (column added in PG16) |
+| file_name | text | HBA file containing the rule; NULL on PG < 16 (column added in PG16) |
 | line_number | integer | Line number of the rule in `file_name` |
 | type | text | Connection type (`local`, `host`, `hostssl`, `hostnossl`, ...) |
 | database | text[] | Database name(s) the rule matches (raw tokens, e.g. `all`, `replication`) |
@@ -61,11 +61,11 @@ until the operator adds the grants above.
 
 ## Invariants
 
-- Deterministic ordering: `ORDER BY line_number` on PG ≤ 14, `ORDER BY
-  rule_number` on PG ≥ 15.
+- Deterministic ordering: `ORDER BY line_number` on PG ≤ 15, `ORDER BY
+  rule_number` on PG ≥ 16.
 - Stable output column order across majors: `rule_number` and `file_name`
-  are emitted as typed NULL stubs on PG ≤ 14 (the #210 stub pattern) and
-  as real columns via a version override on PG ≥ 15, so the column set is
+  are emitted as typed NULL stubs on PG ≤ 15 (the #210 stub pattern) and
+  as real columns via a version override on PG ≥ 16, so the column set is
   identical on every supported major.
 - Read-only query; passes the collector linter.
 - Array columns (`database`, `user_name`, `options`) are preserved as

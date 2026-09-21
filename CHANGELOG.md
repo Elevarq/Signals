@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - **`pg_hba_file_rules_v1` collector — host-based authentication posture**
   (#305). A new read-only collector emits one row per `pg_hba.conf` rule
   from the SQL-queryable `pg_hba_file_rules` view (no filesystem access):
-  `rule_number`/`file_name` (PG15+), `line_number`, `type`, `database`,
+  `rule_number`/`file_name` (PG16+), `line_number`, `type`, `database`,
   `user_name`, `address`, `netmask`, `auth_method`, `options`, `error`.
   This lets the analysis layer flag weak host-auth by pointing at the
   specific rule (Analyzer #1757 `weak-host-auth`). Transport-security GUCs

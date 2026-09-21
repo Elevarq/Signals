@@ -44,26 +44,28 @@ func TestPgHbaFileRulesRegistered(t *testing.T) {
 	}
 }
 
-// #305 / #210: rule_number and file_name are PG15+; the base SQL stubs
-// them as NULL for column stability, and an override supplies the real
-// columns on PG15..18 (the integration matrix's upper majors).
+// #305 / #210: rule_number and file_name are PG16+ (PG15 raises 42703 for
+// rule_number); the base SQL stubs them as NULL for column stability, and
+// an override supplies the real columns on PG16..18.
 func TestPgHbaFileRulesVersionColumns(t *testing.T) {
 	q := ByID("pg_hba_file_rules_v1")
 	if q == nil {
 		t.Fatal("collector pg_hba_file_rules_v1 not registered")
 	}
-	// Base (PG14 and below): NULL stubs, no real rule_number/file_name.
+	// Base (PG15 and below): NULL stubs, no real rule_number/file_name.
 	if !strings.Contains(q.SQL, "NULL::integer AS rule_number") ||
 		!strings.Contains(q.SQL, "NULL::text    AS file_name") {
 		t.Error("base SQL must emit NULL stubs for rule_number and file_name")
 	}
-	for _, major := range []int{15, 16, 17, 18} {
+	for _, major := range []int{16, 17, 18} {
 		if !HasOverride(major, "pg_hba_file_rules_v1") {
 			t.Errorf("expected a PG%d override supplying real rule_number/file_name", major)
 		}
 	}
-	if HasOverride(14, "pg_hba_file_rules_v1") {
-		t.Error("PG14 must use the base (stubbed) SQL, not an override")
+	for _, major := range []int{14, 15} {
+		if HasOverride(major, "pg_hba_file_rules_v1") {
+			t.Errorf("PG%d must use the base (stubbed) SQL, not an override", major)
+		}
 	}
 }
 
