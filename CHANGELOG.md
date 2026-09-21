@@ -142,6 +142,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   consistent with the family spec), and a deterministic regression asserts
   every `pg_stat_progress_*` collector stays classified. (#383)
 
+### Security
+- Bumped the Alpine 3.21 runtime base image to the build shipping openssl
+  `3.3.7-r1`, clearing **CVE-2026-45447** (HIGH — heap use-after-free in
+  OpenSSL `PKCS7_verify()`), which affected the previously-pinned base
+  (`3.3.7-r0`). The released image scans clean of fixable CRITICAL/HIGH
+  vulnerabilities. (#430)
+
 ## [1.3.0] - 2026-08-17
 
 ### Added

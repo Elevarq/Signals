@@ -27,7 +27,7 @@ RUN CGO_ENABLED=0 go build \
     -o /out/signalsctl ./cmd/signalsctl
 
 # Stage 2: Runtime
-FROM alpine:3.21@sha256:48b0309ca019d89d40f670aa1bc06e426dc0931948452e8491e3d65087abc07d
+FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
 
 # Static OCI image labels so a locally built image is self-describing. The
 # release workflow's metadata-action re-applies these (plus dynamic
