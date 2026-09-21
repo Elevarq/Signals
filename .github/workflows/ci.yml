@@ -164,6 +164,32 @@ jobs:
           -run TestIntegration_BudgetExhaustionMidQuery
           ./internal/collector/
 
+  # Post-build smoke against the BUILT container image (Release Protocol
+  # Gate A step 4 / Elevarq/Signals#421, umbrella elevarq-website#529):
+  # the `integration-pg` job above exercises source-built binaries, so a
+  # broken Dockerfile entrypoint/binary/permission ships green. This job
+  # builds the image (single-arch, fast) and runs it against a real
+  # PostgreSQL through the real collect -> export path.
+  # Spec: specifications/built-image-smoke.md.
+  built-image-smoke:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Build image (single-arch, load into local Docker)
+        run: |
+          COMMIT="$(git rev-parse --short HEAD)"
+          DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          docker build \
+            --build-arg VERSION="ci-smoke" \
+            --build-arg COMMIT="${COMMIT}" \
+            --build-arg DATE="${DATE}" \
+            -t signals:smoke .
+
+      - name: Smoke the built image against real PostgreSQL
+        run: SIGNALS_SMOKE_IMAGE=signals:smoke bash scripts/smoke-built-image.sh
+
   security-scan:
     runs-on: ubuntu-24.04
     steps:

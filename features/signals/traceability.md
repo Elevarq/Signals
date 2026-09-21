@@ -369,3 +369,23 @@ file: `tests/signals_collector_type_contract_integration_test.go`.
 | OC-R008 (no silent coverage gap) | Every registered collector is accounted for: rows-asserted (OC-R002), column-dynamic row-presence, or zero-row allowlisted with a documented reason; a collector emitting no rows that is NOT allowlisted fails the harness naming it; a coverage report enumerates the asserted count + the not-exercised allowlist | `TestIntegration_CollectorOutputContractAgainstRealPG` | COVERED | INTEGRATION | TC-OC-09; INV-07; #316. Local PG-17 run: 55/100 declared-column-asserted + 2 column-dynamic row-presence; 43 not-exercised (allowlisted with reasons). |
 | OC-R009 (type classes land in Analyzer-expected JSON form) | Each audited PostgreSQL type class beyond internal-`"char"` (numeric→number, jsonb→object, array→array, FDW-option→object, timestamp→RFC3339 string, oid→number, bool→`true`/`false`) is asserted against the exported ZIP read back through `encoding/json`, exercised by a seeded non-null value; a NaN numeric is the string `"NaN"` (documented exception); a wrong shape or a vacuous (no non-null) assertion fails the harness | `TestIntegration_CollectorTypeContractAgainstRealPG` | COVERED | INTEGRATION | TC-OC-10; INV-08; the #320 type-fidelity regression lock (general case of the #312 `contype` bug). Cross-checked vs the live Analyzer consumer (`toFloat64`/`relidToInt64`, `map[string]any` jsonb parsing, `[]any` array coercion, RFC3339 time.Parse, `asBool`). Mutation-verified RED on a `bool`-as-number assertion and a no-such-column vacuous assertion. FDW-option-object leg is capability-gated (superuser DSN). |
 | OC-R010 (no silent type-class gap) | Every audited type class is accounted for: ≥1 seeded asserted combination, or a recorded not-exercised reason (`bytea` — no collector column; `regclass-text` — only on capability-gated collectors); a class with zero asserted combinations and no reason fails the harness; a per-class coverage report is logged | `TestIntegration_CollectorTypeContractAgainstRealPG` | COVERED | INTEGRATION | TC-OC-11; INV-08; #320. Local PG-18 run (FDW capability present): numeric/oid/timestamp/bool/array 5 each, jsonb 3, fdw-option-object 3 asserted; bytea + regclass-text not-exercised. PG-15 run (no FDW): fdw-option-object not-exercised (capability gate), rest asserted. |
+
+## Built-Image Smoke (`specifications/built-image-smoke.md`, #421)
+
+Post-build smoke that runs the **built container image** against a real
+PostgreSQL through the actual collect → export path (Release Protocol
+Gate A step 4; umbrella elevarq-website#529). Harness:
+`scripts/smoke-built-image.sh`; wired into `.github/workflows/ci.yml`
+(`built-image-smoke`, every PR) and `.github/workflows/release.yml`
+(`built-image-smoke`, a gate the `publish` job `needs`). Acceptance:
+`specifications/built-image-smoke.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| BIS-R001 (smoke the built image) | The smoke exercises the built container image (entrypoint, baked `signals`/`signalsctl`, non-root user, `/data` volume), never a source-built binary | TC-BIS-01, TC-BIS-03 | COVERED | INTEGRATION | `scripts/smoke-built-image.sh` runs `SIGNALS_SMOKE_IMAGE`; caller builds the image so the smoke tests exactly the artifact under test. |
+| BIS-R002 (real dependency) | The target is a real PostgreSQL instance; no mocks stand in for the DB | TC-BIS-01 | COVERED | INTEGRATION | Ephemeral `postgres:16-alpine` seeded from `examples/init.sql`. |
+| BIS-R003 (real collect → export path) | The smoke drives `signalsctl collect now --force` then `signalsctl export`, not a synthetic subset | TC-BIS-01 | COVERED | INTEGRATION | Same commands as the operator-gated AWS live smoke. |
+| BIS-R004 (well-formed snapshot) | The exported ZIP is non-empty and (where `unzip` is available) contains `metadata.json` and a `collector_status.json` payload | TC-BIS-01, TC-BIS-02 | COVERED | INTEGRATION | Guards against a false-clean export (R006/R125). |
+| BIS-R005 (runs on every PR) | The smoke runs on every pull request so a regression fails on the introducing PR | TC-BIS-04 | COVERED | INTEGRATION | `built-image-smoke` job in `ci.yml`. |
+| BIS-R006 (release gate) | The release `publish` job depends on the smoke; a failing smoke blocks publish | TC-BIS-04 | COVERED | INTEGRATION | `publish: needs: [..., built-image-smoke]` in `release.yml`. |
+| BIS-R007 (self-contained + cleanup) | The smoke needs no cloud/AWS and tears down every container, network, and temp file on exit | TC-BIS-05 | COVERED | INTEGRATION | `trap cleanup EXIT` removes both containers, the network, and the temp dir. |
