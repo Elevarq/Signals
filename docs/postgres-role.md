@@ -81,6 +81,50 @@ runtime on every connection:
   collector query is executed. Any failure aborts collection
   (R006/R023).
 
+## Optional grants for richer reports
+
+The default `pg_monitor` role runs Signals fully. A few collectors can
+read extra read-only catalog data if you grant the `signals` role a
+little more — still **no write access and no superuser**. Each grant
+below is optional: without it the matching collector is recorded
+`status=skipped` and the collection cycle still succeeds; with it,
+Signals ships more of the catalog so the Elevarq analyzer understands
+more about how the database is actually used. How much a given report
+improves depends on the schema and workload — it is the difference
+between a very good report and an outstanding one, not a fixed figure.
+This mirrors the customer-facing note in the Signals install guide
+(`@elevarq/docs` `signals-install`).
+
+```sql
+-- Extended-statistics values (from CREATE STATISTICS): multivariate
+-- distinct-value counts, functional dependencies, and expression
+-- statistics. pg_statistic_ext_data has PUBLIC SELECT revoked, so
+-- pg_monitor cannot read it; without this grant pg_statistic_ext_data_v1
+-- (and the MCV sibling) is skipped as privilege_owner_only. Sharpens the
+-- analyzer's planner-cost and column-correlation reasoning.
+GRANT SELECT ON pg_catalog.pg_statistic_ext_data TO signals;
+
+-- Host-based authentication rules (pg_hba.conf) for connection-security
+-- posture findings. Needs both the table read and the function execute
+-- (pg_monitor / pg_read_all_settings grant neither); without them
+-- pg_hba_file_rules_v1 is skipped as privilege_restricted.
+GRANT SELECT ON pg_catalog.pg_hba_file_rules TO signals;
+GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() TO signals;
+```
+
+None of these confer write, DDL, ownership, or superuser — Signals still
+refuses to collect from a superuser role. The extended-statistics grant
+also unlocks the multi-column MCV distributions, which ship only when the
+high-sensitivity pack (below) is enabled.
+
+Two further optional grants widen *row visibility* rather than unlocking a
+whole collector, and are documented in their own sections:
+
+- `GRANT USAGE ON SCHEMA <schema>` — object-definition text for schemas
+  locked down with `REVOKE ALL` (see the high-sensitivity pack below).
+- `GRANT <database_owner_role>` — per-failure TimescaleDB job-error
+  detail (see the TimescaleDB section); weigh it against least-privilege.
+
 ## High-sensitivity collectors (R075, default-on)
 
 The high-sensitivity pack runs **by default** (R075 revised 2026-05:
