@@ -150,8 +150,12 @@ jobs:
           TARBALL="gitleaks_${GITLEAKS_VERSION}_linux_x64.tar.gz"
           tmp="$(mktemp -d)"
           trap 'rm -rf "$tmp"' EXIT
-          curl -sSfLo "$tmp/$TARBALL"          "$BASE/$TARBALL"
-          curl -sSfLo "$tmp/checksums.txt"     "$BASE/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
+          # GitHub's release-asset CDN intermittently returns 504; retry
+          # with backoff so a transient blip doesn't fail the release
+          # Security Scan (parity with ci.yml, #424/#432). The checksum
+          # verification below still catches a bad download.
+          curl -sSfLo "$tmp/$TARBALL"          --retry 5 --retry-all-errors --retry-delay 3 "$BASE/$TARBALL"
+          curl -sSfLo "$tmp/checksums.txt"     --retry 5 --retry-all-errors --retry-delay 3 "$BASE/gitleaks_${GITLEAKS_VERSION}_checksums.txt"
           (cd "$tmp" && grep "  $TARBALL\$" checksums.txt | sha256sum -c -)
           tar -xzf "$tmp/$TARBALL" -C /usr/local/bin gitleaks
           gitleaks version
