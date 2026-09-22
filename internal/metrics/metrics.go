@@ -33,6 +33,10 @@ type Registry struct {
 	// value 1; the other two have value 0. Operators alert on
 	// `state="open"` or `state="paused"`.
 	circuitState *prometheus.GaugeVec
+	// #443: on-disk size of the local snapshot store in bytes.
+	// Updated after each retention/VACUUM pass. Operators alert on
+	// sustained growth (a sign retention is disabled or too loose).
+	storeSizeBytes prometheus.Gauge
 	// R079 #79: per-target eligible-collector count. Captures the
 	// number of collectors that would run for a target after the
 	// version (R081), extension (EA-R001), daemon-wide
@@ -163,6 +167,12 @@ func New(instanceID string) *Registry {
 			},
 			[]string{"target"},
 		),
+		storeSizeBytes: prometheus.NewGauge(
+			prometheus.GaugeOpts{
+				Name: "signals_store_size_bytes",
+				Help: "On-disk size of the local snapshot store (signals.db) in bytes (#443). Alert on sustained growth — a sign retention is disabled or too loose.",
+			},
+		),
 	}
 
 	registerer.MustRegister(
@@ -180,6 +190,7 @@ func New(instanceID string) *Registry {
 		m.highSensitivityCollectorsEnabled,
 		m.circuitState,
 		m.eligibleCollectors,
+		m.storeSizeBytes,
 	)
 
 	return m
@@ -259,6 +270,15 @@ func (m *Registry) SetLastSuccessfulCollection(target string, unixSeconds float6
 		return
 	}
 	m.lastSuccessfulCollectionTS.WithLabelValues(target).Set(unixSeconds)
+}
+
+// SetStoreSizeBytes records the on-disk size of the local snapshot
+// store (#443). Called after each retention/VACUUM pass.
+func (m *Registry) SetStoreSizeBytes(bytes int64) {
+	if m == nil {
+		return
+	}
+	m.storeSizeBytes.Set(float64(bytes))
 }
 
 func (m *Registry) SetHighSensitivityEnabled(enabled bool) {

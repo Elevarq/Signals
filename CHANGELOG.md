@@ -7,6 +7,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **Local store no longer grows unbounded (#443).** Retention DELETEs freed
+  rows but never reclaimed disk — SQLite retains freed pages until `VACUUM`, so
+  `signals.db` grew monotonically even under active retention. `cleanup()` now
+  runs `VACUUM` after a prune that deleted rows (gated on rows-deleted, logging
+  bytes reclaimed). A new `signals_store_size_bytes` gauge is refreshed every
+  retention pass so operators can alert on growth. The "cleanup disabled"
+  startup warning now fires only when retention is *truly* unbounded
+  (`retention_days <= 0` **and** no structured `retention:` block) — it
+  previously false-fired for structured-retention deployments. Disk-full writes
+  remain handled gracefully by the atomic-persist error path (the cycle is
+  recorded failed, no crash).
 - **Health probes now reflect real health (#444, #442).**
   - `DecodeNDJSON` decodes numbers as `json.Number` so `int8`/`numeric`
     values above 2^53 (bloat byte counts, xids, `pg_stat_statements`

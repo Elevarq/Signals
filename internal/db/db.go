@@ -479,6 +479,36 @@ func (d *DB) CountSnapshots() (int, error) {
 	return count, err
 }
 
+// SizeBytes returns the on-disk size of the SQLite store in bytes,
+// computed from the page count and page size (#443). This counts the
+// live database file; the WAL is checkpointed on VACUUM so after a
+// retention/VACUUM pass this reflects reclaimed space.
+func (d *DB) SizeBytes() (int64, error) {
+	var pageCount, pageSize int64
+	if err := d.sql.QueryRow("PRAGMA page_count").Scan(&pageCount); err != nil {
+		return 0, fmt.Errorf("page_count: %w", err)
+	}
+	if err := d.sql.QueryRow("PRAGMA page_size").Scan(&pageSize); err != nil {
+		return 0, fmt.Errorf("page_size: %w", err)
+	}
+	return pageCount * pageSize, nil
+}
+
+// Vacuum runs VACUUM to reclaim space freed by retention DELETEs (#443).
+// SQLite never shrinks the file on its own, so without this the store
+// grows monotonically even under active retention. VACUUM rewrites the
+// database file and cannot run inside a transaction; callers invoke it
+// after the retention prune, outside the per-DELETE transactions. A
+// SQLITE_BUSY (another writer holds the file) is returned to the caller,
+// which logs and retries on the next retention pass rather than failing
+// the collection cycle.
+func (d *DB) Vacuum() error {
+	if _, err := d.sql.Exec("VACUUM"); err != nil {
+		return fmt.Errorf("vacuum: %w", err)
+	}
+	return nil
+}
+
 // GetSnapshotByID returns the snapshot with the given id, or nil if
 // no row matches. Used by the export builder for the --snapshot-id
 // selector (R085); a nil return is the producer-side signal for

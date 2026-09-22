@@ -135,6 +135,7 @@ just samples the same counter values more often.
 | `signals_high_sensitivity_collectors_enabled` | gauge | (none) | `1` if the R075 gate is open, `0` otherwise. |
 | `signals_circuit_state` | gauge | `target`, `state` | Per-target circuit-breaker state (R097); one row per state (`closed` / `open` / `paused`), the active row has value `1`, the others `0`. |
 | `signals_eligible_collectors` | gauge | `target` | Collectors eligible to run for the target after the version (R081), extension, daemon-wide sensitivity (R075), and per-target profile (R098) gates. Alert on sudden drops. |
+| `signals_store_size_bytes` | gauge | (none) | On-disk size of the local snapshot store (`signals.db`) in bytes (#443). Refreshed after each retention/VACUUM pass. Alert on sustained growth — a sign retention is disabled or too loose. |
 
 ## Suggested alerts
 
