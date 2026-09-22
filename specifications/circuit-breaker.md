@@ -22,10 +22,16 @@ Three states, one in-memory state per target:
 | `open` | Auto-disabled after consecutive failures. | Cycles skipped; auto-recovers after a cooldown. |
 | `paused` | Manually disabled by an operator. | Cycles skipped; only an operator `resume` clears it. |
 
-State is in-memory only — a daemon restart resets every target to
-`closed`. Past pause / resume audit events live in the audit log
-(operator can grep journald) so a restart doesn't erase the operator
-trail.
+State is held in memory and **persisted across restarts** (#455).
+Every transition to a non-`closed` state upserts a row into the
+`circuit_state` store table; the transition back to `closed` deletes it.
+On startup the daemon rehydrates the persisted open/paused states before
+the first cycle, so an auto-tripped target is not immediately re-hammered
+after a restart and an operator pause is not silently undone. For a
+restored `open` circuit the open-cooldown is anchored at the original
+transition time, so a cooldown that elapsed during downtime closes on the
+first post-restart check. Past pause / resume audit events also live in
+the audit log (operator can grep journald).
 
 ### Transitions
 
@@ -154,8 +160,11 @@ Operators alert on `signals_circuit_state{state=~"open|paused"} == 1`.
 
 ## Invariants
 
-- **INV-CIRC-01**: State is per-target and in-memory only. Daemon
-  restart resets every target to `closed`.
+- **INV-CIRC-01**: State is per-target and persisted across restarts
+  (#455). A non-`closed` state (open/paused) is rehydrated on daemon
+  startup from the `circuit_state` table; the transition back to `closed`
+  removes the persisted row. Only open/paused are stored — `closed` is the
+  absence of a row.
 - **INV-CIRC-02**: Manual `paused` takes priority over the auto
   state machine. An auto-open target that gets manually paused is
   `paused`, not `open`; manual resume returns it to `closed`, not
@@ -217,9 +226,6 @@ values.
   cooldown" model recovers naturally — when cooldown elapses the
   next scheduled cycle IS the probe. If it fails again, the circuit
   re-opens with no additional probing logic to maintain.
-- Persistent pause across restarts. Operator-documented behaviour
-  per INV-CIRC-01. A restart effectively says "the operator wants a
-  clean slate".
 - Per-collector circuits. A target either collects or doesn't —
   granularity below that is the sensitivity-profile concern (issue
   #69).

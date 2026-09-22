@@ -4,9 +4,11 @@
 // Spec:        specifications/circuit-breaker.md
 // Acceptance:  TC-CIRC-01..08 (operator-safety surfaces)
 //
-// State is in-memory only — Manager has no persistence. Daemon
-// restart resets every target to `closed`. Past pause/resume events
-// live in the audit log so the operator trail survives.
+// The Manager itself holds state in memory and has no store dependency;
+// persistence across restarts (#455) is layered on top by the collector,
+// which mirrors every transition to the store via the onChange hook and
+// rehydrates open/paused targets at startup via Restore. Past
+// pause/resume events also live in the audit log.
 package circuit
 
 import (
@@ -137,6 +139,33 @@ func (m *Manager) SetOnChange(fn func(target string, from, to State, meta Transi
 	m.mu.Lock()
 	m.onChange = fn
 	m.mu.Unlock()
+}
+
+// Restore rehydrates a target's non-closed circuit state at startup
+// (#455) WITHOUT firing onChange — the transition already happened
+// before the restart, so this is a state load, not a live event. Only
+// StateOpen and StatePaused are meaningful; any other value is ignored
+// (closed is the default and needs no restore).
+//
+// A restored open circuit anchors its open-cooldown at `since`, so a
+// cooldown that elapsed during downtime closes on the first
+// ShouldCollect; consecutiveFails is seeded to the threshold so the
+// "next cycle IS the probe" semantics hold (one failure re-opens).
+func (m *Manager) Restore(target string, state State, since time.Time, reason, actor string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	tc := m.lookupOrCreate(target)
+	switch state {
+	case StateOpen:
+		tc.state = StateOpen
+		tc.openedAt = since
+		tc.consecutiveFails = m.failThreshold
+	case StatePaused:
+		tc.state = StatePaused
+		tc.pausedAt = since
+		tc.pausedReason = reason
+		tc.pausedActor = actor
+	}
 }
 
 // ShouldCollect performs any time-based transitions (open →

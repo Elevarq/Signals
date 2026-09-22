@@ -258,6 +258,12 @@ func run() error {
 		}
 	}
 
+	// #455: rehydrate persisted circuit-breaker state before the first
+	// cycle so an open/paused target stays that way across a restart.
+	if err := coll.RestoreCircuitState(); err != nil {
+		slog.Warn("could not restore circuit state; starting with all circuits closed", "err", err)
+	}
+
 	// Start collector in background.
 	go coll.Run(ctx)
 

@@ -7,6 +7,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Circuit-breaker state now survives a daemon restart (#455).** The per-target
+  circuit state was in-memory only, so a restart silently reset every target to
+  `closed` — an auto-tripped target immediately resumed collecting (re-hammering
+  a struggling target during the incident it was protecting), and an operator
+  pause was silently undone. Non-`closed` state is now persisted to a
+  `circuit_state` table (migration 006) on every transition and rehydrated on
+  startup before the first cycle; a restored `open` circuit anchors its cooldown
+  at the original trip time, so a cooldown that elapsed during downtime closes on
+  the first check. (Reverses the prior INV-CIRC-01 "in-memory only" behaviour.)
 - **Export ZIP carries a `manifest.json` integrity index (#455).** Every export
   now includes a final `manifest.json` listing each other entry with its
   `sha256`, so a consumer (the Analyzer, or an auditor) can verify the artifact

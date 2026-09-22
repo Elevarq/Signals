@@ -591,6 +591,42 @@ func (c *Collector) onCircuitStateChange(target string, from, to circuit.State, 
 		}
 	}
 	c.metrics.SetCircuitState(target, string(to), circuitStateLabels)
+
+	// #455: persist non-closed state so it survives a daemon restart.
+	// Only fires on an actual transition (onChange is transition-gated),
+	// never per cycle. Best-effort: the in-memory circuit is
+	// authoritative for the running process, so a store error is logged,
+	// not fatal.
+	now := time.Now().UTC().Format(time.RFC3339)
+	var perr error
+	if to == circuit.StateClosed {
+		perr = c.db.DeleteCircuitState(target)
+	} else {
+		perr = c.db.UpsertCircuitState(target, string(to), now, meta.Reason, meta.Actor, now)
+	}
+	if perr != nil {
+		slog.Warn("persist circuit state failed", "target", target, "state", string(to), "err", perr)
+	}
+}
+
+// RestoreCircuitState rehydrates persisted circuit-breaker state at
+// startup (#455) so an open or operator-paused target stays that way
+// across a restart instead of silently resuming collection. Call once
+// before the collection loop starts.
+func (c *Collector) RestoreCircuitState() error {
+	states, err := c.db.GetCircuitStates()
+	if err != nil {
+		return fmt.Errorf("load persisted circuit state: %w", err)
+	}
+	for _, s := range states {
+		since, perr := time.Parse(time.RFC3339, s.Since)
+		if perr != nil {
+			since = time.Now() // a malformed timestamp must not drop the restore
+		}
+		c.circuit.Restore(s.TargetName, circuit.State(s.State), since, s.Reason, s.Actor)
+		slog.Info("restored circuit state across restart", "target", s.TargetName, "state", s.State)
+	}
+	return nil
 }
 
 // PauseTarget is the collector-side entry point for the operator
