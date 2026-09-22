@@ -77,7 +77,9 @@ When enabled:
 - Hard failures are downgraded to warnings
 - Collection proceeds with a prominent log warning
 - Export metadata includes unsafe_mode=true
-- NOT recommended for production
+- **Refused in `env: prod`** (#31): startup fails with a hard
+  configuration error, mirroring the `SIGNALS_ALLOW_INSECURE_PG_TLS`
+  block. Production must run as a least-privilege (`NOSUPERUSER`) role.
 
 ## Recommended Production Setup
 Create a dedicated, least-privilege monitoring role:

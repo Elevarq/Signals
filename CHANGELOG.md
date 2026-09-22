@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Security
+- **`SIGNALS_ALLOW_UNSAFE_ROLE` is refused in `env: prod` (#31).** The
+  evaluation-only escape hatch that bypasses the superuser/replication/bypassrls
+  role-safety hard-stop was only a startup warning in production; it is now a
+  hard configuration error in `env: prod`, matching the existing
+  `SIGNALS_ALLOW_INSECURE_PG_TLS` prod block. Non-prod behaviour is unchanged.
+
 ### Fixed
 - **Metric `reason` docs now match what the code emits (#441).** The consumer
   guide advertised `savepoint_rollback` on `signals_collectors_failed_total` (a

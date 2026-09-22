@@ -285,7 +285,7 @@ GRANT pg_monitor TO signals;
 
 For managed databases (RDS, Cloud SQL, Aurora), the equivalent role grants are documented in each provider's documentation for pg_monitor.
 
-An explicit override (`SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev environments only and is not recommended for production.
+An explicit override (`SIGNALS_ALLOW_UNSAFE_ROLE=true`) exists for lab/dev environments only; it is **refused in `env: prod`** (startup fails), matching the `SIGNALS_ALLOW_INSECURE_PG_TLS` block.
 
 ---
 

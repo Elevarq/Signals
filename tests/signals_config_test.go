@@ -3,6 +3,7 @@ package tests
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -316,6 +317,47 @@ func TestValidateStrictAcceptsValidConfig(t *testing.T) {
 	}
 	if len(warnings) != 0 {
 		t.Errorf("ValidateStrict returned warnings on healthy config: %v", warnings)
+	}
+}
+
+// TestValidateStrictRefusesUnsafeRoleInProd (#31) verifies that the
+// SIGNALS_ALLOW_UNSAFE_ROLE escape hatch is rejected at startup in
+// env=prod (parity with the SIGNALS_ALLOW_INSECURE_PG_TLS block), and
+// still permitted (non-fatal) outside prod.
+func TestValidateStrictRefusesUnsafeRoleInProd(t *testing.T) {
+	base := func() config.Config {
+		cfg := config.DefaultConfig()
+		cfg.Targets = []config.TargetConfig{{
+			Name: "primary", Host: "db.example.com", Port: 5432, DBName: "app",
+			User: "monitor", SSLMode: "verify-full", SSLRootCertFile: "/etc/ssl/ca.crt",
+			Enabled: true,
+		}}
+		return cfg
+	}
+
+	// prod + unsafe role → hard error.
+	prod := base()
+	prod.Env = "prod"
+	prod.AllowUnsafeRole = true
+	if _, err := config.ValidateStrict(prod); err == nil {
+		t.Error("expected a hard error for SIGNALS_ALLOW_UNSAFE_ROLE in env=prod")
+	} else if !strings.Contains(err.Error(), "SIGNALS_ALLOW_UNSAFE_ROLE is not permitted in env=prod") {
+		t.Errorf("unexpected error: %v", err)
+	}
+
+	// non-prod + unsafe role → no hard error (escape hatch allowed).
+	dev := base()
+	dev.Env = "dev"
+	dev.AllowUnsafeRole = true
+	if _, err := config.ValidateStrict(dev); err != nil {
+		t.Errorf("unsafe role in env=dev should not be a hard error: %v", err)
+	}
+
+	// prod WITHOUT the flag → no hard error on this account.
+	prodSafe := base()
+	prodSafe.Env = "prod"
+	if _, err := config.ValidateStrict(prodSafe); err != nil {
+		t.Errorf("prod config without unsafe role should validate: %v", err)
 	}
 }
 

@@ -84,7 +84,7 @@ Elevarq Signals is designed to run as a **non-superuser** role.
 
 The `signalsctl doctor` command's `role_safe` check refuses to run
 as superuser by default (override with `SIGNALS_ALLOW_UNSAFE_ROLE=1`
-for evaluation only).
+for evaluation only — the override is refused in `env: prod`).
 
 ## Network requirements
 
