@@ -390,6 +390,61 @@ func (d *DB) GetCycleOutcomes() ([]CycleOutcome, error) {
 	return outcomes, rows.Err()
 }
 
+// --- Circuit state (#455) ---
+
+// CircuitState is the persisted, rehydratable state of one target's
+// circuit breaker (only open/paused circuits are stored; closed is the
+// absence of a row).
+type CircuitState struct {
+	TargetName string
+	State      string // "open" | "paused"
+	Since      string // RFC3339 transition timestamp
+	Reason     string // operator pause reason (paused only)
+	Actor      string // operator pause actor (paused only)
+}
+
+// UpsertCircuitState records a target's non-closed circuit state so it
+// survives a daemon restart (#455).
+func (d *DB) UpsertCircuitState(targetName, state, since, reason, actor, updatedAt string) error {
+	_, err := d.sql.Exec(
+		`INSERT INTO circuit_state (target_name, state, since, reason, actor, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?)
+		 ON CONFLICT(target_name) DO UPDATE SET
+		   state=excluded.state, since=excluded.since,
+		   reason=excluded.reason, actor=excluded.actor,
+		   updated_at=excluded.updated_at`,
+		targetName, state, since, reason, actor, updatedAt)
+	return err
+}
+
+// DeleteCircuitState removes a target's persisted circuit state, used on
+// the transition back to closed (#455).
+func (d *DB) DeleteCircuitState(targetName string) error {
+	_, err := d.sql.Exec("DELETE FROM circuit_state WHERE target_name = ?", targetName)
+	return err
+}
+
+// GetCircuitStates returns every persisted (open/paused) circuit state,
+// consulted once at startup to rehydrate the circuit manager (#455).
+func (d *DB) GetCircuitStates() ([]CircuitState, error) {
+	rows, err := d.sql.Query(
+		"SELECT target_name, state, since, reason, actor FROM circuit_state ORDER BY target_name")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var states []CircuitState
+	for rows.Next() {
+		var s CircuitState
+		if err := rows.Scan(&s.TargetName, &s.State, &s.Since, &s.Reason, &s.Actor); err != nil {
+			return nil, err
+		}
+		states = append(states, s)
+	}
+	return states, rows.Err()
+}
+
 // --- Snapshots ---
 
 type Snapshot struct {
