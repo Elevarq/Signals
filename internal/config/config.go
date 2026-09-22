@@ -726,6 +726,14 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	if cfg.Signals.QueryTimeout <= 0 {
 		hard = append(hard, "signals.query_timeout must be > 0")
 	}
+	// #31: SIGNALS_ALLOW_UNSAFE_ROLE bypasses the superuser /
+	// replication / bypassrls role-safety hard-stop — an evaluation-only
+	// escape hatch. It is refused in env=prod, matching the parity block
+	// on SIGNALS_ALLOW_INSECURE_PG_TLS below: a production deployment must
+	// never silently collect through an over-privileged role.
+	if cfg.Env == "prod" && cfg.AllowUnsafeRole {
+		hard = append(hard, "SIGNALS_ALLOW_UNSAFE_ROLE is not permitted in env=prod; it bypasses the superuser/replication/bypassrls role-safety check — run collection as a least-privilege (NOSUPERUSER) role instead")
+	}
 	// FC-10 (R091): zero or negative min_snapshot_interval is not
 	// supported in v1.x. Disabling the protection would defeat the
 	// rule entirely; operators who genuinely want every poll to
