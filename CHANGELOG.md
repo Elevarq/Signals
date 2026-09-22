@@ -7,6 +7,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Documentation
+- **Document the optional grants that enrich Analyzer reports (#436).** Added an
+  "Optional grants for richer reports" section to `docs/postgres-role.md` and
+  filled the `pg_statistic_ext_data_v1` / `_mcv_v1` rows in `docs/collectors.md`
+  with the `GRANT SELECT ON pg_catalog.pg_statistic_ext_data` requirement and
+  the skipped-by-default behaviour (matching the existing `pg_hba_file_rules_v1`
+  row). These grants are optional and never require a superuser; they let
+  Signals collect extra read-only catalog data that improves report quality.
+  Consistent with the customer-facing `signals-install` note
+  (Elevarq/elevarq-docs#121).
 - **Never advise a superuser (#435).** Reworded the owner-only stats
   collectors' runtime skip advisory, spec prose, and code comments, plus the
   Cloud SQL guidance in `docs/compatibility/support-matrix.md` /

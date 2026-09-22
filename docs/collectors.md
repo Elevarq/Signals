@@ -167,8 +167,8 @@ excluded.
 | `pg_text_search_v1` | `pg_ts_config` + `pg_ts_parser` | 24h | User-defined text-search configuration inventory (non-extension-owned) |
 | `pg_identity_columns_v1` | `pg_attribute` + `pg_class` + `pg_depend` | 24h | Identity / `SERIAL` column metadata for user-schema tables |
 | `pg_statistic_ext_v1` | `pg_statistic_ext` + `pg_class` | 24h | Extended-statistics object metadata (names, kinds, attnums) |
-| `pg_statistic_ext_data_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics data (kinds d/f/e; excludes MCV) |
-| `pg_statistic_ext_data_mcv_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics MCV data (kind m); high-sensitivity, off by default |
+| `pg_statistic_ext_data_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics data (kinds d/f/e; excludes MCV). `pg_statistic_ext_data` has `PUBLIC SELECT` revoked, so `pg_monitor` cannot read it — the collector is skipped (`privilege_owner_only`), not failed, and the cycle stays successful. **Optional:** `GRANT SELECT ON pg_catalog.pg_statistic_ext_data` to the monitoring role (no superuser required) to collect it — it enriches the Analyzer report's planner-cost / column-correlation reasoning. |
+| `pg_statistic_ext_data_mcv_v1` | `pg_statistic_ext_data` + `pg_statistic_ext` | 24h | Sampled extended-statistics MCV data (kind m); high-sensitivity, off by default. Same optional `GRANT SELECT ON pg_catalog.pg_statistic_ext_data` as above (no superuser required), plus the high-sensitivity collector pack must be enabled. |
 | `pg_stats_array_range_v1` | `pg_stats` | 24h | Per-element / per-range planner stats (array/range MCV & histograms); high-sensitivity, opt-in (`CollectArrayRangeHistograms`) |
 | `pg_policies_v1` | `pg_policies` + `pg_class` | 24h | Row-level security (RLS) policy inventory with table RLS flags; high-sensitivity, off by default |
 | `pg_rules_v1` | `pg_rules` | 24h | Rewrite-rule (`CREATE RULE`) inventory; high-sensitivity, off by default |
