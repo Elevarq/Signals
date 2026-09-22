@@ -6,6 +6,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Export ZIP carries a `manifest.json` integrity index (#455).** Every export
+  now includes a final `manifest.json` listing each other entry with its
+  `sha256`, so a consumer (the Analyzer, or an auditor) can verify the artifact
+  was not truncated or tampered with in transit. Additive — existing consumers
+  ignore the extra file; the manifest lists all data files and never itself.
+
 ### Changed
 - **`pg_stat_statements_v1` now emits rows in a stable identity order (#440).**
   Added `ORDER BY userid, dbid, queryid, toplevel` so the same set of statements

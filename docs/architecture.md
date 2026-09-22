@@ -54,7 +54,7 @@ flowchart TB
 | **Query catalog** (`internal/pgqueries`) | The fixed, in-binary set of read-only diagnostic queries (the only SQL the daemon ever runs). Auditable from source. |
 | **Read-only safety layers** (`internal/safety`, `internal/collector`) | Four independent layers — static SQL linting at startup, per-target role-attribute validation (blocks superuser / replication / bypassrls), a session `READ ONLY` transaction, and transaction-scoped statement/lock/idle timeouts. Detailed in [runtime-safety-model.md](runtime-safety-model.md). |
 | **Local store** (`internal/db`) | An embedded SQLite database (`modernc.org/sqlite`, pure-Go, `CGO_ENABLED=0`) holding collected diagnostic rows and snapshot state. Holds **diagnostic data only** — credentials are never persisted. |
-| **Exporter** (`internal/export`) | Packages collected data into portable ZIP snapshots (structured JSON/NDJSON) for download via `GET /export` or local file. |
+| **Exporter** (`internal/export`) | Packages collected data into portable ZIP snapshots (structured JSON/NDJSON) for download via `GET /export` or local file. Each ZIP carries a `manifest.json` with a `sha256` per file so a consumer can verify integrity (#455). |
 | **signalsctl** (`cmd/signalsctl`) | Operator CLI — a thin client over the same authenticated HTTP API (status, collect, export, doctor, connect). |
 
 ## Collection cycle

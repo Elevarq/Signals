@@ -3,7 +3,10 @@ package tests
 import (
 	"archive/zip"
 	"bytes"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
+	"io"
 	"path/filepath"
 	"testing"
 	"time"
@@ -143,6 +146,76 @@ func TestExportZIPContainsRequiredFiles(t *testing.T) {
 	for _, name := range required {
 		if !fileSet[name] {
 			t.Errorf("ZIP missing required file: %s", name)
+		}
+	}
+}
+
+// TestExportManifestCoversEveryEntryWithMatchingDigest (#455) verifies the
+// export ZIP carries a manifest.json whose sha256 for every other entry
+// matches the entry's actual bytes, that manifest.json does not list itself,
+// and that it covers all non-manifest entries.
+func TestExportManifestCoversEveryEntryWithMatchingDigest(t *testing.T) {
+	store := openTestDB(t)
+	seedExportData(t, store)
+	_, zr := buildExportZIP(t, store)
+
+	// Read manifest.json.
+	var manifest struct {
+		ManifestVersion int    `json:"manifest_version"`
+		Algorithm       string `json:"algorithm"`
+		Files           []struct {
+			Name   string `json:"name"`
+			SHA256 string `json:"sha256"`
+		} `json:"files"`
+	}
+	manifestSeen := false
+	entryBytes := map[string][]byte{}
+	for _, f := range zr.File {
+		rc, err := f.Open()
+		if err != nil {
+			t.Fatalf("open %s: %v", f.Name, err)
+		}
+		data, err := io.ReadAll(rc)
+		_ = rc.Close()
+		if err != nil {
+			t.Fatalf("read %s: %v", f.Name, err)
+		}
+		if f.Name == "manifest.json" {
+			manifestSeen = true
+			if err := json.Unmarshal(data, &manifest); err != nil {
+				t.Fatalf("decode manifest.json: %v", err)
+			}
+			continue
+		}
+		entryBytes[f.Name] = data
+	}
+	if !manifestSeen {
+		t.Fatal("export ZIP has no manifest.json (#455)")
+	}
+	if manifest.Algorithm != "sha256" {
+		t.Errorf("manifest algorithm = %q, want sha256", manifest.Algorithm)
+	}
+
+	listed := map[string]bool{}
+	for _, entry := range manifest.Files {
+		if entry.Name == "manifest.json" {
+			t.Error("manifest.json must not list itself")
+		}
+		data, ok := entryBytes[entry.Name]
+		if !ok {
+			t.Errorf("manifest lists %q which is not in the ZIP", entry.Name)
+			continue
+		}
+		want := sha256.Sum256(data)
+		if entry.SHA256 != hex.EncodeToString(want[:]) {
+			t.Errorf("manifest sha256 mismatch for %s: manifest=%s actual=%s",
+				entry.Name, entry.SHA256, hex.EncodeToString(want[:]))
+		}
+		listed[entry.Name] = true
+	}
+	for name := range entryBytes {
+		if !listed[name] {
+			t.Errorf("entry %q is in the ZIP but not covered by manifest.json", name)
 		}
 	}
 }
