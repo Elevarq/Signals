@@ -135,9 +135,12 @@ func init() {
 	// PostgreSQL and extension versions (e.g. blk_read_time was
 	// renamed to shared_blk_read_time in PG 17); the collector
 	// captures whatever columns the installed version exposes and
-	// serializes them dynamically using actual column names. Signals
-	// does not rank or limit statements; Analyzer owns workload
-	// selection such as top-N by total execution time.
+	// serializes them dynamically using actual column names. Rows are
+	// returned in a stable identity order (userid, dbid, queryid,
+	// toplevel) for deterministic output across snapshots (#440) — a
+	// sort by identity, NOT ranking: Signals still applies no metric
+	// ORDER BY and no LIMIT; Analyzer owns workload selection such as
+	// top-N by total execution time.
 	//
 	// R106 self-filter:
 	//   1. Scope to the connected database via a join on pg_database,
@@ -163,7 +166,8 @@ func init() {
 		    WHERE a.application_name = 'signals'
 		      AND a.usesysid = s.userid
 		      AND a.datid = s.dbid
-		  )`,
+		  )
+		ORDER BY s.userid, s.dbid, s.queryid, s.toplevel`,
 		ResultKind:     ResultRowset,
 		RetentionClass: RetentionMedium,
 		Timeout:        10 * time.Second,

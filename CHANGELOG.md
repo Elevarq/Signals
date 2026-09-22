@@ -6,6 +6,15 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **`pg_stat_statements_v1` now emits rows in a stable identity order (#440).**
+  Added `ORDER BY userid, dbid, queryid, toplevel` so the same set of statements
+  serializes to the same row order across snapshots (INV-01 determinism parity
+  with the other rowset collectors). This is a deterministic *identity* sort, not
+  ranking: Signals still applies no metric `ORDER BY` and no `LIMIT` — Analyzer
+  owns top-N workload selection. The spec + guard test were refined to forbid
+  ranking/`LIMIT` specifically rather than any `ORDER BY`.
+
 ### Security
 - **`SIGNALS_ALLOW_UNSAFE_ROLE` is refused in `env: prod` (#31).** The
   evaluation-only escape hatch that bypasses the superuser/replication/bypassrls

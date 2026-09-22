@@ -22,9 +22,15 @@ added in extension versions 1.8 and 1.10, etc. The collector
 captures whatever columns the installed version exposes and
 serializes them dynamically using actual column names.
 
-No ranking or row limit is applied by Signals. Analyzer owns
-workload selection, including any top-N policy by total execution
-time, mean execution time, calls, I/O, or another cost model.
+Rows are returned in a **stable identity order** —
+`ORDER BY userid, dbid, queryid, toplevel` — so the same set of
+statements serializes to the same row order across snapshots (INV-01
+determinism parity with every other rowset collector; #440). This is a
+deterministic *identity* sort, **not ranking or selection**: no
+`ORDER BY` on a metric column, and no `LIMIT`/`OFFSET`/`TOP`. Signals
+still applies no ranking and no row limit — Analyzer owns workload
+selection, including any top-N policy by total execution time, mean
+execution time, calls, I/O, or another cost model.
 
 ## Output columns
 
@@ -92,6 +98,8 @@ includes but is not limited to:
 - Column set is whatever the target exposes — never fixed.
 - Read-only query, passes linter.
 - `queryid` is stable across samples.
+- Deterministic identity ordering (`userid, dbid, queryid, toplevel`);
+  no ranking (metric-column `ORDER BY`) and no `LIMIT`/`OFFSET` (#440).
 
 ## Failure Conditions
 
