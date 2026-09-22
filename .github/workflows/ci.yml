@@ -213,6 +213,21 @@ jobs:
           go-version: "1.26.6"
           cache-dependency-path: go.sum
 
+      # #450: lint the GitHub Actions workflows on every PR (previously
+      # only hadolint ran, and only at release time). actionlint is
+      # installed via the job's existing Go toolchain so the version is
+      # pinned by module and reproducible.
+      - name: actionlint (workflow lint)
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.7
+          "$(go env GOPATH)/bin/actionlint" -color
+
+      - name: Lint Dockerfile with hadolint
+        uses: hadolint/hadolint-action@06be81baf89a55ffd0e24b8f04a4185738dd3387  # v3.5.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: error
+
       - name: Trivy filesystem scan (vuln + secret)
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
