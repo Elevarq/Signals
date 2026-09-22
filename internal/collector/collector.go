@@ -1317,7 +1317,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 				// every poll — and with correct wording (ownership, not
 				// pg_monitor, grants the owner-only catalog).
 				if c.warnOnce(tgt.Name, q.ID, "owner_only") {
-					slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not grant it; requires superuser or an explicit GRANT) — recorded skipped, not failed",
+					slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not confer it). To collect it, GRANT SELECT ON pg_catalog.pg_statistic_ext_data to the monitoring role — no superuser required — otherwise this is an expected privilege boundary, recorded skipped, not failed",
 						"query", q.ID, "target", tgt.Name)
 				}
 			case run.Status == "skipped" && run.Reason == reasonPrivilegeRestricted:

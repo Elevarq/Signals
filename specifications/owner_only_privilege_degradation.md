@@ -12,10 +12,11 @@ privilege is revoked — specifically `pg_statistic_ext_data` (the same
 posture as `pg_statistic`). A least-privilege monitoring role
 (`pg_monitor` / `pg_read_all_stats`) therefore receives a hard
 permission-denied error (SQLSTATE `42501`) on the *relation* — the
-collector's `LEFT JOIN` does **not** rescue it. Direct reads require
-superuser or an explicit `GRANT SELECT` on the catalog; `pg_monitor` /
-`pg_read_all_stats` does not grant it (confirmed by the live AWS smoke,
-where the monitoring role saw `42501`).
+collector's `LEFT JOIN` does **not** rescue it. Direct reads require an
+explicit `GRANT SELECT` on the catalog to the monitoring role (no
+superuser required); `pg_monitor` / `pg_read_all_stats` does not confer
+it (confirmed by the live AWS smoke, where the monitoring role saw
+`42501`).
 
 This is an **expected privilege boundary**, not a fault. Before this
 spec the daemon recorded such a run as `status=failed,

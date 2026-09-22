@@ -6,6 +6,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Documentation
+- **Never advise a superuser (#435).** Reworded the owner-only stats
+  collectors' runtime skip advisory, spec prose, and code comments, plus the
+  Cloud SQL guidance in `docs/compatibility/support-matrix.md` /
+  `docs/adoption-guide.md` and the role-bootstrap line in
+  `docs/postgres-role.md`, so no operator-facing surface presents a superuser
+  (or `cloudsqlsuperuser`) as a way to gain access. The supported path for the
+  owner-only `pg_statistic_ext_data` catalog is an explicit
+  `GRANT SELECT ON pg_catalog.pg_statistic_ext_data` to the least-privilege
+  monitoring role — Signals already refuses to collect as a superuser. Wording
+  only; no behavior change.
+
 ### Changed
 - **`pg_statistic_ext_data_v1` / `pg_statistic_ext_data_mcv_v1` — lossless
   binary-safe `kind_data` (#433).** Both collectors now emit two new

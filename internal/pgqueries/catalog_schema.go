@@ -450,11 +450,13 @@ func init() {
 	// pg_statistic): a least-privilege monitoring role
 	// (pg_monitor / pg_read_all_stats) gets a hard permission-denied
 	// (SQLSTATE 42501) on the relation, so the LEFT JOIN does NOT
-	// rescue the query — the whole collector errors. Access requires
-	// superuser or an explicit GRANT. That is an expected privilege
-	// boundary, so the collector is flagged OwnerOnlyDegrade: a 42501
-	// is recorded status=skipped/privilege_owner_only rather than
-	// failed (#200). A superuser reads the blobs and the available
+	// rescue the query — the whole collector errors. To collect it,
+	// GRANT SELECT ON pg_catalog.pg_statistic_ext_data to the
+	// monitoring role (no superuser required). Without that grant it is
+	// an expected privilege boundary, so the collector is flagged
+	// OwnerOnlyDegrade: a 42501 is recorded
+	// status=skipped/privilege_owner_only rather than failed (#200).
+	// With the grant, the collector reads the blobs and the available
 	// column reports per-object presence as normal.
 	//
 	// Specification: specifications/collectors/pg_statistic_ext_data_v1.md

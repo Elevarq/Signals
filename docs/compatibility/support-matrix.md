@@ -35,7 +35,7 @@ Source of truth: `internal/pgqueries/discovery.go::SupportedMajors`.
 | Self-hosted PostgreSQL | **Supported** | The reference deployment. |
 | AWS RDS for PostgreSQL | **Supported** | Standard read permissions; `pg_monitor` role required for some signal collectors. The `rds_superuser` role is NOT required. |
 | AWS RDS Aurora PostgreSQL-compatible | **Best-effort** | Aurora's catalog implements PG-compatible system views; common collectors work. The `pg_stat_statements_info.dealloc` column (used by `pgss_capacity_v1`) is present in Aurora. Aurora-Serverless's elastic-IOPS surface is invisible to the collector — operator-declared values in the analyzer's TargetContext are the right path (Elevarq/Workbench#242). |
-| Google Cloud SQL for PostgreSQL | **Supported** | Standard read permissions. The `cloudsqlsuperuser` role is sufficient; the collector does NOT require superuser. |
+| Google Cloud SQL for PostgreSQL | **Supported** | Standard read permissions. Assign `pg_monitor` directly to the monitoring role; the collector does NOT require superuser (nor `cloudsqlsuperuser`). |
 | AlloyDB | **Best-effort** | PG-compatible catalog. Storage / IOPS abstraction is invisible to the collector; same TargetContext path applies. |
 | Azure Database for PostgreSQL — Flexible Server | **Supported** | Standard read permissions; `azure_pg_admin` is NOT required. |
 | Azure Database for PostgreSQL — Single Server | **Unsupported** | Retired upstream. |
@@ -78,7 +78,7 @@ Elevarq Signals is designed to run as a **non-superuser** role.
 | Self-hosted | `pg_monitor` membership + `SELECT` on application schemas. |
 | RDS PostgreSQL | `pg_monitor` (available since PG 10). |
 | RDS Aurora | `rds_pg_monitor` (the Aurora equivalent). |
-| Cloud SQL | `cloudsqlsuperuser` is sufficient (overkill but the typical Cloud SQL operator role). |
+| Cloud SQL | `pg_monitor` (grant it directly to the monitoring role; `cloudsqlsuperuser` is not required and over-privileged). |
 | AlloyDB | `pg_monitor` plus the AlloyDB-specific read role if present. |
 | Azure Flex | Membership in the `azure_pg_admin_role` group or the dedicated read role. |
 
