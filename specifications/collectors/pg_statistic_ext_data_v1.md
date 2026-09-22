@@ -1,7 +1,9 @@
 # pg_statistic_ext_data_v1 — Collector Specification
 
-Spec version: 1.0
-Issue: [Elevarq/Signals#171](https://github.com/Elevarq/Signals/issues/171)
+Spec version: 1.1
+Issue: [Elevarq/Signals#171](https://github.com/Elevarq/Signals/issues/171),
+[Elevarq/Signals#433](https://github.com/Elevarq/Signals/issues/433)
+(binary-safe `kind_data_binary` / `kind_data_encoding` columns)
 Sibling (metadata): [pg_statistic_ext_v1](pg_statistic_ext_v1.md)
 
 ## Purpose
@@ -65,16 +67,21 @@ One row per `(statistics_object, kind)` where kind is one of
 | table_schema | text | Schema of the target relation. |
 | table_name | text | Target relation name. |
 | kind | text | One of `d` / `f` / `e`. |
-| kind_data | text | The byte-encoded statistics value, cast to text (the planner-consumed form). NULL when the object has no computed data for this kind yet (privileged read path). |
+| kind_data | text | The human-readable text form of the statistics value (`::text`), retained for inspection. This is **not** a lossless replay format: `pg_ndistinct` and `pg_dependencies` reject text input and `pg_ndistinct_out` is not a complete serialization (#433). NULL when the object has no computed data for this kind yet (privileged read path). |
+| kind_data_binary | text | Lossless, replay-safe encoding of the stored value: the **hex** encoding of PostgreSQL's binary *send* output for the value's type — `pg_ndistinct_send` for `d`, `pg_dependencies_send` for `f`, `array_send` over `pg_statistic[]` for `e` (`pg_mcv_list_send` for `m` in the MCV sibling). The Analyzer replay path reconstructs the varlena via the matching *recv* function (the send/recv pair is PostgreSQL's binary-I/O inverse, as used by `COPY … WITH BINARY`). Hex (not base64) so the payload carries no embedded newlines. NULL exactly when `kind_data` is NULL (the strict send functions map a NULL input to a NULL output). |
+| kind_data_encoding | text | Codec+version tag telling a consumer how to decode `kind_data_binary`, of the form `v1:<send_fn>:hex` (`v1:pg_ndistinct_send:hex`, `v1:pg_dependencies_send:hex`, `v1:array_send:hex`; `v1:pg_mcv_list_send:hex` in the MCV sibling). A consumer MUST check this token before decoding so the binary form is never confused with the human-readable `kind_data`. The send wire format is PostgreSQL-major-specific; the snapshot's captured server version governs which major a value can be replayed into. NULL exactly when `kind_data_binary` is NULL. |
 | available | bool | TRUE when `kind_data IS NOT NULL`. FALSE = the statistics object exists per the catalog but has no computed data for this kind (e.g. not yet `ANALYZE`d); only observable under a role that can read `pg_statistic_ext_data` (superuser / granted SELECT). A role without that access does not produce these rows — the collector is skipped (#200). |
 
 ## MCV-kind sibling (`pg_statistic_ext_data_mcv_v1`)
 
 Same identity columns; one row per `(statistics_object,
-kind='m')` only. Same `kind_data` / `available` columns. Behind
-`HighSensitivity=true` (daemon-wide HS floor). Disabled by
-default; the operator must explicitly enable
-`HighSensitivityEnabled=true` to ship the MCV blob.
+kind='m')` only. Same `kind_data` / `kind_data_binary` /
+`kind_data_encoding` / `available` columns, where the binary form
+is `encode(pg_mcv_list_send(stxdmcv), 'hex')` and the encoding tag
+is `v1:pg_mcv_list_send:hex`. Behind `HighSensitivity=true`
+(daemon-wide HS floor). Disabled by default; the operator must
+explicitly enable `HighSensitivityEnabled=true` to ship the MCV
+blob.
 
 The MCV blob carries the actual sampled value tuples from the
 target table's covered columns; it MAY contain PII. The HS gate
@@ -106,6 +113,25 @@ MCV / histogram blobs.
   (`pg_statistic_ext_data_v1`) NEVER emits the `m` kind. The
   MCV blob is only reachable via the sibling
   `pg_statistic_ext_data_mcv_v1` collector behind the HS gate.
+- **INV-05** — Lossless binary form (#433): for every emitted
+  `(object, kind)` row whose value is computed
+  (`available = true`), `kind_data_binary` is the hex encoding of
+  the value type's binary *send* output and `kind_data_encoding`
+  is the matching `v1:<send_fn>:hex` token; the pair round-trips
+  through the type's *recv* function. The `kind_data` text column
+  is retained unchanged as the inspection form and is NOT the
+  replay source. `kind_data_binary` and `kind_data_encoding` are
+  both NULL exactly when `kind_data` is NULL — the three
+  value-bearing columns share one availability predicate, so a row
+  never carries a binary form without a text form or vice versa.
+- **INV-06** — Encoding self-describes the codec, not the value:
+  `kind_data_encoding` is a fixed per-kind constant
+  (`v1:pg_ndistinct_send:hex` for `d`, `v1:pg_dependencies_send:hex`
+  for `f`, `v1:array_send:hex` for `e`, `v1:pg_mcv_list_send:hex`
+  for `m`); it does not vary with the value's contents. The binary
+  wire format is PostgreSQL-major-specific, so replay is only valid
+  into a server of the same major, resolved from the snapshot's
+  captured server version — not from this field.
 
 ## Failure conditions
 
@@ -145,7 +171,12 @@ MCV / histogram blobs.
 encoded `d` / `f` / `e` blobs are statistical models — they
 encode correlation coefficients, functional dependency degrees,
 and expression-stats summary stats. They do NOT carry sampled
-column values.
+column values. The `kind_data_binary` form carries exactly the
+same information as the existing `kind_data` text form (it is the
+same stored value under a different, lossless transport), so
+adding it does NOT change the sensitivity classification or the
+privilege / HS posture of either collector — the `m` blob remains
+gated to the HS sibling, `d` / `f` / `e` remain medium-low.
 
 `pg_statistic_ext_data_mcv_v1`: **high**. The `m` blob carries
 actual most-common-value tuples for the columns the statistics
@@ -190,9 +221,25 @@ cycle partial.
   `kind_data` is non-NULL for objects the role owns.
 - **AT-05** — `bash scripts/preflight.sh all` green
   (build / vet / test / security gates).
+- **AT-06** — Binary-safe projection (#433): both collectors
+  project `kind_data_binary` and `kind_data_encoding` alongside the
+  existing `kind_data` / `available` columns. For each supported
+  kind the binary form is `encode(<send_fn>(<col>), 'hex')` and the
+  encoding token is the fixed `v1:<send_fn>:hex` constant; on a
+  computed value the pair is non-NULL and on an uncomputed value
+  (`available=false`) both are NULL. Verified structurally by the
+  registered-SQL projection tests and, on the live privileged read
+  path, by the output-contract harness.
 
 ## Downstream use
 
 - Once these values ship in the snapshot, downstream analysis can
   account for multivariate / extended statistics when reasoning about
   planner cost estimates.
+- Analyzer replay (Elevarq/Analyzer#3045) restores the stored
+  extended-statistics values into a replica catalog by decoding
+  `kind_data_binary` (`decode(kind_data_binary, 'hex')`) and feeding
+  the bytes to the type's *recv* function, into a server matching the
+  snapshot's PostgreSQL major. The `kind_data` text column is for
+  human inspection only and is not the replay source — the `d` and
+  `f` kinds cannot be reconstructed from text at all.

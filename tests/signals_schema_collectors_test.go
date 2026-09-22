@@ -1970,7 +1970,7 @@ func TestStatisticExtDataCollectorOutputColumns(t *testing.T) {
 	for _, col := range []string{
 		"stat_schema", "stat_name",
 		"table_schema", "table_name",
-		"kind", "kind_data", "available",
+		"kind", "kind_data", "kind_data_binary", "kind_data_encoding", "available",
 	} {
 		if !strings.Contains(sql, col) {
 			t.Errorf("pg_statistic_ext_data_v1 SQL must project %q", col)
@@ -1987,10 +1987,69 @@ func TestStatisticExtDataMCVCollectorOutputColumns(t *testing.T) {
 	for _, col := range []string{
 		"stat_schema", "stat_name",
 		"table_schema", "table_name",
-		"kind", "kind_data", "available",
+		"kind", "kind_data", "kind_data_binary", "kind_data_encoding", "available",
 	} {
 		if !strings.Contains(sql, col) {
 			t.Errorf("pg_statistic_ext_data_mcv_v1 SQL must project %q", col)
+		}
+	}
+}
+
+// #433 / INV-05 / INV-06: both collectors must carry a lossless,
+// replay-safe binary form of each kind's stored value — the hex
+// encoding of the type's binary send function — plus a fixed
+// `v1:<send_fn>:hex` encoding token. The existing `::text` form is
+// retained for inspection but is not a replay source (pg_ndistinct /
+// pg_dependencies reject text input).
+func TestStatisticExtDataCollectorBinarySendEncoding(t *testing.T) {
+	cases := []struct {
+		id       string
+		sendExpr []string // hex-encoded send expression(s) the SQL must contain
+		tokens   []string // encoding tokens the SQL must contain
+	}{
+		{
+			id: "pg_statistic_ext_data_v1",
+			sendExpr: []string{
+				"encode(pg_ndistinct_send(esd.stxdndistinct), 'hex')",
+				"encode(pg_dependencies_send(esd.stxddependencies), 'hex')",
+				"encode(array_send(esd.stxdexpr), 'hex')",
+			},
+			tokens: []string{
+				"v1:pg_ndistinct_send:hex",
+				"v1:pg_dependencies_send:hex",
+				"v1:array_send:hex",
+			},
+		},
+		{
+			id: "pg_statistic_ext_data_mcv_v1",
+			sendExpr: []string{
+				"encode(pg_mcv_list_send(esd.stxdmcv), 'hex')",
+			},
+			tokens: []string{
+				"v1:pg_mcv_list_send:hex",
+			},
+		},
+	}
+	for _, tc := range cases {
+		q := pgqueries.ByID(tc.id)
+		if q == nil {
+			t.Fatalf("%s not registered", tc.id)
+		}
+		// Base64 wraps at 76 chars (embeds newlines) — the binary
+		// column must use hex, never base64, so the payload is a
+		// single unbroken token.
+		if containsCI(q.SQL, "base64") {
+			t.Errorf("%s must encode the binary send output as hex, not base64 (base64 embeds newlines)", tc.id)
+		}
+		for _, e := range tc.sendExpr {
+			if !strings.Contains(q.SQL, e) {
+				t.Errorf("%s SQL must produce the lossless binary form via %q", tc.id, e)
+			}
+		}
+		for _, tok := range tc.tokens {
+			if !strings.Contains(q.SQL, tok) {
+				t.Errorf("%s SQL must carry the encoding token %q", tc.id, tok)
+			}
 		}
 	}
 }
