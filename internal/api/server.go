@@ -79,7 +79,13 @@ func NewServer(addr string, readTimeout, writeTimeout time.Duration, apiToken st
 	mux := http.NewServeMux()
 
 	// Register signals-only routes.
+	// Kubernetes probes (#442): /livez is process liveness (cheap,
+	// always 200 while the HTTP server is up); /readyz is readiness
+	// (store reachable AND at least one collection cycle persisted).
+	// /health is retained as a back-compat liveness alias.
 	mux.HandleFunc("GET /health", handleHealth(deps))
+	mux.HandleFunc("GET /livez", handleHealth(deps))
+	mux.HandleFunc("GET /readyz", handleReadyz(deps))
 	mux.HandleFunc("GET /status", handleStatus(deps))
 	mux.HandleFunc("POST /collect/now", handleCollectNow(deps))
 	mux.HandleFunc("POST /collect/pause", handleCollectPause(deps))
@@ -164,6 +170,39 @@ func handleHealth(deps *Deps) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{
 			"status":  "ok",
+			"version": safety.Version,
+		})
+	}
+}
+
+// handleReadyz reports readiness (#442): 200 only when the snapshot
+// store is reachable AND at least one collection cycle has been
+// persisted, otherwise 503. Unlike the always-200 /health and /livez
+// (process liveness), /readyz reflects real health so a wedged store or
+// a daemon that has never completed a cycle is not marked ready and is
+// kept out of the load balancer. It is intentionally NOT gated on the
+// per-target circuit breaker: one unhealthy target must not mark the
+// whole daemon not-ready. Auth-exempt, like /health and /livez.
+func handleReadyz(deps *Deps) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		snapCount, err := deps.DB.CountSnapshots()
+		if err != nil {
+			slog.Warn("readyz: snapshot store unreachable", "err", err)
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+				"status": "unready",
+				"reason": "store_unreachable",
+			})
+			return
+		}
+		if snapCount == 0 {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{
+				"status": "unready",
+				"reason": "no_collection_yet",
+			})
+			return
+		}
+		writeJSON(w, http.StatusOK, map[string]string{
+			"status":  "ready",
 			"version": safety.Version,
 		})
 	}
@@ -944,8 +983,10 @@ func actorFromCtx(ctx context.Context) string {
 func tokenAuthMiddleware(apiToken string, controlPlaneTokenFn func() string, limiter *tokenRateLimiter) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			// Skip auth for health endpoint (loopback health checks).
-			if r.URL.Path == "/health" {
+			// Skip auth for the liveness/readiness probes (loopback +
+			// kubelet health checks; #442).
+			switch r.URL.Path {
+			case "/health", "/livez", "/readyz":
 				next.ServeHTTP(w, r)
 				return
 			}

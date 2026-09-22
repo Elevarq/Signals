@@ -6,6 +6,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Health probes now reflect real health (#444, #442).**
+  - `DecodeNDJSON` decodes numbers as `json.Number` so `int8`/`numeric`
+    values above 2^53 (bloat byte counts, xids, `pg_stat_statements`
+    counters) round-trip through the store and the export ZIP without
+    precision loss (#444).
+  - Split the always-200 `/health` into `GET /livez` (process liveness)
+    and `GET /readyz` (200 only when the snapshot store is reachable AND
+    at least one collection cycle has been persisted, else 503) (#442).
+    Both are auth-exempt; `/health` is retained as a back-compat liveness
+    alias. The Helm chart's liveness probe now targets `/livez` and its
+    readiness probe `/readyz`, so a wedged store or a daemon that has
+    never completed a cycle is no longer reported healthy. `metrics_path`
+    additionally reserves `/livez` and `/readyz`.
+
 ### Documentation
 - **Document the optional grants that enrich Analyzer reports (#436).** Added an
   "Optional grants for richer reports" section to `docs/postgres-role.md` and

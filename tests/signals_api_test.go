@@ -76,6 +76,105 @@ func TestHealthEndpoint(t *testing.T) {
 	}
 }
 
+// newReadyzHandler builds the API handler and returns the backing store so a
+// test can seed a snapshot or close the store to exercise /readyz (#442).
+func newReadyzHandler(t *testing.T) (http.Handler, *db.DB) {
+	t.Helper()
+	dbPath := filepath.Join(t.TempDir(), "readyz-test.db")
+	store, err := db.Open(dbPath, false)
+	if err != nil {
+		t.Fatalf("db.Open: %v", err)
+	}
+	t.Cleanup(func() { _ = store.Close() })
+	if err := store.Migrate(); err != nil {
+		t.Fatalf("Migrate: %v", err)
+	}
+	if _, err := store.EnsureInstanceID(); err != nil {
+		t.Fatalf("EnsureInstanceID: %v", err)
+	}
+	deps := &api.Deps{
+		DB:        store,
+		Collector: collector.New(store, nil, 1*time.Hour, 30),
+		Exporter:  export.NewBuilder(store, "test-id"),
+	}
+	srv := api.NewServer("127.0.0.1:0", 10*time.Second, 10*time.Second, testAPIToken, deps)
+	return srv.Handler(), store
+}
+
+// TestLivezEndpoint verifies GET /livez is 200 without auth (process liveness).
+func TestLivezEndpoint(t *testing.T) {
+	handler, cleanup := makeTestHandler(t)
+	defer cleanup()
+
+	req := httptest.NewRequest("GET", "/livez", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /livez status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// TestReadyzNotReadyBeforeCollection verifies /readyz reports 503 (not the
+// always-200 /health did) before any collection cycle, without auth (#442).
+func TestReadyzNotReadyBeforeCollection(t *testing.T) {
+	handler, _ := newReadyzHandler(t)
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET /readyz (fresh) status = %d, want %d", w.Code, http.StatusServiceUnavailable)
+	}
+	var body map[string]string
+	if err := json.NewDecoder(w.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body["reason"] != "no_collection_yet" {
+		t.Errorf("reason = %q, want %q", body["reason"], "no_collection_yet")
+	}
+}
+
+// TestReadyzReadyAfterSnapshot verifies /readyz is 200 once a snapshot exists.
+func TestReadyzReadyAfterSnapshot(t *testing.T) {
+	handler, store := newReadyzHandler(t)
+
+	tid, err := store.UpsertTarget("t1", "localhost", 5432, "postgres", "signals", "prefer", "", "", true)
+	if err != nil {
+		t.Fatalf("UpsertTarget: %v", err)
+	}
+	if err := store.InsertSnapshot(db.Snapshot{
+		ID: "snap-1", TargetID: tid, CollectedAt: time.Now().UTC().Format(time.RFC3339),
+		PGVersion: "17", Payload: json.RawMessage(`{}`), SizeBytes: 2,
+	}); err != nil {
+		t.Fatalf("InsertSnapshot: %v", err)
+	}
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Errorf("GET /readyz (with snapshot) status = %d, want %d", w.Code, http.StatusOK)
+	}
+}
+
+// TestReadyzStoreUnreachable verifies /readyz reports 503 when the store errors.
+func TestReadyzStoreUnreachable(t *testing.T) {
+	handler, store := newReadyzHandler(t)
+	_ = store.Close() // subsequent CountSnapshots fails
+
+	req := httptest.NewRequest("GET", "/readyz", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("GET /readyz (closed store) status = %d, want %d", w.Code, http.StatusServiceUnavailable)
+	}
+	var body map[string]string
+	_ = json.NewDecoder(w.Body).Decode(&body)
+	if body["reason"] != "store_unreachable" {
+		t.Errorf("reason = %q, want %q", body["reason"], "store_unreachable")
+	}
+}
+
 // TestStatusEndpointRequiresAuth verifies GET /status without bearer token returns 401.
 // Traces: SIGNALS-R011 / TC-SIG-016
 func TestStatusEndpointRequiresAuth(t *testing.T) {

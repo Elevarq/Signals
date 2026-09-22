@@ -18,7 +18,7 @@ flowchart TB
         operator(["Operator / CI"])
 
         subgraph daemon["signals daemon (single container, non-root)"]
-            api["HTTP API :8081<br/>bearer-token auth<br/>(/health is open)"]
+            api["HTTP API :8081<br/>bearer-token auth<br/>(/livez,/readyz,/health open)"]
             sched["Scheduler<br/>(per-target cadence)"]
             collector["Collector loop"]
             safety{{"Read-only safety layers<br/>1 SQL lint · 2 role check<br/>3 READ ONLY txn · 4 timeouts"}}
@@ -49,7 +49,7 @@ flowchart TB
 
 | Component | Responsibility |
 |---|---|
-| **HTTP API** (`internal/api`) | Local control plane on `:8081`. Bearer-token-authenticated for every endpoint (`/status`, `/collect/*`, `/reload`, `/export`, `/metrics`); only `GET /health` is open. Token compared in constant time. |
+| **HTTP API** (`internal/api`) | Local control plane on `:8081`. Bearer-token-authenticated for every endpoint (`/status`, `/collect/*`, `/reload`, `/export`, `/metrics`); the unauthenticated probes `GET /livez` (process liveness), `GET /readyz` (store reachable + ≥1 collection cycle), and the back-compat `GET /health` are open. Token compared in constant time. |
 | **Scheduler + Collector loop** (`internal/collector`) | Drives per-target collection at the configured cadence, resolves the connection credential just-in-time, opens the read-only connection, runs the catalog, and writes results. A per-target circuit breaker isolates a failing target without affecting others. |
 | **Query catalog** (`internal/pgqueries`) | The fixed, in-binary set of read-only diagnostic queries (the only SQL the daemon ever runs). Auditable from source. |
 | **Read-only safety layers** (`internal/safety`, `internal/collector`) | Four independent layers — static SQL linting at startup, per-target role-attribute validation (blocks superuser / replication / bypassrls), a session `READ ONLY` transaction, and transaction-scoped statement/lock/idle timeouts. Detailed in [runtime-safety-model.md](runtime-safety-model.md). |
@@ -76,4 +76,4 @@ flowchart TB
 
 ## Deployment topology
 
-A single non-root container (digest-pinned, multi-arch amd64/arm64, read-only root filesystem, all capabilities dropped). Deployed via the Helm chart (`oci://ghcr.io/elevarq/charts/signals`) with liveness/readiness probes on `/health`, resource limits, an optional NetworkPolicy (deny-all except DNS + the Postgres targets), and a dedicated ServiceAccount with no Kubernetes API access. The connection password and API token are injected from Kubernetes Secrets; collector configuration is mounted read-only from a ConfigMap. See [install/kubernetes-production.md](install/kubernetes-production.md) and [container.md](container.md).
+A single non-root container (digest-pinned, multi-arch amd64/arm64, read-only root filesystem, all capabilities dropped). Deployed via the Helm chart (`oci://ghcr.io/elevarq/charts/signals`) with a liveness probe on `/livez` and a readiness probe on `/readyz`, resource limits, an optional NetworkPolicy (deny-all except DNS + the Postgres targets), and a dedicated ServiceAccount with no Kubernetes API access. The connection password and API token are injected from Kubernetes Secrets; collector configuration is mounted read-only from a ConfigMap. See [install/kubernetes-production.md](install/kubernetes-production.md) and [container.md](container.md).

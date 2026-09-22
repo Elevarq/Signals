@@ -781,8 +781,8 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 		switch {
 		case !strings.HasPrefix(path, "/"):
 			hard = append(hard, fmt.Sprintf("signals.metrics_path %q must start with /", path))
-		case path == "/health":
-			hard = append(hard, "signals.metrics_path must not be /health (reserved for liveness probes)")
+		case path == "/health" || path == "/livez" || path == "/readyz":
+			hard = append(hard, fmt.Sprintf("signals.metrics_path %q is reserved for liveness/readiness probes", path))
 		case path == "/status" || path == "/collect/now" || path == "/export":
 			hard = append(hard, fmt.Sprintf("signals.metrics_path %q collides with an existing API path", path))
 		}
