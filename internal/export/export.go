@@ -2,10 +2,13 @@ package export
 
 import (
 	"archive/zip"
+	"crypto/sha256"
 	"database/sql"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash"
 	"io"
 	"sort"
 	"strconv"
@@ -225,6 +228,69 @@ func (b *Builder) LatestTargetIDs() ([]int64, error) {
 }
 
 // WriteTo writes the ZIP export to the given writer.
+// zipCreator is the subset of *zip.Writer the file writers use. The
+// hashingZip wrapper implements it so every entry is hashed as it is
+// written (#455).
+type zipCreator interface {
+	Create(name string) (io.Writer, error)
+}
+
+// ManifestName is the ZIP entry carrying the per-file integrity manifest.
+const ManifestName = "manifest.json"
+
+// ManifestVersion is the schema version of manifest.json.
+const ManifestVersion = 1
+
+// hashingZip wraps a *zip.Writer and tees every entry's bytes through a
+// SHA-256 hasher, so a manifest.json listing each file's digest can be
+// written last (#455). It records entries in creation order.
+type hashingZip struct {
+	zw     *zip.Writer
+	order  []string
+	hashes map[string]hash.Hash
+}
+
+func newHashingZip(zw *zip.Writer) *hashingZip {
+	return &hashingZip{zw: zw, hashes: map[string]hash.Hash{}}
+}
+
+func (h *hashingZip) Create(name string) (io.Writer, error) {
+	w, err := h.zw.Create(name)
+	if err != nil {
+		return nil, err
+	}
+	sum := sha256.New()
+	h.order = append(h.order, name)
+	h.hashes[name] = sum
+	return io.MultiWriter(w, sum), nil
+}
+
+// writeManifest emits manifest.json listing the SHA-256 of every prior
+// entry, in creation order. It is written directly to the underlying
+// zip.Writer (never through the hasher — a manifest cannot digest
+// itself) and must be the last entry created.
+func (h *hashingZip) writeManifest() error {
+	type entry struct {
+		Name   string `json:"name"`
+		SHA256 string `json:"sha256"`
+	}
+	files := make([]entry, 0, len(h.order))
+	for _, name := range h.order {
+		files = append(files, entry{Name: name, SHA256: hex.EncodeToString(h.hashes[name].Sum(nil))})
+	}
+	f, err := h.zw.Create(ManifestName)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	enc.SetIndent("", "  ")
+	return enc.Encode(map[string]any{
+		"manifest_version": ManifestVersion,
+		"algorithm":        "sha256",
+		"files":            files,
+	})
+}
+
 func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 	// R110: hold the export read lock for the whole sequence of store
 	// reads below. Retention DELETEs (`DeleteSnapshotsOlderThan`,
@@ -251,34 +317,44 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 	zw := zip.NewWriter(w)
 	defer func() { _ = zw.Close() }()
 
-	if err := b.writeMetadata(zw, opts, scope); err != nil {
+	// #455: tee every entry through SHA-256 so a per-file integrity
+	// manifest can be written last.
+	hz := newHashingZip(zw)
+
+	if err := b.writeMetadata(hz, opts, scope); err != nil {
 		return fmt.Errorf("write metadata.json: %w", err)
 	}
 
-	if err := b.writeCollectorStatus(zw, opts, scope); err != nil {
+	if err := b.writeCollectorStatus(hz, opts, scope); err != nil {
 		return fmt.Errorf("write collector_status.json: %w", err)
 	}
 
-	if err := b.writeSnapshots(zw, opts, scope); err != nil {
+	if err := b.writeSnapshots(hz, opts, scope); err != nil {
 		return fmt.Errorf("write snapshots.ndjson: %w", err)
 	}
 
-	if err := b.writeQueryCatalog(zw); err != nil {
+	if err := b.writeQueryCatalog(hz); err != nil {
 		return fmt.Errorf("write query_catalog.json: %w", err)
 	}
 
-	if err := b.writeQueryRuns(zw, scope); err != nil {
+	if err := b.writeQueryRuns(hz, scope); err != nil {
 		return fmt.Errorf("write query_runs.ndjson: %w", err)
 	}
 
-	if err := b.writeQueryResults(zw, scope); err != nil {
+	if err := b.writeQueryResults(hz, scope); err != nil {
 		return fmt.Errorf("write query_results.ndjson: %w", err)
 	}
 
 	if b.perCollectorFiles {
-		if err := b.writePerCollectorFiles(zw, opts, scope); err != nil {
+		if err := b.writePerCollectorFiles(hz, opts, scope); err != nil {
 			return fmt.Errorf("write per-collector files: %w", err)
 		}
+	}
+
+	// Manifest is the final entry: it digests every file written above
+	// and cannot digest itself.
+	if err := hz.writeManifest(); err != nil {
+		return fmt.Errorf("write manifest.json: %w", err)
 	}
 
 	return nil
@@ -391,7 +467,7 @@ func (b *Builder) resolveScope(opts Options) (*exportScope, error) {
 	return scope, nil
 }
 
-func (b *Builder) writeMetadata(zw *zip.Writer, opts Options, scope *exportScope) error {
+func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope) error {
 	f, err := zw.Create("metadata.json")
 	if err != nil {
 		return err
@@ -464,7 +540,7 @@ func (b *Builder) writeMetadata(zw *zip.Writer, opts Options, scope *exportScope
 	return json.NewEncoder(f).Encode(data)
 }
 
-func (b *Builder) writeCollectorStatus(zw *zip.Writer, opts Options, scope *exportScope) error {
+func (b *Builder) writeCollectorStatus(zw zipCreator, opts Options, scope *exportScope) error {
 	f, err := zw.Create("collector_status.json")
 	if err != nil {
 		return err
@@ -611,7 +687,7 @@ func (b *Builder) resolveTargetName(targetID int64) string {
 	return name
 }
 
-func (b *Builder) writeQueryCatalog(zw *zip.Writer) error {
+func (b *Builder) writeQueryCatalog(zw zipCreator) error {
 	f, err := zw.Create("query_catalog.json")
 	if err != nil {
 		return err
@@ -628,7 +704,7 @@ func (b *Builder) writeQueryCatalog(zw *zip.Writer) error {
 // snapshot_id is in the resolved scope (R084/R085). The set is
 // computed once by resolveScope and applies uniformly to runs and
 // results so the two files cannot disagree.
-func (b *Builder) writeQueryRuns(zw *zip.Writer, scope *exportScope) error {
+func (b *Builder) writeQueryRuns(zw zipCreator, scope *exportScope) error {
 	f, err := zw.Create("query_runs.ndjson")
 	if err != nil {
 		return err
@@ -664,7 +740,7 @@ func (b *Builder) writeQueryRuns(zw *zip.Writer, scope *exportScope) error {
 
 // writeQueryResults emits one NDJSON row per successful run in the
 // resolved scope (R084/R085).
-func (b *Builder) writeQueryResults(zw *zip.Writer, scope *exportScope) error {
+func (b *Builder) writeQueryResults(zw zipCreator, scope *exportScope) error {
 	f, err := zw.Create("query_results.ndjson")
 	if err != nil {
 		return err
@@ -712,7 +788,7 @@ func (b *Builder) writeQueryResults(zw *zip.Writer, scope *exportScope) error {
 	return nil
 }
 
-func (b *Builder) writeSnapshots(zw *zip.Writer, opts Options, scope *exportScope) error {
+func (b *Builder) writeSnapshots(zw zipCreator, opts Options, scope *exportScope) error {
 	f, err := zw.Create("snapshots.ndjson")
 	if err != nil {
 		return err
@@ -791,7 +867,7 @@ func (b *Builder) writeSnapshots(zw *zip.Writer, opts Options, scope *exportScop
 // one target silently winning a query_id-only grouping. A missing or
 // corrupt payload for a successful in-scope run FAILS the export (same
 // guard as writeQueryResults) rather than emitting a zero-row stub.
-func (b *Builder) writePerCollectorFiles(zw *zip.Writer, opts Options, scope *exportScope) error {
+func (b *Builder) writePerCollectorFiles(zw zipCreator, opts Options, scope *exportScope) error {
 	// Latest-run-wins per (target_id, query_id) from the resolved
 	// scope. collected_at is RFC 3339 so a lexical compare matches time
 	// order.

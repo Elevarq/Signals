@@ -92,12 +92,14 @@ Snapshot stored in SQLite. Size: 68,335 bytes.
 
 ### Export: PASS
 
-ZIP archive produced with 5 files:
+ZIP archive produced with the data files plus a `manifest.json`
+integrity index (a `sha256` per file, #455):
 - metadata.json (565 bytes)
 - snapshots.ndjson (68,577 bytes)
 - query_catalog.json (1,708 bytes)
 - query_runs.ndjson (3,847 bytes)
 - query_results.ndjson (70,064 bytes)
+- manifest.json (per-file sha256)
 
 ### Credential safety: PASS
 
