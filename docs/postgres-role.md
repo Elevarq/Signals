@@ -20,7 +20,8 @@ extension presence, schema inventory without definition text) the
 `pg_monitor` role is sufficient and is the recommended baseline.
 
 ```sql
--- Run as a superuser on each target database cluster.
+-- Run as an administrator permitted to create roles and grant
+-- pg_monitor (on a managed service, the master/admin user).
 CREATE ROLE signals LOGIN
     PASSWORD '<set-via-secret-store>'
     NOSUPERUSER

@@ -271,7 +271,7 @@ binding — see [docs/database-connections.md](database-connections.md).
 
 On **Amazon RDS / Aurora**, `pg_monitor` is available on all supported versions (14+).
 
-On **Google Cloud SQL**, grant the `cloudsqlsuperuser` role or assign `pg_monitor` directly.
+On **Google Cloud SQL**, assign `pg_monitor` directly to the monitoring role; `cloudsqlsuperuser` is not required.
 
 ### Role Safety
 

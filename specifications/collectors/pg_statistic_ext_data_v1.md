@@ -48,8 +48,9 @@ posture as `pg_statistic`). A least-privilege monitoring role
 fails with SQLSTATE 42501 and the `LEFT JOIN` does NOT rescue it —
 the collector is recorded `status=skipped,
 reason=privilege_owner_only` (#200; see
-../owner_only_privilege_degradation.md). Under a superuser (or a
-role explicitly granted SELECT on the catalog) the `LEFT JOIN`
+../owner_only_privilege_degradation.md). Under a role explicitly
+granted `SELECT` on the catalog (no superuser required) the
+`LEFT JOIN`
 preserves the parent `pg_statistic_ext` row with NULL data columns
 for any object whose statistics have not been computed yet,
 yielding an `available=false` row rather than dropping it.
@@ -70,7 +71,7 @@ One row per `(statistics_object, kind)` where kind is one of
 | kind_data | text | The human-readable text form of the statistics value (`::text`), retained for inspection. This is **not** a lossless replay format: `pg_ndistinct` and `pg_dependencies` reject text input and `pg_ndistinct_out` is not a complete serialization (#433). NULL when the object has no computed data for this kind yet (privileged read path). |
 | kind_data_binary | text | Lossless, replay-safe encoding of the stored value: the **hex** encoding of PostgreSQL's binary *send* output for the value's type — `pg_ndistinct_send` for `d`, `pg_dependencies_send` for `f`, `array_send` over `pg_statistic[]` for `e` (`pg_mcv_list_send` for `m` in the MCV sibling). The Analyzer replay path reconstructs the varlena via the matching *recv* function (the send/recv pair is PostgreSQL's binary-I/O inverse, as used by `COPY … WITH BINARY`). Hex (not base64) so the payload carries no embedded newlines. NULL exactly when `kind_data` is NULL (the strict send functions map a NULL input to a NULL output). |
 | kind_data_encoding | text | Codec+version tag telling a consumer how to decode `kind_data_binary`, of the form `v1:<send_fn>:hex` (`v1:pg_ndistinct_send:hex`, `v1:pg_dependencies_send:hex`, `v1:array_send:hex`; `v1:pg_mcv_list_send:hex` in the MCV sibling). A consumer MUST check this token before decoding so the binary form is never confused with the human-readable `kind_data`. The send wire format is PostgreSQL-major-specific; the snapshot's captured server version governs which major a value can be replayed into. NULL exactly when `kind_data_binary` is NULL. |
-| available | bool | TRUE when `kind_data IS NOT NULL`. FALSE = the statistics object exists per the catalog but has no computed data for this kind (e.g. not yet `ANALYZE`d); only observable under a role that can read `pg_statistic_ext_data` (superuser / granted SELECT). A role without that access does not produce these rows — the collector is skipped (#200). |
+| available | bool | TRUE when `kind_data IS NOT NULL`. FALSE = the statistics object exists per the catalog but has no computed data for this kind (e.g. not yet `ANALYZE`d); only observable under a role explicitly granted `SELECT` on `pg_statistic_ext_data` (no superuser required). A role without that access does not produce these rows — the collector is skipped (#200). |
 
 ## MCV-kind sibling (`pg_statistic_ext_data_mcv_v1`)
 
@@ -100,8 +101,8 @@ MCV / histogram blobs.
   `ORDER BY table_schema, table_name, stat_name, kind`.
 - **INV-02** — Read-only query (no writes, no temp tables).
 - **INV-03** — Per-object availability row pattern (privileged
-  read path): under a role that can read `pg_statistic_ext_data`
-  (superuser / granted SELECT), if the parent `pg_statistic_ext`
+  read path): under a role explicitly granted `SELECT` on
+  `pg_statistic_ext_data`, if the parent `pg_statistic_ext`
   row is visible but no computed `_data` row exists for an object,
   the collector emits the identity columns + `kind_data=NULL` +
   `available=false` for each declared kind (per `stxkind`) rather
@@ -148,9 +149,10 @@ MCV / histogram blobs.
   privilege boundary: the collector is recorded `status=skipped,
   reason=privilege_owner_only` (NOT failed) and the cycle is not
   marked partial (#200; see
-  ../owner_only_privilege_degradation.md). Only a superuser (or a
-  role explicitly granted SELECT on the catalog) reads the blobs and
-  reports per-object presence via the `available` column (INV-03).
+  ../owner_only_privilege_degradation.md). Only a role explicitly
+  granted `SELECT` on the catalog (no superuser required) reads the
+  blobs and reports per-object presence via the `available` column
+  (INV-03).
 
 ## Configuration
 
@@ -193,10 +195,10 @@ useful remains after redacting the blob).
 has PUBLIC SELECT revoked, so a `pg_monitor` / `pg_read_all_stats`
 role gets SQLSTATE 42501 and the collector is recorded
 `status=skipped, reason=privilege_owner_only` (#200). Reading the
-blobs requires a superuser, or a role explicitly granted SELECT on
-`pg_statistic_ext_data`. Operators running a least-privilege role
-need take no action — the skip is expected and does not mark the
-cycle partial.
+blobs requires an explicit `GRANT SELECT ON pg_statistic_ext_data`
+to the monitoring role — no superuser required. Operators running a
+least-privilege role need take no action — the skip is expected and
+does not mark the cycle partial.
 
 ## Acceptance tests
 
