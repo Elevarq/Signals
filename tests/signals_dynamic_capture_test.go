@@ -46,8 +46,11 @@ func TestPgStatStatementsUsesDynamicCapture(t *testing.T) {
 // time.
 var wildcardOverPgStatStatementsRe = regexp.MustCompile(`(?is)select\s+\w+\.\*\s+from\s+pg_stat_statements\b`)
 
-// TestPgStatStatementsDoesNotRankOrLimit verifies that Signals remains
-// a raw collection layer. Analyzer owns top-N selection.
+// TestPgStatStatementsDoesNotRankOrLimit verifies that Signals remains a
+// raw collection layer: no row-limiting and no metric ranking (Analyzer owns
+// top-N selection). A stable identity ORDER BY is REQUIRED for deterministic
+// output (#440) — that is a sort by identity, not a ranking, so it is allowed
+// while metric-column ordering and LIMIT/OFFSET are not.
 func TestPgStatStatementsDoesNotRankOrLimit(t *testing.T) {
 	q := pgqueries.ByID("pg_stat_statements_v1")
 	if q == nil {
@@ -55,9 +58,21 @@ func TestPgStatStatementsDoesNotRankOrLimit(t *testing.T) {
 	}
 
 	upper := strings.ToUpper(q.SQL)
-	for _, clause := range []string{"ORDER BY", "LIMIT"} {
+	for _, clause := range []string{"LIMIT", "OFFSET", " TOP "} {
 		if strings.Contains(upper, clause) {
 			t.Errorf("pg_stat_statements_v1 must not contain %s; Analyzer owns ranking/selection: %s", clause, q.SQL)
+		}
+	}
+
+	// Deterministic identity ordering is required (#440) — and it must be
+	// exactly the identity sort, never a metric ranking.
+	if !strings.Contains(q.SQL, "ORDER BY s.userid, s.dbid, s.queryid, s.toplevel") {
+		t.Errorf("pg_stat_statements_v1 must ORDER BY the identity columns (userid, dbid, queryid, toplevel) for deterministic output (#440): %s", q.SQL)
+	}
+	lower := strings.ToLower(q.SQL)
+	for _, metric := range []string{"total_exec_time", "mean_exec_time", "max_exec_time", "calls", "total_plan_time", "wal_bytes", "rows"} {
+		if strings.Contains(lower, metric) {
+			t.Errorf("pg_stat_statements_v1 must not reference metric %q — ranking belongs to Analyzer: %s", metric, q.SQL)
 		}
 	}
 }
