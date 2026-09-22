@@ -1,6 +1,7 @@
 package tests
 
 import (
+	"encoding/json"
 	"fmt"
 	"testing"
 
@@ -98,8 +99,14 @@ func TestNDJSONRoundtrip(t *testing.T) {
 	if s, ok := r["str"].(string); !ok || s != "hello" {
 		t.Errorf("str: expected \"hello\", got %v", r["str"])
 	}
-	if n, ok := r["num"].(float64); !ok || n != 42 {
-		t.Errorf("num: expected 42, got %v", r["num"])
+	// Numbers decode as json.Number (not float64) so large ints and
+	// exact numerics keep full precision through the export re-encode (#444).
+	n, ok := r["num"].(json.Number)
+	if !ok {
+		t.Fatalf("num: expected json.Number, got %T", r["num"])
+	}
+	if iv, err := n.Int64(); err != nil || iv != 42 {
+		t.Errorf("num: expected 42, got %v (err %v)", r["num"], err)
 	}
 	if r["nul"] != nil {
 		t.Errorf("nul: expected nil, got %v", r["nul"])

@@ -59,6 +59,14 @@ func DecodeNDJSON(data []byte, compressed bool) ([]map[string]any, error) {
 
 	var rows []map[string]any
 	dec := json.NewDecoder(reader)
+	// Decode numbers as json.Number, not float64. A bigint (int8) or an
+	// exact numeric round-trips through the store and the export ZIP
+	// (export.go re-encodes the decoded rows); float64 would silently
+	// truncate any integer above 2^53 — bloat byte counts, xids, and
+	// pg_stat_statements counters — and drop numeric fractional digits.
+	// json.Number re-marshals as the original literal, so the payload
+	// stays a JSON number with full precision (#444).
+	dec.UseNumber()
 	for dec.More() {
 		var row map[string]any
 		if err := dec.Decode(&row); err != nil {
