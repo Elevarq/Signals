@@ -1658,6 +1658,11 @@ func (c *Collector) closePools() {
 }
 
 func (c *Collector) cleanup() {
+	// #443: refresh the store-size gauge every pass — even when
+	// retention is disabled — so operators can still alert on growth.
+	// Deferred so it reflects any space reclaimed by the VACUUM below.
+	defer c.updateStoreSizeMetric()
+
 	if c.retentionDays <= 0 && !c.retention.IsSet() {
 		return
 	}
@@ -1702,6 +1707,7 @@ func (c *Collector) cleanup() {
 
 	// Snapshot rows: prune those older than the LARGEST cutoff so
 	// long-class data still has its snapshot row alive.
+	snapshotsDeleted := int64(0)
 	maxDays := c.retention.MaxDays(c.retentionDays)
 	if maxDays > 0 {
 		snapCutoff := now.AddDate(0, 0, -maxDays).Format(time.RFC3339)
@@ -1710,9 +1716,34 @@ func (c *Collector) cleanup() {
 			slog.Error("snapshot cleanup failed", "err", err)
 		} else if deleted > 0 {
 			slog.Info("snapshot cleanup complete", "deleted", deleted, "cutoff", snapCutoff)
+			snapshotsDeleted = deleted
 		}
 	}
-	_ = totalRunsDeleted // surfaced per-class above
+
+	// #443: VACUUM to reclaim the freed space. SQLite never shrinks the
+	// file on its own, so without this the store grows monotonically
+	// even under active retention. Only VACUUM when rows were actually
+	// deleted (VACUUM rewrites the whole file — pointless when nothing
+	// was freed). A SQLITE_BUSY is logged, not fatal: the next
+	// retention pass retries; the collection cycle is unaffected.
+	if totalRunsDeleted > 0 || snapshotsDeleted > 0 {
+		before, _ := c.db.SizeBytes()
+		if err := c.db.Vacuum(); err != nil {
+			slog.Warn("store vacuum failed; will retry next retention pass", "err", err)
+		} else if after, err := c.db.SizeBytes(); err == nil {
+			slog.Info("store vacuum complete",
+				"runs_deleted", totalRunsDeleted, "snapshots_deleted", snapshotsDeleted,
+				"bytes_before", before, "bytes_after", after, "bytes_reclaimed", before-after)
+		}
+	}
+}
+
+// updateStoreSizeMetric refreshes the signals_store_size_bytes gauge
+// from the current on-disk size (#443).
+func (c *Collector) updateStoreSizeMetric() {
+	if sz, err := c.db.SizeBytes(); err == nil {
+		c.metrics.SetStoreSizeBytes(sz)
+	}
 }
 
 // classifyCollectionFailure maps a collectTarget hard-error into the

@@ -950,8 +950,14 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	if cfg.Signals.PollInterval > 0 && cfg.Signals.PollInterval < 30*time.Second {
 		warnings = append(warnings, fmt.Sprintf("signals.poll_interval is very short (%s); minimum recommended is 30s", cfg.Signals.PollInterval))
 	}
-	if cfg.Signals.RetentionDays <= 0 {
+	if cfg.Signals.RetentionDays <= 0 && !cfg.Signals.Retention.IsSet() {
 		// post-0.3.1 M-004: align warning text with the
+		// #443: only warn when retention is TRULY disabled — the
+		// structured `retention:` block also drives cleanup(), so a
+		// zero flat retention_days with a structured block set is not
+		// unbounded (cleanup() at collector.go returns early only when
+		// both are unset). Warning here otherwise false-fired for
+		// structured-retention deployments.
 		// implementation. cleanup() returns immediately when
 		// RetentionDays <= 0, i.e. snapshots and query_runs are
 		// retained forever — the previous warning falsely claimed
