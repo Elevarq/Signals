@@ -171,7 +171,8 @@ What happens:
 
 1. Helm renders the new release; new ConfigMap + Deployment.
 2. Deployment rollout: new pod scheduled, readiness probe waits
-   for `/health` → 200, old pod terminated.
+   for `/readyz` → 200 (store reachable + first collection cycle
+   done), old pod terminated.
 3. PVC unchanged; the new pod re-mounts the existing SQLite store
    on `/data/signals.db`. Schema migrations run on startup
    per `internal/store::migrate`.

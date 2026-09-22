@@ -54,7 +54,7 @@ SIGNALS_METRICS_PATH=/metrics
 ```
 
 `metrics_path` must start with `/` and may not be `/health`,
-`/status`, `/collect/now`, or `/export`. Startup aborts on a
+`/livez`, `/readyz`, `/status`, `/collect/now`, or `/export`. Startup aborts on a
 mis-configured path so the misconfiguration is visible immediately
 rather than silently shadowing an existing API endpoint.
 
