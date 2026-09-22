@@ -426,6 +426,26 @@ func init() {
 	// the HighSensitivity-gated sibling
 	// pg_statistic_ext_data_mcv_v1 below.
 	//
+	// Each kind is emitted in two forms (#433):
+	//   - kind_data: the ::text output, retained for human
+	//     inspection. It is NOT a lossless replay format —
+	//     pg_ndistinct / pg_dependencies reject text input and
+	//     pg_ndistinct_out is not a complete serialization.
+	//   - kind_data_binary + kind_data_encoding: the lossless,
+	//     replay-safe form. kind_data_binary is the hex encoding of
+	//     the value type's binary send output (pg_ndistinct_send /
+	//     pg_dependencies_send / array_send over pg_statistic[]);
+	//     the Analyzer replay path (Analyzer#3045) reconstructs the
+	//     varlena via the matching recv function. Hex, not base64,
+	//     so the payload has no embedded newlines. kind_data_encoding
+	//     is the fixed v1:<send_fn>:hex codec token so a consumer
+	//     never confuses the binary form with the text form. Both
+	//     are NULL exactly when kind_data is NULL (the strict send
+	//     functions map NULL -> NULL). The send wire format is
+	//     PostgreSQL-major-specific; replay is only valid into a
+	//     server of the same major (from the snapshot's server
+	//     version, not this field).
+	//
 	// pg_statistic_ext_data has PUBLIC SELECT revoked (like
 	// pg_statistic): a least-privilege monitoring role
 	// (pg_monitor / pg_read_all_stats) gets a hard permission-denied
@@ -453,6 +473,16 @@ func init() {
 				WHEN 'f' THEN esd.stxddependencies::text
 				WHEN 'e' THEN esd.stxdexpr::text
 			END                  AS kind_data,
+			CASE k.kind
+				WHEN 'd' THEN encode(pg_ndistinct_send(esd.stxdndistinct), 'hex')
+				WHEN 'f' THEN encode(pg_dependencies_send(esd.stxddependencies), 'hex')
+				WHEN 'e' THEN encode(array_send(esd.stxdexpr), 'hex')
+			END                  AS kind_data_binary,
+			CASE k.kind
+				WHEN 'd' THEN CASE WHEN esd.stxdndistinct   IS NOT NULL THEN 'v1:pg_ndistinct_send:hex' END
+				WHEN 'f' THEN CASE WHEN esd.stxddependencies IS NOT NULL THEN 'v1:pg_dependencies_send:hex' END
+				WHEN 'e' THEN CASE WHEN esd.stxdexpr         IS NOT NULL THEN 'v1:array_send:hex' END
+			END                  AS kind_data_encoding,
 			(CASE k.kind
 				WHEN 'd' THEN esd.stxdndistinct IS NOT NULL
 				WHEN 'f' THEN esd.stxddependencies IS NOT NULL
@@ -498,6 +528,8 @@ func init() {
 			c.relname            AS table_name,
 			'm'                  AS kind,
 			esd.stxdmcv::text    AS kind_data,
+			encode(pg_mcv_list_send(esd.stxdmcv), 'hex') AS kind_data_binary,
+			CASE WHEN esd.stxdmcv IS NOT NULL THEN 'v1:pg_mcv_list_send:hex' END AS kind_data_encoding,
 			(esd.stxdmcv IS NOT NULL) AS available
 		FROM pg_statistic_ext es
 		LEFT JOIN pg_statistic_ext_data esd ON esd.stxoid = es.oid

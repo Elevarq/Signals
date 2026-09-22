@@ -6,6 +6,31 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **`pg_statistic_ext_data_v1` / `pg_statistic_ext_data_mcv_v1` — lossless
+  binary-safe `kind_data` (#433).** Both collectors now emit two new
+  columns alongside the existing `kind_data` text form:
+  `kind_data_binary` and `kind_data_encoding`. `kind_data_binary` is the
+  **hex** encoding of PostgreSQL's binary *send* output for each kind's
+  stored value — `pg_ndistinct_send` (`d`), `pg_dependencies_send` (`f`),
+  `array_send` over `pg_statistic[]` (`e`), `pg_mcv_list_send` (`m`) — so
+  the value round-trips through the matching *recv* function on the
+  Analyzer replay path (Analyzer#3045). The prior `::text` form is not a
+  lossless replay format (`pg_ndistinct` / `pg_dependencies` reject text
+  input; `pg_ndistinct_out` is not a complete serialization) and is
+  retained only for human inspection. `kind_data_encoding` is the fixed
+  `v1:<send_fn>:hex` codec token so consumers never confuse the binary
+  form with the text form; the send wire format is PostgreSQL-major-
+  specific, so replay is valid only into a server of the snapshot's
+  major. Both new columns are NULL exactly when `kind_data` is NULL (the
+  strict send functions map a NULL value to a NULL output). Hex (not
+  base64) so the payload carries no embedded newlines. No change to the
+  privilege posture or sensitivity classification of either collector —
+  the binary form carries the same information as the text form. Spec +
+  acceptance updated first per STDD
+  (`specifications/collectors/pg_statistic_ext_data_v1.md`, spec v1.1,
+  INV-05/INV-06/AT-06).
+
 ## [1.4.0] - 2026-09-21
 
 ### Added
