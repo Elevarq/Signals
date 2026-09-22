@@ -345,3 +345,35 @@ var CollectionFailureReasons = []string{
 	"persistence",
 	"internal",
 }
+
+// CollectorFailedReasons enumerates every value `reason` can take on the
+// `signals_collectors_failed_total` counter (#441). Mirrors the classifier
+// `internal/collector.classifyRunError` — the single source consulted by
+// the metrics consumer guide and pinned by a drift test so the docs cannot
+// advertise a reason the code never emits (previously `savepoint_rollback`,
+// which is not emitted anywhere).
+var CollectorFailedReasons = []string{
+	"permission_denied",
+	"object_missing",
+	"timeout",
+	"execution_error",
+}
+
+// CollectorSkippedReasons enumerates every value `reason` can take on the
+// `signals_collectors_skipped_total` counter (#441). The eligibility gates
+// (`internal/pgqueries` GateReason*) contribute version_unsupported /
+// extension_missing / config_disabled; the runtime skip paths contribute
+// budget_exhausted (`internal/collector.reasonBudgetExhausted`),
+// privilege_owner_only (`reasonPrivilegeOwnerOnly`), and privilege_restricted
+// (`reasonPrivilegeRestricted`). A drift test asserts those consts match this
+// list and that the consumer guide documents exactly these values — the docs
+// previously omitted the three runtime reasons, so alerts on them saw empty
+// series.
+var CollectorSkippedReasons = []string{
+	"version_unsupported",
+	"extension_missing",
+	"config_disabled",
+	"budget_exhausted",
+	"privilege_owner_only",
+	"privilege_restricted",
+}

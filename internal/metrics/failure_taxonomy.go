@@ -7,8 +7,15 @@ package metrics
 // deliberate spec amendment rather than emitted as ad-hoc strings.
 //
 // The wire strings (the const values) are stable contract — they
-// appear in `/status` JSON, in `signalsctl doctor --json`, in
-// Prometheus metric labels, and in support-bundle templates.
+// appear in `/status` JSON, in `signalsctl doctor --json`, and in
+// support-bundle templates (documented in
+// docs/observability/operational-readiness.md).
+//
+// NOTE (#441): this is a DIFFERENT vocabulary from the Prometheus
+// metric `reason` labels. Those are emitted by the collector
+// classifiers and enumerated in CollectionFailureReasons /
+// CollectorFailedReasons / CollectorSkippedReasons — do not assume
+// a FailureReasonCode value is a valid metric label or vice versa.
 type FailureReasonCode string
 
 const (

@@ -7,6 +7,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **Metric `reason` docs now match what the code emits (#441).** The consumer
+  guide advertised `savepoint_rollback` on `signals_collectors_failed_total` (a
+  value the code never emits) and omitted `budget_exhausted`,
+  `privilege_owner_only`, and `privilege_restricted` from
+  `signals_collectors_skipped_total` — so alert rules on those reasons silently
+  matched empty series. Added canonical `metrics.CollectorFailedReasons` /
+  `metrics.CollectorSkippedReasons` (mirroring `classifyRunError`, the
+  `pgqueries` eligibility gates, and the runtime skip constants), reconciled
+  `docs/metrics-consumer-guide.md` and `docs/prometheus.md` to them, and added
+  drift tests that fail on any missing or phantom documented reason. Clarified
+  that the `metrics.FailureReasonCode` enum (`/status` + `doctor`) is a distinct
+  vocabulary from the metric `reason` labels.
 - **Local store no longer grows unbounded (#443).** Retention DELETEs freed
   rows but never reclaimed disk — SQLite retains freed pages until `VACUUM`, so
   `signals.db` grew monotonically even under active retention. `cleanup()` now

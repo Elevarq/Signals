@@ -26,10 +26,12 @@ appear on counters and histograms are:
 - `target` — operator-configured target names (a small fixed set per
   deployment).
 - `status` — fixed enum: `success`, `partial`, `failed`.
-- `reason` — fixed enum drawn from `collector_status.json`:
-  `permission_denied`, `timeout`, `execution_error`,
-  `object_missing`, `config_disabled`, `version_unsupported`,
-  `extension_missing`.
+- `reason` — fixed enum drawn from `collector_status.json`. Failed
+  collectors (`metrics.CollectorFailedReasons`): `permission_denied`,
+  `object_missing`, `timeout`, `execution_error`. Skipped collectors
+  (`metrics.CollectorSkippedReasons`): `version_unsupported`,
+  `extension_missing`, `config_disabled`, `budget_exhausted`,
+  `privilege_owner_only`, `privilege_restricted`.
 - `error_category` — fixed enum: `invalid_target_id`, `builder_error`,
   `write_error`.
 
