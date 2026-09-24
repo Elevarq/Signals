@@ -7,6 +7,21 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`pg_stats_v1` surfaces the per-column privilege boundary instead of a
+  silent empty success (#458).** `pg_stats` filters every row by
+  `has_column_privilege`, so a least-privilege monitoring role (`pg_monitor`
+  with no table/column `SELECT`) reads zero rows — silently, with no error —
+  which is why Analyzer R035 (`stats.create_statistics_candidate.v1`) shipped
+  dormant with no signal (Elevarq/Analyzer#3198). The collector now declares a
+  column-privilege degrade with a probe: when it returns 0 rows AND the
+  database has analyzed user tables (so `pg_statistic` holds rows a privileged
+  role would see), the run is recorded `status=skipped,
+  reason=privilege_column_filtered` and a warn-once advises the optional
+  grant — rather than a silent empty success. The probe runs in its own
+  savepoint and fails safe (a genuinely-empty database is never mislabelled).
+  Collecting per-column statistics stays an optional customer choice (a
+  table/column `GRANT`; no superuser). New skip reason
+  `privilege_column_filtered` added to `metrics.CollectorSkippedReasons`.
 - **Circuit-breaker state now survives a daemon restart (#455).** The per-target
   circuit state was in-memory only, so a restart silently reset every target to
   `closed` — an auto-tripped target immediately resumed collecting (re-hammering
