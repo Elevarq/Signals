@@ -1440,6 +1440,28 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			continue
 		}
 
+		// #458: a view that filters ROWS by per-column privilege (pg_stats)
+		// returns 0 rows silently for a least-privilege role — no error.
+		// Distinguish that from a genuinely-empty database with a cheap
+		// probe: if the db has analyzed tables (so pg_statistic HAS rows a
+		// privileged role would see) yet this collector saw nothing, the
+		// result was privilege-filtered. Record skipped+reason so the grant
+		// boundary is visible in the cycle, not a silent empty success.
+		// Collecting the data stays an OPTIONAL customer choice (a GRANT).
+		if q.ColumnPrivilegeDegradeReason != "" && len(rows) == 0 {
+			if nonEmpty, probeErr := probeColumnPrivilege(ctx, tx, q.ColumnPrivilegeProbeSQL); probeErr == nil && nonEmpty {
+				run.RowCount = 0
+				run.Status = "skipped"
+				run.Reason = q.ColumnPrivilegeDegradeReason
+				runs = append(runs, run)
+				if c.warnOnce(tgt.Name, q.ID, "column_privilege") {
+					slog.Warn("collector skipped: pg_stats returned 0 rows but the database has analyzed tables — the monitoring role lacks column SELECT, so per-column planner statistics are privilege-filtered. Collecting them is optional: GRANT SELECT on the tables (or specific columns) to the monitoring role — no superuser. Recorded skipped, not a silent empty success",
+						"query", q.ID, "target", tgt.Name)
+				}
+				continue
+			}
+		}
+
 		// Payload encoded — only now is it safe to record the run as
 		// success AND append its result. Kept adjacent so the status
 		// manifest and the data payload can never disagree (#312).
@@ -1815,6 +1837,31 @@ func isPermissionDenied(err error) bool {
 		return pgErr.Code == "42501"
 	}
 	return false
+}
+
+// probeColumnPrivilege runs a collector's ColumnPrivilegeProbeSQL (#458) and
+// reports whether the database is non-empty in the sense that a 0-row main
+// result must therefore be a per-column privilege filter rather than a
+// genuinely-empty database. The probe runs inside its own savepoint so a
+// probe failure can never abort the outer read-only transaction; any error
+// is returned as "cannot confirm" (the caller then keeps the empty success,
+// never mislabelling on a flaky probe).
+func probeColumnPrivilege(ctx context.Context, tx pgx.Tx, sql string) (bool, error) {
+	if sql == "" {
+		return false, nil
+	}
+	if _, err := tx.Exec(ctx, "SAVEPOINT column_privilege_probe"); err != nil {
+		return false, err
+	}
+	var n int64
+	scanErr := tx.QueryRow(ctx, sql).Scan(&n)
+	if scanErr != nil {
+		_, _ = tx.Exec(ctx, "ROLLBACK TO SAVEPOINT column_privilege_probe")
+		_, _ = tx.Exec(ctx, "RELEASE SAVEPOINT column_privilege_probe")
+		return false, scanErr
+	}
+	_, _ = tx.Exec(ctx, "RELEASE SAVEPOINT column_privilege_probe")
+	return n > 0, nil
 }
 
 // queryToMaps executes a query and returns each row as a map[string]any.

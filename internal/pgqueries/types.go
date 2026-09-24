@@ -129,6 +129,27 @@ type QueryDef struct {
 	// (pg_statistic_ext_data). See
 	// specifications/collectors/pg_hba_file_rules_v1.md (#305).
 	PrivilegedViewDegrade bool
+	// ColumnPrivilegeDegradeReason marks a collector that reads a view which
+	// filters ROWS by per-column privilege — specifically pg_stats, whose
+	// every row is gated by has_column_privilege(...,'select'). Such a view
+	// does NOT error for a least-privilege role; it silently returns ZERO
+	// rows, which is indistinguishable from a genuinely-empty database on
+	// row count alone. When this is set AND the run returns 0 rows AND
+	// ColumnPrivilegeProbeSQL confirms the database is non-empty (has
+	// analyzed user tables, so pg_statistic HAS rows the role simply cannot
+	// read), the run is recorded `status=skipped` with this reason instead
+	// of a silent empty success — so the grant boundary is diagnosable from
+	// the collection cycle, not only from a downstream dormant rule
+	// (Elevarq/Analyzer#3198). Collecting the data is an OPTIONAL customer
+	// choice (a table/column GRANT); this only makes the choice visible.
+	// See specifications/collectors/pg_stats_v1.md.
+	ColumnPrivilegeDegradeReason string
+	// ColumnPrivilegeProbeSQL returns a single integer that is > 0 when the
+	// database is non-empty in the sense that matters — here, analyzed user
+	// tables exist, so pg_statistic holds rows a fully-privileged role would
+	// see. A 0-row main result together with a positive probe means the
+	// result was privilege-filtered, not truly empty.
+	ColumnPrivilegeProbeSQL string
 }
 
 // FilterParams controls which queries are eligible for a given target.

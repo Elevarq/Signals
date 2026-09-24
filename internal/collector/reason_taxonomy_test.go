@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/elevarq/signals/internal/metrics"
+	"github.com/elevarq/signals/internal/pgqueries"
 )
 
 func inSet(s []string, v string) bool {
@@ -46,9 +47,38 @@ func TestSkipReasonConstsAreCanonical(t *testing.T) {
 		reasonBudgetExhausted,
 		reasonPrivilegeOwnerOnly,
 		reasonPrivilegeRestricted,
+		reasonPrivilegeColumnFiltered,
 	} {
 		if !inSet(metrics.CollectorSkippedReasons, r) {
 			t.Errorf("skip reason const %q is not in metrics.CollectorSkippedReasons", r)
 		}
+	}
+}
+
+// TestColumnPrivilegeDegradeReasonsAreCanonical (#458) closes the loop the
+// const test cannot: the run's reason is set from the collector's
+// ColumnPrivilegeDegradeReason FIELD, not the status const, so a typo in a
+// QueryDef would slip past. Assert every collector that declares one uses
+// the canonical value and pairs it with a probe.
+func TestColumnPrivilegeDegradeReasonsAreCanonical(t *testing.T) {
+	var checked int
+	for _, q := range pgqueries.All() {
+		if q.ColumnPrivilegeDegradeReason == "" {
+			continue
+		}
+		checked++
+		if q.ColumnPrivilegeDegradeReason != reasonPrivilegeColumnFiltered {
+			t.Errorf("collector %q ColumnPrivilegeDegradeReason=%q, want %q",
+				q.ID, q.ColumnPrivilegeDegradeReason, reasonPrivilegeColumnFiltered)
+		}
+		if !inSet(metrics.CollectorSkippedReasons, q.ColumnPrivilegeDegradeReason) {
+			t.Errorf("collector %q reason %q not in metrics.CollectorSkippedReasons", q.ID, q.ColumnPrivilegeDegradeReason)
+		}
+		if q.ColumnPrivilegeProbeSQL == "" {
+			t.Errorf("collector %q declares a column-privilege degrade reason but no probe SQL — a bare 0-row result must be probed, never assumed privilege-filtered", q.ID)
+		}
+	}
+	if checked == 0 {
+		t.Error("no collector declares ColumnPrivilegeDegradeReason — expected pg_stats_v1 (#458)")
 	}
 }

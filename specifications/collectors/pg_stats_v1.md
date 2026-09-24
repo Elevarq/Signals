@@ -66,3 +66,32 @@ values. null_frac reveals proportion of nulls but not which rows.
 - FI-R012: FK column cardinality check (n_distinct)
 - FI-R052: Correlation check for range queries (correlation)
   Currently PENDING — becomes implementable with this collector.
+
+## Privilege boundary: column-filtered zero rows (#458)
+
+`pg_stats` filters every row by `has_column_privilege(role, table, col,
+'select')`. A least-privilege monitoring role (`pg_monitor` /
+`pg_read_all_stats`) with no table/column `SELECT` therefore reads **zero
+rows** — silently, with no error, indistinguishable on row count alone from
+a genuinely empty database.
+
+To make the grant boundary diagnosable rather than a silent empty success,
+this collector declares `ColumnPrivilegeDegradeReason =
+privilege_column_filtered` and a `ColumnPrivilegeProbeSQL` that counts
+analyzed user tables (`pg_stat_user_tables` where `last_analyze` or
+`last_autoanalyze` is set). When a run returns 0 rows AND the probe returns
+> 0 (the database HAS analyzed tables, so `pg_statistic` holds rows a
+fully-privileged role would see), the run is recorded
+`status=skipped, reason=privilege_column_filtered` — not a silent empty
+success — and a warn-once advises the optional grant. The probe runs inside
+its own savepoint; any probe error is treated as "cannot confirm" and the
+run stays a (legitimate) empty success, so a genuinely-empty database is
+never mislabelled.
+
+Collecting per-column statistics is an **optional customer choice**: grant
+the monitoring role `SELECT` on the tables (or specific columns) — no
+superuser. Without it the collector correctly degrades and R035
+(`stats.create_statistics_candidate.v1`) stays dormant, now visibly so.
+
+Distinct from `OwnerOnlyDegrade` / `PrivilegedViewDegrade`, which classify a
+hard 42501 **error**; `pg_stats` never errors — it silently filters rows.

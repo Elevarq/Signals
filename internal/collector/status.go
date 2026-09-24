@@ -171,6 +171,21 @@ const reasonPrivilegeOwnerOnly = "privilege_owner_only"
 // Specification: specifications/collectors/pg_hba_file_rules_v1.md
 const reasonPrivilegeRestricted = "privilege_restricted"
 
+// reasonPrivilegeColumnFiltered marks a ColumnPrivilegeDegradeReason
+// collector (pg_stats) that returned ZERO rows silently — no error —
+// because the view filters every row by has_column_privilege and the
+// least-privilege monitoring role can read none, WHILE a probe confirmed
+// the database is non-empty (has analyzed tables). Recorded as a skip, not
+// a silent empty success, so the grant boundary is diagnosable from the
+// collection cycle (Elevarq/Analyzer#3198, #458). Distinct from
+// reasonPrivilegeOwnerOnly / reasonPrivilegeRestricted, which fire on a
+// hard 42501 ERROR; pg_stats never errors, it silently filters rows. The
+// run's reason is set from the collector's ColumnPrivilegeDegradeReason
+// field; this constant is the canonical value (pinned by the taxonomy
+// test to metrics.CollectorSkippedReasons).
+// Specification: specifications/collectors/pg_stats_v1.md
+const reasonPrivilegeColumnFiltered = "privilege_column_filtered"
+
 // classifyQueryFailure decides the persisted (status, reason) for a
 // collector query that returned an error. A collector flagged for a
 // privilege degrade (OwnerOnlyDegrade or PrivilegedViewDegrade) that hit a

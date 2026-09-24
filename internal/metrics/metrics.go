@@ -376,4 +376,5 @@ var CollectorSkippedReasons = []string{
 	"budget_exhausted",
 	"privilege_owner_only",
 	"privilege_restricted",
+	"privilege_column_filtered",
 }

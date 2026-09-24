@@ -119,6 +119,12 @@ func init() {
 		RetentionClass: RetentionMedium,
 		Timeout:        30 * time.Second,
 		Cadence:        CadenceDaily,
+		// #458: pg_stats filters every row by has_column_privilege, so a
+		// least-privilege monitoring role reads 0 rows silently. When the
+		// database HAS analyzed user tables (probe > 0) but this returns
+		// nothing, record skipped+reason instead of a silent empty success.
+		ColumnPrivilegeDegradeReason: "privilege_column_filtered",
+		ColumnPrivilegeProbeSQL:      `SELECT count(*) FROM pg_stat_user_tables WHERE last_analyze IS NOT NULL OR last_autoanalyze IS NOT NULL`,
 	})
 
 	// pg_stats_extended_v1: extended planner statistics — the

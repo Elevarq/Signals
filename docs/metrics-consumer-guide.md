@@ -49,7 +49,7 @@ default Go runtime / process metrics are exposed. Names follow
 |--------|------|--------|-------|
 | `signals_collectors_succeeded_total` | Counter | `target` | Sum of per-cycle successful-collector counts. |
 | `signals_collectors_failed_total` | Counter | `target`, `reason` | Failed collectors classified by reason: `permission_denied`, `object_missing`, `timeout`, `execution_error` (see `metrics.CollectorFailedReasons`). |
-| `signals_collectors_skipped_total` | Counter | `target`, `reason` | Skipped collectors by reason: `version_unsupported`, `extension_missing`, `config_disabled`, `budget_exhausted`, `privilege_owner_only`, `privilege_restricted` (see `metrics.CollectorSkippedReasons`). |
+| `signals_collectors_skipped_total` | Counter | `target`, `reason` | Skipped collectors by reason: `version_unsupported`, `extension_missing`, `config_disabled`, `budget_exhausted`, `privilege_owner_only`, `privilege_restricted`, `privilege_column_filtered` (see `metrics.CollectorSkippedReasons`). |
 | `signals_eligible_collectors` | Gauge | `target` | **R079 / #79**: number of collectors that would run for this target after every gate is applied (version, extension, sensitivity, profile). Updated at the top of every cycle. |
 
 ### Snapshots
