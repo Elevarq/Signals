@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-09-28
+
 ### Added
 - **`pg_stats_v1` surfaces the per-column privilege boundary instead of a
   silent empty success (#458).** `pg_stats` filters every row by
