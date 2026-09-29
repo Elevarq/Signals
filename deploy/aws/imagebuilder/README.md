@@ -1,10 +1,11 @@
 # EC2 Image Builder — Signals collector (groundwork)
 
-Groundwork for offering Elevarq Signals as an AWS Marketplace AMI / server
-product (#235, part of #233). This directory ships the reusable **EC2 Image
-Builder component** that bakes the collector into a golden AMI. Standing up the
-live `AmiProduct@1.0` listing is **deferred and demand-gated** — see "Live AMI
-product" below.
+Offering Elevarq Signals as an AWS Marketplace AMI / server product (#235, part
+of #233). This directory ships the reusable **EC2 Image Builder component** that
+bakes the collector into a golden AMI. The live `AmiProduct@1.0` listing was
+**un-deferred 2026-07-19** and is live at `prod-cuyands3nsl2c`; per-release
+versioning ships via `docs/marketplace/catalog-api/07-add-ami-delivery.json` —
+see "Live AMI product" below.
 
 Spec: `specifications/marketplace-ami-image-builder.md`.
 
@@ -40,7 +41,7 @@ same posture as the container and Helm deliveries.
 
 | Parameter | Default | Notes |
 |-----------|---------|-------|
-| `SignalsImage` | `ghcr.io/elevarq/signals:1.0.2` | Pinned version (no `latest`). Bump per release. |
+| `SignalsImage` | `ghcr.io/elevarq/signals:1.5.0` | Pinned version (no `latest`). Bump per release. |
 
 ### Baking locally / in a pipeline
 
@@ -50,7 +51,7 @@ Linux 2023 base image. Register it and reference it from a recipe:
 ```bash
 aws imagebuilder create-component \
   --name signals-collector \
-  --semantic-version 1.0.2 \
+  --semantic-version 1.5.0 \
   --platform Linux \
   --data file://signals-collector-component.yaml
 # -> ComponentArn, referenced by an image recipe + pipeline that produces the AMI.

@@ -1,0 +1,44 @@
+{
+  "Catalog": "AWSMarketplace",
+  "ChangeSet": [
+    {
+      "ChangeType": "AddDeliveryOptions",
+      "Entity": {
+        "Type": "AmiProduct@1.0",
+        "Identifier": "${PRODUCT_ID}"
+      },
+      "DetailsDocument": {
+        "Version": {
+          "VersionTitle": "${VERSION}",
+          "ReleaseNotes": "${RELEASE_NOTES}"
+        },
+        "DeliveryOptions": [
+          {
+            "Details": {
+              "AmiDeliveryOptionDetails": {
+                "AmiSource": {
+                  "AmiId": "${AMI_ID}",
+                  "AccessRoleArn": "${ACCESS_ROLE_ARN}",
+                  "UserName": "ec2-user",
+                  "OperatingSystemName": "AMAZONLINUX",
+                  "OperatingSystemVersion": "Amazon Linux 2023",
+                  "ScanningPort": 22
+                },
+                "UsageInstructions": "${USAGE_INSTRUCTIONS}",
+                "RecommendedInstanceType": "${RECOMMENDED_INSTANCE_TYPE}",
+                "SecurityGroups": [
+                  {
+                    "IpProtocol": "tcp",
+                    "FromPort": 22,
+                    "ToPort": 22,
+                    "IpRanges": ["0.0.0.0/0"]
+                  }
+                ]
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

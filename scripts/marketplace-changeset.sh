@@ -57,7 +57,11 @@
 #   PRODUCT_ID=prod-xxxx DELIVERY_OPTION_ID=<uuid> \
 #     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/06-restrict-delivery.json
 #
-# Env: AWS_PROFILE (default elevarq), AWS_REGION (default us-east-1).
+# Env: AWS_PROFILE (default elevarq), AWS_REGION (default us-east-1),
+#      INTENT (default APPLY; set VALIDATE to dry-run — AWS validates the
+#      change set without creating/modifying any entity, per the AMI-product
+#      spec's authoring step). VALIDATE still returns a ChangeSetId that reaches
+#      a terminal SUCCEEDED/FAILED status, so the same guards + polling apply.
 # Requires: aws, jq, envsubst (gettext).
 
 set -euo pipefail
@@ -67,6 +71,11 @@ TEMPLATE="${1:?usage: marketplace-changeset.sh <change-set-template.json>}"
 
 export AWS_PROFILE="${AWS_PROFILE:-elevarq}"
 export AWS_REGION="${AWS_REGION:-us-east-1}"
+INTENT="${INTENT:-APPLY}"
+case "$INTENT" in
+  APPLY | VALIDATE) ;;
+  *) echo "error: INTENT must be APPLY or VALIDATE (got: $INTENT)" >&2; exit 1 ;;
+esac
 
 for bin in aws jq envsubst; do
   command -v "$bin" >/dev/null 2>&1 || { echo "error: missing tool: $bin" >&2; exit 1; }
@@ -128,8 +137,9 @@ if [ -n "$bad_addon_type" ]; then
   exit 1
 fi
 
-echo "==> Submitting change set from $TEMPLATE"
+echo "==> Submitting change set from $TEMPLATE (intent: $INTENT)"
 CHANGE_SET_ID="$(aws marketplace-catalog start-change-set \
+  --intent "$INTENT" \
   --cli-input-json "file://$rendered" \
   --query ChangeSetId --output text)"
 echo "    ChangeSetId: $CHANGE_SET_ID"
