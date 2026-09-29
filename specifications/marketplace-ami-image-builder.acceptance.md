@@ -64,22 +64,28 @@ into the AMI.
 
 ---
 
-### TC-AMI-04: Groundwork triggers no live Marketplace change-set (invalid/failure)
+### TC-AMI-04: Any committed AMI change-set template is parameterized and safe (invalid/failure)
 
 **Rule:** Failure condition — R-AMI-04
 
-**Scenario:** The groundwork must not stand up the live AMI product.
+**Scenario:** The #235 gate opened (2026-07-19) and the live AMI product is
+versioned via a committed change-set template. That template must never carry a
+hardcoded AMI id, seller account, or secret — so it cannot by itself trigger an
+unreviewed live change and every value comes from the operator's environment at
+run time.
 
 **Given:**
-- The files added by this slice (component YAML, README, spec).
+- Any committed `docs/marketplace/catalog-api/*.json` that targets an
+  `AmiProduct@1.0` (e.g. `07-add-ami-delivery.json`).
 
 **When:**
-- They are inspected for any executable Marketplace `start-change-set` template
-  for an `AmiProduct@1.0`.
+- It is inspected for hardcoded `ami-*` ids, a 12-digit seller account number,
+  or credential literals, and for the required parameter placeholders.
 
 **Then:**
-- There is no runnable AMI-product change-set template committed — only the
-  documented, demand-gated scaffolding in the README.
+- The template targets `AmiProduct@1.0` via `AddDeliveryOptions`, references
+  `${AMI_ID}` and `${ACCESS_ROLE_ARN}` as `${...}` placeholders, and contains no
+  hardcoded `ami-*` id, account number, or secret literal.
 
 ---
 

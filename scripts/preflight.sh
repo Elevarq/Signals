@@ -138,8 +138,8 @@ run_no_legacy_arq() {
   log_ok "de-arq guard: zero legacy-arq"
 }
 
-# #266: static guard for the demand-gated AMI / EC2 Image Builder groundwork
-# (specifications/marketplace-ami-image-builder.md, TC-AMI-01..04). Dependency
+# #266: static guard for the AMI / EC2 Image Builder component + change-set
+# template (specifications/marketplace-ami-image-builder.md, TC-AMI-01..04). Dependency
 # -light and runs no AWS call, so it sits with the fast gates.
 run_imagebuilder() {
   log_step "check-imagebuilder-component.sh"

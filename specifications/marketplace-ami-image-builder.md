@@ -8,8 +8,9 @@ ACTIVE
 
 Integration mapping — contract between the Signals collector's EC2 run mechanics
 and an AWS EC2 Image Builder component that bakes the collector into a golden
-AMI, plus the (deferred) `AmiProduct@1.0` Marketplace listing that would expose
-it. Tests mandatory for the shipped groundwork; the live listing is out of scope
+AMI. The live `AmiProduct@1.0` listing that exposes it is governed by the sibling
+spec `specifications/marketplace-ami-product.md`. Tests mandatory for the
+component build input; the live listing's standup/versioning is out of scope here
 (see below).
 
 ## Purpose
@@ -23,10 +24,12 @@ systemd unit) — so a customer baking a golden AMI gets the collector
 pre-installed.
 
 Standing up the live `AmiProduct@1.0` listing, building/maintaining the AMI, and
-onboarding/review are **explicitly deferred**: #235's own gate is "only pursue if
-there is real demand for non-container, EC2-baked deployment." This spec governs
-the groundwork we commit now; the live product is a documented, demand-gated
-follow-up.
+onboarding/review were originally deferred behind #235's demand gate ("only
+pursue if there is real demand for non-container, EC2-baked deployment"). That
+**gate opened 2026-07-19**: the listing is live at `prod-cuyands3nsl2c` and is
+now governed by `specifications/marketplace-ami-product.md`. This spec governs
+the reusable component that is the AMI's **build input**; the live product's
+standup and versioning live in that sibling spec.
 
 ## Scope
 
@@ -41,11 +44,12 @@ In scope (shipped now):
   governed by `specifications/marketplace-ami-product.md`).
 - This spec + acceptance cases.
 
-Out of scope (deferred, demand-gated):
+Out of scope (governed by `specifications/marketplace-ami-product.md`, not here):
 
-- Building, publishing, or maintaining a live AMI.
-- Creating the live `AmiProduct@1.0` listing or its onboarding/review.
-- Any `start-change-set` against a Marketplace AMI product.
+- Baking, publishing, or maintaining the live AMI (this spec governs only the
+  component that is the AMI's build input).
+- The live `AmiProduct@1.0` listing standup, onboarding/review, and its
+  per-release `start-change-set` versioning (`07-add-ami-delivery.json`).
 
 ## Interfaces
 
@@ -74,8 +78,15 @@ Out of scope (deferred, demand-gated):
   non-root uid 10001 inside the container) — it does not invent a second,
   divergent EC2 install path.
 - **R-AMI-04**: The live `AmiProduct@1.0` listing is a **separate product** with
-  its own onboarding/review, pursued only on real demand (#235 gate). The
-  groundwork here MUST NOT trigger any live Marketplace change-set.
+  its own onboarding/review. The #235 demand gate **opened 2026-07-19** (product
+  owner un-deferred it; the listing is live at `prod-cuyands3nsl2c`), so its
+  standup and per-release versioning are now governed by
+  `specifications/marketplace-ami-product.md` and driven by the canonical
+  change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
+  The component in this spec remains the reproducible **build input** for that
+  AMI, not a delivery field; any committed AMI change-set template MUST be
+  fully `${...}`-parameterized (no hardcoded `ami-*` id, seller account, or
+  secret) so it cannot itself trigger an unreviewed live change.
 - **R-AMI-05** (env passthrough — #292): The unit MUST forward the **whole**
   buyer-supplied `/etc/signals/signals.env` to the container via docker's
   `--env-file /etc/signals/signals.env`, so **any** `SIGNALS_*` variable a buyer
@@ -147,7 +158,8 @@ Out of scope (deferred, demand-gated):
 - **A native (non-container) collector binary install.** The EC2 path runs the
   container; the AMI does the same. A native-binary AMI is a separate future
   decision if demanded.
-- **Live AMI build + `AmiProduct@1.0` standup** — demand-gated (#235).
+- **Live AMI build + `AmiProduct@1.0` standup / versioning** — governed by
+  `specifications/marketplace-ami-product.md` (#235 gate opened 2026-07-19).
 
 ## Traceability
 
@@ -159,7 +171,10 @@ specification (this file) -> acceptance cases
 The statically-checkable cases **TC-AMI-01..04** are enforced in CI by
 `scripts/check-imagebuilder-component.sh` (wired into `scripts/preflight.sh`
 as the `imagebuilder` gate and into `.github/workflows/ci.yml`), so the
-demand-gated groundwork cannot regress (#266). **TC-AMI-06** and **TC-AMI-07**
+component groundwork cannot regress (#266). **TC-AMI-04** guards that any
+committed AMI change-set template is fully `${...}`-parameterized and safe
+(no hardcoded `ami-*` id, seller account, or secret) — a correctness guard,
+updated from its earlier form once the #235 gate opened (#466). **TC-AMI-06** and **TC-AMI-07**
 (#292: env passthrough parity + secrets-never-logged) are enforced by
 `tests/signals_ami_env_forwarding_test.go` (run under `go test`, the repo's
 `test` gate). **TC-AMI-05** (live baked-AMI smoke) remains deferred until #235's

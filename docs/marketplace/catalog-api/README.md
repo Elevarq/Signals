@@ -43,7 +43,7 @@ Once the listing is live, extra delivery options can be added — each reuses th
 |-------|-------------|--------------|-------|
 | Container image (ECS / Fargate / `docker pull`), #234 | `AddDeliveryOptions` (`04-add-container-image-delivery.json`) | `EcrDeliveryOptionDetails`, `CompatibleServices: ["ECS"]` | Additive; does not touch the Helm option. `ContainerImages` MUST equal the Helm option's image (one artifact, two options). Buyer runs it with no Helm/K8s, so `CI_USAGE_INSTRUCTIONS` must document durable snapshot storage — the Fargate task filesystem is ephemeral, attach EFS (or an EBS/bind volume on EC2-backed ECS). |
 | EKS add-on, #236 | `AddDeliveryOptions` (`05-add-eks-addon-delivery.json`) | `EksAddOnDeliveryOptionDetails` | Additive; reuses the same image **and** chart as the Helm option. `AddOnName: signals`, `AddOnType: observability`, `Namespace: signals` are **immutable across all future versions** — do not change once published (`INCOMPATIBLE_ADDON_*`). Only **one** add-on option per version. `K8S_VERSIONS` must list only tested EKS versions. Unlike Helm/container options, the add-on option is **not** auto-Public — publishing it is a separate visibility step. See `specifications/marketplace-eks-addon-delivery.md`. |
-| AMI / EC2 Image Builder, #235 | **separate `AmiProduct@1.0` product** (not a delivery option on this container product) | — | **Groundwork only**, demand-gated. The reusable EC2 Image Builder component lives in `deploy/aws/imagebuilder/` (`specifications/marketplace-ami-image-builder.md`); the live AMI product + its onboarding/review are deferred until real EC2-baked-deployment demand. No runnable AMI change-set is committed. |
+| AMI / EC2 Image Builder, #235 | **separate `AmiProduct@1.0` product** (not a delivery option on this container product) | `AmiDeliveryOptionDetails` (`07-add-ami-delivery.json`) | **Live** at `prod-cuyands3nsl2c` (privately targeted). The AMI is baked by the EC2 Image Builder component in `deploy/aws/imagebuilder/` (`specifications/marketplace-ami-image-builder.md`), then published as a new version with `07-add-ami-delivery.json`. See "AMI product versions" below. |
 
 ### Version supersession — retiring an old delivery option (`06-restrict-delivery.json`)
 
@@ -93,6 +93,45 @@ Notes on the ordering, all verified on the pgAgroal launch:
    Operations manual review. It needs a published **public seller profile**, or
    it fails `MISSING_SELLER_PROFILE_INFORMATION`. Do not run without the EULA
    signed and an explicit go.
+
+## AMI product versions (`07-add-ami-delivery.json`)
+
+The AMI product `prod-cuyands3nsl2c` is a **separate** `AmiProduct@1.0` listing
+(governed by `specifications/marketplace-ami-product.md`), not a delivery option
+on the container product. Each release publishes a **new version** carrying a
+freshly baked golden AMI. AWS requires a **distinct `AmiId` per version**
+(`DUPLICATE_AMI_ID` otherwise), and delivery options cannot be added to an
+existing version — so a release is always: bake a new AMI, then add a new
+version pointing at it.
+
+1. **Bake the golden AMI** from the committed Image Builder component at the
+   released `SignalsImage` pin (see `deploy/aws/imagebuilder/README.md`):
+   register the `signals-collector` component + `signals-collector-al2023`
+   recipe at the release SemVer, run an Image Builder build, and take the
+   resulting `AmiId`. The component's `validate`/`test` phases assert the pinned
+   image is present, the unit is enabled, and nothing secret is baked
+   (INV-AMI-01).
+2. **Dry-run the change-set** (creates nothing) before the real submit:
+
+   ```sh
+   PRODUCT_ID=prod-cuyands3nsl2c VERSION=<ver> AMI_ID=<new-ami-id> \
+   ACCESS_ROLE_ARN=arn:aws:iam::946179428473:role/AwsMarketplaceAmiIngestion \
+   RECOMMENDED_INSTANCE_TYPE=t3.small \
+   RELEASE_NOTES="..." USAGE_INSTRUCTIONS="..." \
+   INTENT=VALIDATE scripts/marketplace-changeset.sh \
+     docs/marketplace/catalog-api/07-add-ami-delivery.json
+   ```
+
+3. **Submit** the same command without `INTENT=VALIDATE` (defaults to `APPLY`).
+   This triggers AWS's async AMI ingestion scan (`AccessRoleArn` is the role AWS
+   assumes to scan/copy the AMI — least-privilege, R-AMIP-04). Then retire the
+   superseded version's delivery option with `06-restrict-delivery.json` once the
+   new version is live.
+
+`VERSION` is the real SemVer (the buyer-facing `VersionTitle`), and all copy is
+ASCII-only and fully `${...}`-substituted — the script guards both. The AMI
+product's private buyer-account targeting and the shared EULA/logo assets are
+unchanged across versions.
 
 ### LegalTerm / CustomEula (free offer)
 

@@ -4,16 +4,18 @@
 # Builder groundwork (Elevarq/Signals#266, part of #233, refs #235).
 #
 # Enforces the statically-checkable acceptance cases of
-# specifications/marketplace-ami-image-builder.md (ACTIVE) so the
-# demand-gated AMI groundwork stays submission-ready and cannot regress
-# (the #240 slug defect is exactly the class this catches). It runs NO
+# specifications/marketplace-ami-image-builder.md (ACTIVE) so the AMI build-input
+# component + its committed change-set template stay submission-ready and cannot
+# regress (the #240 slug defect is exactly the class this catches). It runs NO
 # AWS API call and NO Marketplace change-set.
 #
 #   TC-AMI-01  component is a valid AWSTOE doc (name/description/
 #              schemaVersion: 1.0/phases with build+validate+test)
 #   TC-AMI-02  no baked secrets/config — build phase leaves /etc/signals empty
 #   TC-AMI-03  SignalsImage default is a pinned :<x.y.z> tag at the ghcr slug
-#   TC-AMI-04  no runnable AmiProduct@1.0 change-set template is committed
+#   TC-AMI-04  any committed AmiProduct@1.0 change-set template is fully
+#              ${...}-parameterized and safe (no hardcoded ami-* id, seller
+#              account, or secret literal)
 #
 # TC-AMI-05 (live baked-AMI smoke) is deferred and intentionally not here.
 #
@@ -138,21 +140,51 @@ if grep -qE 'ghcr\.io/elevarq/signals:latest' "${COMPONENT}"; then
 fi
 [ "${tc03}" -eq 0 ] && log_ok "SignalsImage default is pinned at the ghcr slug" || fail=1
 
-# --- TC-AMI-04: no runnable AmiProduct change-set committed ------------------
-# R-AMI-04: the groundwork must not stand up the live AMI product. No committed
-# catalog-api *change-set template* (a .json) may create/target an AmiProduct.
-# Prose scaffolding in the README is explicitly allowed by the acceptance case,
-# so scan only the runnable JSON templates.
-log_step "TC-AMI-04: no runnable AmiProduct@1.0 change-set template committed"
+# --- TC-AMI-04: committed AmiProduct change-set templates are safe -----------
+# R-AMI-04: the #235 gate opened (2026-07-19) and the live AMI product is
+# versioned via a committed catalog-api change-set template. Each such template
+# MUST be fully ${...}-parameterized and carry NO hardcoded ami-* id, seller
+# account number, or secret literal — so it cannot itself trigger an unreviewed
+# live change and every value comes from the operator's environment at run time.
+# Scan only the runnable JSON templates that target an AmiProduct.
+log_step "TC-AMI-04: committed AmiProduct@1.0 change-set templates are parameterized and safe"
 tc04=0
 if [ -d "${CATALOG_DIR}" ]; then
-  if hits="$(grep -rlE 'AmiProduct' "${CATALOG_DIR}" --include='*.json' 2>/dev/null)"; then
-    log_fail "AmiProduct change-set template(s) committed — groundwork must stay demand-gated:"
-    printf '%s\n' "${hits}" | sed 's/^/     /' >&2
-    tc04=1
-  fi
+  ami_templates="$(grep -rlE 'AmiProduct' "${CATALOG_DIR}" --include='*.json' 2>/dev/null || true)"
+  while IFS= read -r tmpl; do
+    [ -n "${tmpl}" ] || continue
+    # Must drive the version publish via AddDeliveryOptions.
+    if ! grep -qE '"AddDeliveryOptions"' "${tmpl}"; then
+      log_fail "${tmpl}: targets AmiProduct but has no AddDeliveryOptions change"; tc04=1
+    fi
+    # The AMI id and the scan/copy role MUST be ${...} placeholders.
+    # SC2016: single quotes are deliberate — we match the LITERAL ${...} the
+    # operator substitutes at run time, not a shell expansion.
+    # shellcheck disable=SC2016
+    for ph in '${AMI_ID}' '${ACCESS_ROLE_ARN}'; do
+      if ! grep -qF "${ph}" "${tmpl}"; then
+        log_fail "${tmpl}: missing required placeholder ${ph}"; tc04=1
+      fi
+    done
+    # No hardcoded AMI id, 12-digit seller account, or credential literal.
+    if grep -qE '"ami-[0-9a-f]+"' "${tmpl}"; then
+      log_fail "${tmpl}: hardcoded ami-* id (must be \${AMI_ID})"; tc04=1
+    fi
+    if grep -qE '[0-9]{12}' "${tmpl}"; then
+      log_fail "${tmpl}: hardcoded 12-digit account number (parameterize it)"; tc04=1
+    fi
+    if grep -qEi '(password|secret|api[_-]?token|bearer)[[:space:]]*:[[:space:]]*"[^$]' "${tmpl}"; then
+      log_fail "${tmpl}: hardcoded credential literal"; tc04=1
+    fi
+  done <<EOF
+${ami_templates}
+EOF
 fi
-[ "${tc04}" -eq 0 ] && log_ok "no runnable AmiProduct change-set committed" || fail=1
+if [ "${tc04}" -eq 0 ]; then
+  log_ok "AmiProduct change-set templates are parameterized and safe"
+else
+  fail=1
+fi
 
 if [ "${fail}" -ne 0 ]; then
   printf "%simagebuilder-component: check failed%s\n" "${C_RED}" "${C_RESET}" >&2

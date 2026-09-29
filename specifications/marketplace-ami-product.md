@@ -2,7 +2,12 @@
 
 ## Status
 
-DRAFT
+ACTIVE
+
+Promoted DRAFT -> ACTIVE 2026-09-29 (#466): the listing is live at
+`prod-cuyands3nsl2c` and its per-release versioning ships via the canonical
+change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`
+(schema validated live with `Intent: VALIDATE`).
 
 ## Type
 
@@ -130,9 +135,12 @@ Out of scope:
 ## Traceability
 
 specification (this file) -> acceptance cases
-(`marketplace-ami-product.acceptance.md`) -> change-set templates
-`docs/marketplace/catalog-api/06-create-ami-product.json` +
-`07-add-ami-delivery.json`, authored and dry-run validated against the live
-Catalog API (`StartChangeSet` with `Intent: VALIDATE`, which does not create the
-product) during the standup, then submitted + `scripts/marketplace-changeset.sh`
-guards.
+(`marketplace-ami-product.acceptance.md`) -> change-set template
+`docs/marketplace/catalog-api/07-add-ami-delivery.json` (per-release version
+publish). The product itself was created during the 2026-07 standup and is live
+at `prod-cuyands3nsl2c`, so no `CreateProduct` template is retained (the `06-`
+slot is the container `06-restrict-delivery.json`). The `07-` template is
+authored and dry-run validated against the live Catalog API (`StartChangeSet`
+with `Intent: VALIDATE`, which creates nothing — run via `INTENT=VALIDATE
+scripts/marketplace-changeset.sh`), then submitted with the same script's
+ASCII / `${...}`-substitution guards.
