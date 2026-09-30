@@ -68,3 +68,47 @@ set; otherwise it is a no-op (existing behaviour unchanged).
   completes normally (SE-R012/SE-R013).
 - **SE-AC-4 (disabled)** — With the feature off (default), no files are
   written and behaviour is byte-identical to before.
+
+## S3 destination (#472)
+
+`export_dest` is overloaded: in addition to a local directory it accepts an
+`s3://bucket/prefix` URI, in which case each per-database export is uploaded
+directly to S3 instead of written to a local file. This closes the Cloud
+delivery path (Signals → S3 → analyzer inbox) with no local-file + uploader
+workaround. All of SE-R010/SE-R011 (latest-per-target, one object per database,
+flat `<instance>-t<targetID>-<ts>.zip` keys) apply unchanged; only the storage
+backend differs.
+
+Configuration: `export_s3_region` / `SIGNALS_EXPORT_S3_REGION` (optional; the
+pod's ambient region when empty) and `export_s3_kms_key_id` /
+`SIGNALS_EXPORT_S3_KMS_KEY_ID` (optional).
+
+### Rules
+
+- **SE-R020** — When `export_dest` begins `s3://`, the exporter uploads each
+  per-target export with a single `s3:PutObject` to
+  `s3://<bucket>/<prefix>/<instance>-t<targetID>-<ts>.zip`. It MUST NOT list,
+  get, or delete — the delivery identity needs exactly one action.
+- **SE-R021** — Credentials come only from the default AWS chain (IRSA /
+  instance role). No static keys appear in config, env, logs, or state.
+- **SE-R022** — Every object is written server-side encrypted: SSE-S3 (AES256)
+  by default, or SSE-KMS with `export_s3_kms_key_id` when set. No ACL is set.
+- **SE-R023** — A completed PutObject is atomic, so a consumer never observes a
+  partial object; no temp/rename is used. A failed PutObject is returned to the
+  post-cycle hook, logged, and skipped — it never disrupts collection (SE-R013).
+- **SE-R024** — Retention (`export_retention_days` / `export_max_files`) is a
+  no-op for the S3 backend; S3 retention is an object-lifecycle rule, because
+  pruning would require list/delete (violating SE-R020).
+- **SE-R025** — A malformed `s3://` URI (missing scheme or empty bucket) fails
+  loud at config validation (startup), like other config errors.
+
+### Acceptance cases (S3)
+
+- **SE-AC-5 (normal)** — With `export_dest=s3://b/p` and two targets, a cycle
+  issues two PutObjects with per-database keys under `p`, SSE-S3.
+- **SE-AC-6 (KMS)** — With `export_s3_kms_key_id` set, PutObject uses SSE-KMS
+  with that key.
+- **SE-AC-7 (failure)** — A PutObject error is returned to the hook and logged;
+  the collection cycle completes normally (no panic).
+- **SE-AC-8 (invalid)** — `export_dest=s3://` (empty bucket) fails config
+  validation at startup.

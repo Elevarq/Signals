@@ -77,8 +77,19 @@ type SignalsConfig struct {
 	// opt-OUT: nil (unset) or true keeps the push on when a dest is set; false
 	// suppresses it even with a dest configured. See ScheduledExportEnabled.
 	// What consumes the files is out of scope for Signals.
-	ExportOnCollect *bool  `yaml:"export_on_collect"`
-	ExportDest      string `yaml:"export_dest"`
+	ExportOnCollect *bool `yaml:"export_on_collect"`
+	// ExportDest is the scheduled-export destination. It is either a local
+	// directory (the original behaviour) OR an `s3://bucket/prefix` URI (#472),
+	// in which case each per-database ZIP is uploaded straight to S3 (PutObject
+	// only, via the pod's default AWS credential chain — no static keys). The
+	// s3:// path closes the Cloud delivery gap (Signals -> S3 -> analyzer inbox)
+	// with no local file + uploader workaround.
+	ExportDest string `yaml:"export_dest"`
+	// ExportS3Region / ExportS3KMSKeyID apply only when ExportDest is an
+	// s3:// URI (#472). Region is optional (defaults to the pod's ambient
+	// region); an empty KMS key uses SSE-S3 (AES256), a set key uses SSE-KMS.
+	ExportS3Region   string `yaml:"export_s3_region"`
+	ExportS3KMSKeyID string `yaml:"export_s3_kms_key_id"`
 	// #385: bound the scheduled-export directory so it does not grow without
 	// limit (one ZIP per database per cycle, ~288/db/day at a 5m cadence).
 	// After each cycle the exporter prunes its own older ZIPs per target:
@@ -98,6 +109,29 @@ func (s SignalsConfig) ScheduledExportEnabled() bool {
 		return false
 	}
 	return s.ExportOnCollect == nil || *s.ExportOnCollect
+}
+
+// ExportDestIsS3 reports whether the scheduled-export destination is an S3 URI
+// (#472) rather than a local directory.
+func (s SignalsConfig) ExportDestIsS3() bool {
+	return strings.HasPrefix(s.ExportDest, "s3://")
+}
+
+// ParseExportS3 splits an `s3://bucket/prefix` destination into its bucket and
+// (optional) prefix. The prefix is returned without leading/trailing slashes.
+// A malformed URI (missing scheme or empty bucket) is an error so a
+// misconfigured Cloud delivery fails loud at startup, not silently (#472).
+func ParseExportS3(dest string) (bucket, prefix string, err error) {
+	rest, ok := strings.CutPrefix(dest, "s3://")
+	if !ok {
+		return "", "", fmt.Errorf("export_dest %q is not an s3:// URI", dest)
+	}
+	bucket, prefix, _ = strings.Cut(rest, "/")
+	bucket = strings.TrimSpace(bucket)
+	if bucket == "" {
+		return "", "", fmt.Errorf("export_dest %q has an empty S3 bucket", dest)
+	}
+	return bucket, strings.Trim(prefix, "/"), nil
 }
 
 // CircuitConfig holds the per-target circuit-breaker thresholds
@@ -639,6 +673,13 @@ func applyEnvOverrides(cfg *Config) error {
 	if v := os.Getenv("SIGNALS_EXPORT_DEST"); v != "" {
 		cfg.Signals.ExportDest = v
 	}
+	// #472 — S3 destination knobs (apply only when export_dest is an s3:// URI).
+	if v := os.Getenv("SIGNALS_EXPORT_S3_REGION"); v != "" {
+		cfg.Signals.ExportS3Region = v
+	}
+	if v := os.Getenv("SIGNALS_EXPORT_S3_KMS_KEY_ID"); v != "" {
+		cfg.Signals.ExportS3KMSKeyID = v
+	}
 	// #385 — bound the scheduled-export directory (0 = unbounded).
 	if n, ok, err := parseEnvInt("SIGNALS_EXPORT_RETENTION_DAYS"); err != nil {
 		return err
@@ -982,6 +1023,16 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	}
 	if cfg.Signals.ExportOnCollect != nil && !*cfg.Signals.ExportOnCollect && cfg.Signals.ExportDest != "" {
 		warnings = append(warnings, "signals.export_dest is set but signals.export_on_collect is false; the scheduled directory-push is suppressed (data is still available via GET /export)")
+	}
+	// #472 — an s3:// export destination must parse; a malformed URI fails
+	// loud at startup rather than silently never delivering.
+	if cfg.Signals.ExportDestIsS3() {
+		if _, _, err := ParseExportS3(cfg.Signals.ExportDest); err != nil {
+			hard = append(hard, fmt.Sprintf("signals.export_dest: %v", err))
+		}
+		if cfg.Signals.ExportRetentionDays > 0 || cfg.Signals.ExportMaxFiles > 0 {
+			warnings = append(warnings, "signals.export_retention_days / export_max_files are ignored for an s3:// export_dest — S3 retention is an object-lifecycle rule, not a prune (#472)")
+		}
 	}
 	for i, t := range cfg.Targets {
 		if cfg.Env != "prod" && t.SSLMode == "prefer" {

@@ -11,6 +11,7 @@
 package export
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -36,19 +37,26 @@ type snapshotSource interface {
 // long-lived Builder. It is safe to call from the collector's post-cycle
 // hook.
 type ScheduledExporter struct {
-	builder    snapshotSource
-	dest       string
+	builder snapshotSource
+	// dest is the local destination directory in filesystem mode. In S3 mode
+	// (s3 != nil) it is empty and exports are uploaded via the sink instead.
+	dest string
+	// s3, when non-nil, routes each per-database export ZIP to an S3 prefix
+	// with PutObject only (#472). It is the native Cloud delivery path; the
+	// filesystem behaviour is unchanged when s3 is nil.
+	s3         *s3Sink
 	instanceID string
 	now        func() time.Time
 	logf       func(msg string, args ...any)
 	// Retention bounds for the export directory (#385). Zero = unbounded
-	// (the pre-#385 behaviour). Set via SetRetention.
+	// (the pre-#385 behaviour). Set via SetRetention. Ignored in S3 mode —
+	// S3 retention is an object-lifecycle rule, not a prune (#472).
 	retentionDays int
 	maxFiles      int
 }
 
-// NewScheduledExporter constructs the exporter. `dest` is the destination
-// directory; `instanceID` disambiguates files when several Signals
+// NewScheduledExporter constructs a filesystem-mode exporter. `dest` is the
+// destination directory; `instanceID` disambiguates files when several Signals
 // instances write to one shared directory (#350). `now`/`logf` default to
 // wall-clock / no-op when nil.
 func NewScheduledExporter(b snapshotSource, dest, instanceID string, now func() time.Time, logf func(string, ...any)) *ScheduledExporter {
@@ -59,6 +67,28 @@ func NewScheduledExporter(b snapshotSource, dest, instanceID string, now func() 
 		logf = func(string, ...any) {}
 	}
 	return &ScheduledExporter{builder: b, dest: dest, instanceID: instanceID, now: now, logf: logf}
+}
+
+// NewScheduledExporterS3 constructs an S3-mode exporter (#472): each per-target
+// export ZIP is uploaded to the s3://bucket/prefix location via the sink
+// (PutObject only) instead of being written to a local directory. The AWS
+// client is injected by the caller (cmd/signals), which owns config/region
+// resolution via the default credential chain (IRSA); no credentials pass
+// through here. `now`/`logf` default to wall-clock / no-op when nil.
+func NewScheduledExporterS3(b snapshotSource, client s3PutAPI, bucket, prefix, kmsKeyID, instanceID string, now func() time.Time, logf func(string, ...any)) *ScheduledExporter {
+	if now == nil {
+		now = time.Now
+	}
+	if logf == nil {
+		logf = func(string, ...any) {}
+	}
+	return &ScheduledExporter{
+		builder:    b,
+		s3:         newS3Sink(client, bucket, prefix, kmsKeyID),
+		instanceID: instanceID,
+		now:        now,
+		logf:       logf,
+	}
 }
 
 // SetRetention bounds the export directory (#385): after each cycle the
@@ -142,12 +172,15 @@ func (e *ScheduledExporter) exportFilename(targetID int64) string {
 // it returns the files already written plus the error, leaving no partial
 // final file; the caller (the collector hook) logs and continues — a failed
 // export must never disrupt collection.
-func (e *ScheduledExporter) ExportLatest(_ context.Context) ([]string, error) {
-	if e.dest == "" {
+func (e *ScheduledExporter) ExportLatest(ctx context.Context) ([]string, error) {
+	if e.s3 == nil && e.dest == "" {
 		return nil, fmt.Errorf("scheduled export: destination not configured")
 	}
-	if err := os.MkdirAll(e.dest, 0o755); err != nil {
-		return nil, fmt.Errorf("scheduled export: mkdir %s: %w", e.dest, err)
+	// Filesystem mode ensures the directory exists; S3 has no directories.
+	if e.s3 == nil {
+		if err := os.MkdirAll(e.dest, 0o755); err != nil {
+			return nil, fmt.Errorf("scheduled export: mkdir %s: %w", e.dest, err)
+		}
 	}
 	ids, err := e.builder.LatestTargetIDs()
 	if err != nil {
@@ -155,12 +188,17 @@ func (e *ScheduledExporter) ExportLatest(_ context.Context) ([]string, error) {
 	}
 	written := make([]string, 0, len(ids))
 	for _, id := range ids {
-		final, err := e.exportOne(id)
+		final, err := e.exportOne(ctx, id)
 		if err != nil {
 			return written, fmt.Errorf("scheduled export: target %d: %w", id, err)
 		}
 		written = append(written, final)
-		e.pruneTarget(id) // #385 — bound the dir; best-effort, never fails the export
+		// #385 — bound the local dir; best-effort, never fails the export. In
+		// S3 mode retention is an object-lifecycle rule (#472), so prune is a
+		// no-op: the sink only PutObjects, never lists or deletes.
+		if e.s3 == nil {
+			e.pruneTarget(id)
+		}
 	}
 	return written, nil
 }
@@ -168,8 +206,18 @@ func (e *ScheduledExporter) ExportLatest(_ context.Context) ([]string, error) {
 // exportOne writes one target's latest-snapshot export ZIP atomically
 // (temp-file + rename) and returns the final path. It leaves no partial
 // final file on error.
-func (e *ScheduledExporter) exportOne(targetID int64) (string, error) {
+func (e *ScheduledExporter) exportOne(ctx context.Context, targetID int64) (string, error) {
 	name := e.exportFilename(targetID)
+	// S3 mode (#472): buffer the target's export and upload it with a single
+	// PutObject. A completed PutObject is atomic — a consumer never sees a
+	// partial object — so no temp-file + rename is needed.
+	if e.s3 != nil {
+		var buf bytes.Buffer
+		if err := e.builder.WriteTo(&buf, Options{TargetID: targetID}); err != nil {
+			return "", fmt.Errorf("write: %w", err)
+		}
+		return e.s3.put(ctx, name, buf.Bytes())
+	}
 	final := filepath.Join(e.dest, name)
 	tmp := filepath.Join(e.dest, "."+name+".tmp")
 
