@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-09-30
+
 ### Fixed
 - **Scheduled export delivers natively to S3 (#472).** `export_dest` /
   `SIGNALS_EXPORT_DEST` now accepts an `s3://bucket/prefix` URI in addition to a
