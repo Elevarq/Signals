@@ -82,6 +82,19 @@ func run() error {
 		"hard_errors", 0,
 	)
 
+	// Early preflight: the SQLite data directory must be writable by the
+	// current user before we try to open the store (Elevarq/Signals#473).
+	// A non-writable /data otherwise surfaces later as the misleading
+	// "enable WAL: unable to open database file" (SQLITE_CANTOPEN); failing
+	// here at the config-validate phase names the real cause and the fix.
+	if err := db.PreflightWritable(cfg.Database.Path); err != nil {
+		safety.AuditLog("config_validated",
+			"status", "error",
+			"phase", "data_dir_writable",
+		)
+		return err
+	}
+
 	// Enforce Postgres TLS policy.
 	if err := config.ValidateProdTLS(cfg); err != nil {
 		safety.AuditLog("config_validated",

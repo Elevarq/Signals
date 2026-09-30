@@ -6,6 +6,35 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **Container healthcheck now honors the configured API port (#474).** The image
+  `HEALTHCHECK` hardcoded `http://localhost:8081/health`, so changing the API
+  port (`api.listen_addr` / `SIGNALS_LISTEN_ADDR` / chart `api.port`) made
+  Docker/ECS report a working collector `unhealthy`. A new
+  `deploy/docker/healthcheck.sh` derives the probe port from
+  `SIGNALS_LISTEN_ADDR` at run time (default 8081); the Dockerfile invokes it.
+  The Helm chart's Kubernetes probes already followed `api.port` (named `api`
+  port) and are unchanged.
+- **Clear diagnostic when the SQLite data directory is not writable (#473).**
+  A non-writable `/data` (raw `docker run` / ECS over a root-owned bind mount)
+  previously died with the misleading `open database: enable WAL: unable to
+  open database file` (SQLITE_CANTOPEN). Signals now runs an early
+  `db.PreflightWritable` at the config-validate phase that fails with an
+  actionable message naming the directory and current uid ("data directory
+  <dir> is not writable by uid N — mount a writable volume / chown the bind
+  mount"), and the SQLite open path wraps the CANTOPEN error to name the real
+  cause instead of blaming WAL.
+- **Marketplace publish tooling fails closed on unset template variables (#470).**
+  The Signals AWS Marketplace listing shipped a version titled literally
+  `${VERSION}` because `envsubst` silently blanks an unset variable, so the
+  existing post-render `${...}` grep could never catch a missing `VERSION`, and
+  Marketplace VersionTitles are immutable. `scripts/marketplace-changeset.sh`
+  now verifies every `${VAR}` referenced by the change-set template is set and
+  non-empty *before* `envsubst` runs, aborting with the offending variable
+  names; the belt-and-braces post-render literal-`${...}` guard is retained.
+  The already-published `${VERSION}` version is immutable and must be handled
+  manually (add a new delivery option; do not select the placeholder version).
+
 ### Changed
 - **AMI-product delivery options can now be retired via the canonical script
   (#468).** `docs/marketplace/catalog-api/06-restrict-delivery.json` parameterizes
