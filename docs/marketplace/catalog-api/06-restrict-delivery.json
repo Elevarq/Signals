@@ -4,7 +4,7 @@
     {
       "ChangeType": "RestrictDeliveryOptions",
       "Entity": {
-        "Type": "ContainerProduct@1.0",
+        "Type": "${ENTITY_TYPE}",
         "Identifier": "${PRODUCT_ID}"
       },
       "DetailsDocument": {
