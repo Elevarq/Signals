@@ -57,6 +57,11 @@ PRODUCT_ID=prod-7tz6zxncwjmw4 DELIVERY_OPTION_ID=<uuid> \
   scripts/marketplace-changeset.sh docs/marketplace/catalog-api/06-restrict-delivery.json
 ```
 
+The template's entity type is `${ENTITY_TYPE}`, which the script defaults to
+`ContainerProduct@1.0` — so container callers are unchanged. For an AMI product,
+set `ENTITY_TYPE=AmiProduct@1.0` (see "AMI product versions" above for the AMI
+caveat: `RestrictDeliveryOptions` has no `VALIDATE` dry-run there).
+
 Find the delivery option id (and confirm it is `Public`) with `describe-entity`:
 
 ```sh
@@ -124,9 +129,21 @@ version pointing at it.
 
 3. **Submit** the same command without `INTENT=VALIDATE` (defaults to `APPLY`).
    This triggers AWS's async AMI ingestion scan (`AccessRoleArn` is the role AWS
-   assumes to scan/copy the AMI — least-privilege, R-AMIP-04). Then retire the
-   superseded version's delivery option with `06-restrict-delivery.json` once the
-   new version is live.
+   assumes to scan/copy the AMI — least-privilege, R-AMIP-04).
+4. **Retire the superseded version** once the new one is live, with
+   `06-restrict-delivery.json` and `ENTITY_TYPE=AmiProduct@1.0`:
+
+   ```sh
+   PRODUCT_ID=prod-cuyands3nsl2c ENTITY_TYPE=AmiProduct@1.0 \
+   DELIVERY_OPTION_ID=<old-version-delivery-option-id> \
+     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/06-restrict-delivery.json
+   ```
+
+   **`RestrictDeliveryOptions` does NOT support `Intent: VALIDATE` on
+   `AmiProduct@1.0`** (`Intent not supported for change type ...`), so an AMI
+   restrict cannot be dry-run — it runs `APPLY` directly. A FAILED change-set is a
+   no-op (no state change), so this is safe. Find the delivery-option id and
+   confirm it is `Public` with the `describe-entity` snippet below.
 
 `VERSION` is the real SemVer (the buyer-facing `VersionTitle`), and all copy is
 ASCII-only and fully `${...}`-substituted — the script guards both. The AMI

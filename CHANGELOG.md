@@ -7,6 +7,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Changed
+- **AMI-product delivery options can now be retired via the canonical script
+  (#468).** `docs/marketplace/catalog-api/06-restrict-delivery.json` parameterizes
+  the entity type as `${ENTITY_TYPE}` (defaulted by `scripts/marketplace-changeset.sh`
+  to `ContainerProduct@1.0`, so container callers are unchanged); set
+  `ENTITY_TYPE=AmiProduct@1.0` to restrict an AMI-product option. Documented that
+  `RestrictDeliveryOptions` does not support `Intent: VALIDATE` on `AmiProduct@1.0`
+  (APPLY-only; a FAILED change-set is a no-op). Used to retire the superseded
+  Signals AMI 1.0.2 delivery option after 1.5.0 went live.
 - **Marketplace AMI product updated to Signals 1.5.0 (#466).** The EC2 Image
   Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`)
   now pins `ghcr.io/elevarq/signals:1.5.0`, so the golden AMI baked for the

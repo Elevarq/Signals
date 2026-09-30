@@ -56,6 +56,12 @@
 #   #     jq '.Versions[].DeliveryOptions[] | {Id,Type,Visibility}'
 #   PRODUCT_ID=prod-xxxx DELIVERY_OPTION_ID=<uuid> \
 #     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/06-restrict-delivery.json
+#   # For an AMI product, add ENTITY_TYPE=AmiProduct@1.0 (defaults to
+#   # ContainerProduct@1.0). NOTE: RestrictDeliveryOptions does NOT support
+#   # Intent: VALIDATE on AmiProduct@1.0, so an AMI restrict cannot be dry-run —
+#   # it runs APPLY directly (a FAILED change-set is a no-op, so this is safe).
+#   PRODUCT_ID=prod-xxxx ENTITY_TYPE=AmiProduct@1.0 DELIVERY_OPTION_ID=<uuid> \
+#     scripts/marketplace-changeset.sh docs/marketplace/catalog-api/06-restrict-delivery.json
 #
 # Env: AWS_PROFILE (default elevarq), AWS_REGION (default us-east-1),
 #      INTENT (default APPLY; set VALIDATE to dry-run — AWS validates the
@@ -71,6 +77,10 @@ TEMPLATE="${1:?usage: marketplace-changeset.sh <change-set-template.json>}"
 
 export AWS_PROFILE="${AWS_PROFILE:-elevarq}"
 export AWS_REGION="${AWS_REGION:-us-east-1}"
+# Entity type for templates that parameterize it (06-restrict-delivery.json).
+# Defaults to the container product so existing container callers are unchanged;
+# set ENTITY_TYPE=AmiProduct@1.0 to restrict an AMI-product delivery option.
+export ENTITY_TYPE="${ENTITY_TYPE:-ContainerProduct@1.0}"
 INTENT="${INTENT:-APPLY}"
 case "$INTENT" in
   APPLY | VALIDATE) ;;
