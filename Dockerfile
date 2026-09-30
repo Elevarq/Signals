@@ -47,14 +47,22 @@ RUN apk add --no-cache tini ca-certificates \
 COPY --from=builder /out/signals /usr/local/bin/signals
 COPY --from=builder /out/signalsctl /usr/local/bin/signalsctl
 
+# Healthcheck probe that honors the configured API port (Elevarq/Signals#474).
+# A hardcoded :8081 probe reports a working collector `unhealthy` whenever the
+# operator changes api.port; healthcheck.sh derives the port from
+# SIGNALS_LISTEN_ADDR at run time (default 8081).
+COPY --chmod=0755 deploy/docker/healthcheck.sh /usr/local/bin/healthcheck.sh
+
 RUN mkdir -p /data && chown signals:signals /data
 VOLUME /data
 
 USER signals
+# EXPOSE documents the default listener; the actual port follows
+# SIGNALS_LISTEN_ADDR / chart api.port at run time (see healthcheck.sh).
 EXPOSE 8081
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=5s --retries=3 \
-  CMD wget -qO /dev/null http://localhost:8081/health || exit 1
+  CMD ["/usr/local/bin/healthcheck.sh"]
 
 ENTRYPOINT ["tini", "--"]
 CMD ["signals"]

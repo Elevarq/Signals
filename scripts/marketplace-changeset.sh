@@ -91,18 +91,47 @@ for bin in aws jq envsubst; do
   command -v "$bin" >/dev/null 2>&1 || { echo "error: missing tool: $bin" >&2; exit 1; }
 done
 
+# Fail closed on any ${VAR} the template references that is UNSET or EMPTY in
+# the environment, BEFORE envsubst runs (Elevarq/Signals#470). This is the
+# real fix for the "VersionTitle literally ${VERSION}" incident: envsubst
+# silently replaces an UNSET variable with an empty string, so the
+# post-render '${' grep below can never catch a missing VERSION — the title
+# would have shipped empty (or, with a restricted format list, as the literal
+# placeholder). Marketplace VersionTitles are IMMUTABLE, so a wrong/empty
+# title is unrecoverable. Requiring every referenced var to be non-empty up
+# front makes an unset VERSION (or any other input) abort loudly instead.
+# SC2016: single quotes are deliberate — grep the LITERAL ${...} in the
+# template, not a shell expansion.
+missing=""
+# shellcheck disable=SC2016
+while IFS= read -r var; do
+  [ -n "$var" ] || continue
+  # Indirect expansion: is the referenced variable set and non-empty?
+  if [ -z "${!var:-}" ]; then
+    missing="${missing}${missing:+ }${var}"
+  fi
+done < <(grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*\}' "$TEMPLATE" | sed -E 's/^\$\{//; s/\}$//' | sort -u)
+if [ -n "$missing" ]; then
+  echo "error: required template variable(s) unset or empty for $TEMPLATE:" >&2
+  for var in $missing; do echo "       \${$var}" >&2; done
+  echo "       set every referenced variable before submitting — envsubst would" >&2
+  echo "       otherwise blank them, and Marketplace VersionTitles are immutable." >&2
+  exit 1
+fi
+
 rendered="$(mktemp)"
 trap 'rm -f "$rendered"' EXIT
 envsubst < "$TEMPLATE" > "$rendered"
 
-# Fail fast on an unsubstituted ${VAR} or invalid JSON before we submit.
+# Belt-and-braces: fail fast on any LITERAL ${...} that survived envsubst
+# (e.g. if the template was submitted with a restricted substitution list).
 # SC2016: the single quotes are deliberate — we match the LITERAL ${ that
 # envsubst would have replaced, not a shell expansion.
 # shellcheck disable=SC2016
 if grep -q '\${' "$rendered"; then
   echo "error: unsubstituted variables remain in the rendered change set:" >&2
   # shellcheck disable=SC2016
-  grep -o '\${[A-Z_]*}' "$rendered" | sort -u >&2
+  grep -oE '\$\{[A-Za-z_][A-Za-z0-9_]*\}' "$rendered" | sort -u >&2
   exit 1
 fi
 

@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
@@ -15,6 +17,47 @@ import (
 
 	_ "modernc.org/sqlite"
 )
+
+// PreflightWritable checks that the directory holding the SQLite database at
+// path exists and is writable by the current process user, returning an
+// actionable error if not (Elevarq/Signals#473).
+//
+// SQLite reports a non-writable data directory as CANTOPEN (14) surfaced deep
+// in the WAL-enable step ("enable WAL: unable to open database file"), which
+// misleads operators into blaming WAL instead of the volume permissions. This
+// preflight runs before Open at the config-validate phase so a non-writable
+// /data fails fast with the real cause and the fix, naming the current uid.
+//
+// The check probes actual writability by creating and removing a temp file in
+// the directory (an os.Stat/mode inspection is unreliable under mounts, ACLs,
+// and root-owned bind mounts). A missing directory is reported distinctly.
+func PreflightWritable(path string) error {
+	dir := filepath.Dir(path)
+
+	info, err := os.Stat(dir)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return fmt.Errorf("data directory %s does not exist (from database.path %q) — "+
+				"mount a writable volume at it (chart: persistence + fsGroup; docker: "+
+				"create and chown the bind mount to uid %d)", dir, path, os.Getuid())
+		}
+		return fmt.Errorf("data directory %s is not accessible (from database.path %q): %w", dir, path, err)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("data directory %s (from database.path %q) is not a directory", dir, path)
+	}
+
+	probe, err := os.CreateTemp(dir, ".signals-writecheck-*")
+	if err != nil {
+		return fmt.Errorf("data directory %s is not writable by uid %d (from database.path %q) — "+
+			"mount a writable volume (chart: persistence + fsGroup; docker: chown the bind "+
+			"mount to the container user, e.g. `chown %d %s`)", dir, os.Getuid(), path, os.Getuid(), dir)
+	}
+	name := probe.Name()
+	_ = probe.Close()
+	_ = os.Remove(name)
+	return nil
+}
 
 // DB wraps a sql.DB with Elevarq Signals-specific operations.
 type DB struct {
@@ -66,11 +109,22 @@ func Open(path string, wal bool) (*DB, error) {
 	}
 	sqlDB.SetMaxOpenConns(1)
 
-	// Enable WAL via pragma as well (some drivers need this).
+	// Enable WAL via pragma as well (some drivers need this). SQLite defers
+	// opening the file until the first statement, so a non-writable data
+	// directory surfaces here as CANTOPEN (14) — "unable to open database
+	// file". WAL is only the operation in progress, not the cause; name the
+	// real cause (path + directory writability) so operators don't chase the
+	// wrong lead (Elevarq/Signals#473).
 	if wal {
 		if _, err := sqlDB.Exec("PRAGMA journal_mode=WAL"); err != nil {
 			sqlDB.Close()
-			return nil, fmt.Errorf("enable WAL: %w", err)
+			if strings.Contains(err.Error(), "unable to open database file") {
+				return nil, fmt.Errorf("cannot open database at %s (uid %d) — the data "+
+					"directory %s is not writable; mount a writable volume (chart: "+
+					"persistence + fsGroup; docker: chown the bind mount to the container "+
+					"user): %w", path, os.Getuid(), filepath.Dir(path), err)
+			}
+			return nil, fmt.Errorf("enable WAL at %s: %w", path, err)
 		}
 	}
 
