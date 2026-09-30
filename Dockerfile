@@ -41,7 +41,13 @@ LABEL org.opencontainers.image.title="signals" \
       org.opencontainers.image.source="https://github.com/Elevarq/signals" \
       org.opencontainers.image.documentation="https://github.com/Elevarq/signals/blob/main/README.md"
 
-RUN apk add --no-cache tini ca-certificates \
+# apk upgrade pulls the latest patched base packages (e.g. openssl/libcrypto3/
+# libssl3) from the 3.21 repo, so the release Trivy gate isn't blocked by a
+# base-image HIGH that Alpine has already fixed but the pinned digest predates
+# (Signals#480-adjacent; v1.5.1 was blocked by CVE-2026-75804/-84782, openssl
+# fixed in 3.3.7-r2 while the pinned base carried 3.3.7-r1).
+RUN apk upgrade --no-cache \
+    && apk add --no-cache tini ca-certificates \
     && adduser -D -u 10001 signals
 
 COPY --from=builder /out/signals /usr/local/bin/signals
