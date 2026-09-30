@@ -685,6 +685,18 @@ Failure conditions:
 - FC-R127-3: target enumeration fails → surfaced to the hook, logged,
   no files written that cycle; retried next cycle.
 
+**S3 destination (#472).** `export_dest` also accepts an `s3://bucket/prefix`
+URI, in which case each per-database export is uploaded directly to S3 with a
+single `s3:PutObject` (using the pod's default AWS credential chain / IRSA —
+no static keys), server-side encrypted (SSE-S3 by default, SSE-KMS via
+`export_s3_kms_key_id`). The per-target scoping, `<instance>-t<targetID>-<ts>`
+naming, atomicity (a completed PutObject is atomic), and fail-open-on-error
+semantics above are unchanged — only the storage backend differs. The exporter
+never lists or deletes on S3, so retention is an object-lifecycle rule, not a
+prune. This is the native Cloud delivery path (Signals → S3 → analyzer inbox),
+replacing the local-file + external-uploader workaround. Full rules:
+`specifications/scheduled-export.md` SE-R020..SE-R025.
+
 **SIGNALS-R073**: The system shall support target-scoped export.
 When exporting for a specific target, query_runs, query_results, and
 collector_status shall contain only data for that target. The

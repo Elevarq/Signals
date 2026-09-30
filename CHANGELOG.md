@@ -7,6 +7,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Fixed
+- **Scheduled export delivers natively to S3 (#472).** `export_dest` /
+  `SIGNALS_EXPORT_DEST` now accepts an `s3://bucket/prefix` URI in addition to a
+  local directory: each per-database export ZIP is uploaded straight to S3 with a
+  single `s3:PutObject` (default AWS credential chain / IRSA — no static keys),
+  server-side encrypted (SSE-S3 by default, SSE-KMS via `export_s3_kms_key_id` /
+  `SIGNALS_EXPORT_S3_REGION`). This closes the Cloud delivery path
+  (Signals → S3 → analyzer inbox) with no local-file + external-uploader
+  workaround — the scheduled-export path was always meant to deliver without one.
+  The exporter never lists or deletes on S3 (least-privilege PutObject); S3
+  retention is an object-lifecycle rule. The Helm chart exposes first-class
+  `export.onCollect` / `export.dest` / `export.s3.{region,kmsKeyId}` values.
+  Filesystem behaviour is unchanged.
 - **Container healthcheck now honors the configured API port (#474).** The image
   `HEALTHCHECK` hardcoded `http://localhost:8081/health`, so changing the API
   port (`api.listen_addr` / `SIGNALS_LISTEN_ADDR` / chart `api.port`) made

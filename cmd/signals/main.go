@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	awsconfig "github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/elevarq/signals/internal/api"
 	"github.com/elevarq/signals/internal/circuit"
 	"github.com/elevarq/signals/internal/collector"
@@ -244,30 +246,54 @@ func run() error {
 	// skipped — it must never disrupt collection. Signals has no knowledge of
 	// any downstream consumer.
 	if cfg.Signals.ScheduledExportEnabled() {
-		se := export.NewScheduledExporter(exporter, cfg.Signals.ExportDest, instanceID, nil, slog.Warn)
-		// #385 — bound the export directory (0/0 = unbounded, pre-#385 default).
-		se.SetRetention(cfg.Signals.ExportRetentionDays, cfg.Signals.ExportMaxFiles)
-		coll.SetAfterCycle(func(ctx context.Context) {
-			paths, err := se.ExportLatest(ctx)
-			if err != nil {
-				slog.Warn("scheduled export failed; some databases may not have been written this cycle",
-					"err", err.Error(), "dest", cfg.Signals.ExportDest, "written", len(paths))
-				return
+		var se *export.ScheduledExporter
+		if cfg.Signals.ExportDestIsS3() {
+			// #472 — native S3 delivery. Credentials come from the default AWS
+			// chain (IRSA / instance role); no static keys. Region is optional
+			// (the pod's ambient region when empty).
+			bucket, prefix, perr := config.ParseExportS3(cfg.Signals.ExportDest)
+			if perr != nil {
+				// Validation already fails hard on this; guard defensively.
+				slog.Error("scheduled export disabled: invalid s3:// export_dest", "err", perr.Error())
+			} else {
+				var opts []func(*awsconfig.LoadOptions) error
+				if r := cfg.Signals.ExportS3Region; r != "" {
+					opts = append(opts, awsconfig.WithRegion(r))
+				}
+				awsCfg, aerr := awsconfig.LoadDefaultConfig(ctx, opts...)
+				if aerr != nil {
+					slog.Error("scheduled export disabled: could not load AWS config", "err", aerr.Error())
+				} else {
+					se = export.NewScheduledExporterS3(exporter, s3.NewFromConfig(awsCfg), bucket, prefix, cfg.Signals.ExportS3KMSKeyID, instanceID, nil, slog.Warn)
+					slog.Info("scheduled auto-export enabled (native S3, one object per database)", "bucket", bucket, "prefix", prefix, "cadence", "per collection cycle")
+				}
 			}
-			slog.Info("scheduled export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
-		})
-		slog.Info("scheduled auto-export enabled (one file per database)", "dest", cfg.Signals.ExportDest, "cadence", "per collection cycle")
-		// #403 — populate the destination immediately with the current latest
-		// per target, so there is no up-to-one-poll-interval blind window when
-		// push is first enabled (e.g. a restart with data already in the store).
-		// Best-effort: a fresh install has nothing to export yet; a failure is
-		// logged and never blocks startup. Semantics are latest-per-target,
-		// NOT a backlog replay.
-		if paths, eerr := se.ExportLatest(ctx); eerr != nil {
-			slog.Warn("scheduled export: initial export failed; will retry next cycle",
-				"err", eerr.Error(), "dest", cfg.Signals.ExportDest)
-		} else if len(paths) > 0 {
-			slog.Info("scheduled export: initial export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
+		} else {
+			se = export.NewScheduledExporter(exporter, cfg.Signals.ExportDest, instanceID, nil, slog.Warn)
+			// #385 — bound the export directory (0/0 = unbounded, pre-#385 default).
+			se.SetRetention(cfg.Signals.ExportRetentionDays, cfg.Signals.ExportMaxFiles)
+			slog.Info("scheduled auto-export enabled (one file per database)", "dest", cfg.Signals.ExportDest, "cadence", "per collection cycle")
+		}
+		if se != nil {
+			coll.SetAfterCycle(func(ctx context.Context) {
+				paths, err := se.ExportLatest(ctx)
+				if err != nil {
+					slog.Warn("scheduled export failed; some databases may not have been written this cycle",
+						"err", err.Error(), "dest", cfg.Signals.ExportDest, "written", len(paths))
+					return
+				}
+				slog.Info("scheduled export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
+			})
+			// #403 — populate the destination immediately with the current
+			// latest per target, so there is no up-to-one-poll-interval blind
+			// window when push is first enabled. Best-effort; never blocks
+			// startup. Latest-per-target, NOT a backlog replay.
+			if paths, eerr := se.ExportLatest(ctx); eerr != nil {
+				slog.Warn("scheduled export: initial export failed; will retry next cycle",
+					"err", eerr.Error(), "dest", cfg.Signals.ExportDest)
+			} else if len(paths) > 0 {
+				slog.Info("scheduled export: initial export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
+			}
 		}
 	}
 

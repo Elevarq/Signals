@@ -153,6 +153,22 @@ serviceAccount:
 #     azure.workload.identity/use: "true"
 podLabels: {}
 
+# Scheduled auto-export (#350/#403/#472). When onCollect is true and dest is
+# set, Signals writes the latest snapshot ZIP per database after every
+# collection cycle. `dest` is either a local directory on the /data volume OR
+# an `s3://bucket/prefix` URI (#472) for native Cloud delivery to the analyzer
+# — uploaded with s3:PutObject only, using the pod's IRSA identity (no static
+# keys), server-side encrypted. For S3, grant the ServiceAccount role a single
+# `s3:PutObject` on the prefix (set serviceAccount.annotations for IRSA) and
+# bound growth with an S3 lifecycle rule (not the retention values below, which
+# apply to the local-directory backend only).
+export:
+  onCollect: false
+  dest: "" # local dir (e.g. /data/exports) OR s3://bucket/prefix
+  s3:
+    region: "" # empty = the pod's ambient region
+    kmsKeyId: "" # empty = SSE-S3 (AES256); set = SSE-KMS with this key
+
 # Additional non-secret environment variables for the Signals container.
 # Secret values must use valueFrom.secretKeyRef; do not put credential values
 # in Helm values or release history. Built-in SIGNALS_* variables managed by

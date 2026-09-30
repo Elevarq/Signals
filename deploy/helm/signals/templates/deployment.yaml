@@ -1,5 +1,5 @@
 {{- range $entry := .Values.extraEnv }}
-{{- if has $entry.name (list "SIGNALS_ENV" "SIGNALS_POLL_INTERVAL" "SIGNALS_RETENTION_DAYS" "SIGNALS_TARGET_TIMEOUT" "SIGNALS_QUERY_TIMEOUT" "SIGNALS_LISTEN_ADDR" "PG_PASSWORD" "SIGNALS_API_TOKEN") }}
+{{- if has $entry.name (list "SIGNALS_ENV" "SIGNALS_POLL_INTERVAL" "SIGNALS_RETENTION_DAYS" "SIGNALS_TARGET_TIMEOUT" "SIGNALS_QUERY_TIMEOUT" "SIGNALS_LISTEN_ADDR" "PG_PASSWORD" "SIGNALS_API_TOKEN" "SIGNALS_EXPORT_ON_COLLECT" "SIGNALS_EXPORT_DEST" "SIGNALS_EXPORT_S3_REGION" "SIGNALS_EXPORT_S3_KMS_KEY_ID") }}
 {{- fail (printf "extraEnv name %q is managed by the chart and cannot be overridden" $entry.name) }}
 {{- end }}
 {{- end }}
@@ -73,6 +73,26 @@ spec:
               value: {{ .Values.collector.queryTimeout | quote }}
             - name: SIGNALS_LISTEN_ADDR
               value: "0.0.0.0:{{ .Values.api.port }}"
+            {{- /* #472: scheduled export knobs, set via first-class export.*
+                  values (denylisted from extraEnv). export.dest is a local
+                  directory OR an s3://bucket/prefix URI for native S3
+                  delivery (PutObject only, pod IRSA). */}}
+            {{- if .Values.export.onCollect }}
+            - name: SIGNALS_EXPORT_ON_COLLECT
+              value: "true"
+            {{- end }}
+            {{- with .Values.export.dest }}
+            - name: SIGNALS_EXPORT_DEST
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.export.s3.region }}
+            - name: SIGNALS_EXPORT_S3_REGION
+              value: {{ . | quote }}
+            {{- end }}
+            {{- with .Values.export.s3.kmsKeyId }}
+            - name: SIGNALS_EXPORT_S3_KMS_KEY_ID
+              value: {{ . | quote }}
+            {{- end }}
             {{- /* #114: password source only for the default (password)
                   method. Token/secret methods are passwordless (FC005) —
                   no PG_PASSWORD is injected even if a secret name leaks
