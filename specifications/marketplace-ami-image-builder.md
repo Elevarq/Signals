@@ -60,7 +60,7 @@ Out of scope (governed by `specifications/marketplace-ami-product.md`, not here)
 | `name` | `signals-collector` |
 | `schemaVersion` | `1.0` |
 | Parameter `SignalsImage` | string; the published Signals image ref at a **pinned** version (no `latest`). Baked into the AMI at build time. |
-| `build` phase | Install docker + enable it; pre-pull `SignalsImage`; create `/etc/signals`; install a `signals.service` systemd unit that docker-runs the image with `--restart=always`, mounting `/etc/signals:ro` and a `signals-data` volume. Enables the unit (starts on boot). |
+| `build` phase | Install docker + enable it; pre-pull `SignalsImage`; create `/etc/signals`; install a `signals.service` systemd unit that docker-runs the image with `--restart=always` and `--network host` (R-AMI-07), mounting `/etc/signals:ro` and a `signals-data` volume. Enables the unit (starts on boot). |
 | `validate` phase | Assert docker is installed and enabled, the image is present locally, and `signals.service` is installed and enabled. |
 | `test` phase | Assert the unit is enabled and the baked image digest matches `SignalsImage`. |
 
@@ -75,8 +75,21 @@ Out of scope (governed by `specifications/marketplace-ami-product.md`, not here)
   AMI is reproducible and traceable to a released image.
 - **R-AMI-03**: The component mirrors the `deploy/aws/terraform` run contract
   (docker-run the image, `/etc/signals` config dir, `signals-data` volume,
-  non-root uid 10001 inside the container) — it does not invent a second,
-  divergent EC2 install path.
+  non-root uid 10001 inside the container, `--network host` per R-AMI-07) — it
+  does not invent a second, divergent EC2 install path.
+- **R-AMI-07** (host networking — #488): Every EC2 run path (the Image Builder
+  component, `deploy/aws/terraform`, and `deploy/aws/cloudformation`) MUST run
+  the collector container with `--network host`, so it uses the instance ENI
+  directly. On instances with **jumbo-frame ENIs (MTU 9001 — the in-VPC default
+  for most instance types)**, a Docker **bridge** container's TLS handshake to
+  RDS black-holes across the 9001->1500 MTU boundary: TCP connects, then the
+  session hangs until the collection timeout (observed as `query role
+  attributes: context deadline exceeded`). Host networking avoids the bridge
+  MTU boundary entirely. The collector only makes **outbound** connections and
+  binds its API on `127.0.0.1:8081`, which under host networking is the host's
+  loopback — so **no `-p` publish is used** (a `-p` bridge publish is incompatible
+  with host networking and reintroduces the bug). This keeps all three EC2 paths
+  identical (INV-AMI-03).
 - **R-AMI-04**: The live `AmiProduct@1.0` listing is a **separate product** with
   its own onboarding/review. The #235 demand gate **opened 2026-07-19** (product
   owner un-deferred it; the listing is live at `prod-cuyands3nsl2c`), so its
@@ -119,11 +132,13 @@ Out of scope (governed by `specifications/marketplace-ami-product.md`, not here)
   (given buyer-supplied config at launch) is the **same running collector** as
   the container/Helm deliveries — same image, same read-only enforcement and
   passwordless onboarding.
-- **INV-AMI-03** (single EC2 contract): the component and
-  `deploy/aws/terraform` install the collector the same way (docker-run the
-  image), differing only in bake-time vs launch-time. This parity extends to env
-  forwarding: both paths forward the buyer-supplied `signals.env` into the
-  container via `--env-file /etc/signals/signals.env` (R-AMI-05).
+- **INV-AMI-03** (single EC2 contract): the component,
+  `deploy/aws/terraform`, and `deploy/aws/cloudformation` install the collector
+  the same way (docker-run the image), differing only in bake-time vs
+  launch-time. This parity extends to env forwarding (all forward the
+  buyer-supplied `signals.env` via `--env-file /etc/signals/signals.env`,
+  R-AMI-05) **and to container networking (all run with `--network host`,
+  R-AMI-07)**.
 - **INV-AMI-04** (env secrets never leak to logs — #292): no artifact in either
   EC2 path prints the contents of `signals.env` or a token value to any log
   stream. A buyer's `SIGNALS_API_TOKEN` (or any other `SIGNALS_*` secret) reaches
@@ -144,6 +159,11 @@ Out of scope (governed by `specifications/marketplace-ami-product.md`, not here)
   violates R-AMI-05 (the #292 defect).
 - **FC-AMI-05**: A step `cat`/`echo`/`tee`s `signals.env` or a token value to a
   log stream → violates R-AMI-06 / INV-AMI-04.
+- **FC-AMI-06** (#488): An EC2 run path runs the collector on the Docker bridge
+  (no `--network host`) and/or publishes the API with `-p`. On a jumbo-frame
+  (MTU 9001) instance the collector's TLS handshake to RDS black-holes and
+  collection hangs/times out (`query role attributes: context deadline
+  exceeded`) → violates R-AMI-07 / INV-AMI-03.
 
 ## Constraints
 
