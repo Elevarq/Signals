@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- **EC2 collector now uses host networking so it reaches RDS on jumbo-frame
+  instances (#488).** On instances with a jumbo-frame ENI (MTU 9001 — the in-VPC
+  default for most types), the collector ran as a Docker **bridge** container and
+  its TLS handshake to RDS black-holed across the 9001->1500 MTU boundary: TCP
+  connected, then the session hung until the collection timeout (`query role
+  attributes: context deadline exceeded`). All three EC2 run paths — the EC2
+  Image Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`),
+  `deploy/aws/terraform`, and `deploy/aws/cloudformation` — now run the container
+  with `--network host` (R-AMI-07), using the instance ENI directly; the API
+  still binds `127.0.0.1:8081`, so the bridge `-p` publish is removed. No change
+  to the collector image. The AMI must be re-baked to ship the fix to buyers.
+
 ### Changed
 - **Marketplace AMI product updated to Signals 1.5.1 (#485).** The EC2 Image
   Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`)

@@ -79,7 +79,13 @@ phases:
               # `signals` arg is required so image args do not replace CMD.
               EnvironmentFile=/etc/signals/signals.env
               ExecStartPre=-/usr/bin/docker rm -f signals
-              ExecStart=/usr/bin/docker run --rm --name signals \
+              # --network host: use the instance ENI directly (R-AMI-07). On
+              # jumbo-frame ENIs (MTU 9001, the in-VPC default) a Docker bridge
+              # container's TLS handshake to RDS black-holes across the
+              # 9001->1500 MTU boundary (TCP connects, then the session hangs);
+              # host networking avoids it. The API still binds 127.0.0.1:8081 on
+              # the host, so no -p publish is needed.
+              ExecStart=/usr/bin/docker run --rm --name signals --network host \
                 --env-file /etc/signals/signals.env \
                 -v /etc/signals:/etc/signals:ro \
                 -v signals-data:/data \

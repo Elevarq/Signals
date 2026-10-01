@@ -164,3 +164,30 @@ leak into the journal / stdout.
 - No `-e SIGNALS_API_TOKEN=<value>` or token value appears on a docker command
   line (env is passed by reference via `--env-file` / `-e NAME` only).
 - No `set -x` is enabled around a line carrying a token value.
+
+---
+
+### TC-AMI-08: All EC2 run paths use host networking (normal + invariant)
+
+**Rule:** Normal / invariant — R-AMI-07, INV-AMI-03, FC-AMI-06 (#488)
+
+**Scenario:** On jumbo-frame (MTU 9001) instances a Docker bridge container's TLS
+handshake to RDS black-holes and collection hangs. Every EC2 run path must run
+the collector with `--network host` so it uses the instance ENI directly, and
+must not publish the API with a bridge `-p`.
+
+**Given:**
+- `deploy/aws/imagebuilder/signals-collector-component.yaml`.
+- `deploy/aws/terraform/main.tf`.
+- `deploy/aws/cloudformation/signals-rds-iam.yaml`.
+
+**When:**
+- Each path's `docker run` invocation is inspected.
+
+**Then:**
+- All three docker-run the collector with `--network host`.
+- None publish the API with `-p 127.0.0.1:8081:8081` (incompatible with host
+  networking; reintroduces the MTU bug).
+- The API still binds `127.0.0.1:8081` (via `api.listen_addr`, host loopback
+  under host networking).
+- All three paths are identical on networking (INV-AMI-03 parity).

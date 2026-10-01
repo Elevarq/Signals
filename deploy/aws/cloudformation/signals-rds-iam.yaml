@@ -159,11 +159,15 @@ Resources:
           chmod 0600 /root/signals-api-token
           # ENTRYPOINT is `tini --` with CMD `signals`; the `signals` arg below
           # is required, else the image args replace CMD and tini execs --config.
-          docker run -d --name signals --restart=always \
+          # --network host: use the instance ENI directly (R-AMI-07). On
+          # jumbo-frame ENIs (MTU 9001, the in-VPC default) a Docker bridge
+          # container's TLS handshake to RDS black-holes across the 9001->1500
+          # MTU boundary; host networking avoids it. The API binds
+          # 127.0.0.1:8081 on the host under host networking (no -p needed).
+          docker run -d --name signals --restart=always --network host \
             --env-file /etc/signals/signals.env \
             -v /etc/signals:/etc/signals:ro \
             -v signals-data:/data \
-            -p 127.0.0.1:8081:8081 \
             ${ImageUri} signals --config /etc/signals/signals.yaml
 
 Outputs:

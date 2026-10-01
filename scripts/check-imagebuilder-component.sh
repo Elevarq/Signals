@@ -186,6 +186,38 @@ else
   fail=1
 fi
 
+# --- TC-AMI-08: all EC2 run paths use host networking (#488) -----------------
+# R-AMI-07 / INV-AMI-03 / FC-AMI-06: on jumbo-frame (MTU 9001) instances a
+# Docker bridge container's TLS handshake to RDS black-holes, so every EC2 run
+# path (the component, terraform, cloudformation) MUST run the collector with
+# --network host, and MUST NOT publish the API with a bridge -p (incompatible
+# with host networking; reintroduces the bug).
+log_step "TC-AMI-08: all EC2 run paths use host networking"
+tc08=0
+TF_RUN="deploy/aws/terraform/main.tf"
+CFN_RUN="deploy/aws/cloudformation/signals-rds-iam.yaml"
+for runfile in "${COMPONENT}" "${TF_RUN}" "${CFN_RUN}"; do
+  if [ ! -f "${runfile}" ]; then
+    log_fail "EC2 run path not found: ${runfile}"
+    tc08=1
+    continue
+  fi
+  if ! grep -qE 'docker run .*--network host' "${runfile}"; then
+    log_fail "${runfile}: collector 'docker run' is missing --network host (R-AMI-07)"
+    tc08=1
+  fi
+  # [-]p avoids grep treating the pattern as the -p option.
+  if grep -qE '[-]p[[:space:]]+127\.0\.0\.1:8081' "${runfile}"; then
+    log_fail "${runfile}: publishes the API with -p (incompatible with --network host)"
+    tc08=1
+  fi
+done
+if [ "${tc08}" -eq 0 ]; then
+  log_ok "all EC2 run paths use host networking"
+else
+  fail=1
+fi
+
 if [ "${fail}" -ne 0 ]; then
   printf "%simagebuilder-component: check failed%s\n" "${C_RED}" "${C_RESET}" >&2
   exit 1
