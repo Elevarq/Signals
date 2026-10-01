@@ -6,6 +6,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+- **Marketplace AMI product updated to Signals 1.5.1 (#485).** The EC2 Image
+  Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`)
+  now pins `ghcr.io/elevarq/signals:1.5.1`, so the golden AMI baked for the
+  `AmiProduct@1.0` listing (`prod-cuyands3nsl2c`) ships the 1.5.1 collector
+  instead of the 1.5.0 build. The AMI version is published with the canonical
+  change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
+
 ## [1.5.1] - 2026-09-30
 
 ### Fixed
