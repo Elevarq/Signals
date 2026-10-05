@@ -339,7 +339,7 @@ jobs:
       # SBOM (sbom: true above) — the file artifact lets consumers
       # download the SBOM without pulling the image at all.
       - name: Generate SBOM artifact (file)
-        uses: anchore/sbom-action@3ad7283483fc7af8ff2b4ea19663c2d5ca935e26  # v0.24.2
+        uses: anchore/sbom-action@66cbf4bc1f1c0d2edc94016e65bc221b6bb0ad6c  # v0.24.3
         with:
           image: ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
           format: spdx-json
