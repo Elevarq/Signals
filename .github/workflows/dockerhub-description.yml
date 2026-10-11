@@ -1,0 +1,56 @@
+name: Sync Docker Hub description
+
+# Keep the Docker Hub repository overview (elevarq/signals) in lockstep with
+# DOCKER_HUB.md in this repo. GitHub stays the source of truth; Docker Hub
+# mirrors both the image (release.yml) and this description.
+#
+# Runs only when DOCKER_HUB.md (or this workflow) lands on main, plus manual
+# dispatch. It never runs on pull requests, so a fork PR can never reach the
+# Docker Hub token. Opt-in / fail-soft: when the Docker Hub credentials are
+# not configured the sync step no-ops with a notice instead of failing
+# (parity with the publish job in release.yml, #82).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'DOCKER_HUB.md'
+      - '.github/workflows/dockerhub-description.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Push DOCKER_HUB.md to Docker Hub
+    runs-on: ubuntu-24.04
+    # Canonical repo only — forks lack the secret and must not attempt it.
+    if: github.repository_owner == 'Elevarq'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Check Docker Hub credentials available
+        id: creds
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: |
+          if [[ -n "${DOCKERHUB_USERNAME}" && -n "${DOCKERHUB_TOKEN}" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not set — Docker Hub description sync skipped."
+          fi
+
+      - name: Update Docker Hub repository description
+        if: steps.creds.outputs.available == 'true'
+        uses: peter-evans/dockerhub-description@1b9a80c056b620d92cedb9d9b5a223409c68ddfa  # v5.0.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          repository: elevarq/signals
+          readme-filepath: ./DOCKER_HUB.md
+          short-description: >-
+            Read-only PostgreSQL diagnostic collector. Local-first, no egress.
+            Signed, multi-arch, SBOM.

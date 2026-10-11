@@ -6,7 +6,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- **Docker Hub repository overview is now kept in sync automatically (#497).**
+  A new `DOCKER_HUB.md` supplies the `elevarq/signals` Docker Hub overview page,
+  and `.github/workflows/dockerhub-description.yml` (`peter-evans/dockerhub-description`,
+  SHA-pinned, read-only token, canonical-repo-only, never on pull requests)
+  pushes it to Docker Hub on a change to that file. Opt-in / fail-soft: with no
+  Docker Hub credentials the sync no-ops with a notice. The release image itself
+  has published to both GHCR and Docker Hub since the initial release; this adds
+  the description channel and documents Docker Hub as a supported pull source.
+
 ### Fixed
+- **README no longer claims the image publishes no `latest` tag (#497).** The
+  release workflow uses `flavor: latest=auto`, so a stable release does move
+  `latest` (pre-releases never do). The Installation and "Verifying a release"
+  sections now document `elevarq/signals` on Docker Hub as an equivalent pull
+  source (identical manifest digest to GHCR) with pin-for-production guidance.
 - **EC2 collector now uses host networking so it reaches RDS on jumbo-frame
   instances (#488).** On instances with a jumbo-frame ENI (MTU 9001 — the in-VPC
   default for most types), the collector ran as a Docker **bridge** container and
