@@ -6,9 +6,13 @@ name: Sync Docker Hub description
 #
 # Runs only when DOCKER_HUB.md (or this workflow) lands on main, plus manual
 # dispatch. It never runs on pull requests, so a fork PR can never reach the
-# Docker Hub token. Opt-in / fail-soft: when the Docker Hub credentials are
-# not configured the sync step no-ops with a notice instead of failing
-# (parity with the publish job in release.yml, #82).
+# Docker Hub token. When the credentials are absent the sync step no-ops with
+# a notice — this updates only the repository description, not a release
+# artifact, so a missing credential is a skip, not a failure. Present-but-
+# invalid credentials make the action step fail loudly (no continue-on-error),
+# which is why this is the safe first authentication test before a release.
+# The description update needs a Docker Hub token with read/write/delete scope
+# whose user has Admin on elevarq/signals — stricter than image push (#499).
 
 on:
   push:

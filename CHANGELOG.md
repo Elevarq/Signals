@@ -53,6 +53,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   still binds `127.0.0.1:8081`, so the bridge `-p` publish is removed. No change
   to the collector image. The AMI must be re-baked to ship the fix to buyers.
 
+### Security
+- **Bumped `golang.org/x/net` v0.59.0 → v0.60.0 (indirect).** Clears
+  CVE-2026-78669 (HIGH): a `net/http2` denial of service via excessive HTTP/2
+  SETTINGS frames. A fixed version exists, so per the release security gate
+  it is patched rather than accepted. The Trivy filesystem scan now reports
+  zero CRITICAL/HIGH findings.
+
 ## [1.5.1] - 2026-09-30
 
 ### Fixed
