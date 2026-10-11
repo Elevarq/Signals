@@ -54,6 +54,13 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   to the collector image. The AMI must be re-baked to ship the fix to buyers.
 
 ### Security
+- **Bumped the Go toolchain 1.26.6 → 1.26.9** across `go.mod`, the Dockerfile
+  builder base (`golang:1.26.9-alpine`, digest-pinned), and the CI/release
+  `go-version` pins. Clears the standard-library advisories govulncheck
+  flagged as reachable — GO-2026-6617/6613/6612/6611/6610 (`net/http`),
+  GO-2026-6608 (`net/textproto`), GO-2026-6607 (`crypto/tls`), and
+  GO-2026-6605 — all fixed in go1.26.9. govulncheck now reports zero called
+  vulnerabilities.
 - **Bumped `golang.org/x/net` v0.59.0 → v0.60.0 (indirect).** Clears
   CVE-2026-78669 (HIGH): a `net/http2` denial of service via excessive HTTP/2
   SETTINGS frames. A fixed version exists, so per the release security gate

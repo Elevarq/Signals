@@ -1,6 +1,6 @@
 module github.com/elevarq/signals
 
-go 1.26.6
+go 1.26.9
 
 require (
 	cloud.google.com/go/secretmanager v1.22.0
