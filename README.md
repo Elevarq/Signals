@@ -287,12 +287,14 @@ Elevarq Signals is local-first by design:
 
 ## Verifying a release
 
-Releases are published as multi-arch container images at
-`ghcr.io/elevarq/signals` with cosign keyless signatures, an
-SPDX SBOM (OCI attestation **and** downloadable file), and a SLSA
-build provenance attestation (`mode=max`).
+Releases are published as multi-arch container images to **both**
+`ghcr.io/elevarq/signals` and Docker Hub `elevarq/signals` — one build,
+the same manifest digest in both registries — with cosign keyless
+signatures, an SPDX SBOM (OCI attestation **and** downloadable file), and
+a SLSA build provenance attestation (`mode=max`).
 
-Quick signature verification:
+Quick signature verification (works against either registry — the
+certificate identity is bound to the workflow, not the registry):
 
 ```bash
 cosign verify ghcr.io/elevarq/signals:<VERSION> \
@@ -341,9 +343,19 @@ docker run -d --name signals \
   ghcr.io/elevarq/signals:<version>
 ```
 
-`<version>` is a concrete released tag — for example `1.0.0`. Pin the tag
-you deploy (see the [releases page](https://github.com/Elevarq/Signals/releases));
-the image publishes no `latest` tag.
+The same image is published to Docker Hub under `elevarq/signals` with the
+identical manifest digest, so you can pull from either registry:
+
+```bash
+docker pull elevarq/signals:<version>   # pin this for production
+docker pull elevarq/signals:latest      # newest stable release only
+```
+
+`<version>` is a concrete released tag — for example `1.6.0`. **For
+production, pin the exact version you deploy** (see the
+[releases page](https://github.com/Elevarq/Signals/releases)). The `latest`
+tag tracks the newest *stable* release and is published by CI only;
+pre-releases (`-rc`, `-beta`) never move it.
 
 ### Build from source
 
