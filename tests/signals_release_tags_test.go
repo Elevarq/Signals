@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Anti-drift guard for the Docker Hub distribution contract (#497).
+// Anti-drift guard for the Docker Hub distribution contract (#497, #499).
 //
 // release.yml is the single production-publish path: one multi-arch build
 // pushed to BOTH ghcr.io/elevarq/signals and Docker Hub elevarq/signals at
@@ -42,6 +42,57 @@ func TestRelease_PublishesBothRegistries(t *testing.T) {
 		if !strings.Contains(wf, want) {
 			t.Errorf("release.yml: missing %q — Docker Hub/GHCR dual publish broken (#497)", want)
 		}
+	}
+}
+
+// Docker Hub is a REQUIRED production target and must not silently drop out
+// (#499). A stable release expects BOTH registries; the metadata image list
+// includes Docker Hub whenever publishing is enabled — NOT gated on a login
+// outcome, which was the silent-degrade mechanism that shipped GHCR-only
+// "successful" releases for months.
+func TestRelease_DockerHubCannotSilentlyDisappear(t *testing.T) {
+	wf := readReleaseWorkflow(t)
+
+	// The image list is gated on the explicit publish-mode output, so a
+	// failed login can no longer remove Docker Hub from the targets.
+	if !strings.Contains(wf, "steps.dockerhub.outputs.enabled == 'true' && env.DOCKERHUB_IMAGE") {
+		t.Error("release.yml: Docker Hub image must be included via steps.dockerhub.outputs.enabled, not a login outcome (#499)")
+	}
+	// The old silent-drop plumbing must be gone entirely.
+	for _, forbidden := range []string{
+		"dockerhub-login.outcome",
+		"dockerhub-check",
+		"continue-on-error: true", // the fail-soft directive itself, not prose
+	} {
+		if strings.Contains(wf, forbidden) {
+			t.Errorf("release.yml: found %q — reintroduces the fail-soft/silent-degrade path removed in #499", forbidden)
+		}
+	}
+}
+
+// Missing required Docker Hub credentials must fail the production release,
+// not degrade to an apparently-successful GHCR-only run (#499).
+func TestRelease_MissingDockerHubCredsFailsRelease(t *testing.T) {
+	wf := readReleaseWorkflow(t)
+	for _, want := range []string{
+		// Hard error + non-zero exit when enabled and creds absent.
+		"Docker Hub is a required release target but DOCKERHUB_USERNAME/DOCKERHUB_TOKEN are not set",
+		// Positive confirmation the pushed Docker Hub tag matches the digest.
+		"Verify Docker Hub publication (same digest as GHCR)",
+		"imagetools inspect",
+	} {
+		if !strings.Contains(wf, want) {
+			t.Errorf("release.yml: missing %q — a required-but-unpublished Docker Hub target could pass silently (#499)", want)
+		}
+	}
+}
+
+// Disabling Docker Hub must be an explicit, auditable opt-out — distinct from
+// an accidental failure (#499).
+func TestRelease_DockerHubOptOutIsExplicit(t *testing.T) {
+	wf := readReleaseWorkflow(t)
+	if !strings.Contains(wf, "vars.DOCKERHUB_PUBLISH") {
+		t.Error("release.yml: no explicit DOCKERHUB_PUBLISH opt-out variable — cannot distinguish intentional GHCR-only from failure (#499)")
 	}
 }
 

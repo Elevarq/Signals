@@ -11,10 +11,29 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   A new `DOCKER_HUB.md` supplies the `elevarq/signals` Docker Hub overview page,
   and `.github/workflows/dockerhub-description.yml` (`peter-evans/dockerhub-description`,
   SHA-pinned, read-only token, canonical-repo-only, never on pull requests)
-  pushes it to Docker Hub on a change to that file. Opt-in / fail-soft: with no
-  Docker Hub credentials the sync no-ops with a notice. The release image itself
-  has published to both GHCR and Docker Hub since the initial release; this adds
-  the description channel and documents Docker Hub as a supported pull source.
+  pushes it to Docker Hub on a change to that file. The sync step no-ops with a
+  notice when Docker Hub credentials are absent.
+
+### Changed
+- **Docker Hub is now a required production release target; it can no longer
+  silently drop out (#499).** Root cause: an invalid org Docker Hub credential
+  made every release's Docker Hub login fail with `unauthorized`, and the
+  former fail-soft design (`continue-on-error` login + a login-gated image
+  list) degraded to a green **GHCR-only** release — so no `elevarq/signals`
+  image was ever published despite the workflow and docs claiming it. The
+  release `publish` job now **fails** if Docker Hub login, push, or the
+  post-push digest check fails, or if the required credentials are absent. The
+  only legitimate GHCR-only path is the explicit, auditable repository variable
+  `DOCKERHUB_PUBLISH=false`. Build-once/multi-registry, multi-arch, cosign
+  signing, SBOM/provenance, `latest=auto`, and GHCR behavior are unchanged. A
+  post-push step asserts the Docker Hub tag resolves to the same manifest
+  digest as GHCR.
+- **Marketplace AMI product updated to Signals 1.5.1 (#485).** The EC2 Image
+  Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`)
+  now pins `ghcr.io/elevarq/signals:1.5.1`, so the golden AMI baked for the
+  `AmiProduct@1.0` listing (`prod-cuyands3nsl2c`) ships the 1.5.1 collector
+  instead of the 1.5.0 build. The AMI version is published with the canonical
+  change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
 
 ### Fixed
 - **README no longer claims the image publishes no `latest` tag (#497).** The
@@ -33,14 +52,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   with `--network host` (R-AMI-07), using the instance ENI directly; the API
   still binds `127.0.0.1:8081`, so the bridge `-p` publish is removed. No change
   to the collector image. The AMI must be re-baked to ship the fix to buyers.
-
-### Changed
-- **Marketplace AMI product updated to Signals 1.5.1 (#485).** The EC2 Image
-  Builder component (`deploy/aws/imagebuilder/signals-collector-component.yaml`)
-  now pins `ghcr.io/elevarq/signals:1.5.1`, so the golden AMI baked for the
-  `AmiProduct@1.0` listing (`prod-cuyands3nsl2c`) ships the 1.5.1 collector
-  instead of the 1.5.0 build. The AMI version is published with the canonical
-  change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
 
 ## [1.5.1] - 2026-09-30
 
