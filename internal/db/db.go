@@ -151,6 +151,21 @@ func (d *DB) Migrate() error {
 		return fmt.Errorf("create schema_migrations: %w", err)
 	}
 
+	// Forward-only / no-downgrade guard (Elevarq/Signals#502,
+	// specifications/store-schema-version.md). Before applying any migration
+	// or using the store, refuse to run if the ledger records a migration
+	// this binary does not ship — that means a NEWER binary already migrated
+	// this store forward, and operating it with this (older) binary would be
+	// silent undefined behavior against a schema we do not fully understand
+	// (INV-SCHEMA-01). The check is a read-only inspection of the ledger; on
+	// refusal nothing is applied, mutated, recreated, or discarded
+	// (R-SCHEMA-04 / INV-SCHEMA-02). A legacy/unversioned or empty-ledger
+	// store yields no unknown rows and is adopted by the forward path below
+	// (R-SCHEMA-05).
+	if err := d.checkNotNewer(); err != nil {
+		return err
+	}
+
 	entries, err := fs.ReadDir(migrationsFS, migrationsDir)
 	if err != nil {
 		return fmt.Errorf("read migrations dir: %w", err)
