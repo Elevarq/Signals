@@ -392,3 +392,31 @@ Gate A step 4; umbrella elevarq-website#529). Harness:
 | BIS-R005 (runs on every PR) | The smoke runs on every pull request so a regression fails on the introducing PR | TC-BIS-04 | COVERED | INTEGRATION | `built-image-smoke` job in `ci.yml`. |
 | BIS-R006 (release gate) | The release `publish` job depends on the smoke; a failing smoke blocks publish | TC-BIS-04 | COVERED | INTEGRATION | `publish: needs: [..., built-image-smoke]` in `release.yml`. |
 | BIS-R007 (self-contained + cleanup) | The smoke needs no cloud/AWS and tears down every container, network, and temp file on exit | TC-BIS-05 | COVERED | INTEGRATION | `trap cleanup EXIT` removes both containers, the network, and the temp dir. |
+
+## Store Schema Version (`specifications/store-schema-version.md`, #502)
+
+Explicit store schema identity + forward-only / no-downgrade /
+fail-closed-on-newer-store policy for `/data/signals.db`. The binary's
+schema ceiling is derived from its embedded migration set
+(`internal/db/migrations.go`); a guard in `Migrate`
+(`internal/db/schema_version.go`, `checkNotNewer`) reads the
+`schema_migrations` ledger and refuses — with a typed `*SchemaNewerError`
+(`errors.Is(err, ErrSchemaNewer)`) — if the store records a migration the
+binary does not ship. Acceptance:
+`specifications/store-schema-version.acceptance.md`. Tests:
+`internal/db/schema_version_test.go` (package `db`, normal `go test -race`).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| R-SCHEMA-01 (explicit max known schema identity) | The binary's schema ceiling is the sorted-max of its embedded migration filenames (`MaxKnownMigration`); no hand-maintained version constant that can drift | TC-SCHEMA-01, TC-SCHEMA-05 | COVERED | BEHAVIORAL | `internal/db/schema_version.go`; derived from `MigrationFilenames`. |
+| R-SCHEMA-02 (guard before apply/use) | Before applying any migration or using the store, `Migrate` reads the ledger inside the startup-time entry point, after ensuring the ledger table exists | TC-SCHEMA-03, TC-SCHEMA-05 | COVERED | BEHAVIORAL | `checkNotNewer` called in `Migrate` before the forward-apply loop. |
+| R-SCHEMA-03 (typed fail-closed error) | If any recorded ledger filename is not in the embedded set, `Migrate` returns `*SchemaNewerError` (`errors.Is` = `ErrSchemaNewer`) naming stored-max, binary-max, and recovery guidance | TC-SCHEMA-05, TC-SCHEMA-08 | COVERED | BEHAVIORAL | RED→GREEN pin; mutation-verified RED (`Migrate accepted a newer store`). |
+| R-SCHEMA-04 (refusal is non-destructive) | On refusal no migration is applied, nothing mutated/recreated/truncated/discarded; the store is left exactly as found | TC-SCHEMA-05, TC-SCHEMA-08 | COVERED | BEHAVIORAL | Ledger byte-compared before/after; future row still present. |
+| R-SCHEMA-05 (legacy adopted, not refused) | A store with no `schema_migrations` table (or an empty ledger), and an empty DB, is adopted by the forward path, never treated as newer | TC-SCHEMA-01, TC-SCHEMA-02 | COVERED | BEHAVIORAL | Both legacy variants + fresh store. |
+| R-SCHEMA-06 (forward-only chain preserved) | Migrations stay embedded, sorted, each in its own transaction advancing the ledger only after DDL commits; migration errors propagate; no downgrade migrations | TC-SCHEMA-04, TC-SCHEMA-06, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Existing atomic `applyMigration` unchanged; older store migrates forward. |
+| R-SCHEMA-07 (policy documented) | Forward-only / no-downgrade / fail-closed / backup-before-upgrade recovery documented | — | COVERED | DOC | `specifications/store-schema-version.md` (Purpose, Rules, Rollback/recovery); `SchemaNewerError` message carries operator guidance. |
+| INV-SCHEMA-01 (no older-on-newer) | No code path lets an older binary read or write a newer store | TC-SCHEMA-05, TC-SCHEMA-08 | COVERED | BEHAVIORAL | Guard runs before the forward-apply loop and before any store use. |
+| INV-SCHEMA-02 (refusal non-destructive) | A refused store is byte-for-byte as opened | TC-SCHEMA-05, TC-SCHEMA-08 | COVERED | BEHAVIORAL | Ledger equality assertion across refusal (incl. repeated calls). |
+| INV-SCHEMA-03 (forward-only) | Store never downgrades; no reverse migrations; only missing migrations applied | TC-SCHEMA-04, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Forward-apply only; no downgrade path exists. |
+| INV-SCHEMA-04 (atomic per-migration ledger advance) | A migration's ledger row advances only after its DDL commits; crash mid-upgrade is resumable | TC-SCHEMA-06, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Failure rolls back DDL + ledger insert together; prefix-ledger resume. |
+| INV-SCHEMA-05 (no credential in store) | The schema-version work introduces no credential value into `signals.db` (reaffirms INV-SIGNALS-07 / INV-DUR-04) | — | COVERED | STRUCTURAL | Guard is ledger-read only; writes no meta/credential. |

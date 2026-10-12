@@ -7,6 +7,27 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The store now refuses to run an older binary against a newer store, and
+  the schema policy is explicit forward-only / no-downgrade (#502).** The
+  SQLite store migrates forward via embedded, transactional, additive
+  migrations tracked in a `schema_migrations` ledger — but the former
+  `Migrate()` only iterated the running binary's embedded migrations and
+  skipped already-applied ones; it never inspected the ledger for migrations
+  the binary does **not** ship, so an older binary could open a store already
+  migrated forward by a newer release and operate blind against a schema it
+  did not understand. `Migrate()` now computes the binary's schema ceiling
+  from its embedded migration set (`MaxKnownMigration`) and, before applying
+  any migration or using the store, reads the ledger and **fails closed** with
+  a typed, recognizable `*SchemaNewerError` (`errors.Is(err, ErrSchemaNewer)`)
+  if any recorded migration is unknown to the binary — naming the store's
+  recorded max, the binary's max, and operator recovery guidance
+  (forward-only: run the newer binary, or restore the pre-upgrade store backup
+  / durable-volume snapshot). The refusal is non-destructive (nothing applied,
+  mutated, truncated, recreated, or discarded). The working forward-migration
+  ledger is preserved: fresh, legacy/unversioned, current, and older stores
+  continue to adopt and migrate forward exactly as before, each migration
+  still committing its DDL and ledger row atomically. Spec:
+  `specifications/store-schema-version.md`.
 - **Docker Hub repository overview is now kept in sync automatically (#497).**
   A new `DOCKER_HUB.md` supplies the `elevarq/signals` Docker Hub overview page,
   and `.github/workflows/dockerhub-description.yml` (`peter-evans/dockerhub-description`,
