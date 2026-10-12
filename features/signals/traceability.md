@@ -420,3 +420,38 @@ binary does not ship. Acceptance:
 | INV-SCHEMA-03 (forward-only) | Store never downgrades; no reverse migrations; only missing migrations applied | TC-SCHEMA-04, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Forward-apply only; no downgrade path exists. |
 | INV-SCHEMA-04 (atomic per-migration ledger advance) | A migration's ledger row advances only after its DDL commits; crash mid-upgrade is resumable | TC-SCHEMA-06, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Failure rolls back DDL + ledger insert together; prefix-ledger resume. |
 | INV-SCHEMA-05 (no credential in store) | The schema-version work introduces no credential value into `signals.db` (reaffirms INV-SIGNALS-07 / INV-DUR-04) | — | COVERED | STRUCTURAL | Guard is ledger-read only; writes no meta/credential. |
+
+## Populated vPREV→vNEXT Upgrade Gate (Elevarq/Signals#504)
+
+Spec: `specifications/populated-upgrade-gate.md`.
+Acceptance: `specifications/populated-upgrade-gate.acceptance.md`.
+
+A populated vPREV → vNEXT upgrade regression gate — NOT a fresh-install test
+and NOT a same-version restart. A representative store is built at an EARLIER
+embedded migration state (a strict prefix of `MigrationFilenames()`) with real
+instance identity + collection history + cadence watermarks + cycle outcomes +
+by-reference config, then upgraded through the REAL mechanism (`db.Open` →
+`store.Migrate()` forward). The deep lifecycle proof lives in
+`tests/signals_populated_upgrade_test.go`
+(`TestPopulatedUpgrade_StateSurvivesVPrevToVNext`, package `tests`, normal
+`go test -race` job — no live PostgreSQL / cloud). State semantics are
+deployment-independent, so a single deep test is the primary proof for every
+deploy mode; the per-mode mapping is structural
+(`TestPopulatedUpgrade_ContainerDataPathDurable` here + the retained #501
+guards in `tests/data_durability_test.go` for Helm PVC + cloud volume retain).
+Additive — fresh-install coverage is retained.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| R-UPG-01 (genuine strict-prefix vPREV) | The vPREV store is built by applying a strict prefix of the embedded set via the real atomic path, never hand-written full schema | TC-UPG-01 | COVERED | BEHAVIORAL | `buildVPrevStore` applies `MigrationFilenames()[:len-1]` via `ApplyMigrationSQL`; pre-upgrade ledger asserted a strict subset with no unknown filename. |
+| R-UPG-02 (representative populated fixture) | Fixture carries identity, ≥2 snapshots + runs + a results payload, watermarks, a cycle outcome, and a by-reference secret | TC-UPG-01..07 | COVERED | BEHAVIORAL | `upgradeFixture`: `instance_id`, two cycles, `query_results`, `aws-rds-iam`/ARN ref. |
+| R-UPG-03 (real upgrade mechanism) | Upgrade is `db.Open` + `store.Migrate()` forward, not hand-run migration SQL in the assertion path | TC-UPG-02..06 | COVERED | BEHAVIORAL | The deep test opens the vPREV file with the current binary and calls `Migrate()`. |
+| R-UPG-04 (before/after assertions) | Asserts same identity; preserved history counts + payload; preserved watermark + continue; ledger advanced; post-upgrade insert + suffix capability; no credential; no empty-init | TC-UPG-02..07 | COVERED | BEHAVIORAL | RED-verified: injected state-wipe → B2/B3/B7 fail; injected ledger no-op → B5 fails. |
+| R-UPG-05 (structural deploy-mode mapping, no per-cloud re-run) | Deploy-mode mapping reuses/extends the #501 guards; the deep proof is not re-run per cloud | TC-UPG-08 | COVERED | STRUCTURAL | `TestPopulatedUpgrade_ContainerDataPathDurable` (container/Compose named volume) + retained `TestDataDurability_*` (Helm PVC, cloud volume retain). |
+| R-UPG-06 (fresh-install retained) | The gate is additive; fresh-install / schema-version / durability-continuity tests are unmodified | TC-UPG-09 | COVERED | REGRESSION | No existing test file touched; full `go test -race ./...` stays green. |
+| R-UPG-07 (CI gate, no external deps) | Runs under the existing `test` gate (`go test -count=1 -race ./...`); no credential / PostgreSQL / cloud | TC-UPG-02..07 | COVERED | STRUCTURAL | Store-level test collected by the `test` gate; `scripts/preflight.sh test` runs it. |
+| R-UPG-08 (built-image check documented as not cheaply feasible) | A populated-upgrade built-image check is not cheaply feasible; deep Go test + structural guards are the equivalent proof, documented | — | COVERED | DOC | `specifications/populated-upgrade-gate.md` "Test pyramid rationale"; built-image smoke (fresh install) retained unchanged. |
+| INV-UPG-01 (state survives + continues) | Identity, history, watermarks survive the upgrade; next collection continues incrementally | TC-UPG-02, TC-UPG-03, TC-UPG-04 | COVERED | BEHAVIORAL | Upgrade-time form of #501 INV-DUR-02; next cycle strictly after the watermark. |
+| INV-UPG-02 (forward-only ledger advance, no empty-init) | Ledger advances forward-only by exactly the missing migrations; prefix rows unchanged; no empty-init over populated data | TC-UPG-05, TC-UPG-07 | COVERED | BEHAVIORAL | Post-upgrade ledger == embedded set; prefix `applied_at` unchanged; counts non-zero. |
+| INV-UPG-03 (no credential in store) | Upgrade introduces no credential value; targets persist only by-reference secret identifiers | TC-UPG-07 | COVERED | BEHAVIORAL | No credential-like meta key; `secret_ref` is an ARN, no password/token substring. |
+| INV-UPG-04 (additive) | Upgrade gate is additive; fresh-install coverage retained and unmodified | TC-UPG-09 | COVERED | REGRESSION | Full suite green with pre-existing tests untouched. |
