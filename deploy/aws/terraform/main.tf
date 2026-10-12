@@ -31,6 +31,39 @@ locals {
     # reach the instance via Session Manager / Run Command (no SSH key pair).
     systemctl enable --now amazon-ssm-agent || true
     mkdir -p /etc/signals
+    # --- Durable /data volume (#501, R-DUR-01..R-DUR-04) ----------------------
+    # The collector's entire store (signals.db: instance identity, collection
+    # history, cadence watermarks) lives at /data. It MUST survive instance/AMI
+    # replacement, so /data is backed by a SEPARATE EBS volume (aws_ebs_volume
+    # below: prevent_destroy + encrypted) attached at a stable device — NOT the
+    # root disk and NOT a Docker named volume on the root disk. Mount it
+    # format-if-empty: a fresh volume is formatted once; a re-attached populated
+    # volume keeps its signals.db untouched (R-DUR-03).
+    DATA_DEV="${var.data_device_name}"
+    # NVMe-backed instances remap /dev/sdX to /dev/nvmeXn1, so resolve the real
+    # device: the single non-root block device that is not the OS disk.
+    if [ ! -b "$DATA_DEV" ]; then
+      for d in /dev/nvme*n1; do
+        [ -b "$d" ] || continue
+        # Skip the root device (mounted at /).
+        if lsblk -no MOUNTPOINT "$d" | grep -q '^/$'; then continue; fi
+        DATA_DEV="$d"
+      done
+    fi
+    mkdir -p /data
+    # Format ONLY when the device has no filesystem (first provisioning).
+    if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
+      mkfs.ext4 -F "$DATA_DEV"
+    fi
+    # Persist the mount across reboots by stable UUID (survives device renames).
+    DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
+    grep -q "$DATA_UUID" /etc/fstab || \
+      echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+    mount /data || mount "$DATA_DEV" /data
+    # The non-root container user (uid 10001, group 10001) must own /data so it
+    # can write signals.db (R-DUR-04). On a re-attached populated volume this is
+    # a cheap no-op that preserves the existing data.
+    chown 10001:10001 /data
     # RDS server CA bundle for sslmode=verify-full.
     curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
       -o /etc/signals/rds-ca.pem
@@ -77,12 +110,44 @@ locals {
     # handshake to RDS black-holes across the 9001->1500 MTU boundary; host
     # networking avoids it. The API binds 127.0.0.1:8081 on the host under host
     # networking (no -p needed).
+    # /data is the durable EBS mount prepared above (#501): bind the HOST path,
+    # never a Docker named volume (which would live on the ephemeral root disk).
     docker run -d --name signals --restart=always --network host \
       --env-file /etc/signals/signals.env \
       -v /etc/signals:/etc/signals:ro \
-      -v signals-data:/data \
+      -v /data:/data \
       ${var.image_uri} signals --config /etc/signals/signals.yaml
   EOT
+}
+
+# --- Durable data volume (#501) ---------------------------------------------
+# A separate, encrypted EBS volume holds /data (signals.db). Its lifecycle is
+# independent of the instance: user_data_replace_on_change replaces ONLY the
+# instance (aws_instance.collector), while this volume is retained
+# (prevent_destroy) and re-attached to the replacement — so collection history,
+# instance identity, and cadence watermarks survive an AMI/instance upgrade
+# (INV-DUR-01 / INV-DUR-02 / INV-DUR-05, R-DUR-05 / R-DUR-06).
+resource "aws_ebs_volume" "data" {
+  availability_zone = aws_instance.collector.availability_zone
+  size              = var.data_volume_size
+  type              = "gp3"
+  encrypted         = true
+  tags              = merge(local.tags, { Name = "${var.name_prefix}-data" })
+
+  lifecycle {
+    # Replacing the compute instance must never destroy the store. Destroying
+    # the volume is a deliberate, separate operator action.
+    prevent_destroy = true
+  }
+}
+
+resource "aws_volume_attachment" "data" {
+  device_name = var.data_device_name
+  volume_id   = aws_ebs_volume.data.id
+  instance_id = aws_instance.collector.id
+  # Keep the volume when the instance is replaced; the replacement re-attaches
+  # the same volume. Do NOT force-detach on destroy (that could corrupt the FS).
+  stop_instance_before_detaching = true
 }
 
 # --- IAM identity: the passwordless enabler ---------------------------------

@@ -119,3 +119,55 @@ If you run the collector on GKE instead of the bundled VM, take the
 `collector_service_account_email` output and bind it through Workload Identity
 — see the Helm chart (`deploy/helm/signals/`) and its `gcp_cloudsql_iam` /
 GKE-workload-identity snippet (#114).
+
+## Data durability and upgrades (#501)
+
+The collector's entire store — `signals.db` at **`/data`** — holds the
+instance identity (`meta.instance_id`), collection history, and the
+cadence/incremental watermarks that let a replacement collector resume instead
+of re-collecting from zero. That store lives on a **separate persistent disk**
+(`google_compute_disk.data`, attached via the instance's `attached_disk`
+block), not the boot disk and not a Docker named volume. Persistent disks are
+encrypted at rest by default.
+
+- **The persistent disk is independent of the instance.** Replacing the
+  instance does not destroy the disk: it carries `prevent_destroy = true` and
+  is re-attached at the same stable `device_name`.
+- **Replacement re-attaches, never re-initializes.** The boot-time mount is
+  **format-if-empty** (resolving the disk at
+  `/dev/disk/by-id/google-<device_name>`): a populated disk keeps its
+  `signals.db` untouched, so identity, history, and watermarks survive the
+  instance/image upgrade. A fresh disk is formatted exactly once and owned by
+  the non-root container user (uid 10001).
+- **Credentials stay external.** No DB credential or API token is written onto
+  `/data`; the control-plane token stays root-only at `/root/signals-api-token`,
+  outside the data disk.
+- **Backups.** Snapshot the persistent data disk (not the boot disk) as the
+  backup of record for collection history.
+
+### Transitioning an existing boot-disk install (migration)
+
+Earlier revisions mounted `/data` from a Docker **named volume on the boot
+disk** (`-v signals-data:/data`), so `signals.db` was lost on the next
+instance replacement. To move to the durable disk **without losing history** —
+and **never letting the new instance initialize an empty store over an existing
+one** — migrate the store before re-applying:
+
+1. SSH to the VM (over OS Login / IAP) and **stop the collector**:
+   `sudo docker stop signals`.
+2. Copy the live store off the named volume:
+   `sudo docker run --rm -v signals-data:/src -v /root/signals-backup:/dst alpine \
+   sh -c 'cp -a /src/. /dst/'`.
+3. **Verify** the copy: it must contain `signals.db`, and
+   `sqlite3 /root/signals-backup/signals.db 'select value from meta where key="instance_id"; select count(*) from snapshots;'`
+   must show the expected identity and a non-zero history count.
+4. `terraform apply` to provision the persistent data disk; on the instance,
+   with the collector **stopped**, copy the verified store onto the mounted
+   disk: `sudo cp -a /root/signals-backup/. /data/ && sudo chown -R 10001:10001 /data`.
+5. Re-verify identity + history from `/data/signals.db`, start the collector,
+   and confirm the next cycle is incremental (watermarks intact).
+
+If you cannot complete and verify this copy, **do not cut over**. **Rollback /
+recovery note:** if a pre-fix install already lost `/data` on a prior
+replacement, that history and identity **cannot be recovered**; the first apply
+of this fix seeds a fresh store on the durable disk.

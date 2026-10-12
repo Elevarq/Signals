@@ -60,6 +60,12 @@ param pollInterval string = '5m'
 @description('Extra tags applied to created resources.')
 param tags object = {}
 
+@description('Size (GiB) of the separate managed data disk that holds /data (signals.db). Retained and re-attached across VM/image replacement so history/identity/watermarks survive an upgrade (#501).')
+param dataDiskSizeGb int = 10
+
+@description('LUN the data disk attaches at (#501, R-DUR-02). The boot-time mount resolves the device via /dev/disk/azure/scsi1/lun<LUN> and mounts it at /data.')
+param dataDiskLun int = 0
+
 // The managed identity display name == the PG principal name (azure_entra
 // requires user == Entra principal display name).
 var identityName = '${namePrefix}-collector'
@@ -74,7 +80,38 @@ resource collectorIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@202
 
 // cloud-init for the collector VM. Bicep multi-line strings do not interpolate,
 // so this is a single interpolated string with \n line breaks.
-var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl openssl\nsystemctl enable --now docker\nmkdir -p /etc/signals\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/signals/azure-ca.pem\ncat > /etc/signals/signals.yaml <<\'YAML\'\nenv: ${env}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/signals/azure-ca.pem\nYAML\nchmod 0644 /etc/signals/signals.yaml /etc/signals/azure-ca.pem\nSIGNALS_API_TOKEN="$(openssl rand -hex 32)"\numask 077\necho "$SIGNALS_API_TOKEN" > /root/signals-api-token\ndocker run -d --name signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -e SIGNALS_API_TOKEN="$SIGNALS_API_TOKEN" -v /etc/signals:/etc/signals:ro -v signals-data:/data -p 127.0.0.1:8081:8081 ${imageUri} signals --config /etc/signals/signals.yaml\n'
+// Durable /data disk (#501, R-DUR-01..R-DUR-04): /data (signals.db) is backed
+// by the separate managed data disk (resource `dataDisk` below, attached at a
+// fixed LUN, createOption Attach on the VM so it is preserved — never from
+// image), NOT the OS disk and NOT a Docker named volume. The mount is
+// format-if-empty so a re-attached populated disk keeps its signals.db
+// untouched (R-DUR-03), and /data is chowned to the non-root container user
+// uid 10001 / group 10001 (R-DUR-04). The docker run binds the HOST /data path,
+// never a named volume on the ephemeral OS disk.
+var cloudInit ='#!/bin/bash\nset -euo pipefail\napt-get update -y\napt-get install -y docker.io curl openssl\nsystemctl enable --now docker\nmkdir -p /etc/signals\nDATA_DEV="$(readlink -f /dev/disk/azure/scsi1/lun${dataDiskLun} 2>/dev/null || true)"\nif [ -z "$DATA_DEV" ] || [ ! -b "$DATA_DEV" ]; then for d in /dev/sd*; do [ -b "$d" ] || continue; case "$d" in *[0-9]) continue;; esac; if lsblk -no MOUNTPOINT "$d" | grep -qE "^(/|/boot)"; then continue; fi; DATA_DEV="$d"; done; fi\nmkdir -p /data\nif ! blkid "$DATA_DEV" >/dev/null 2>&1; then mkfs.ext4 -F "$DATA_DEV"; fi\nDATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"\ngrep -q "$DATA_UUID" /etc/fstab || echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab\nmount /data || mount "$DATA_DEV" /data\nchown 10001:10001 /data\n# Azure Flexible Server CA bundle for sslmode=verify-full.\ncurl -fsSL ${dbCaCertUrl} -o /etc/signals/azure-ca.pem\ncat > /etc/signals/signals.yaml <<\'YAML\'\nenv: ${env}\nsignals:\n  poll_interval: ${pollInterval}\ndatabase:\n  path: /data/signals.db\n  wal: true\napi:\n  listen_addr: "127.0.0.1:8081"\ntargets:\n  - name: ${dbName}-azure\n    host: ${dbHost}\n    port: ${dbPort}\n    dbname: ${dbName}\n    user: ${identityName}\n    auth_method: azure_entra\n    azure_client_id: ${collectorIdentity.properties.clientId}\n    sslmode: verify-full\n    sslrootcert_file: /etc/signals/azure-ca.pem\nYAML\nchmod 0644 /etc/signals/signals.yaml /etc/signals/azure-ca.pem\nSIGNALS_API_TOKEN="$(openssl rand -hex 32)"\numask 077\necho "$SIGNALS_API_TOKEN" > /root/signals-api-token\ndocker run -d --name signals --restart=always -e AZURE_CLIENT_ID=${collectorIdentity.properties.clientId} -e SIGNALS_API_TOKEN="$SIGNALS_API_TOKEN" -v /etc/signals:/etc/signals:ro -v /data:/data -p 127.0.0.1:8081:8081 ${imageUri} signals --config /etc/signals/signals.yaml\n'
+
+// Durable data disk (#501). A separate managed disk holds /data (signals.db).
+// Managed disks are encrypted at rest with platform-managed keys by default
+// (R-DUR-06). It is attached to the VM with createOption 'Attach' (never
+// 'FromImage'/'Empty' on the VM), so a VM replacement that re-attaches this
+// same disk preserves collection history, instance identity, and cadence
+// watermarks (INV-DUR-01/02/05). Deleting the VM does NOT delete this disk
+// (default managed-disk deleteOption is Detach), so the store is retained
+// across compute replacement (R-DUR-05).
+resource dataDisk 'Microsoft.Compute/disks@2024-03-02' = {
+  name: '${namePrefix}-data'
+  location: location
+  tags: commonTags
+  sku: {
+    name: 'Standard_LRS'
+  }
+  properties: {
+    creationData: {
+      createOption: 'Empty'
+    }
+    diskSizeGB: dataDiskSizeGb
+  }
+}
 
 resource nic 'Microsoft.Network/networkInterfaces@2023-09-01' = {
   name: '${namePrefix}-collector-nic'
@@ -142,6 +179,21 @@ resource vm 'Microsoft.Compute/virtualMachines@2024-03-01' = {
           storageAccountType: 'Standard_LRS'
         }
       }
+      // #501: attach the durable data disk at a fixed LUN. createOption 'Attach'
+      // preserves the existing disk (never reformats from image), and
+      // deleteOption 'Detach' keeps the disk when the VM is deleted/replaced, so
+      // /data (signals.db) survives a VM upgrade (R-DUR-02/R-DUR-05).
+      dataDisks: [
+        {
+          lun: dataDiskLun
+          createOption: 'Attach'
+          caching: 'ReadWrite'
+          deleteOption: 'Detach'
+          managedDisk: {
+            id: dataDisk.id
+          }
+        }
+      ]
     }
     networkProfile: {
       networkInterfaces: [

@@ -156,3 +156,65 @@ take the `collector_role_arn` output (Terraform) / `CollectorRoleArn` output
 (CloudFormation) and attach it as the task role / IRSA role; the
 `rds-db:connect` policy is identical. For Kubernetes, see the Helm chart
 (`deploy/helm/signals/`) and #114.
+
+## Data durability and upgrades (#501)
+
+The collector's entire store — `signals.db` at **`/data`** — holds the
+instance identity (`meta.instance_id`), collection history, and the
+cadence/incremental watermarks that let a replacement collector resume
+instead of re-collecting from zero. That store lives on a **separate,
+encrypted EBS data volume** (`aws_ebs_volume.data` in Terraform /
+`DataVolume` in CloudFormation), not the instance root disk and not a Docker
+named volume.
+
+- **The data volume is independent of the instance.** `user_data_replace_on_change`
+  (Terraform) and a replacement stack update (CloudFormation) replace only the
+  compute instance; the data volume carries `prevent_destroy = true`
+  (Terraform) / `DeletionPolicy: Retain` + `UpdateReplacePolicy: Retain`
+  (CloudFormation). Destroying or replacing the instance **does not** destroy
+  the volume.
+- **Replacement re-attaches, never re-initializes.** The replacement instance
+  attaches the same volume at a stable device, and the boot-time mount is
+  **format-if-empty**: a populated volume keeps its `signals.db` untouched, so
+  identity, history, and watermarks survive the AMI/instance upgrade. A fresh
+  volume is formatted exactly once and owned by the non-root container user
+  (uid 10001).
+- **Credentials stay external.** No DB password or API token is ever written
+  onto `/data`; the control-plane token stays root-only in
+  `/etc/signals/signals.env`, outside the data volume.
+- **Backups.** Snapshot the EBS data volume (not the root disk) as the backup
+  of record for collection history; EBS snapshots are independent of the
+  instance.
+
+### Transitioning an existing root-disk install (migration)
+
+Earlier revisions of these modules mounted `/data` from a Docker **named
+volume on the root disk** (`-v signals-data:/data`). On such an install
+`signals.db` sits on the ephemeral root disk and is lost on the next
+instance/AMI replacement. To move to the durable volume **without losing
+history**, migrate the store by hand before re-applying — **never let the new
+instance initialize an empty store over an existing one**:
+
+1. Over SSM Session Manager, **stop the collector** so the store quiesces:
+   `sudo docker stop signals`.
+2. Copy the live store off the root-disk named volume to a safe path:
+   `sudo docker run --rm -v signals-data:/src -v /root/signals-backup:/dst alpine \
+   sh -c 'cp -a /src/. /dst/'` (this captures `signals.db` and any WAL/companion
+   files).
+3. **Verify** the copy before cutover: it must contain `signals.db`, and
+   `sqlite3 /root/signals-backup/signals.db 'select value from meta where key="instance_id"; select count(*) from snapshots;'`
+   must show the expected identity and a non-zero history count.
+4. `terraform apply` (or update the stack) to provision the durable EBS volume
+   and re-launch; on the new instance, with the collector **stopped**, copy the
+   verified store onto the mounted durable volume:
+   `sudo cp -a /root/signals-backup/. /data/ && sudo chown -R 10001:10001 /data`.
+5. Re-verify identity + history from `/data/signals.db`, then start the
+   collector. Confirm the next cycle collects incrementally (watermarks intact),
+   not a full re-collect.
+
+If you cannot complete and verify this copy, **do not cut over** — a fresh
+`/data` seeds a new store and resets identity. **Rollback / recovery note:** if
+a pre-fix install already lost `/data` on a prior replacement, that history and
+identity **cannot be recovered** (the ephemeral root disk discarded it); the
+first apply of this fix seeds a fresh store on the durable volume and
+collection restarts from that point.

@@ -84,3 +84,26 @@ variable "tags" {
   description = "Extra tags applied to created resources."
   default     = {}
 }
+
+# --- Durable /data volume (#501) --------------------------------------------
+
+variable "data_volume_size" {
+  type        = number
+  description = <<-EOT
+    Size (GiB) of the separate, encrypted EBS data volume that holds /data
+    (signals.db). It is retained and re-attached across instance/AMI
+    replacement so collection history, instance identity, and cadence
+    watermarks survive an upgrade (#501).
+  EOT
+  default     = 10
+}
+
+variable "data_device_name" {
+  type        = string
+  description = <<-EOT
+    Stable block-device name the data volume attaches at (#501, R-DUR-02).
+    On Nitro/NVMe instances the kernel exposes it as /dev/nvme?n1; the
+    boot-time mount resolves the real device and mounts it at /data.
+  EOT
+  default     = "/dev/sdf"
+}

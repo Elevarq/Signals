@@ -240,7 +240,21 @@ resources:
     cpu: 200m
     memory: 128Mi
 
-# Persistence
+# Persistence (#501). The collector's entire store (signals.db: instance
+# identity, collection history, cadence/incremental watermarks) lives at /data.
+#
+# enabled: true  (DEFAULT, PRODUCTION) — /data is a PersistentVolumeClaim, so
+#   the store is durable and survives pod rescheduling and image upgrades. This
+#   is the only upgrade-safe setting and the required posture for any real
+#   deployment.
+#
+# enabled: false (EVALUATION ONLY / NON-DURABLE) — /data falls back to an
+#   emptyDir. The store is EPHEMERAL: it is LOST on every pod restart,
+#   reschedule, or upgrade (instance identity resets, collection history and
+#   cadence watermarks are discarded, the next collection starts from zero).
+#   This is a throwaway eval/CI mode only; it is NOT upgrade-safe and must
+#   NEVER be used in production. The chart NOTES print a loud warning when it
+#   is set.
 persistence:
   enabled: true
   size: 1Gi

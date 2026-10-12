@@ -102,3 +102,26 @@ variable "labels" {
   description = "Extra labels applied to created resources."
   default     = {}
 }
+
+# --- Durable /data disk (#501) ----------------------------------------------
+
+variable "data_disk_size" {
+  type        = number
+  description = <<-EOT
+    Size (GiB) of the separate persistent disk that holds /data (signals.db).
+    It is retained and re-attached across instance/image replacement so
+    collection history, instance identity, and cadence watermarks survive an
+    upgrade (#501).
+  EOT
+  default     = 10
+}
+
+variable "data_device_name" {
+  type        = string
+  description = <<-EOT
+    Stable device name the data disk attaches at (#501, R-DUR-02). The
+    boot-time mount resolves it via /dev/disk/by-id/google-<device_name> and
+    mounts it at /data.
+  EOT
+  default     = "signals-data"
+}

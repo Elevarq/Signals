@@ -92,3 +92,24 @@ variable "tags" {
   description = "Extra tags applied to created resources."
   default     = {}
 }
+
+# --- Durable /data disk (#501) ----------------------------------------------
+
+variable "data_disk_size_gb" {
+  type        = number
+  description = <<-EOT
+    Size (GiB) of the separate managed data disk that holds /data (signals.db).
+    It is retained and re-attached across VM/image replacement so collection
+    history, instance identity, and cadence watermarks survive an upgrade (#501).
+  EOT
+  default     = 10
+}
+
+variable "data_disk_lun" {
+  type        = number
+  description = <<-EOT
+    LUN the data disk attaches at (#501, R-DUR-02). The boot-time mount resolves
+    the device via /dev/disk/azure/scsi1/lun<LUN> and mounts it at /data.
+  EOT
+  default     = 0
+}

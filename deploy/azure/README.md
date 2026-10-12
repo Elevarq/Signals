@@ -124,3 +124,54 @@ If you run the collector on AKS instead of the bundled VM, take the
 `collector_identity_client_id` output and wire it through workload identity —
 see the Helm chart (`deploy/helm/signals/`) and its `azure_entra` /
 AKS-workload-identity snippet (#114).
+
+## Data durability and upgrades (#501)
+
+The collector's entire store — `signals.db` at **`/data`** — holds the
+instance identity (`meta.instance_id`), collection history, and the
+cadence/incremental watermarks that let a replacement collector resume instead
+of re-collecting from zero. That store lives on a **separate managed data
+disk** (`azurerm_managed_disk.data` in Terraform / the `dataDisk` resource in
+Bicep), not the VM OS disk and not a Docker named volume. Managed disks are
+encrypted at rest with platform-managed keys by default.
+
+- **The data disk is independent of the VM.** Replacing the VM (new size,
+  new image) does not destroy the disk: Terraform carries
+  `prevent_destroy = true`, and the Bicep attachment uses `deleteOption:
+  Detach`, so the disk is retained and re-attached at the same LUN.
+- **Replacement re-attaches, never re-initializes.** The disk attaches with
+  `createOption: Attach` (never from image), and the boot-time mount is
+  **format-if-empty**: a populated disk keeps its `signals.db` untouched, so
+  identity, history, and watermarks survive the VM/image upgrade. A fresh disk
+  is formatted exactly once and owned by the non-root container user (uid 10001).
+- **Credentials stay external.** No DB credential or API token is written onto
+  `/data`; the control-plane token stays root-only at `/root/signals-api-token`,
+  outside the data disk.
+- **Backups.** Snapshot the managed data disk (not the OS disk) as the backup
+  of record for collection history.
+
+### Transitioning an existing OS-disk install (migration)
+
+Earlier revisions mounted `/data` from a Docker **named volume on the OS disk**
+(`-v signals-data:/data`), so `signals.db` was lost on the next VM
+replacement. To move to the durable disk **without losing history** — and
+**never letting the new VM initialize an empty store over an existing one** —
+migrate the store before re-deploying:
+
+1. SSH to the VM and **stop the collector**: `sudo docker stop signals`.
+2. Copy the live store off the named volume:
+   `sudo docker run --rm -v signals-data:/src -v /root/signals-backup:/dst alpine \
+   sh -c 'cp -a /src/. /dst/'`.
+3. **Verify** the copy: it must contain `signals.db`, and
+   `sqlite3 /root/signals-backup/signals.db 'select value from meta where key="instance_id"; select count(*) from snapshots;'`
+   must show the expected identity and a non-zero history count.
+4. Re-apply (Terraform) / redeploy (Bicep) to provision the managed data disk;
+   on the VM, with the collector **stopped**, copy the verified store onto the
+   mounted disk: `sudo cp -a /root/signals-backup/. /data/ && sudo chown -R 10001:10001 /data`.
+5. Re-verify identity + history from `/data/signals.db`, start the collector,
+   and confirm the next cycle is incremental (watermarks intact).
+
+If you cannot complete and verify this copy, **do not cut over**. **Rollback /
+recovery note:** if a pre-fix install already lost `/data` on a prior
+replacement, that history and identity **cannot be recovered**; the first
+deploy of this fix seeds a fresh store on the durable disk.
