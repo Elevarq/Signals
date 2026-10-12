@@ -26,6 +26,32 @@ locals {
     apt-get install -y docker.io openssl
     systemctl enable --now docker
     mkdir -p /etc/signals
+    # --- Durable /data disk (#501, R-DUR-01..R-DUR-04) ------------------------
+    # /data (signals.db: identity, history, cadence watermarks) is backed by the
+    # separate persistent disk (google_compute_disk below: prevent_destroy; PDs
+    # are encrypted at rest by default) attached via the attached_disk block at a
+    # stable device_name — NOT the boot disk and NOT a Docker named volume. GCP
+    # exposes an attached PD at /dev/disk/by-id/google-<device_name>. Mount
+    # format-if-empty so a re-attached populated disk keeps its signals.db
+    # untouched (R-DUR-03).
+    DATA_DEV="/dev/disk/by-id/google-${var.data_device_name}"
+    for _ in $(seq 1 30); do [ -b "$DATA_DEV" ] && break; sleep 1; done
+    if [ ! -b "$DATA_DEV" ]; then
+      for d in /dev/disk/by-id/google-*; do
+        case "$d" in *google-persistent-disk-0|*-part*) continue;; esac
+        [ -b "$d" ] && DATA_DEV="$d" && break
+      done
+    fi
+    mkdir -p /data
+    if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
+      mkfs.ext4 -F "$DATA_DEV"
+    fi
+    DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
+    grep -q "$DATA_UUID" /etc/fstab || \
+      echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+    mount /data || mount "$DATA_DEV" /data
+    # Non-root container user (uid 10001, group 10001) owns /data (R-DUR-04).
+    chown 10001:10001 /data
     # Cloud SQL instance server CA for sslmode=verify-full (public certificate).
     cat > /etc/signals/cloudsql-ca.pem <<'PEM'
     ${var.db_server_ca_cert}
@@ -60,13 +86,36 @@ locals {
     printf '%s\n' "$SIGNALS_API_TOKEN" > /root/signals-api-token
     # ENTRYPOINT is `tini --` with CMD `signals`; the `signals` arg below is
     # required, else the image args replace CMD and tini execs --config.
+    # /data is the durable persistent-disk mount prepared above (#501): bind the
+    # HOST path, never a Docker named volume (which lives on the ephemeral boot disk).
     docker run -d --name signals --restart=always \
       -e SIGNALS_API_TOKEN="$SIGNALS_API_TOKEN" \
       -v /etc/signals:/etc/signals:ro \
-      -v signals-data:/data \
+      -v /data:/data \
       -p 127.0.0.1:8081:8081 \
       ${var.image_uri} signals --config /etc/signals/signals.yaml
   EOT
+}
+
+# --- Durable data disk (#501) -----------------------------------------------
+# A separate persistent disk holds /data (signals.db). Its lifecycle is
+# independent of the instance: prevent_destroy retains it, and the replacement
+# instance re-attaches it at the same device_name, so collection history,
+# instance identity, and cadence watermarks survive an instance/image upgrade
+# (INV-DUR-01/02/05, R-DUR-05). Persistent disks are encrypted at rest by
+# default (R-DUR-06).
+resource "google_compute_disk" "data" {
+  project = var.project_id
+  name    = "${var.name_prefix}-data"
+  zone    = var.zone
+  type    = "pd-balanced"
+  size    = var.data_disk_size
+  labels  = local.labels
+
+  lifecycle {
+    # Replacing the instance must never destroy the store.
+    prevent_destroy = true
+  }
 }
 
 # --- Service account: the passwordless enabler ------------------------------
@@ -106,6 +155,17 @@ resource "google_compute_instance" "collector" {
     initialize_params {
       image = var.image
     }
+  }
+
+  # #501: attach the durable data disk at a stable device_name. The boot-time
+  # startup-script mounts /dev/disk/by-id/google-<device_name> at /data
+  # format-if-empty. The disk is a separate resource (prevent_destroy), so
+  # replacing this instance re-attaches the same disk — /data (signals.db)
+  # survives the upgrade (R-DUR-01/R-DUR-02/R-DUR-05).
+  attached_disk {
+    source      = google_compute_disk.data.id
+    device_name = var.data_device_name
+    mode        = "READ_WRITE"
   }
 
   network_interface {

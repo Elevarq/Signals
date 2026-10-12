@@ -156,6 +156,10 @@ spec:
           persistentVolumeClaim:
             claimName: {{ .Release.Name }}-signals-data
           {{- else }}
+          {{- /* #501: EVALUATION-ONLY / NON-DURABLE. emptyDir loses the entire
+                 store (signals.db: identity, history, watermarks) on every pod
+                 restart/reschedule/upgrade. NOT upgrade-safe — never production.
+                 Set persistence.enabled=true (default) for a durable PVC. */}}
           emptyDir: {}
           {{- end }}
         {{- with .Values.extraVolumes }}

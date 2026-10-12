@@ -39,3 +39,26 @@ Note: networkPolicy.enabled is true but networkPolicy.ingressPodSelectors
 is empty, so NO pod can reach the API. Add the monitoring /
 control-plane pod labels that must be allowed in.
 {{- end }}
+
+Data persistence:
+{{- if .Values.persistence.enabled }}
+  - persistence.enabled=true: /data is a PersistentVolumeClaim. The store
+    (signals.db — instance identity, collection history, cadence watermarks)
+    is DURABLE and survives pod restarts, rescheduling, and upgrades.
+{{- else }}
+
+  ############################################################
+  # DATA DURABILITY WARNING (#501)                           #
+  ############################################################
+  persistence.enabled is FALSE, so /data is an emptyDir. This is
+  EVALUATION-ONLY / NON-DURABLE: the Signals store (signals.db —
+  instance identity, collection history, and cadence watermarks)
+  is EPHEMERAL and is LOST on every pod restart, reschedule, or
+  upgrade. Instance identity resets and the next collection starts
+  from zero. This mode is NOT upgrade-safe and must NEVER be used
+  in production.
+
+  For any real deployment set persistence.enabled=true (the chart
+  default) so /data is backed by a PersistentVolumeClaim.
+  ############################################################
+{{- end }}

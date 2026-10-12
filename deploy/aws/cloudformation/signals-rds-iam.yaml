@@ -50,6 +50,20 @@ Parameters:
   LatestAl2023Ami:
     Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  # #501: the separate, encrypted EBS data volume that holds /data (signals.db).
+  # Retained + re-attached across instance replacement so history/identity/
+  # watermarks survive an upgrade.
+  DataVolumeSize:
+    Type: Number
+    Default: 10
+    Description: Size (GiB) of the durable EBS data volume for /data (signals.db).
+  DataDeviceName:
+    Type: String
+    Default: /dev/sdf
+    Description: >-
+      Stable block-device name the data volume attaches at (#501, R-DUR-02). On
+      Nitro/NVMe instances the kernel exposes it as /dev/nvme?n1; the boot-time
+      mount resolves the real device and mounts it at /data.
 
 Resources:
   CollectorRole:
@@ -119,6 +133,30 @@ Resources:
           # key pair).
           systemctl enable --now amazon-ssm-agent || true
           mkdir -p /etc/signals
+          # --- Durable /data volume (#501, R-DUR-01..R-DUR-04) ---------------
+          # /data (signals.db: identity, history, cadence watermarks) is backed
+          # by the separate encrypted EBS DataVolume (retained + re-attached
+          # across instance replacement), NOT the root disk and NOT a Docker
+          # named volume. Mount format-if-empty so a re-attached populated
+          # volume keeps its signals.db untouched (R-DUR-03).
+          DATA_DEV="${DataDeviceName}"
+          if [ ! -b "$DATA_DEV" ]; then
+            for d in /dev/nvme*n1; do
+              [ -b "$d" ] || continue
+              if lsblk -no MOUNTPOINT "$d" | grep -q '^/$'; then continue; fi
+              DATA_DEV="$d"
+            done
+          fi
+          mkdir -p /data
+          if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
+            mkfs.ext4 -F "$DATA_DEV"
+          fi
+          DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
+          grep -q "$DATA_UUID" /etc/fstab || \
+            echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+          mount /data || mount "$DATA_DEV" /data
+          # Non-root container user (uid 10001, group 10001) owns /data (R-DUR-04).
+          chown 10001:10001 /data
           curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
             -o /etc/signals/rds-ca.pem
           cat > /etc/signals/signals.yaml <<'YAML'
@@ -164,11 +202,40 @@ Resources:
           # container's TLS handshake to RDS black-holes across the 9001->1500
           # MTU boundary; host networking avoids it. The API binds
           # 127.0.0.1:8081 on the host under host networking (no -p needed).
+          # /data is the durable EBS mount prepared above (#501): bind the HOST
+          # path, never a Docker named volume (which lives on the root disk).
           docker run -d --name signals --restart=always --network host \
             --env-file /etc/signals/signals.env \
             -v /etc/signals:/etc/signals:ro \
-            -v signals-data:/data \
+            -v /data:/data \
             ${ImageUri} signals --config /etc/signals/signals.yaml
+
+  # --- Durable data volume (#501) -------------------------------------------
+  # A separate, encrypted EBS volume holds /data (signals.db). DeletionPolicy +
+  # UpdateReplacePolicy Retain keep it when the instance is deleted or replaced
+  # by a stack update, so collection history, instance identity, and cadence
+  # watermarks survive an instance/AMI upgrade (INV-DUR-01/02/05, R-DUR-05/06).
+  DataVolume:
+    Type: AWS::EC2::Volume
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      AvailabilityZone: !GetAtt CollectorInstance.AvailabilityZone
+      Size: !Ref DataVolumeSize
+      VolumeType: gp3
+      Encrypted: true
+      Tags:
+        - Key: Name
+          Value: signals-data
+        - Key: app.kubernetes.io/name
+          Value: signals
+
+  DataVolumeAttachment:
+    Type: AWS::EC2::VolumeAttachment
+    Properties:
+      Device: !Ref DataDeviceName
+      InstanceId: !Ref CollectorInstance
+      VolumeId: !Ref DataVolume
 
 Outputs:
   CollectorRoleArn:

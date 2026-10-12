@@ -50,6 +50,71 @@ phases:
             # bake (no signals.yaml, no CA, no token baked in).
             - set -euo pipefail
             - install -d -m 0755 /etc/signals
+            # #501: the /data mount point. The durable EBS data volume is
+            # attached at launch (by the buyer's launch template / the
+            # terraform/cloudformation that launch this AMI) and mounted here
+            # at first boot by signals-data.service below — NOT a root-disk
+            # Docker named volume. Baked empty; no data at bake.
+            - install -d -m 0755 /data
+
+      # #501 (R-DUR-03/R-DUR-04/R-DUR-07): first-boot preparation of the
+      # durable /data volume. Runs at BOOT, not at bake (the EBS volume is only
+      # attached at launch). Format-if-empty so a re-attached populated volume
+      # keeps its signals.db untouched; chown to the non-root container user
+      # (uid 10001, group 10001). The collector unit RequiresMountsFor=/data so
+      # it never starts before this mount is in place.
+      - name: InstallDataPrepScript
+        action: CreateFile
+        inputs:
+          - path: /usr/local/sbin/signals-prepare-data.sh
+            permissions: 0755
+            content: |
+              #!/bin/bash
+              set -euo pipefail
+              # Resolve the durable data device: the single non-root block
+              # device (NVMe-remapped EBS data volume), preferring the standard
+              # attach name when present.
+              DATA_DEV="/dev/sdf"
+              if [ ! -b "$DATA_DEV" ]; then
+                for d in /dev/nvme*n1; do
+                  [ -b "$d" ] || continue
+                  if lsblk -no MOUNTPOINT "$d" | grep -q '^/$'; then continue; fi
+                  DATA_DEV="$d"
+                done
+              fi
+              mkdir -p /data
+              # Format ONLY when empty (first provisioning). Re-attach preserves.
+              if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
+                mkfs.ext4 -F "$DATA_DEV"
+              fi
+              DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
+              grep -q "$DATA_UUID" /etc/fstab || \
+                echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
+              mountpoint -q /data || mount /data || mount "$DATA_DEV" /data
+              # Non-root container user owns /data (uid 10001, group 10001).
+              chown 10001:10001 /data
+
+      - name: InstallDataPrepUnit
+        action: CreateFile
+        inputs:
+          - path: /etc/systemd/system/signals-data.service
+            permissions: 0644
+            content: |
+              [Unit]
+              Description=Prepare and mount the Elevarq Signals durable /data volume
+              # Run before the collector; the collector RequiresMountsFor=/data.
+              Before=signals.service
+              DefaultDependencies=no
+              After=local-fs.target
+              RequiresMountsFor=/
+
+              [Service]
+              Type=oneshot
+              RemainAfterExit=yes
+              ExecStart=/usr/local/sbin/signals-prepare-data.sh
+
+              [Install]
+              WantedBy=multi-user.target
 
       - name: InstallSystemdUnit
         action: CreateFile
@@ -59,9 +124,13 @@ phases:
             content: |
               [Unit]
               Description=Elevarq Signals collector
-              After=docker.service network-online.target
-              Requires=docker.service
+              After=docker.service network-online.target signals-data.service
+              Requires=docker.service signals-data.service
               Wants=network-online.target
+              # #501: never start the collector before the durable /data volume
+              # is mounted, so signals.db is always on the durable disk, never on
+              # the ephemeral root disk (R-DUR-07).
+              RequiresMountsFor=/data
 
               [Service]
               Restart=always
@@ -85,10 +154,13 @@ phases:
               # 9001->1500 MTU boundary (TCP connects, then the session hangs);
               # host networking avoids it. The API still binds 127.0.0.1:8081 on
               # the host, so no -p publish is needed.
+              # /data is the durable EBS mount prepared by signals-data.service
+              # (#501): bind the HOST path, never a Docker named volume (which
+              # would live on the ephemeral root disk).
               ExecStart=/usr/bin/docker run --rm --name signals --network host \
                 --env-file /etc/signals/signals.env \
                 -v /etc/signals:/etc/signals:ro \
-                -v signals-data:/data \
+                -v /data:/data \
                 {{ SignalsImage }} signals --config /etc/signals/signals.yaml
               ExecStop=/usr/bin/docker stop signals
 
@@ -104,6 +176,9 @@ phases:
             # has provided /etc/signals via user-data / SSM.
             - set -euo pipefail
             - systemctl daemon-reload
+            # #501: enable the durable /data prep+mount unit so it runs at first
+            # boot before the collector (RequiresMountsFor=/data).
+            - systemctl enable signals-data.service
             - systemctl enable signals.service
 
   - name: validate
