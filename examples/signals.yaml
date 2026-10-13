@@ -12,7 +12,10 @@ env: dev
 
 # Collector settings
 signals:
-  # How often to run collection cycles
+  # How often to run collection cycles.
+  # Duration string: units ns, us, ms, s, m, h, d (day = 24h), w (week = 168h).
+  # Examples: 30s, 5m, 1h, 12h, 1d, 1w. (m is minutes; months/years are not
+  # supported — they are calendar-ambiguous.)
   poll_interval: 5m
 
   # How many days of data to retain in local storage

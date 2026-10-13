@@ -7,6 +7,18 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **`poll_interval` (and every duration setting) accepts `d` (day) and `w`
+  (week) units (#490).** `time.ParseDuration` supports only `ns`..`h`, so an
+  operator could not write `poll_interval: 1d`. A small `parseFlexDuration`
+  wrapper adds `d` (= 24h) and `w` (= 168h) and delegates everything else to
+  the stock parser, so every existing value (`30s`, `5m`, `1h`, `1h30m`, `1m`
+  = one minute) parses byte-for-byte as before. `d`/`w` are fixed durations;
+  months and years remain unsupported (calendar-ambiguous — that belongs to
+  calendar scheduling, #491). Applied to all duration settings
+  (`poll_interval`, `target_timeout`, `query_timeout`, `read_timeout`,
+  `write_timeout`, `min_snapshot_interval`, circuit `open_cooldown`, per-target
+  `max_cache_ttl`). Unknown units (`1M`, `1mo`, `1y`, `1x`) are rejected with a
+  clear error. Guard: `internal/config/duration_test.go`.
 - **Canonical `scripts/cut-release.sh` with pre-tag gates (#480).** Releases are
   tag-driven (pushing `vX.Y.Z` fires `release.yml`), but the tag was cut by
   hand, so avoidable defects reached main or only surfaced mid-build — the
