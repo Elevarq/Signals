@@ -53,6 +53,18 @@ type ScheduledExporter struct {
 	// S3 retention is an object-lifecycle rule, not a prune (#472).
 	retentionDays int
 	maxFiles      int
+	// s3DatePartition, when true (S3 mode only), uploads each export under a
+	// date-partitioned sub-prefix `<prefix>/YYYY/MM/DD/<file>` (UTC) so a
+	// downstream consumer can bound its LIST to recent partitions (#494).
+	// Default false keeps the flat `<prefix>/<file>` layout.
+	s3DatePartition bool
+}
+
+// SetS3DatePartition enables date-partitioned S3 object keys
+// (`<prefix>/YYYY/MM/DD/<file>`, UTC) for scheduled exports (#494). No-op in
+// filesystem mode. Opt-in; the default flat layout is unchanged.
+func (e *ScheduledExporter) SetS3DatePartition(on bool) {
+	e.s3DatePartition = on
 }
 
 // NewScheduledExporter constructs a filesystem-mode exporter. `dest` is the
@@ -154,11 +166,18 @@ var instanceToken = regexp.MustCompile(`[^A-Za-z0-9._-]+`)
 // and cycles, so a new export never overwrites a prior one and the several
 // targets written in one cycle never collide.
 func (e *ScheduledExporter) exportFilename(targetID int64) string {
+	return e.exportFilenameAt(targetID, e.now().UTC())
+}
+
+// exportFilenameAt is exportFilename for an explicit instant, so the S3
+// date-partition prefix (#494) is derived from the SAME timestamp embedded in
+// the filename — the partition date can never disagree with the file's own ts.
+func (e *ScheduledExporter) exportFilenameAt(targetID int64, t time.Time) string {
 	inst := instanceToken.ReplaceAllString(strings.TrimSpace(e.instanceID), "_")
 	if inst == "" {
 		inst = "signals"
 	}
-	ts := e.now().UTC().Format("20060102T150405.000000000Z")
+	ts := t.UTC().Format("20060102T150405.000000000Z")
 	return fmt.Sprintf("%s-t%d-%s.zip", inst, targetID, ts)
 }
 
@@ -207,7 +226,10 @@ func (e *ScheduledExporter) ExportLatest(ctx context.Context) ([]string, error) 
 // (temp-file + rename) and returns the final path. It leaves no partial
 // final file on error.
 func (e *ScheduledExporter) exportOne(ctx context.Context, targetID int64) (string, error) {
-	name := e.exportFilename(targetID)
+	// Capture one instant so the filename ts and any date-partition prefix
+	// come from the same moment (#494).
+	ts := e.now().UTC()
+	name := e.exportFilenameAt(targetID, ts)
 	// S3 mode (#472): buffer the target's export and upload it with a single
 	// PutObject. A completed PutObject is atomic — a consumer never sees a
 	// partial object — so no temp-file + rename is needed.
@@ -216,7 +238,15 @@ func (e *ScheduledExporter) exportOne(ctx context.Context, targetID int64) (stri
 		if err := e.builder.WriteTo(&buf, Options{TargetID: targetID}); err != nil {
 			return "", fmt.Errorf("write: %w", err)
 		}
-		return e.s3.put(ctx, name, buf.Bytes())
+		// #494: opt-in date-partitioned key `<prefix>/YYYY/MM/DD/<file>`.
+		// The object name stays unique (the filename already carries a
+		// nanosecond UTC timestamp), so partitioning never risks an
+		// overwrite; it only changes where the immutable object lands.
+		objectName := name
+		if e.s3DatePartition {
+			objectName = ts.Format("2006/01/02") + "/" + name
+		}
+		return e.s3.put(ctx, objectName, buf.Bytes())
 	}
 	final := filepath.Join(e.dest, name)
 	tmp := filepath.Join(e.dest, "."+name+".tmp")

@@ -90,6 +90,14 @@ type SignalsConfig struct {
 	// region); an empty KMS key uses SSE-S3 (AES256), a set key uses SSE-KMS.
 	ExportS3Region   string `yaml:"export_s3_region"`
 	ExportS3KMSKeyID string `yaml:"export_s3_kms_key_id"`
+	// ExportS3DatePartition, when true, writes each S3 export under a
+	// date-partitioned sub-prefix `<prefix>/YYYY/MM/DD/<file>` (UTC) instead
+	// of the flat `<prefix>/<file>` (#494). Opt-in; default false (flat) is
+	// backward compatible. It lets a downstream consumer bound its LIST to the
+	// recent date partitions instead of scanning the whole prefix. Applies
+	// only when ExportDest is an s3:// URI; the object name stays unique and
+	// immutable either way.
+	ExportS3DatePartition bool `yaml:"export_s3_date_partition"`
 	// #385: bound the scheduled-export directory so it does not grow without
 	// limit (one ZIP per database per cycle, ~288/db/day at a 5m cadence).
 	// After each cycle the exporter prunes its own older ZIPs per target:
@@ -679,6 +687,11 @@ func applyEnvOverrides(cfg *Config) error {
 	}
 	if v := os.Getenv("SIGNALS_EXPORT_S3_KMS_KEY_ID"); v != "" {
 		cfg.Signals.ExportS3KMSKeyID = v
+	}
+	if b, ok, err := parseEnvBool("SIGNALS_EXPORT_S3_DATE_PARTITION"); err != nil {
+		return err
+	} else if ok {
+		cfg.Signals.ExportS3DatePartition = b
 	}
 	// #385 — bound the scheduled-export directory (0 = unbounded).
 	if n, ok, err := parseEnvInt("SIGNALS_EXPORT_RETENTION_DAYS"); err != nil {

@@ -7,6 +7,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Optional date-partitioned S3 snapshot delivery (#494).** The native S3
+  scheduled exporter wrote every object to one flat prefix
+  (`<prefix>/<instance>-t<id>-<ts>.zip`), so a downstream consumer's discovery
+  was O(total objects). A new opt-in `signals.export_s3_date_partition`
+  (`SIGNALS_EXPORT_S3_DATE_PARTITION`) uploads each export under a
+  date-partitioned sub-prefix `<prefix>/YYYY/MM/DD/<file>` (UTC) so a consumer
+  can bound its LIST to the recent partitions (Elevarq/Analyzer#3635). Default
+  is **false** (flat — fully backward compatible). The partition date is
+  derived from the same instant as the filename's timestamp, so they never
+  disagree, and the object key stays unique and immutable (the filename keeps
+  its nanosecond UTC timestamp) — partitioning only changes where the object
+  lands, never risking an overwrite. S3-only; filesystem-mode exports are
+  unchanged. Guard: `internal/export/s3sink_test.go`.
 - **`poll_interval` (and every duration setting) accepts `d` (day) and `w`
   (week) units (#490).** `time.ParseDuration` supports only `ns`..`h`, so an
   operator could not write `poll_interval: 1d`. A small `parseFlexDuration`

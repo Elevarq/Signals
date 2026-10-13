@@ -64,7 +64,15 @@ signals:
                               # pull-only via GET /export). See R127.
   export_dest: ""             # Destination directory for the scheduled
                               # per-database export above. Empty
-                              # disables the feature. See R127.
+                              # disables the feature. May also be an
+                              # s3://bucket/prefix URI (native S3 delivery).
+                              # See R127.
+  export_s3_date_partition: false  # S3 only (#494). When true, upload each
+                              # export under a date-partitioned sub-prefix
+                              # <prefix>/YYYY/MM/DD/<file> (UTC) instead of the
+                              # flat <prefix>/<file>, so a consumer can bound
+                              # its LIST to recent dates. Object keys stay
+                              # unique + immutable. Default false (flat).
 
 # PostgreSQL targets (one or more)
 targets:
@@ -155,7 +163,8 @@ fields:
 | `SIGNALS_METRICS_PATH` | `signals.metrics_path` | `/metrics` | Path for the metrics endpoint when enabled |
 | `SIGNALS_EXPORT_PER_COLLECTOR_FILES` | `signals.export_per_collector_files` | `false` | Add `per-collector/<id>.json` files to export ZIPs (R080) |
 | `SIGNALS_EXPORT_ON_COLLECT` | `signals.export_on_collect` | `false` | Write one export ZIP per database into `export_dest` after every collection cycle (R127) |
-| `SIGNALS_EXPORT_DEST` | `signals.export_dest` | `""` | Destination directory for the scheduled per-database export (R127) |
+| `SIGNALS_EXPORT_DEST` | `signals.export_dest` | `""` | Destination directory (or `s3://bucket/prefix` URI) for the scheduled per-database export (R127) |
+| `SIGNALS_EXPORT_S3_DATE_PARTITION` | `signals.export_s3_date_partition` | `false` | S3 only: upload under `<prefix>/YYYY/MM/DD/<file>` instead of flat (#494) |
 | `SIGNALS_LISTEN_ADDR` | `api.listen_addr` | `127.0.0.1:8081` | |
 | `SIGNALS_WRITE_TIMEOUT` | `api.write_timeout` | `180s` | |
 | `SIGNALS_DB_PATH` | `database.path` | `/data/signals.db` | |
