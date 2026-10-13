@@ -92,6 +92,14 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
 
 ### Fixed
+- **The "collector starting" log renders the poll interval as a readable
+  duration, not raw nanoseconds (#489).** `slog` marshals a `time.Duration` as
+  its int64 nanosecond count, so a 1h interval logged as
+  `"interval":3600000000000`. It now logs `"interval":"1h"` via a compact
+  formatter (`1h`, `1h30m`, `30s`, dropping zero components; sub-second
+  durations fall back to the full `Duration.String()`). Observability-only; no
+  change to collection behaviour. Guard:
+  `internal/collector/format_interval_test.go`.
 - **README no longer claims the image publishes no `latest` tag (#497).** The
   release workflow uses `flavor: latest=auto`, so a stable release does move
   `latest` (pre-releases never do). The Installation and "Verifying a release"
