@@ -18,6 +18,9 @@
 #   scripts/preflight.sh test        # go test -count=1 -race ./...
 #   scripts/preflight.sh docs        # check-docs.sh (link/version drift guard)
 #   scripts/preflight.sh imagebuilder # check-imagebuilder-component.sh (AMI groundwork)
+#   scripts/preflight.sh traceability # check-traceability.sh (STDD Gate 1, matrix-internal)
+#   scripts/preflight.sh spec-status  # check-spec-status.sh (shipped specs are ACTIVE)
+#   scripts/preflight.sh fingerprint  # fingerprint.sh --check (STDD Gate 3)
 #   scripts/preflight.sh secrets     # gitleaks protect --staged + current-commit detect
 #   scripts/preflight.sh vuln        # govulncheck ./...
 #   scripts/preflight.sh semgrep     # semgrep --config p/golang --config p/security-audit
@@ -148,6 +151,30 @@ run_imagebuilder() {
     return 1
   fi
   log_ok "imagebuilder-component: clean"
+}
+
+# #451 — STDD CSI gates. Dependency-free (bash/awk + a sha256 tool), so they
+# sit with the fast gates. Gate 1 (traceability, matrix-internal), the
+# spec-lifecycle gate, and Gate 3 (fingerprint of the knowledge layer).
+run_traceability() {
+  if ! bash "${SCRIPT_DIR}/check-traceability.sh"; then
+    log_fail "traceability gate failed"
+    return 1
+  fi
+}
+
+run_spec_status() {
+  if ! bash "${SCRIPT_DIR}/check-spec-status.sh"; then
+    log_fail "spec-lifecycle gate failed"
+    return 1
+  fi
+}
+
+run_fingerprint() {
+  if ! bash "${SCRIPT_DIR}/fingerprint.sh" --check; then
+    log_fail "fingerprint gate failed"
+    return 1
+  fi
 }
 
 # #160: secrets / vuln / lint are local-fast security gates. CI keeps
@@ -292,6 +319,9 @@ run_all() {
   run_docs
   run_no_legacy_arq
   run_imagebuilder
+  run_traceability
+  run_spec_status
+  run_fingerprint
   run_security
   echo ""
   printf "%spreflight: all checks passed%s\n" "${C_GREEN}" "${C_RESET}"
@@ -309,6 +339,9 @@ case "${1:-all}" in
   docs)     run_docs ;;
   no-legacy-arq) run_no_legacy_arq ;;
   imagebuilder) run_imagebuilder ;;
+  traceability) run_traceability ;;
+  spec-status)  run_spec_status ;;
+  fingerprint)  run_fingerprint ;;
   secrets)  run_secrets ;;
   vuln)     run_vuln ;;
   semgrep)  run_semgrep ;;

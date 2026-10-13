@@ -7,6 +7,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **The STDD CSI gates are now enforced in CI (#451).** The traceability
+  matrix, knowledge-layer integrity, and spec lifecycle were documented in
+  `CLAUDE.md` but not checked. Three dependency-free gates now run in
+  `scripts/preflight.sh` (and as discrete CI steps): `check-traceability.sh`
+  (Gate 1, matrix-internal — a `COVERED` rule with no Test ID, a duplicate, or
+  an empty Rule ID fails; `PLANNED`/`DOC` rows may omit a test),
+  `check-spec-status.sh` (every root spec carries an explicit `## Status` and
+  every shipped spec is `ACTIVE` — normalized 14 root specs, flipping stale
+  `DRAFT` markers on shipped specs like `doctor.md`/`connect-test.md` to
+  `ACTIVE`), and `fingerprint.sh` + a committed `.fingerprint` (Gate 3 — a
+  deterministic SHA-256 over `specifications/` + `features/signals/` +
+  `tests/`, so a spec/test change without a matching `.fingerprint` update
+  fails CI; regenerate with `scripts/fingerprint.sh --write`). Full
+  source-level bidirectional traceability (reconciling the 42 pre-existing
+  dangling matrix IDs + a test→spec convention) is tracked as follow-up #519.
+  Spec: `specifications/stdd-gate-enforcement.md`. Guard:
+  `tests/signals_stdd_gates_test.go`.
 - **Cron-scheduled collection anchor (#491).** Collection ticked every
   `poll_interval` anchored to process start, so there was no way to say "collect
   daily at 02:00" — a restart re-phased it. A new optional `signals.schedule`

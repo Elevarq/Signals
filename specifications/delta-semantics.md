@@ -1,5 +1,9 @@
 # Delta Semantics — Cross-Cutting Specification
 
+## Status
+
+ACTIVE
+
 Feature: Delta Semantics for Cumulative Counters
 Version: 1.0
 Type: behavioral

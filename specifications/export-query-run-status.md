@@ -1,5 +1,9 @@
 # Query-Run Status in Snapshot Export — Behavioral Specification
 
+## Status
+
+ACTIVE
+
 Spec version: 1.0
 Status: ACTIVE
 Issue: [Elevarq/Signals#250](https://github.com/Elevarq/Signals/issues/250)

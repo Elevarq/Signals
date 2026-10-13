@@ -1,5 +1,9 @@
 # Scheduled auto-export (SE)
 
+## Status
+
+ACTIVE
+
 - **Prefix:** `SE`
 - **Issue:** [#350](https://github.com/Elevarq/Signals/issues/350)
 - **Status:** ACTIVE

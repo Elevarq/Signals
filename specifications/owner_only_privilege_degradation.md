@@ -1,5 +1,9 @@
 # Owner-Only Privilege Degradation — Behavioral Specification
 
+## Status
+
+ACTIVE
+
 Spec version: 1.0
 Status: ACTIVE
 Issue: [Elevarq/Signals#200](https://github.com/Elevarq/Signals/issues/200)

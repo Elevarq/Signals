@@ -1,5 +1,9 @@
 # Multi-Target Export Correctness — Specification
 
+## Status
+
+ACTIVE
+
 ## Purpose
 
 When a target-specific export is requested (TargetID > 0), all
