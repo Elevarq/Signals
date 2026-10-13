@@ -24,6 +24,19 @@ env: dev
 # Collector settings
 signals:
   poll_interval: 5m         # Collection cycle interval (duration string; units ns,us,ms,s,m,h,d,w — e.g. 30s, 5m, 1h, 1d, 1w)
+  schedule: ""              # Optional standard 5-field cron (#491). When set it
+                            # REPLACES poll_interval: collection runs at each
+                            # cron match (e.g. "0 2 * * *" = daily 02:00) and
+                            # there is no start-time baseline. Empty = interval
+                            # mode (poll_interval). An invalid expression fails
+                            # startup.
+  schedule_timezone: ""     # IANA timezone for `schedule` (e.g.
+                            # "Europe/Amsterdam"). Empty = UTC. DST-aware when
+                            # a named zone is set.
+  schedule_jitter: ""       # Optional duration (#491). Delays each scheduled
+                            # fire by a uniform random amount in [0, jitter) so
+                            # a fleet doesn't stampede a shared target at the
+                            # anchor. Empty/0 = no jitter.
   retention_days: 30         # Days to retain collected data; 0 or negative disables cleanup
   log_level: info            # debug, info, warn, error
   log_json: false            # Output logs as JSON
@@ -152,6 +165,9 @@ fields:
 | `SIGNALS_ALLOW_INSECURE_PG_TLS` | (env-only) | `false` | Allows weak sslmode in non-prod |
 | `SIGNALS_ALLOW_UNSAFE_ROLE` | (env-only) | `false` | Allows unsafe role attributes |
 | `SIGNALS_POLL_INTERVAL` | `signals.poll_interval` | `5m` | |
+| `SIGNALS_SCHEDULE` | `signals.schedule` | `""` | Cron expression; replaces poll_interval when set (#491) |
+| `SIGNALS_SCHEDULE_TIMEZONE` | `signals.schedule_timezone` | `""` (UTC) | IANA timezone for the cron schedule (#491) |
+| `SIGNALS_SCHEDULE_JITTER` | `signals.schedule_jitter` | `""` | Per-fire jitter `[0, jitter)` for the schedule (#491) |
 | `SIGNALS_RETENTION_DAYS` | `signals.retention_days` | `30` | |
 | `SIGNALS_LOG_LEVEL` | `signals.log_level` | `info` | |
 | `SIGNALS_LOG_JSON` | `signals.log_json` | `false` | |

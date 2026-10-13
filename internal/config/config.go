@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elevarq/signals/internal/schedule"
 	"gopkg.in/yaml.v3"
 )
 
@@ -25,6 +26,21 @@ type Config struct {
 type SignalsConfig struct {
 	PollInterval  time.Duration `yaml:"-"`
 	PollIntervalS string        `yaml:"poll_interval"` // e.g. "5m"
+	// Schedule, when non-empty, is a standard 5-field cron expression that
+	// anchors collection to wall-clock times (#491). It REPLACES the
+	// poll_interval ticker: when set, the collector waits for the next cron
+	// match instead of ticking from process start, and does no start-time
+	// baseline. Empty = interval mode (the pre-existing behaviour).
+	Schedule string `yaml:"schedule"`
+	// ScheduleTimezone is the IANA location the cron fields are interpreted
+	// in (#491). Empty = UTC. Only meaningful when Schedule is set.
+	ScheduleTimezone string `yaml:"schedule_timezone"`
+	// ScheduleJitter / ScheduleJitterS delay each scheduled fire by a uniform
+	// random amount in [0, jitter) so a fleet does not stampede a shared target
+	// at the exact anchor (#491). Duration string (d/w units allowed). Empty/0
+	// = no jitter. Only meaningful when Schedule is set.
+	ScheduleJitter  time.Duration `yaml:"-"`
+	ScheduleJitterS string        `yaml:"schedule_jitter"`
 	// RetentionDays is the legacy flat retention setting — same
 	// cutoff for every retention class. R099 adds the structured
 	// `Retention` block below; the two are mutually exclusive
@@ -585,6 +601,15 @@ func applyEnvOverrides(cfg *Config) error {
 	if v := os.Getenv("SIGNALS_POLL_INTERVAL"); v != "" {
 		cfg.Signals.PollIntervalS = v
 	}
+	if v := os.Getenv("SIGNALS_SCHEDULE"); v != "" {
+		cfg.Signals.Schedule = v
+	}
+	if v := os.Getenv("SIGNALS_SCHEDULE_TIMEZONE"); v != "" {
+		cfg.Signals.ScheduleTimezone = v
+	}
+	if v := os.Getenv("SIGNALS_SCHEDULE_JITTER"); v != "" {
+		cfg.Signals.ScheduleJitterS = v
+	}
 	if n, ok, err := parseEnvInt("SIGNALS_RETENTION_DAYS"); err != nil {
 		return err
 	} else if ok {
@@ -771,8 +796,24 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	if (cfg.API.TLSCertFile == "") != (cfg.API.TLSKeyFile == "") {
 		hard = append(hard, "api.tls_cert_file and api.tls_key_file must both be set or both be empty")
 	}
-	if cfg.Signals.PollInterval <= 0 {
+	// poll_interval governs timing only in interval mode. When a cron
+	// schedule is configured it replaces the ticker (#491, B3), so an
+	// unset/zero poll_interval is not an error in that mode.
+	if cfg.Signals.Schedule == "" && cfg.Signals.PollInterval <= 0 {
 		hard = append(hard, "signals.poll_interval must be > 0")
+	}
+	// #491 — fail fast on an invalid schedule / timezone / jitter so the
+	// daemon never starts in a half-configured scheduling state (B7,
+	// INV-SCHED-02). schedule.New performs the exact cron + timezone parse the
+	// collector will use.
+	if cfg.Signals.Schedule != "" {
+		if _, err := schedule.New(schedule.Options{
+			Expr:     cfg.Signals.Schedule,
+			Timezone: cfg.Signals.ScheduleTimezone,
+			Jitter:   cfg.Signals.ScheduleJitter,
+		}); err != nil {
+			hard = append(hard, err.Error())
+		}
 	}
 	if cfg.Signals.TargetTimeout <= 0 {
 		hard = append(hard, "signals.target_timeout must be > 0")
@@ -1368,6 +1409,13 @@ func parseDurations(cfg *Config) error {
 			return fmt.Errorf("parse signals.circuit.open_cooldown %q: %w", cfg.Signals.Circuit.OpenCooldownS, err)
 		}
 		cfg.Signals.Circuit.OpenCooldown = d
+	}
+	if cfg.Signals.ScheduleJitterS != "" {
+		d, err := parseFlexDuration(cfg.Signals.ScheduleJitterS)
+		if err != nil {
+			return fmt.Errorf("parse signals.schedule_jitter %q: %w", cfg.Signals.ScheduleJitterS, err)
+		}
+		cfg.Signals.ScheduleJitter = d
 	}
 	// Per-target durations: secret_store max_cache_ttl (#97).
 	for i := range cfg.Targets {

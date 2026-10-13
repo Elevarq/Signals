@@ -7,6 +7,26 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Cron-scheduled collection anchor (#491).** Collection ticked every
+  `poll_interval` anchored to process start, so there was no way to say "collect
+  daily at 02:00" — a restart re-phased it. A new optional `signals.schedule`
+  (standard 5-field cron, env `SIGNALS_SCHEDULE`) anchors collection to
+  wall-clock times; when set it **replaces** the `poll_interval` ticker and the
+  collector waits for each cron match instead of running a start-time baseline.
+  `signals.schedule_timezone` (IANA name, default **UTC**, DST-aware) and
+  `signals.schedule_jitter` (uniform `[0, jitter)` delay per fire, so a fleet
+  doesn't stampede a shared target) tune it. Missed slots are **not** backed up
+  across downtime — on restart the collector resumes at the next slot
+  (wait-for-next-slot, no catch-up). Cron/timezone/jitter are validated
+  fail-fast at config load, so the daemon never starts half-configured.
+  Behaviour is unchanged when `schedule` is empty (interval mode). On-demand
+  collection stays immediate in both modes. Parsing uses `robfig/cron/v3`
+  (`ParseStandard`); the schedule logic lives in `internal/schedule` with
+  deterministic (`now`/rand injected) unit tests. Spec:
+  `specifications/scheduled-collection-anchor.md`. Guards:
+  `internal/schedule/schedule_test.go`,
+  `internal/config/schedule_config_test.go`,
+  `internal/collector/scheduled_run_test.go`.
 - **Optional date-partitioned S3 snapshot delivery (#494).** The native S3
   scheduled exporter wrote every object to one flat prefix
   (`<prefix>/<instance>-t<id>-<ts>.zip`), so a downstream consumer's discovery

@@ -25,6 +25,7 @@ import (
 	"github.com/elevarq/signals/internal/metrics"
 	"github.com/elevarq/signals/internal/pgqueries"
 	"github.com/elevarq/signals/internal/safety"
+	"github.com/elevarq/signals/internal/schedule"
 )
 
 // redactReloadErr mirrors the helper in internal/api/reload.go so
@@ -206,7 +207,7 @@ func run() error {
 	circuitMgr := circuit.NewManager(cfg.Signals.Circuit.FailThreshold, cfg.Signals.Circuit.OpenCooldown)
 
 	// Initialize collector (no license gate, no stats engine).
-	coll := collector.New(store, cfg.Targets, cfg.Signals.PollInterval, cfg.Signals.RetentionDays,
+	collectorOpts := []collector.CollectorOption{
 		collector.WithMaxConcurrentTargets(cfg.Signals.MaxConcurrentTargets),
 		collector.WithTargetTimeout(cfg.Signals.TargetTimeout),
 		collector.WithQueryTimeout(cfg.Signals.QueryTimeout),
@@ -217,7 +218,22 @@ func run() error {
 		collector.WithMetrics(metricsReg),
 		collector.WithCircuitManager(circuitMgr),
 		collector.WithRetention(cfg.Signals.Retention),
-	)
+	}
+	// #491 — cron-scheduled collection. Config validation already proved the
+	// expression/timezone/jitter parse, so an error here is defensive only.
+	if cfg.Signals.Schedule != "" {
+		sched, serr := schedule.New(schedule.Options{
+			Expr:     cfg.Signals.Schedule,
+			Timezone: cfg.Signals.ScheduleTimezone,
+			Jitter:   cfg.Signals.ScheduleJitter,
+		})
+		if serr != nil {
+			slog.Error("invalid collection schedule", "err", serr.Error())
+			os.Exit(1)
+		}
+		collectorOpts = append(collectorOpts, collector.WithSchedule(sched))
+	}
+	coll := collector.New(store, cfg.Targets, cfg.Signals.PollInterval, cfg.Signals.RetentionDays, collectorOpts...)
 
 	if cfg.AllowUnsafeRole {
 		slog.Warn("UNSAFE MODE ENABLED: collection will proceed with unsafe role attributes — this is NOT recommended for production")

@@ -18,6 +18,16 @@ signals:
   # supported — they are calendar-ambiguous.)
   poll_interval: 5m
 
+  # Optional: anchor collection to a wall-clock cron schedule instead of
+  # ticking every poll_interval from process start. A standard 5-field cron
+  # expression; when set it REPLACES poll_interval and there is no immediate
+  # baseline collection at start. Interpreted in schedule_timezone (UTC if
+  # unset). schedule_jitter spreads a fleet's fires so they don't all hit the
+  # target at the same instant. Leave schedule empty to use poll_interval.
+  # schedule: "0 2 * * *"          # daily at 02:00
+  # schedule_timezone: "Europe/Amsterdam"
+  # schedule_jitter: 5m
+
   # How many days of data to retain in local storage
   retention_days: 30
 
