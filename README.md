@@ -983,6 +983,7 @@ analyzer).
 - [Database connections](docs/database-connections.md) — per-cloud `auth_method` recipes (RDS IAM, Entra, Cloud SQL IAM, secret stores) + grants
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
 - [Adoption guide](docs/adoption-guide.md) — production deployment guidance
+- [Upgrading](docs/upgrading.md) — per-mode upgrade procedure (container, Helm/EKS, AMI/EC2, air-gapped) that preserves `/data`
 - [FAQ](docs/faq.md) — common questions
 - [Changelog](CHANGELOG.md) — release history
 - [Security policy](SECURITY.md) — vulnerability reporting
