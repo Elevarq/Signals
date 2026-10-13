@@ -136,26 +136,34 @@ add-on flow, against a reachable RDS target.
 
 ---
 
-### TC-EAO-07: Chart values.schema.json exposes the add-on config contract (invariant)
+### TC-EAO-07: Chart ships the add-on configuration schema (invariant) — CORRECTED (#297)
 
-**Rule:** R-EAO-07 / FC-EAO-05 / INV-EAO-02
+**Rule:** R-EAO-07 / R-EAO-08 / R-EAO-09 / FC-EAO-05 / FC-EAO-06 / FC-EAO-07 / INV-EAO-02
 
 **Scenario:** Guard against shipping an add-on that `aws eks
 describe-addon-configuration` reports as "No configuration support", which leaves
-a buyer unable to point the add-on at a database.
+a buyer unable to point the add-on at a database. AWS reads the dedicated
+`aws_mp_configuration_schema.json` at the chart top level — NOT
+`values.schema.json` (the disproven #285/#290 premise).
 
 **Given:**
-- `deploy/helm/signals/values.schema.json`.
+- `deploy/helm/signals/aws_mp_configuration_schema.json`.
 
 **When:**
 - The schema is parsed and its declared properties are inspected.
 
 **Then:**
+- `$schema` is an AWS-supported draft (draft-04/06/07 or draft/2019-09).
 - `target` declares `host`, `user`, `authMethod`, `sslmode`, and
-  `sslRootCertFile`.
-- `persistence` declares `storageClass`.
-- `serviceAccount` declares `annotations`.
-- `extraEnv` is still declared (the chart-managed-name guard is preserved).
-- `helm template` with the default values and with a representative buyer values
-  file both still validate against the schema (no regression for existing Helm
-  installs).
+  `sslRootCertFile`; `persistence` declares `storageClass`.
+- Every declared property carries a `description` (rendered as the console label).
+- No property key is a raw secret value (password/API key/certificate/private
+  key); identity is by reference only (`*SecretName` / `*File` / `secretRef`).
+- Add-on-managed / API-set keys (`image`, `serviceAccount`) are absent.
+- `values.schema.json` still declares `extraEnv` (the #274 chart-managed-name
+  guard is preserved) and `helm lint` / `helm template` still pass with the new
+  file present.
+
+Test: `tests/signals_helm_addon_config_schema_test.go`
+(`TestHelm_AddOnConfigurationSchemaContract`, `TestHelm_ValuesSchemaKeepsExtraEnvGuard`,
+`TestHelm_ValuesSchemaToleratesInjectedGlobal`).

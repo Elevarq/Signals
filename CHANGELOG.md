@@ -167,6 +167,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   change-set template `docs/marketplace/catalog-api/07-add-ami-delivery.json`.
 
 ### Fixed
+- **EKS add-on configuration: ship the schema AWS actually reads (#297).** The
+  Marketplace EKS add-on reported *"No configuration support"* (buyers could not
+  point it at a database) because AWS does **not** derive the add-on config
+  schema from the chart's `values.schema.json` — the disproven #285/#290
+  premise. AWS reads a dedicated `aws_mp_configuration_schema.json` at the Helm
+  chart top level. Added `deploy/helm/signals/aws_mp_configuration_schema.json`
+  (draft-07; keys mirror the chart value paths; a `description` on every
+  property for the console label; the buyer-configurable surface — target
+  host/port/dbname/user/sslmode/authMethod/region/secretRef/sslRootCertFile and
+  `*SecretName` references, persistence, api token-by-reference, collector, env,
+  resources) with **no secret-value fields** (identity is by reference only, per
+  AWS `INVALID_HELM_SENSITIVE_CONFIG`) and cluster-metadata / add-on-managed keys
+  excluded. Corrected the spec (R-EAO-07..09, FC-EAO-05..07) and the
+  `values.schema.json` description. The live fix is a human gate: cut a new chart
+  version carrying the file, re-host + re-submit, verify
+  `describe-addon-configuration`, then `create-addon` and go Public. Guard:
+  `tests/signals_helm_addon_config_schema_test.go`.
 - **The "collector starting" log renders the poll interval as a readable
   duration, not raw nanoseconds (#489).** `slog` marshals a `time.Duration` as
   its int64 nanosecond count, so a 1h interval logged as
