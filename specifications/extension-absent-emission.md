@@ -1,5 +1,9 @@
 # Extension-Absent Emission — Cross-Cutting Specification
 
+## Status
+
+ACTIVE
+
 Feature: Uniform Reporting of Absent or Gated Collectors
 Version: 1.0
 Type: behavioral

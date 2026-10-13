@@ -1,5 +1,9 @@
 # Collector Output-Contract Verification — Behavioral Specification
 
+## Status
+
+ACTIVE
+
 Spec version: 1.2
 Status: ACTIVE
 Issue: [Elevarq/Signals#314](https://github.com/Elevarq/Signals/issues/314)

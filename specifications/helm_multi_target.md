@@ -1,5 +1,9 @@
 # Helm Chart Multiple Targets — Specification
 
+## Status
+
+ACTIVE
+
 ## Purpose
 
 The Signals Helm chart renders a single PostgreSQL target (`.Values.target`)

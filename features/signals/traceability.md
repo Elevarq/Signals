@@ -419,7 +419,7 @@ binary does not ship. Acceptance:
 | INV-SCHEMA-02 (refusal non-destructive) | A refused store is byte-for-byte as opened | TC-SCHEMA-05, TC-SCHEMA-08 | COVERED | BEHAVIORAL | Ledger equality assertion across refusal (incl. repeated calls). |
 | INV-SCHEMA-03 (forward-only) | Store never downgrades; no reverse migrations; only missing migrations applied | TC-SCHEMA-04, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Forward-apply only; no downgrade path exists. |
 | INV-SCHEMA-04 (atomic per-migration ledger advance) | A migration's ledger row advances only after its DDL commits; crash mid-upgrade is resumable | TC-SCHEMA-06, TC-SCHEMA-07 | COVERED | BEHAVIORAL | Failure rolls back DDL + ledger insert together; prefix-ledger resume. |
-| INV-SCHEMA-05 (no credential in store) | The schema-version work introduces no credential value into `signals.db` (reaffirms INV-SIGNALS-07 / INV-DUR-04) | — | COVERED | STRUCTURAL | Guard is ledger-read only; writes no meta/credential. |
+| INV-SCHEMA-05 (no credential in store) | The schema-version work introduces no credential value into `signals.db` (reaffirms INV-SIGNALS-07 / INV-DUR-04) | — | COVERED | DOC | Reaffirmation of the tested INV-SIGNALS-07 / INV-DUR-04; the guard is ledger-read only and writes no meta/credential (no dedicated test). |
 
 ## Populated vPREV→vNEXT Upgrade Gate (Elevarq/Signals#504)
 
@@ -476,3 +476,19 @@ Spec: `specifications/scheduled-collection-anchor.md` (ACTIVE). Tests in
 | INV-SCHED-02 | Never start with invalid schedule/tz/jitter | TestScheduleConfig_RejectsBadCron/BadTimezone/NegativeJitter | COVERED | BEHAVIORAL | Fail-closed at config load. |
 | INV-SCHED-03 | Fire time always in the future; no back-fill | TestSchedule_NextIsStrictlyAfterNow | COVERED | BEHAVIORAL | `Next` strictly after the passed instant. |
 | INV-SCHED-04 | No new credential/egress surface | — | COVERED | DOC | Local wall-clock logic only; no network, no secrets. |
+
+## #451 — STDD CSI gate enforcement
+
+Spec: `specifications/stdd-gate-enforcement.md` (ACTIVE). Gates:
+`scripts/check-traceability.sh`, `scripts/check-spec-status.sh`,
+`scripts/fingerprint.sh`; regression test `tests/signals_stdd_gates_test.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| R-GATE-01 | Traceability gate fails on orphan / duplicate / empty Rule ID | TestSTDDGates_TraceabilityRejectsOrphan, TestSTDDGates_TraceabilityAllowsPlannedAndDoc | COVERED | BEHAVIORAL | PLANNED / DOC rows may omit a Test ID. |
+| R-GATE-02 | Spec-lifecycle gate: every root spec ACTIVE (or reviewed allow-list) | TestSTDDGates_SpecStatusRejectsDraft | COVERED | BEHAVIORAL | Acceptance files exempt; DRAFT shipped spec rejected. |
+| R-GATE-03 | Fingerprint gate: deterministic SHA-256 of the knowledge layer | TestSTDDGates_FingerprintDetectsDrift | COVERED | BEHAVIORAL | Drift after `--write` fails `--check`. |
+| R-GATE-04 | All three gates run in preflight all + discrete CI steps | TestSTDDGates_PassOnCommittedTree | COVERED | STRUCTURAL | Green on the committed tree via preflight/CI wiring. |
+| INV-GATE-01 | A COVERED matrix rule always has a test or an explicit no-test marker | TestSTDDGates_TraceabilityRejectsOrphan | COVERED | BEHAVIORAL | Orphan COVERED/non-DOC row fails. |
+| INV-GATE-02 | Every shipped root spec has an explicit ACTIVE lifecycle state | TestSTDDGates_SpecStatusRejectsDraft | COVERED | BEHAVIORAL | Undeclared/DRAFT shipped spec cannot pass. |
+| INV-GATE-03 | Spec/test change and `.fingerprint` are committed together | TestSTDDGates_FingerprintDetectsDrift | COVERED | BEHAVIORAL | Cryptographic atomic-commit enforcement. |

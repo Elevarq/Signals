@@ -1,5 +1,9 @@
 # Canonical Collector Inventory — Behavioral Specification
 
+## Status
+
+ACTIVE
+
 Spec version: 1.0
 Status: ACTIVE
 Issue: [Elevarq/Signals#252](https://github.com/Elevarq/Signals/issues/252)

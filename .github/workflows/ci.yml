@@ -51,6 +51,15 @@ jobs:
       - name: AMI Image Builder component guard
         run: bash scripts/preflight.sh imagebuilder
 
+      - name: STDD traceability gate (#451)
+        run: bash scripts/preflight.sh traceability
+
+      - name: STDD spec-lifecycle gate (#451)
+        run: bash scripts/preflight.sh spec-status
+
+      - name: STDD fingerprint gate (#451)
+        run: bash scripts/preflight.sh fingerprint
+
       - name: Boundary tests
         run: >
           go test -v -run

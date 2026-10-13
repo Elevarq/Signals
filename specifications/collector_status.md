@@ -1,5 +1,9 @@
 # Collector Execution Status — Specification
 
+## Status
+
+ACTIVE
+
 ## Purpose
 
 Record the execution outcome of every registered collector for each
