@@ -692,9 +692,43 @@ func (c *Collector) GetBypassedChecks() []string {
 	return out
 }
 
+// formatInterval renders a poll interval as a compact, human-readable
+// duration for logging (#489). slog marshals a raw time.Duration as its
+// int64 nanosecond count — a 1h interval logs as 3600000000000, which no
+// operator reads. For whole-second-and-up intervals it emits the trimmed
+// `1h`, `1h30m`, `30s` form (dropping zero components, so 1h is not
+// `1h0m0s`); sub-second durations, where nanosecond precision is meaningful,
+// fall back to the full time.Duration.String().
+func formatInterval(d time.Duration) string {
+	if d < time.Second {
+		return d.String()
+	}
+	d = d.Round(time.Second)
+	h := d / time.Hour
+	d -= h * time.Hour
+	m := d / time.Minute
+	d -= m * time.Minute
+	s := d / time.Second
+
+	var b strings.Builder
+	if h > 0 {
+		fmt.Fprintf(&b, "%dh", h)
+	}
+	if m > 0 {
+		fmt.Fprintf(&b, "%dm", m)
+	}
+	if s > 0 {
+		fmt.Fprintf(&b, "%ds", s)
+	}
+	if b.Len() == 0 {
+		return "0s"
+	}
+	return b.String()
+}
+
 // Run starts the collection loop, blocking until ctx is cancelled.
 func (c *Collector) Run(ctx context.Context) {
-	slog.Info("collector starting", "interval", c.interval, "targets", len(c.currentTargets()))
+	slog.Info("collector starting", "interval", formatInterval(c.interval), "targets", len(c.currentTargets()))
 
 	ticker := time.NewTicker(c.interval)
 	defer ticker.Stop()
