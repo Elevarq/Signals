@@ -1,11 +1,50 @@
 package main
 
 import (
+	"bytes"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
 )
+
+// #492 — signalsctl --help must NOT render $SIGNALS_API_TOKEN in cleartext.
+// The regression: the --api-token flag used the resolved env value as its
+// Cobra default, which --help prints as `(default "...")`.
+func TestHelpDoesNotLeakAPIToken(t *testing.T) {
+	const secret = "super-secret-token-value"
+	t.Setenv("SIGNALS_API_TOKEN", secret)
+
+	root := newRootCmd()
+	var out bytes.Buffer
+	root.SetOut(&out)
+	root.SetErr(&out)
+	root.SetArgs([]string{"--help"})
+	if err := root.Execute(); err != nil {
+		t.Fatalf("--help should exit cleanly, got %v", err)
+	}
+	if strings.Contains(out.String(), secret) {
+		t.Errorf("--help output leaked the API token in cleartext:\n%s", out.String())
+	}
+}
+
+// #492 — env-based auth still works when no --api-token flag is given:
+// effectiveAPIToken falls back to $SIGNALS_API_TOKEN, and the explicit flag
+// still wins over the env.
+func TestEffectiveAPITokenResolution(t *testing.T) {
+	t.Setenv("SIGNALS_API_TOKEN", "from-env")
+
+	apiToken = "" // no flag set
+	if got := effectiveAPIToken(); got != "from-env" {
+		t.Errorf("empty flag should fall back to env; got %q, want %q", got, "from-env")
+	}
+
+	apiToken = "from-flag"
+	if got := effectiveAPIToken(); got != "from-flag" {
+		t.Errorf("explicit flag must win over env; got %q, want %q", got, "from-flag")
+	}
+	apiToken = "" // restore package state for other tests
+}
 
 func newResp(status int, body string) *http.Response {
 	return &http.Response{

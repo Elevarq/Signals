@@ -21,15 +21,22 @@ var (
 	apiToken string
 )
 
-func main() {
+// newRootCmd builds the signalsctl command tree. Kept separate from main so
+// tests can render --help and inspect flags without executing a subcommand.
+func newRootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:   "signalsctl",
 		Short: "CLI for Elevarq Signals",
 	}
 
-	defaultToken := os.Getenv("SIGNALS_API_TOKEN")
+	// The --api-token default is intentionally EMPTY, never the resolved
+	// $SIGNALS_API_TOKEN value (#492). Cobra renders a string flag's default
+	// into --help as `(default "...")`; using the live token there leaked it
+	// in cleartext on every `signalsctl --help`, and the env var is always
+	// set inside the collector container. The env is resolved at request time
+	// instead (see effectiveAPIToken), so behaviour is unchanged.
 	root.PersistentFlags().StringVar(&apiAddr, "api-addr", "http://127.0.0.1:8081", "Elevarq Signals API address")
-	root.PersistentFlags().StringVar(&apiToken, "api-token", defaultToken, "API bearer token (default: $SIGNALS_API_TOKEN)")
+	root.PersistentFlags().StringVar(&apiToken, "api-token", "", "API bearer token (default: $SIGNALS_API_TOKEN)")
 
 	root.AddCommand(versionCmd())
 	root.AddCommand(statusCmd())
@@ -37,6 +44,12 @@ func main() {
 	root.AddCommand(exportCmd())
 	root.AddCommand(doctorCmd())
 	root.AddCommand(connectCmd())
+
+	return root
+}
+
+func main() {
+	root := newRootCmd()
 
 	if err := root.Execute(); err != nil {
 		// Subcommands signal usage errors (exit 2) vs runtime failures
@@ -340,13 +353,24 @@ func checkSuccess(resp *http.Response, op string) error {
 	return fmt.Errorf("%s failed: HTTP %d %s: %s", op, resp.StatusCode, http.StatusText(resp.StatusCode), body)
 }
 
+// effectiveAPIToken resolves the bearer token at request time: the explicit
+// --api-token flag wins, otherwise $SIGNALS_API_TOKEN. Resolving here (not as
+// the flag's default) keeps the token out of --help output (#492) while
+// preserving env-based auth.
+func effectiveAPIToken() string {
+	if apiToken != "" {
+		return apiToken
+	}
+	return os.Getenv("SIGNALS_API_TOKEN")
+}
+
 func apiRequestWithTimeout(method, path string, body io.Reader, timeout time.Duration) (*http.Response, error) {
 	req, err := http.NewRequest(method, apiAddr+path, body)
 	if err != nil {
 		return nil, err
 	}
-	if apiToken != "" {
-		req.Header.Set("Authorization", "Bearer "+apiToken)
+	if token := effectiveAPIToken(); token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	client := &http.Client{Timeout: timeout}
 	return client.Do(req)
