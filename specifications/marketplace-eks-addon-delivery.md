@@ -26,20 +26,47 @@ the EKS add-on catalog rather than `helm install`. Part of #233 (reach
 expansion). Inherits the umbrella's cross-cutting decisions (#233) — do not
 restate them here.
 
+## Correction (#297) — the add-on config schema source
+
+The 1.0.3 add-on ingested cleanly but `describe-addon-configuration` still
+returned *"No configuration support"*, so the add-on could not be pointed at a
+database and could not go Public. Root cause (verified against the AWS
+Marketplace container-product requirements): AWS does **not** derive the add-on
+configuration schema from the chart's `values.schema.json` — the whole
+#285 → #290 → 1.0.2/1.0.3 effort targeted the wrong file. The schema must be a
+**dedicated `aws_mp_configuration_schema.json` at the Helm chart top level**
+(supported JSON Schema drafts: draft-04/06/07, draft/2019-09; camelCase keys;
+`description` on every property; no secret-value fields;
+`aws_mp_addon_parameters.json` is an optional sibling for pod-identity IAM).
+This spec is corrected accordingly (R-EAO-07..09, FC-EAO-05..07). The earlier
+1.0.1/1.0.2/1.0.3 releases remain valid patches; they simply did not expose
+add-on config.
+
 ## Scope
 
 One `AddDeliveryOptions` change-set against the existing `ContainerProduct@1.0`,
 adding exactly one `EksAddOnDeliveryOptionDetails` delivery option (AWS allows
 only one add-on option per version), plus the buyer-facing usage instructions
-for the add-on install path.
+for the add-on install path, plus the add-on configuration schema the chart
+must carry.
 
 In scope:
 
 - A committed change-set template
   `docs/marketplace/catalog-api/05-add-eks-addon-delivery.json`.
+- The add-on configuration schema `deploy/helm/signals/aws_mp_configuration_schema.json`
+  (#297), shipped inside the chart so AWS reads it at ingestion.
 - A preflight guard on the immutable `AddOnType` (valid-set check).
 - README documentation of the add-on step, its immutability constraints, and the
   separate add-on visibility step.
+
+The repository change here (the schema file + corrected contract) is the part
+that lives in source. **Making the live add-on configurable is a human/live
+gate** (R-EAO-05/06): cut a new chart version carrying this file, re-host it to
+the Marketplace ECR, re-submit the delivery option, verify
+`aws eks describe-addon-configuration` now returns the schema, run a live
+`create-addon`, then `UpdateDeliveryOptions` to Public — none of which is
+automatable from this repo.
 
 ## Interfaces
 
@@ -81,19 +108,34 @@ In scope:
 - **R-EAO-06**: EKS add-on delivery-option visibility is **not** auto-Public
   (unlike Helm/container options). Making the add-on public is a separate
   `UpdateDeliveryOptions`/visibility step, gated on an explicit go.
-- **R-EAO-07**: The add-on's buyer configuration surface is **derived by AWS from
-  the Helm chart's `values.schema.json`** (`aws eks describe-addon-configuration`
-  returns it; a chart with no declared configurable properties yields *"No
-  configuration support"*). Because `create-addon` is the only way an add-on
-  buyer supplies values, `deploy/helm/signals/values.schema.json` MUST declare
-  the buyer-configurable contract — at minimum `target.host`, `target.user`,
-  `target.authMethod`, `target.sslmode`, `target.sslRootCertFile`,
-  `persistence.storageClass`, and `serviceAccount.annotations` — so the add-on
-  can be pointed at a database (and given passwordless-IAM identity + TLS +
-  durable storage). Without it, INV-EAO-02 is unreachable via the add-on path.
-  The schema change ships in the chart and reaches the live add-on only via a
-  new released version that is re-hosted and re-submitted (the config schema is
-  derived at ingestion, per release).
+- **R-EAO-07** (CORRECTED by #297 — the #285/#290 premise was wrong): The
+  add-on's buyer configuration surface is supplied by a **dedicated
+  `aws_mp_configuration_schema.json` at the Helm chart top level**, NOT by the
+  chart's `values.schema.json`. AWS reads that file to render the add-on
+  configuration in the EKS console and to answer
+  `aws eks describe-addon-configuration`; a chart without it (or with an empty
+  one) yields *"No configuration support"* and the add-on cannot be pointed at a
+  database (INV-EAO-02 unreachable). It MUST declare the buyer-configurable
+  contract — at minimum `target.host`, `target.user`, `target.authMethod`,
+  `target.sslmode`, `target.sslRootCertFile`, and `persistence.storageClass`
+  (+ `persistence.enabled/size`, `target.port/dbname/region/secretRef`,
+  `api.tokenSecretName`, `collector.*`, `env`, `resources`). Its keys mirror the
+  chart's value paths so a `configurationValues` blob overrides the chart. It
+  reaches the live add-on only via a new released chart version re-hosted and
+  re-submitted (the schema is read at ingestion, per release).
+- **R-EAO-08** (schema file requirements, #297): `aws_mp_configuration_schema.json`
+  MUST use a JSON Schema draft AWS supports (draft-04/06/07 or draft/2019-09),
+  every property MUST carry a `description` (rendered as the console label),
+  keys use the chart's value paths, and it MUST NOT accept any **secret value**
+  (password, API key, certificate, private key) — identity is by reference only
+  (Kubernetes Secret *names*, filesystem *paths*, or the IRSA role ARN set via
+  the Amazon EKS add-on API). A sensitive field fails AWS ingestion
+  `INVALID_HELM_SENSITIVE_CONFIG`.
+- **R-EAO-09** (auto-injected / API-set keys excluded, #297): cluster metadata
+  (AWS region, cluster name, VPC id, …) is auto-injected by Amazon EKS and MUST
+  be absent from the schema; the IRSA role ARN is set via the add-on API's
+  `serviceAccountRoleArn`, so `serviceAccount.annotations` is NOT a config-schema
+  field; `image` is add-on-managed and excluded.
 
 ## Invariants
 
@@ -119,12 +161,20 @@ In scope:
 - **FC-EAO-04**: `ContainerImages`/`HelmChartUri` pointing at a
   non-Marketplace-ECR (e.g. `ghcr.io`) artifact → AWS rejects on ingestion;
   preflight asserts MP-ECR.
-- **FC-EAO-05**: The chart's `values.schema.json` declares no buyer-configurable
-  properties (or omits the required keys in R-EAO-07) →
-  `describe-addon-configuration` reports *"No configuration support"* → the
-  add-on cannot be pointed at a database and INV-EAO-02 is unreachable. Guard: a
-  chart test asserts `values.schema.json` exposes the required configurable keys
-  (Elevarq/Signals#285).
+- **FC-EAO-05** (CORRECTED, #297): the chart lacks `aws_mp_configuration_schema.json`
+  (or it omits the required keys in R-EAO-07) → `describe-addon-configuration`
+  reports *"No configuration support"* → the add-on cannot be pointed at a
+  database and INV-EAO-02 is unreachable. Guard: a chart test asserts
+  `aws_mp_configuration_schema.json` exists, uses a supported draft, exposes the
+  required keys, describes every property, and declares no secret-value field.
+  (The earlier #285 guard on `values.schema.json` was based on the disproven
+  premise and is replaced.)
+- **FC-EAO-06** (#297): `aws_mp_configuration_schema.json` collects a secret
+  value (password / API key / certificate / private key) → AWS ingestion fails
+  `INVALID_HELM_SENSITIVE_CONFIG`. Guard: the chart test rejects any such field.
+- **FC-EAO-07** (#297): an unsupported JSON Schema draft in the file → AWS fails
+  `INCOMPATIBLE_CONFIGURATION_SCHEMA_VERSION`. Guard: the chart test asserts a
+  supported `$schema`.
 
 ## Constraints
 
