@@ -1308,49 +1308,49 @@ func ValidateModeBTokens(cfg Config, apiToken, controlPlaneToken string) error {
 
 func parseDurations(cfg *Config) error {
 	if cfg.Signals.PollIntervalS != "" {
-		d, err := time.ParseDuration(cfg.Signals.PollIntervalS)
+		d, err := parseFlexDuration(cfg.Signals.PollIntervalS)
 		if err != nil {
 			return fmt.Errorf("parse signals.poll_interval %q: %w", cfg.Signals.PollIntervalS, err)
 		}
 		cfg.Signals.PollInterval = d
 	}
 	if cfg.API.ReadTimeoutS != "" {
-		d, err := time.ParseDuration(cfg.API.ReadTimeoutS)
+		d, err := parseFlexDuration(cfg.API.ReadTimeoutS)
 		if err != nil {
 			return fmt.Errorf("parse api.read_timeout %q: %w", cfg.API.ReadTimeoutS, err)
 		}
 		cfg.API.ReadTimeout = d
 	}
 	if cfg.API.WriteTimeoutS != "" {
-		d, err := time.ParseDuration(cfg.API.WriteTimeoutS)
+		d, err := parseFlexDuration(cfg.API.WriteTimeoutS)
 		if err != nil {
 			return fmt.Errorf("parse api.write_timeout %q: %w", cfg.API.WriteTimeoutS, err)
 		}
 		cfg.API.WriteTimeout = d
 	}
 	if cfg.Signals.TargetTimeoutS != "" {
-		d, err := time.ParseDuration(cfg.Signals.TargetTimeoutS)
+		d, err := parseFlexDuration(cfg.Signals.TargetTimeoutS)
 		if err != nil {
 			return fmt.Errorf("parse signals.target_timeout %q: %w", cfg.Signals.TargetTimeoutS, err)
 		}
 		cfg.Signals.TargetTimeout = d
 	}
 	if cfg.Signals.QueryTimeoutS != "" {
-		d, err := time.ParseDuration(cfg.Signals.QueryTimeoutS)
+		d, err := parseFlexDuration(cfg.Signals.QueryTimeoutS)
 		if err != nil {
 			return fmt.Errorf("parse signals.query_timeout %q: %w", cfg.Signals.QueryTimeoutS, err)
 		}
 		cfg.Signals.QueryTimeout = d
 	}
 	if cfg.Signals.MinSnapshotIntervalS != "" {
-		d, err := time.ParseDuration(cfg.Signals.MinSnapshotIntervalS)
+		d, err := parseFlexDuration(cfg.Signals.MinSnapshotIntervalS)
 		if err != nil {
 			return fmt.Errorf("parse signals.min_snapshot_interval %q: %w", cfg.Signals.MinSnapshotIntervalS, err)
 		}
 		cfg.Signals.MinSnapshotInterval = d
 	}
 	if cfg.Signals.Circuit.OpenCooldownS != "" {
-		d, err := time.ParseDuration(cfg.Signals.Circuit.OpenCooldownS)
+		d, err := parseFlexDuration(cfg.Signals.Circuit.OpenCooldownS)
 		if err != nil {
 			return fmt.Errorf("parse signals.circuit.open_cooldown %q: %w", cfg.Signals.Circuit.OpenCooldownS, err)
 		}
@@ -1359,7 +1359,7 @@ func parseDurations(cfg *Config) error {
 	// Per-target durations: secret_store max_cache_ttl (#97).
 	for i := range cfg.Targets {
 		if cfg.Targets[i].MaxCacheTTLS != "" {
-			d, err := time.ParseDuration(cfg.Targets[i].MaxCacheTTLS)
+			d, err := parseFlexDuration(cfg.Targets[i].MaxCacheTTLS)
 			if err != nil {
 				return fmt.Errorf("parse target[%d] (%s) max_cache_ttl %q: %w", i, cfg.Targets[i].Name, cfg.Targets[i].MaxCacheTTLS, err)
 			}

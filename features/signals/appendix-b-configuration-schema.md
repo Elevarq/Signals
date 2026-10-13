@@ -23,7 +23,7 @@ env: dev
 
 # Collector settings
 signals:
-  poll_interval: 5m         # Collection cycle interval (duration string)
+  poll_interval: 5m         # Collection cycle interval (duration string; units ns,us,ms,s,m,h,d,w — e.g. 30s, 5m, 1h, 1d, 1w)
   retention_days: 30         # Days to retain collected data; 0 or negative disables cleanup
   log_level: info            # debug, info, warn, error
   log_json: false            # Output logs as JSON
