@@ -265,7 +265,8 @@ func run() error {
 					slog.Error("scheduled export disabled: could not load AWS config", "err", aerr.Error())
 				} else {
 					se = export.NewScheduledExporterS3(exporter, s3.NewFromConfig(awsCfg), bucket, prefix, cfg.Signals.ExportS3KMSKeyID, instanceID, nil, slog.Warn)
-					slog.Info("scheduled auto-export enabled (native S3, one object per database)", "bucket", bucket, "prefix", prefix, "cadence", "per collection cycle")
+					se.SetS3DatePartition(cfg.Signals.ExportS3DatePartition)
+					slog.Info("scheduled auto-export enabled (native S3, one object per database)", "bucket", bucket, "prefix", prefix, "date_partition", cfg.Signals.ExportS3DatePartition, "cadence", "per collection cycle")
 				}
 			}
 		} else {

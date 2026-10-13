@@ -91,6 +91,53 @@ func TestScheduledExportS3_PerDatabasePutObjects(t *testing.T) {
 	}
 }
 
+// #494 — date partitioning OFF (the default) keeps the flat
+// `<prefix>/<file>` layout: no YYYY/MM/DD segment between prefix and file.
+func TestScheduledExportS3_FlatByDefault(t *testing.T) {
+	put := &fakePutAPI{}
+	e := NewScheduledExporterS3(fakeS3Builder{ids: []int64{1}}, put, "mybucket", "snapshots", "", "inst", fixedNow, nil)
+	if _, err := e.ExportLatest(context.Background()); err != nil {
+		t.Fatalf("ExportLatest: %v", err)
+	}
+	key := *put.puts[0].Key
+	// flat: exactly one '/' after the prefix (prefix + filename).
+	if !strings.HasPrefix(key, "snapshots/") || strings.Count(key, "/") != 1 {
+		t.Errorf("default must be flat snapshots/<file>, got %q", key)
+	}
+}
+
+// #494 — date partitioning ON writes `<prefix>/YYYY/MM/DD/<file>` (UTC from
+// the same instant as the filename), one per target, each still unique and
+// immutable (the filename keeps its nanosecond timestamp).
+func TestScheduledExportS3_DatePartitioned(t *testing.T) {
+	put := &fakePutAPI{}
+	e := NewScheduledExporterS3(fakeS3Builder{ids: []int64{1, 2}}, put, "mybucket", "snapshots", "", "inst", fixedNow, nil)
+	e.SetS3DatePartition(true)
+	if _, err := e.ExportLatest(context.Background()); err != nil {
+		t.Fatalf("ExportLatest: %v", err)
+	}
+	if len(put.puts) != 2 {
+		t.Fatalf("want 2 puts, got %d", len(put.puts))
+	}
+	seen := map[string]bool{}
+	for _, in := range put.puts {
+		key := *in.Key
+		// fixedNow = 2026-09-30 UTC.
+		if !strings.HasPrefix(key, "snapshots/2026/09/30/") || !strings.HasSuffix(key, ".zip") {
+			t.Errorf("want date-partitioned key snapshots/2026/09/30/<file>.zip, got %q", key)
+		}
+		// The partition date must match the timestamp embedded in the file
+		// name — both derive from the same instant.
+		if file := key[strings.LastIndex(key, "/")+1:]; !strings.Contains(file, "-20260930T") {
+			t.Errorf("filename ts must match the partition date, got %q", file)
+		}
+		if seen[key] {
+			t.Errorf("duplicate object key %q — uniqueness/immutability broken", key)
+		}
+		seen[key] = true
+	}
+}
+
 // SE-AC(S3 KMS): a configured KMS key selects SSE-KMS with that key id.
 func TestScheduledExportS3_KMSKey(t *testing.T) {
 	put := &fakePutAPI{}
