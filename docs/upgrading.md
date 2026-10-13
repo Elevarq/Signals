@@ -65,7 +65,7 @@ and [`cloud-data-durability.md`](../specifications/cloud-data-durability.md)
 > snapshot/output-format compatibility policy (how long a *snapshot* version is
 > emitted and what a downstream consumer may rely on), which is documented
 > separately — see
-> [snapshot/output-format compatibility & deprecation policy (#503)](https://github.com/Elevarq/Signals/issues/503).
+> [`compatibility/snapshot-format-policy.md`](compatibility/snapshot-format-policy.md).
 
 ## Mode matrix
 
@@ -374,7 +374,7 @@ Forward-only: the restore is the downgrade.
 - [`install/kubernetes-production.md`](install/kubernetes-production.md) — full Helm/EKS runbook
 - [`../deploy/aws/README.md`](../deploy/aws/README.md) — AWS durable-volume + root-disk migration detail
 - [`release-verification.md`](release-verification.md) — full signature / SBOM / provenance checklist
-- [snapshot/output-format compatibility & deprecation policy (#503)](https://github.com/Elevarq/Signals/issues/503) — producer-side format policy
+- [`compatibility/snapshot-format-policy.md`](compatibility/snapshot-format-policy.md) — snapshot/output-format compatibility & deprecation policy (producer side)
 - [`../specifications/store-schema-version.md`](../specifications/store-schema-version.md) — forward-only / fail-closed schema policy (#502)
 - [`../specifications/cloud-data-durability.md`](../specifications/cloud-data-durability.md) — `/data` durability guarantees (#501)
 - [`../specifications/populated-upgrade-gate.md`](../specifications/populated-upgrade-gate.md) — populated-upgrade regression gate (#504)

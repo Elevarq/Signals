@@ -984,6 +984,7 @@ analyzer).
 - [Runtime safety model](docs/runtime-safety-model.md) — read-only enforcement details
 - [Adoption guide](docs/adoption-guide.md) — production deployment guidance
 - [Upgrading](docs/upgrading.md) — per-mode upgrade procedure (container, Helm/EKS, AMI/EC2, air-gapped) that preserves `/data`
+- [Snapshot-format policy](docs/compatibility/snapshot-format-policy.md) — export/snapshot-format compatibility, versioning & deprecation policy for consumers
 - [FAQ](docs/faq.md) — common questions
 - [Changelog](CHANGELOG.md) — release history
 - [Security policy](SECURITY.md) — vulnerability reporting

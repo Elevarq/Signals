@@ -13,6 +13,11 @@ The runtime `signalsctl doctor` command (and the `--json` form for
 automation) reports compatibility gaps against the live target.
 See [§ Operator preflight](#operator-preflight) below.
 
+For the **export/snapshot-format** compatibility contract a downstream
+consumer relies on — how the format version evolves, how long a version
+is emitted/supported, and the integrity guarantees — see
+[`snapshot-format-policy.md`](snapshot-format-policy.md).
+
 ## PostgreSQL major versions
 
 | Major | Status | Notes |

@@ -49,6 +49,7 @@ log_fail() { printf "%s   ✗ %s%s\n" "${C_RED}"   "$1" "${C_RESET}" >&2; }
 GUARDED_DOCS=(
   "docs/adoption-guide.md"
   "docs/upgrading.md"
+  "docs/compatibility/snapshot-format-policy.md"
   "README.md"
 )
 
