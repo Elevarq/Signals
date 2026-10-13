@@ -110,6 +110,17 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   to the collector image. The AMI must be re-baked to ship the fix to buyers.
 
 ### Security
+- **`signalsctl --help` no longer leaks `$SIGNALS_API_TOKEN` in cleartext
+  (#492).** The `--api-token` flag used the resolved environment value as its
+  Cobra default, which `--help`/`-h` renders as `(default "...")` — so
+  `signalsctl --help` printed the live bearer token whenever
+  `SIGNALS_API_TOKEN` was set, which it always is inside the collector
+  container (`--env-file`). The flag now defaults to empty and the token is
+  resolved at request time (`effectiveAPIToken`: explicit `--api-token` wins,
+  otherwise `$SIGNALS_API_TOKEN`), so env-based auth is unchanged while
+  `--help` shows no value. Low severity (the API binds `127.0.0.1` and the
+  token is box-local), but a cleartext secret in help output is a real
+  info-leak. Guard: `cmd/signalsctl/main_test.go`.
 - **Bumped the Go toolchain 1.26.6 → 1.26.9** across `go.mod`, the Dockerfile
   builder base (`golang:1.26.9-alpine`, digest-pinned), and the CI/release
   `go-version` pins. Clears the standard-library advisories govulncheck
