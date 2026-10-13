@@ -7,6 +7,22 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Per-mode upgrade documentation that preserves `/data` (#505).** A new
+  `docs/upgrading.md` is the operator-facing upgrade procedure for every
+  supported deploy mode — container / Docker Compose (named durable volume),
+  Helm / EKS (retain-policy PVC), AWS / Azure / GCP single-instance (separate
+  durable block volume, with the root-disk pitfall now fixed by #501), and
+  air-gapped / offline (offline signed-image import + signature verification +
+  offline forward migration). Each mode documents a backup step, an upgrade
+  step, post-upgrade verification (same `instance_id`, history + watermarks
+  intact, next collection continues incrementally), and recovery. It states
+  the already-implemented policy: migrations are forward-only, a newer store
+  fails closed with `*SchemaNewerError` (#502), and a "downgrade" is a restore
+  from the pre-upgrade backup, never a reverse migration. Fixes a doc-drift in
+  `docs/install/kubernetes-production.md`, which cited the stale symbol
+  `internal/store::migrate` — the real migration entry point is
+  `internal/db.Migrate()`. Anti-drift guards:
+  `tests/signals_upgrade_doc_completeness_test.go`.
 - **The store now refuses to run an older binary against a newer store, and
   the schema policy is explicit forward-only / no-downgrade (#502).** The
   SQLite store migrates forward via embedded, transactional, additive

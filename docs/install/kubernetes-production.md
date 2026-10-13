@@ -175,12 +175,22 @@ What happens:
    done), old pod terminated.
 3. PVC unchanged; the new pod re-mounts the existing SQLite store
    on `/data/signals.db`. Schema migrations run on startup
-   per `internal/store::migrate`.
+   via `internal/db.Migrate()`.
 4. Secrets unchanged; the bearer token survives.
 
 The SQLite migration path is forward-only and idempotent —
 re-running the same version against an already-migrated store is
-a no-op. Downgrading is NOT supported (schema may have evolved).
+a no-op. Downgrading is NOT supported (schema may have evolved):
+an older binary opening a store a newer binary already migrated
+**fails closed** with a typed `*SchemaNewerError` rather than
+operating blind against an unknown schema (see
+[`store-schema-version.md`](../../specifications/store-schema-version.md),
+#502). The supported "downgrade" is a restore from the pre-upgrade
+PVC snapshot, never a reverse migration.
+
+For the full cross-mode upgrade procedure (container, Helm/EKS,
+AMI/EC2, air-gapped) with per-mode backup/verify/recovery, see
+[`docs/upgrading.md`](../upgrading.md).
 
 ## Rollback
 

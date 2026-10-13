@@ -48,6 +48,7 @@ log_fail() { printf "%s   ✗ %s%s\n" "${C_RED}"   "$1" "${C_RESET}" >&2; }
 # references (e.g. docs/release-verification.md) are intentionally excluded.
 GUARDED_DOCS=(
   "docs/adoption-guide.md"
+  "docs/upgrading.md"
   "README.md"
 )
 
