@@ -30,6 +30,7 @@ import (
 	"github.com/elevarq/signals/internal/metrics"
 	"github.com/elevarq/signals/internal/pgqueries"
 	"github.com/elevarq/signals/internal/safety"
+	"github.com/elevarq/signals/internal/schedule"
 )
 
 // connConfigFunc is the function used to build pgx configs. Overridable for testing.
@@ -84,6 +85,11 @@ type Collector struct {
 	collectNowCh                chan CollectRequest
 	entropy                     io.Reader
 	running                     sync.Mutex
+	// sched, when non-nil, anchors collection to a cron schedule (#491):
+	// Run waits for each cron match instead of ticking from process start,
+	// and performs no start-time baseline. Nil = interval mode (the ticker).
+	// Set once at construction via WithSchedule; read only by Run.
+	sched *schedule.Schedule
 
 	// credResolver dispatches each connection's credential by
 	// auth_method (credential-providers.md #93): the default password
@@ -209,6 +215,15 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 
 // CollectorOption configures a Collector.
 type CollectorOption func(*Collector)
+
+// WithSchedule installs a cron schedule (#491). When set, Run anchors
+// collection to the schedule's cron matches instead of the poll_interval
+// ticker, and does no start-time baseline. Nil leaves interval mode unchanged.
+func WithSchedule(s *schedule.Schedule) CollectorOption {
+	return func(c *Collector) {
+		c.sched = s
+	}
+}
 
 // WithMaxConcurrentTargets sets the max number of targets collected in parallel.
 func WithMaxConcurrentTargets(n int) CollectorOption {
@@ -726,8 +741,15 @@ func formatInterval(d time.Duration) string {
 	return b.String()
 }
 
-// Run starts the collection loop, blocking until ctx is cancelled.
+// Run starts the collection loop, blocking until ctx is cancelled. When a
+// cron schedule is installed (#491) it drives timing from the schedule;
+// otherwise it ticks every poll_interval from process start.
 func (c *Collector) Run(ctx context.Context) {
+	if c.sched != nil {
+		c.runScheduled(ctx)
+		return
+	}
+
 	slog.Info("collector starting", "interval", formatInterval(c.interval), "targets", len(c.currentTargets()))
 
 	ticker := time.NewTicker(c.interval)
@@ -748,6 +770,38 @@ func (c *Collector) Run(ctx context.Context) {
 		case req := <-c.collectNowCh:
 			slog.Info("on-demand collection triggered", "targets", len(req.Targets), "request_id", req.RequestID)
 			c.cycle(ctx, true, req)
+		}
+	}
+}
+
+// runScheduled drives collection from a cron schedule (#491). Unlike the
+// interval loop it performs NO start-time baseline (R-SCHED-04) and never
+// back-fills slots missed while the daemon was down — each iteration computes
+// the next fire strictly after "now" and waits for it (R-SCHED-05). On-demand
+// collection remains available at any time (R-SCHED-08).
+func (c *Collector) runScheduled(ctx context.Context) {
+	slog.Info("collector starting (scheduled)",
+		"schedule", c.sched.Expr(),
+		"timezone", c.sched.Location().String(),
+		"targets", len(c.currentTargets()))
+
+	for {
+		next := c.sched.Next(time.Now())
+		timer := time.NewTimer(time.Until(next))
+		slog.Info("next scheduled collection", "at", next.Format(time.RFC3339))
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			slog.Info("collector stopping")
+			c.closePools()
+			return
+		case <-timer.C:
+			c.cycle(ctx, false, CollectRequest{})
+		case req := <-c.collectNowCh:
+			timer.Stop()
+			slog.Info("on-demand collection triggered", "targets", len(req.Targets), "request_id", req.RequestID)
+			c.cycle(ctx, true, req)
+			// Loop recomputes the next scheduled fire.
 		}
 	}
 }

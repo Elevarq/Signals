@@ -455,3 +455,24 @@ Additive — fresh-install coverage is retained.
 | INV-UPG-02 (forward-only ledger advance, no empty-init) | Ledger advances forward-only by exactly the missing migrations; prefix rows unchanged; no empty-init over populated data | TC-UPG-05, TC-UPG-07 | COVERED | BEHAVIORAL | Post-upgrade ledger == embedded set; prefix `applied_at` unchanged; counts non-zero. |
 | INV-UPG-03 (no credential in store) | Upgrade introduces no credential value; targets persist only by-reference secret identifiers | TC-UPG-07 | COVERED | BEHAVIORAL | No credential-like meta key; `secret_ref` is an ARN, no password/token substring. |
 | INV-UPG-04 (additive) | Upgrade gate is additive; fresh-install coverage retained and unmodified | TC-UPG-09 | COVERED | REGRESSION | Full suite green with pre-existing tests untouched. |
+
+## #491 — Cron-scheduled collection anchor
+
+Spec: `specifications/scheduled-collection-anchor.md` (ACTIVE). Tests in
+`internal/schedule/schedule_test.go`, `internal/config/schedule_config_test.go`,
+`internal/collector/scheduled_run_test.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| R-SCHED-01 | Parse standard 5-field cron; invalid fails validation | TestSchedule_NewRejectsInvalid, TestScheduleConfig_RejectsBadCron | COVERED | BEHAVIORAL | `cron.ParseStandard`; bad expr is a hard config error. |
+| R-SCHED-02 | Timezone resolves via IANA db; empty = UTC | TestSchedule_NextDailyUTC, TestSchedule_NextWithTimezone, TestScheduleConfig_RejectsBadTimezone | COVERED | BEHAVIORAL | UTC default; `Europe/Amsterdam` DST-aware; unknown tz rejected. |
+| R-SCHED-03 | Jitter parses as duration and must be >= 0 | TestScheduleConfig_RejectsNegativeJitter, TestScheduleConfig_JitterStringParsed | COVERED | BEHAVIORAL | `parseFlexDuration` (#490 grammar); negative rejected. |
+| R-SCHED-04 | Scheduled mode does no baseline, arms no ticker | TestRunScheduled_NoBaselineButOnDemandRuns | COVERED | BEHAVIORAL | No cycle before first cron match. |
+| R-SCHED-05 | Next fire strictly after now; no catch-up | TestSchedule_NextIsStrictlyAfterNow | COVERED | BEHAVIORAL | Current match not re-run; missed slots never back-filled. |
+| R-SCHED-06 | Each fire delayed by uniform [0, jitter); 0 = exact | TestSchedule_JitterWithinBound, TestSchedule_ZeroJitterExact | COVERED | BEHAVIORAL | Deterministic rand; rand not consulted when jitter 0. |
+| R-SCHED-07 | No schedule ⇒ interval mode unchanged (additive) | TestScheduleConfig_EmptyIsIntervalMode, TestRunInterval_RunsBaseline | COVERED | BEHAVIORAL | poll_interval still required; baseline still runs. |
+| R-SCHED-08 | On-demand collection immediate in both modes | TestRunScheduled_NoBaselineButOnDemandRuns | COVERED | BEHAVIORAL | CollectNow fires a cycle under a schedule. |
+| INV-SCHED-01 | No schedule ⇒ no behaviour change | TestRunInterval_RunsBaseline, TestScheduleConfig_EmptyIsIntervalMode | COVERED | BEHAVIORAL | Interval path untouched. |
+| INV-SCHED-02 | Never start with invalid schedule/tz/jitter | TestScheduleConfig_RejectsBadCron/BadTimezone/NegativeJitter | COVERED | BEHAVIORAL | Fail-closed at config load. |
+| INV-SCHED-03 | Fire time always in the future; no back-fill | TestSchedule_NextIsStrictlyAfterNow | COVERED | BEHAVIORAL | `Next` strictly after the passed instant. |
+| INV-SCHED-04 | No new credential/egress surface | — | COVERED | DOC | Local wall-clock logic only; no network, no secrets. |
