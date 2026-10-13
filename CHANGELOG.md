@@ -7,6 +7,25 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Written snapshot/output-format compatibility & deprecation policy (#503).**
+  A new `docs/compatibility/snapshot-format-policy.md` documents the
+  producer-side stability contract for the already-versioned, self-describing
+  export format (`schema_version` = `signals-snapshot.v1`,
+  `collector_status_schema_version` = `1`, `manifest_version` = `1`, plus
+  per-file SHA-256 integrity). It defines how a version evolves (additive
+  changes stay within a major and never bump it; only a breaking change bumps
+  the major; consumers must ignore unknown fields/files), how long a version is
+  emitted and supported (a superseded major stays emitted + supported for **two
+  minor release cycles** — distinct from the SECURITY.md software-line window),
+  and exactly what a consumer may rely on (self-description, additive-only
+  within a major, SHA-256 integrity manifest, never any secret). No runtime
+  producer/consumer negotiation and no new version fields are introduced — this
+  is documentation of the existing format. It is the producer side of a
+  cross-repo contract whose consumer side (Analyzer ingestion) is tracked in
+  Elevarq/Analyzer#3763, and is written entirely in Signals' own terms. The
+  written version references are pinned to the live constants by
+  `tests/signals_snapshot_format_policy_test.go` so the policy cannot drift from
+  the emitted format.
 - **Per-mode upgrade documentation that preserves `/data` (#505).** A new
   `docs/upgrading.md` is the operator-facing upgrade procedure for every
   supported deploy mode — container / Docker Compose (named durable volume),
