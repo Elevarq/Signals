@@ -7,6 +7,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ## [Unreleased]
 
 ### Added
+- **Canonical `scripts/cut-release.sh` with pre-tag gates (#480).** Releases are
+  tag-driven (pushing `vX.Y.Z` fires `release.yml`), but the tag was cut by
+  hand, so avoidable defects reached main or only surfaced mid-build — the
+  v1.5.1 cut hit three in a row (Chart.yaml ↔ values.yaml `image.tag` drift,
+  the `release.yml` CHANGELOG `## [X.Y.Z]` gate, and the required annotated-tag
+  message). `cut-release.sh vX.Y.Z [--dry-run] [--yes]` runs every pre-tag gate
+  locally — tag format (`^v[0-9]+\.[0-9]+\.[0-9]+$`, no `-rc`/`-beta`), clean
+  worktree + `HEAD == origin/main`, version lockstep (Chart.yaml
+  `version`/`appVersion` == values.yaml `image.tag` == VERSION), CHANGELOG has
+  a `## [VERSION]` section (mirrors `release.yml`), and tag-not-already-present
+  (local + remote) — and only then creates and pushes the annotated tag
+  (`--dry-run` stops before tagging; a human `y/N` confirm otherwise, or
+  `--yes`). Guard: `tests/signals_cut_release_test.go`.
 - **Written snapshot/output-format compatibility & deprecation policy (#503).**
   A new `docs/compatibility/snapshot-format-policy.md` documents the
   producer-side stability contract for the already-versioned, self-describing
