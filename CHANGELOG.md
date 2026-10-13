@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-10-13
+
 ### Added
 - **The STDD CSI gates are now enforced in CI (#451).** The traceability
   matrix, knowledge-layer integrity, and spec lifecycle were documented in
