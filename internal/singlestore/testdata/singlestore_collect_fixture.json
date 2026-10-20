@@ -1,0 +1,309 @@
+[
+  {
+    "CollectorID": "singlestore_identity_v1",
+    "Category": "server",
+    "Rows": [
+      {
+        "memsql_version": "10.6.1",
+        "version": "5.7.32",
+        "version_comment": "SingleStoreDB source distribution (compatible; MySQL Enterprise \u0026 MySQL Commercial)"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_aggregators_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "AVAILABILITY_GROUP": 3,
+        "AVERAGE_ROUNDTRIP_LATENCY": null,
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-agg-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 4,
+        "OPENED_CONNECTIONS": 1,
+        "PORT": 3306,
+        "ROLE": "Follower",
+        "STATE": "online"
+      },
+      {
+        "AVAILABILITY_GROUP": 3,
+        "AVERAGE_ROUNDTRIP_LATENCY": 0.22368379324733018,
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-agg-1.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 5,
+        "OPENED_CONNECTIONS": 1,
+        "PORT": 3306,
+        "ROLE": "Follower",
+        "STATE": "online"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_leaves_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "AVAILABILITY_GROUP": 3,
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag1-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 2,
+        "OPENED_CONNECTIONS": 9,
+        "PAIR_HOST": null,
+        "PAIR_PORT": null,
+        "PORT": 3306,
+        "STATE": "online"
+      },
+      {
+        "AVAILABILITY_GROUP": 4,
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag2-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 3,
+        "OPENED_CONNECTIONS": 9,
+        "PAIR_HOST": null,
+        "PAIR_PORT": null,
+        "PORT": 3306,
+        "STATE": "online"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_cluster_status_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "DATABASE_NAME": "cluster",
+        "HOST": "node-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa-master-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 1,
+        "PORT": 3306,
+        "POSITION": "0:369",
+        "ROLE": "master",
+        "STATE": "online"
+      },
+      {
+        "DATABASE_NAME": "poc_db",
+        "HOST": "node-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa-master-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 1,
+        "PORT": 3306,
+        "POSITION": "0:47",
+        "ROLE": "master",
+        "STATE": "online"
+      },
+      {
+        "DATABASE_NAME": "cluster",
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag1-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "NODE_ID": 2,
+        "PORT": 3306,
+        "POSITION": "0:369",
+        "ROLE": "async slave",
+        "STATE": "replicating"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_table_statistics_v1",
+    "Category": "schema",
+    "Rows": [
+      {
+        "DATABASE_NAME": "poc_db",
+        "MEMORY_USE": 0,
+        "PARTITION_TYPE": "Slave",
+        "ROWS": 0,
+        "STORAGE_TYPE": "COLUMNSTORE",
+        "TABLE_NAME": "events"
+      },
+      {
+        "DATABASE_NAME": "poc_db",
+        "MEMORY_USE": 0,
+        "PARTITION_TYPE": "Slave",
+        "ROWS": 0,
+        "STORAGE_TYPE": "COLUMNSTORE",
+        "TABLE_NAME": "orders"
+      },
+      {
+        "DATABASE_NAME": "poc_db",
+        "MEMORY_USE": 0,
+        "PARTITION_TYPE": "Master",
+        "ROWS": 0,
+        "STORAGE_TYPE": "COLUMNSTORE",
+        "TABLE_NAME": "orders"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_plancache_v1",
+    "Category": "workload",
+    "Rows": [
+      {
+        "AVERAGE_EXEC_TIME": 13,
+        "COMMITS": 2,
+        "CPU_TIME": 3,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 27,
+        "LAST_EXECUTED": "2026-10-20 14:20:42",
+        "PLAN_ID": 0,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 9,
+        "COMMITS": 3,
+        "CPU_TIME": 4,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 27,
+        "LAST_EXECUTED": "2026-10-20 14:27:17",
+        "PLAN_ID": 56,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 146
+      },
+      {
+        "AVERAGE_EXEC_TIME": 0,
+        "COMMITS": 34,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 6,
+        "LAST_EXECUTED": "2026-10-20 14:27:56",
+        "PLAN_ID": 36,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 34
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_global_variables_v1",
+    "Category": "config",
+    "Rows": [
+      {
+        "VARIABLE_NAME": "MAX_CONNECTIONS",
+        "VARIABLE_VALUE": "100000"
+      },
+      {
+        "VARIABLE_NAME": "WORKLOAD_MANAGEMENT_MAX_QUEUE_DEPTH",
+        "VARIABLE_VALUE": "100"
+      },
+      {
+        "VARIABLE_NAME": "MAXIMUM_MEMORY",
+        "VARIABLE_VALUE": "6127"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_activities_v1",
+    "Category": "resources",
+    "Rows": [
+      {
+        "ACTIVITY_NAME": "WorkloadMonitor",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 5062,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 5
+      },
+      {
+        "ACTIVITY_NAME": "GarbageCollectorThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 2,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 5064,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 5
+      },
+      {
+        "ACTIVITY_NAME": "HandleSchedulerThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 5063,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 5
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_processlist_v1",
+    "Category": "activity",
+    "Rows": [
+      {
+        "COMMAND": "Query",
+        "DB": null,
+        "HOST": "172.248.132.67:15825",
+        "ID": 95,
+        "INFO": null,
+        "NODE_ID": 4,
+        "PLAN_ID": 89,
+        "STATE": "executing",
+        "TIME": 0,
+        "TRANSACTION_STATE": "running",
+        "USER": "admin"
+      },
+      {
+        "COMMAND": "Sleep",
+        "DB": null,
+        "HOST": "10.1.99.62:3246",
+        "ID": 73,
+        "INFO": null,
+        "NODE_ID": 4,
+        "PLAN_ID": null,
+        "STATE": "",
+        "TIME": 151,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      },
+      {
+        "COMMAND": "Query",
+        "DB": "information_schema",
+        "HOST": "10.2.39.91:20703",
+        "ID": 63,
+        "INFO": null,
+        "NODE_ID": 4,
+        "PLAN_ID": 94,
+        "STATE": "executing",
+        "TIME": 0,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_distributed_partitions_v1",
+    "Category": "resources",
+    "Rows": [
+      {
+        "DATABASE_NAME": "poc_db",
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag2-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "IS_OFFLINE": 0,
+        "NODE_ID": 3,
+        "ORDINAL": 7,
+        "PORT": 3306,
+        "ROLE": "Master",
+        "STATE": ""
+      },
+      {
+        "DATABASE_NAME": "poc_db",
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag2-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "IS_OFFLINE": 0,
+        "NODE_ID": 3,
+        "ORDINAL": 6,
+        "PORT": 3306,
+        "ROLE": "Master",
+        "STATE": ""
+      },
+      {
+        "DATABASE_NAME": "poc_db",
+        "HOST": "node-3a2f6852-7fcd-4027-951a-2b4a473e6a59-leaf-ag2-0.svc-3a2f6852-7fcd-4027-a3fa-322b55d9d3fa",
+        "IS_OFFLINE": 0,
+        "NODE_ID": 3,
+        "ORDINAL": 5,
+        "PORT": 3306,
+        "ROLE": "Master",
+        "STATE": ""
+      }
+    ],
+    "Err": ""
+  }
+]

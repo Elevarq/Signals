@@ -21,6 +21,13 @@ type Collector struct {
 	SQL              string
 	HighSensitivity  bool
 	SensitiveColumns []string
+	// ElevatedPrivilege, when non-empty, names a SingleStore privilege beyond
+	// the baseline monitoring grant (SELECT + PROCESS) that this collector
+	// requires — e.g. "CLUSTER" for MV_CLUSTER_STATUS. A permission-denied
+	// error from an elevated collector run under the baseline role is an
+	// EXPECTED degrade (skip), not a fault (#554, least-privilege). Empirically
+	// determined against a live workspace.
+	ElevatedPrivilege string
 }
 
 // Result is the outcome of running one Collector.
@@ -56,9 +63,10 @@ func Catalog() []Collector {
 			SQL:      "SELECT HOST, PORT, AVAILABILITY_GROUP, PAIR_HOST, PAIR_PORT, STATE, NODE_ID, OPENED_CONNECTIONS FROM information_schema.LEAVES",
 		},
 		{
-			ID:       "singlestore_cluster_status_v1",
-			Category: "topology",
-			SQL:      "SELECT NODE_ID, HOST, PORT, DATABASE_NAME, ROLE, STATE, POSITION FROM information_schema.MV_CLUSTER_STATUS",
+			ID:                "singlestore_cluster_status_v1",
+			Category:          "topology",
+			SQL:               "SELECT NODE_ID, HOST, PORT, DATABASE_NAME, ROLE, STATE, POSITION FROM information_schema.MV_CLUSTER_STATUS",
+			ElevatedPrivilege: "CLUSTER", // needs CLUSTER beyond baseline SELECT+PROCESS (#554); degrades to skip without it
 		},
 		{
 			ID:       "singlestore_table_statistics_v1",
