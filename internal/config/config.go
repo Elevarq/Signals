@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/elevarq/signals/internal/engineid"
 	"github.com/elevarq/signals/internal/schedule"
 	"gopkg.in/yaml.v3"
 )
@@ -242,6 +243,12 @@ type TargetConfig struct {
 	PgpassFile      string `yaml:"pgpass_file"`
 	Enabled         bool   `yaml:"enabled"`
 
+	// Engine declares this target's database engine (engine-target-config.md,
+	// #529/#531). Empty means PostgreSQL, so existing single-engine configs
+	// are unchanged; a non-empty value must appear in SupportedEngines or
+	// ValidateStrict rejects the config (ETC-R002).
+	Engine string `yaml:"engine"`
+
 	// AuthMethod selects the credential provider for this target
 	// (credential-providers.md, #93). Empty means the default
 	// password provider, preserving existing behavior. Non-empty
@@ -403,6 +410,36 @@ const (
 	AuthMethodSecretStore    = "secret_store"
 	AuthMethodMTLS           = "mtls"
 )
+
+// Engine constants mirror the engineid identity values. Empty on a target
+// means PostgreSQL, preserving existing single-engine configs (#529/#531).
+const (
+	EnginePostgreSQL  = engineid.EnginePostgreSQL
+	EngineMySQL       = engineid.EngineMySQL
+	EngineSingleStore = engineid.EngineSingleStore
+)
+
+// SupportedEngines enumerates every engine this build can target.
+var SupportedEngines = []string{EnginePostgreSQL, EngineMySQL, EngineSingleStore}
+
+func engineSupported(e string) bool {
+	for _, s := range SupportedEngines {
+		if e == s {
+			return true
+		}
+	}
+	return false
+}
+
+// EffectiveEngine resolves the target's engine, defaulting to PostgreSQL when
+// unset so existing configs behave unchanged (ETC-R001). Mirrors
+// EffectiveAuthMethod.
+func (t TargetConfig) EffectiveEngine() string {
+	if t.Engine == "" {
+		return EnginePostgreSQL
+	}
+	return t.Engine
+}
 
 // SupportedAuthMethods enumerates every auth_method this build can serve.
 // The empty value is equivalent to AuthMethodPassword (see
@@ -1046,6 +1083,13 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			// startup failures — the key is not read until connect time.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
+		}
+
+		// Engine identity (#529/#531): empty engine means PostgreSQL and
+		// preserves every existing config; a non-empty engine must be one this
+		// build supports (mirrors the auth_method keystone, ETC-R002).
+		if t.Engine != "" && !engineSupported(t.Engine) {
+			hard = append(hard, fmt.Sprintf("target[%d] (%s): engine %q is not supported by this build (supported: %s)", i, t.Name, t.Engine, strings.Join(SupportedEngines, ", ")))
 		}
 	}
 
