@@ -109,3 +109,30 @@ func TestCatalogShape(t *testing.T) {
 		t.Fatal("INV-SSC-02: plancache SensitiveColumns must include QUERY_TEXT")
 	}
 }
+
+func TestQueryTextCollectorsAreHighSensitivity(t *testing.T) {
+	// #554 query-text handling: any collector that selects a query-text column
+	// (QUERY_TEXT in MV_PLANCACHE, INFO in MV_PROCESSLIST) MUST be flagged
+	// HighSensitivity with that column in SensitiveColumns, so it is redacted
+	// on opt-out. This guards against a new collector leaking SQL text.
+	queryTextCols := []string{"QUERY_TEXT", "INFO"}
+	for _, c := range Catalog() {
+		for _, qt := range queryTextCols {
+			if !strings.Contains(c.SQL, qt) {
+				continue
+			}
+			if !c.HighSensitivity {
+				t.Fatalf("collector %s selects query-text column %s but is not HighSensitivity", c.ID, qt)
+			}
+			listed := false
+			for _, sc := range c.SensitiveColumns {
+				if sc == qt {
+					listed = true
+				}
+			}
+			if !listed {
+				t.Fatalf("collector %s selects %s but it is not in SensitiveColumns %v", c.ID, qt, c.SensitiveColumns)
+			}
+		}
+	}
+}

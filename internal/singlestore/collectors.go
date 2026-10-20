@@ -82,6 +82,18 @@ func Catalog() []Collector {
 			Category: "resources",
 			SQL:      "SELECT ACTIVITY_NAME, ACTIVITY_TYPE, DATABASE_NAME, CPU_TIME_MS, ELAPSED_TIME_MS, MEMORY_BS, RUN_COUNT FROM information_schema.MV_ACTIVITIES",
 		},
+		{
+			ID:               "singlestore_processlist_v1",
+			Category:         "activity",
+			SQL:              "SELECT NODE_ID, ID, USER, HOST, DB, COMMAND, TIME, STATE, INFO, PLAN_ID, TRANSACTION_STATE FROM information_schema.MV_PROCESSLIST",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"INFO"},
+		},
+		{
+			ID:       "singlestore_distributed_partitions_v1",
+			Category: "resources",
+			SQL:      "SELECT DATABASE_NAME, ORDINAL, HOST, PORT, ROLE, STATE, NODE_ID, IS_OFFLINE FROM information_schema.DISTRIBUTED_PARTITIONS",
+		},
 	}
 }
 

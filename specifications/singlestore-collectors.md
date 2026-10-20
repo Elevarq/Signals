@@ -11,8 +11,8 @@ MySQL wire, producing collector results for a snapshot that declares
 `engine=singlestore`. The collector SQL and result columns are **validated
 against a live SingleStore workspace** (not authored blind) — see the
 traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
-#549 (topology), #550 (schema/storage), #551 (plancache workload), #553
-(resources).
+#549 (topology), #550 (schema/storage), #551 (plancache workload), #552
+(process list / activities), #553 (resources).
 
 ## Scope
 
@@ -46,6 +46,8 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 | `singlestore_plancache_v1` | workload | `information_schema.MV_PLANCACHE` | **HighSensitivity**: `QUERY_TEXT` redacted on opt-out |
 | `singlestore_global_variables_v1` | config | `information_schema.MV_GLOBAL_VARIABLES` | selected memory/connection vars |
 | `singlestore_activities_v1` | resources | `information_schema.MV_ACTIVITIES` | CPU/elapsed/memory per activity |
+| `singlestore_processlist_v1` | activity | `information_schema.MV_PROCESSLIST` | **HighSensitivity**: `INFO` (live statement text) redacted on opt-out |
+| `singlestore_distributed_partitions_v1` | resources | `information_schema.DISTRIBUTED_PARTITIONS` | per-partition host/role/state |
 
 ## Behaviors
 
@@ -63,6 +65,7 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 | **SSC-R001** | Every catalog statement is a read-only `SELECT`; no writes (Signals safety). |
 | **SSC-R002** | A collector whose statement errors records `Err` and does not abort the others (partial collection is captured, not fatal). |
 | **SSC-R003** | With `redactSensitive=true`, each `SensitiveColumns` value is set to nil in every row of that collector's result. |
+| **SSC-R004** | Any collector that selects a query-text column (`QUERY_TEXT`, `INFO`) MUST be `HighSensitivity` with that column in `SensitiveColumns` (query-text handling, #554). |
 
 ## Invariants
 
@@ -70,6 +73,7 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 |----|-----------|
 | **INV-SSC-01** | Collection never issues a non-`SELECT` statement. |
 | **INV-SSC-02** | `singlestore_plancache_v1` is marked HighSensitivity with `QUERY_TEXT` in SensitiveColumns (it carries application SQL text). |
+| **INV-SSC-03** | No collector selecting a query-text column escapes the HighSensitivity + redaction contract (SSC-R004) — guards new collectors against leaking SQL text. |
 
 ## Failure conditions
 
