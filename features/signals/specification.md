@@ -2012,7 +2012,8 @@ resolves, or caches its connection credential changes** — not
 only the host/port/database/user/sslmode/password-source subset.
 The exhaustive set of pool-affecting `TargetConfig` fields is:
 
-- **Dialing**: `Host`, `Port`, `DBName`, `User`, `SSLMode`.
+- **Dialing**: `Engine` (selects the backend/driver — PostgreSQL/pgx
+  vs the MySQL wire), `Host`, `Port`, `DBName`, `User`, `SSLMode`.
 - **TLS**: `SSLRootCertFile` (CA / server verification),
   `SSLCert`, `SSLKey`, `SSLKeyPassphraseFile` (mTLS client
   material).

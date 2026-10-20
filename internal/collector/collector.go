@@ -500,6 +500,7 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) error {
 // silent omission from the reload comparison.
 type connIdentity struct {
 	// Dialing
+	Engine  string // selects the backend/driver (pgx vs MySQL-wire); a change re-dials
 	Host    string
 	Port    int
 	DBName  string
@@ -528,6 +529,7 @@ type connIdentity struct {
 // connectionIdentity derives the connIdentity of a target.
 func connectionIdentity(t config.TargetConfig) connIdentity {
 	return connIdentity{
+		Engine:                       t.Engine,
 		Host:                         t.Host,
 		Port:                         t.Port,
 		DBName:                       t.DBName,
@@ -1003,6 +1005,20 @@ func cycleStatus(err error, failed, budgetExhausted int) string {
 
 func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, forceAll, force bool, requestID, actor string) (err error) {
 	cycleStart := time.Now()
+
+	// Engine dispatch (#529/#548): this cycle is the PostgreSQL/pgx backend.
+	// A non-PostgreSQL target (e.g. SingleStore over the MySQL wire) must
+	// never be connected with pgx — skip it here, before any connection,
+	// rather than failing deep in a pgx dial. It is served by the
+	// engine-specific path instead (INV-ECD-01).
+	if SelectBackend(tgt) != BackendPostgreSQL {
+		eng := tgt.EffectiveEngine()
+		slog.Info("collection skipped — non-PostgreSQL engine not handled by the pgx cycle",
+			"target", tgt.Name, "engine", eng)
+		safety.AuditLog("collection_skipped_engine",
+			"target", tgt.Name, "engine", eng, "reason_category", "engine_not_pgx")
+		return nil
+	}
 
 	// R097: circuit-breaker gate. Runs BEFORE the R091 floor and
 	// BEFORE any PG connection — the cheapest path for a target
