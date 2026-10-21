@@ -191,20 +191,36 @@ func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, s
 	// Two cycles of collection history, the second establishing the
 	// watermark. query_results payload on the watermark run so B3 can assert
 	// the payload survived.
+	//
+	// #532: the vPREV schema predates migration 007 (the `engine` column), so
+	// it is populated with pre-007-shaped rows via raw SQL — the authentic
+	// shape an earlier release wrote. The current engine-aware write path is
+	// NOT used here. After the upgrade applies 007, these historical snapshots
+	// gain engine='postgresql' from the column default (the historical-row
+	// compatibility path), without any backfill.
 	for i, stamp := range []string{fx.olderStamp, fx.watermarkStamp} {
 		snapID := fmt.Sprintf("snap-%d", i)
-		snap := db.Snapshot{ID: snapID, TargetID: fx.targetID, CollectedAt: stamp, PGVersion: "17.4", Payload: []byte(`{"ok":true}`), SizeBytes: 11}
-		run := db.QueryRun{
-			ID: fmt.Sprintf("run-%d", i), TargetID: fx.targetID, SnapshotID: snapID,
-			QueryID: fx.watermarkQueryID, CollectedAt: stamp, PGVersion: "17.4",
-			CreatedAt: stamp, Status: "success",
+		if _, err := store.SQL().Exec(
+			`INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?)`,
+			snapID, fx.targetID, stamp, "17.4", `{"ok":true}`, 11,
+		); err != nil {
+			t.Fatalf("vPREV insert snapshot[%d]: %v", i, err)
 		}
-		var results []db.QueryResult
+		runID := fmt.Sprintf("run-%d", i)
+		if _, err := store.SQL().Exec(
+			`INSERT INTO query_runs (id, target_id, snapshot_id, query_id, collected_at, pg_version, duration_ms, row_count, error, created_at, status, reason)
+			 VALUES (?, ?, ?, ?, ?, ?, 0, 0, '', ?, 'success', '')`,
+			runID, fx.targetID, snapID, fx.watermarkQueryID, stamp, "17.4", stamp,
+		); err != nil {
+			t.Fatalf("vPREV insert run[%d]: %v", i, err)
+		}
 		if i == 1 {
-			results = []db.QueryResult{{RunID: run.ID, Payload: fx.resultPayload, Compressed: false, SizeBytes: len(fx.resultPayload)}}
-		}
-		if err := store.InsertCollectionAtomic(snap, []db.QueryRun{run}, results); err != nil {
-			t.Fatalf("vPREV InsertCollectionAtomic[%d]: %v", i, err)
+			if _, err := store.SQL().Exec(
+				`INSERT INTO query_results (run_id, payload, compressed, size_bytes) VALUES (?, ?, 0, ?)`,
+				runID, fx.resultPayload, len(fx.resultPayload),
+			); err != nil {
+				t.Fatalf("vPREV insert result[%d]: %v", i, err)
+			}
 		}
 		fx.wantSnapshots++
 		fx.wantRuns++

@@ -735,7 +735,7 @@ func (d *DB) GetLatestSnapshotForTarget(targetID int64) (*Snapshot, error) {
 	var s Snapshot
 	var payload string
 	err := d.sql.QueryRow(
-		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes
+		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.engine, s.payload, s.size_bytes
 		 FROM snapshots s
 		 JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		 WHERE s.target_id = ?
@@ -898,7 +898,7 @@ func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
 	}
 	placeholders := strings.Repeat("?,", len(ids))
 	placeholders = placeholders[:len(placeholders)-1]
-	q := `SELECT id, target_id, collected_at, pg_version, payload, size_bytes
+	q := `SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes
 	      FROM snapshots WHERE id IN (` + placeholders + `)
 	      ORDER BY target_id ASC, id ASC`
 	args := make([]any, len(ids))
@@ -1016,6 +1016,19 @@ func (d *DB) InsertQueryRunBatch(runs []QueryRun, results []QueryResult) error {
 // fails the entire cycle is rolled back so partial state — e.g. a snapshot
 // without its query runs, or runs without their result payloads — never
 // becomes observable to readers or exports.
+// InsertCollection is the production new-collection write path (#532, ECD-R005).
+// It requires an explicitly determined engine identity: the snapshots.engine
+// column default ('postgresql') exists ONLY for historical-row/back-compat and
+// must never silently stamp a NEW production collection as PostgreSQL. A caller
+// that has not determined the engine is a bug, not a PostgreSQL default. It
+// delegates to the lower-level atomic primitive once the identity is explicit.
+func (d *DB) InsertCollection(snapshot Snapshot, runs []QueryRun, results []QueryResult) error {
+	if snapshot.Engine == "" {
+		return fmt.Errorf("new collection snapshot requires explicit engine identity (#532, ECD-R005); refusing to default a new production write to postgresql")
+	}
+	return d.InsertCollectionAtomic(snapshot, runs, results)
+}
+
 func (d *DB) InsertCollectionAtomic(snapshot Snapshot, runs []QueryRun, results []QueryResult) error {
 	tx, err := d.sql.Begin()
 	if err != nil {

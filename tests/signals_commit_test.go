@@ -51,20 +51,22 @@ func TestCommitFailureBlocksDownstreamPersistence(t *testing.T) {
 
 	// Find the positions of the commit error handling and downstream persistence.
 	commitReturn := strings.Index(src, `return fmt.Errorf("commit tx for`)
-	atomicInsert := strings.Index(src, "InsertCollectionAtomic")
+	// #532: the production new-collection persistence call is InsertCollection
+	// (the strict engine-aware wrapper over InsertCollectionAtomic).
+	atomicInsert := strings.Index(src, "InsertCollection")
 
 	if commitReturn < 0 {
 		t.Fatal("collector.go does not return an error on commit failure — " +
 			"missing 'return fmt.Errorf(\"commit tx for...'")
 	}
 	if atomicInsert < 0 {
-		t.Fatal("collector.go does not call InsertCollectionAtomic")
+		t.Fatal("collector.go does not call InsertCollection")
 	}
 
 	// The commit-error return must appear BEFORE the downstream persistence call.
 	// This guarantees that if commit fails, the function exits before writing to SQLite.
 	if commitReturn > atomicInsert {
-		t.Error("commit error return appears AFTER InsertCollectionAtomic — " +
+		t.Error("commit error return appears AFTER InsertCollection — " +
 			"SQLite writes may proceed after failed PostgreSQL commit")
 	}
 }

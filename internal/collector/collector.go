@@ -104,6 +104,14 @@ type Collector struct {
 	// interface.
 	credResolver CredentialResolver
 
+	// ssConnect opens the SingleStore engine's DB/network surface for a target
+	// (#532, ECD-R003). Defaults to openSingleStore (a real MySQL-wire
+	// connection built from the normal TargetConfig + resolved credentials);
+	// a production-boundary test injects a fake at this one boundary via
+	// WithSingleStoreConnectorForTest, leaving dispatch/session/identity/
+	// orchestration/mapping/persistence/export to run for real above it.
+	ssConnect ssConnector
+
 	// circuit is the per-target state machine (R097). Always
 	// non-nil after New — defaults to a manager with the
 	// documented thresholds when no override is supplied.
@@ -202,6 +210,11 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 	for _, opt := range opts {
 		opt(c)
 	}
+	// #532: default the SingleStore connector to the production MySQL-wire
+	// opener unless a test injected one. Set after options so the override wins.
+	if c.ssConnect == nil {
+		c.ssConnect = c.openSingleStore
+	}
 
 	// Wire the circuit manager's onChange callback after options
 	// run so any custom manager passed via WithCircuitManager
@@ -250,6 +263,20 @@ func WithMinSnapshotInterval(d time.Duration) CollectorOption {
 	return func(c *Collector) {
 		if d > 0 {
 			c.minSnapshotInterval = d
+		}
+	}
+}
+
+// WithSingleStoreConnectorForTest overrides the SingleStore DB/network
+// connector (#532, ECD-R003). A production-boundary test injects a fake that
+// replaces ONLY the actual MySQL-wire query execution (scalar identity probe +
+// row runner); engine dispatch, session selection, identity validation,
+// collector orchestration, result mapping, persistence, and export all run for
+// real above it. There is no such override on the production path.
+func WithSingleStoreConnectorForTest(fn ssConnector) CollectorOption {
+	return func(c *Collector) {
+		if fn != nil {
+			c.ssConnect = fn
 		}
 	}
 }
@@ -1006,17 +1033,23 @@ func cycleStatus(err error, failed, budgetExhausted int) string {
 func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, forceAll, force bool, requestID, actor string) (err error) {
 	cycleStart := time.Now()
 
-	// Engine dispatch (#529/#548): this cycle is the PostgreSQL/pgx backend.
-	// A non-PostgreSQL target (e.g. SingleStore over the MySQL wire) must
-	// never be connected with pgx — skip it here, before any connection,
-	// rather than failing deep in a pgx dial. It is served by the
-	// engine-specific path instead (INV-ECD-01).
-	if SelectBackend(tgt) != BackendPostgreSQL {
-		eng := tgt.EffectiveEngine()
-		slog.Info("collection skipped — non-PostgreSQL engine not handled by the pgx cycle",
+	// Engine dispatch (#532, ECD-R002/R006). PostgreSQL and SingleStore are
+	// SUPPORTED engines, collected through their engine sessions behind this
+	// common lifecycle (circuit breaker, min-interval, started/completed audit,
+	// R126 outcome, metrics, circuit feedback). An UNSUPPORTED engine (e.g.
+	// mysql, clickhouse) is skipped explicitly — a generic mysql target is
+	// never routed through the SingleStore session merely because the wire
+	// protocol is shared (ECD-R006). The SingleStore session itself is
+	// dispatched below, before the pgx connection, so pgx never dials a
+	// non-PostgreSQL server (INV-ECD-01).
+	switch eng := tgt.EffectiveEngine(); eng {
+	case "", config.EnginePostgreSQL, config.EngineSingleStore:
+		// supported — fall through to the common lifecycle.
+	default:
+		slog.Info("collection skipped — unsupported engine",
 			"target", tgt.Name, "engine", eng)
 		safety.AuditLog("collection_skipped_engine",
-			"target", tgt.Name, "engine", eng, "reason_category", "engine_not_pgx")
+			"target", tgt.Name, "engine", eng, "reason_category", "engine_unsupported")
 		return nil
 	}
 
@@ -1187,6 +1220,15 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			c.circuit.RecordSuccess(tgt.Name)
 		}
 	}()
+
+	// Engine dispatch (#532, ECD-R002): a SingleStore target is collected by
+	// its MySQL-wire session, not pgx (INV-ECD-01), behind the SAME common
+	// lifecycle — the deferred outcome/metrics/circuit handling above runs via
+	// the snapID+runs+err set here. PostgreSQL falls through to the pgx path.
+	if tgt.EffectiveEngine() == config.EngineSingleStore {
+		snapID, runs, err = c.collectSingleStore(ctx, tgt)
+		return err
+	}
 
 	pool, err := c.getPool(ctx, tgt)
 	if err != nil {
@@ -1637,14 +1679,17 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		TargetID:    targetID,
 		CollectedAt: collectedAt,
 		PGVersion:   data.Version,
-		Payload:     json.RawMessage(payload),
-		SizeBytes:   len(payload),
+		// #532 (ECD-R005): the PostgreSQL session declares its engine
+		// explicitly — new writes never rely on the column default.
+		Engine:    config.EnginePostgreSQL,
+		Payload:   json.RawMessage(payload),
+		SizeBytes: len(payload),
 	}
 
 	// Step 5: Persist snapshot + runs + results atomically (R077). A
 	// failure here rolls everything back so an export never sees a
 	// snapshot whose query runs are missing or vice versa.
-	if dbErr := c.db.InsertCollectionAtomic(snap, runs, results); dbErr != nil {
+	if dbErr := c.db.InsertCollection(snap, runs, results); dbErr != nil {
 		c.metrics.IncSQLitePersistenceFailure()
 		return fmt.Errorf("persist collection cycle for %s: %w", tgt.Name, dbErr)
 	}
