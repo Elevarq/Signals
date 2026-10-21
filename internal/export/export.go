@@ -474,7 +474,20 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	// ECD-R007 (#532): declare the engine identity of the collection so a
+	// consumer (Analyzer) dispatches on it, instead of assuming PostgreSQL.
+	// Sourced from the persisted snapshot(s) in scope; a pre-#532 (legacy)
+	// snapshot has an empty engine and defaults to "postgresql" (INV-ECD-02).
+	engine, engineVersion := "postgresql", ""
+	if len(scope.snapshots) > 0 {
+		if e := scope.snapshots[0].Engine; e != "" {
+			engine = e
+		}
+		engineVersion = scope.snapshots[0].PGVersion
+	}
 	data := map[string]any{
+		"engine":                              engine,
+		"engine_version":                      engineVersion,
 		"schema_version":                      snapshot.SchemaVersion,
 		"collector_status_schema_version":     CollectorStatusSchemaVersion,
 		"instance_id":                         b.instanceID,
