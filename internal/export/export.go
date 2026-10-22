@@ -16,8 +16,10 @@ import (
 
 	"github.com/elevarq/signals/internal/collector"
 	"github.com/elevarq/signals/internal/db"
+	"github.com/elevarq/signals/internal/engineid"
 	"github.com/elevarq/signals/internal/pgqueries"
 	"github.com/elevarq/signals/internal/safety"
+	"github.com/elevarq/signals/internal/singlestore"
 	"github.com/elevarq/signals/snapshot"
 )
 
@@ -175,6 +177,31 @@ type exportScope struct {
 	snapshotIDs map[string]bool
 	runSet      []db.QueryRun
 	runScope    string
+	// engine is the resolved single engine of the scope (#529/#534): each
+	// snapshot's engine, legacy/empty → postgresql. distinctEngines > 1 marks
+	// an ambiguous mixed-engine scope the metadata writer refuses.
+	engine          string
+	distinctEngines int
+}
+
+// resolveScopeEngine resolves the single engine identity of an export scope
+// (#529 / #534): a legacy pre-engine snapshot resolves to postgresql
+// (INV-ECD-02). Returns the resolved engine (first explicit engine, else
+// postgresql) and the count of DISTINCT engines present (>1 ⇒ mixed/ambiguous).
+func resolveScopeEngine(snaps []db.Snapshot) (engine string, distinct int) {
+	engine = "postgresql"
+	set := map[string]struct{}{}
+	for _, s := range snaps {
+		e := s.Engine
+		if e == "" {
+			e = "postgresql"
+		}
+		set[e] = struct{}{}
+		if s.Engine != "" && engine == "postgresql" {
+			engine = s.Engine
+		}
+	}
+	return engine, len(set)
 }
 
 // NewBuilder creates a new export Builder.
@@ -446,6 +473,7 @@ func (b *Builder) resolveScope(opts Options) (*exportScope, error) {
 	}
 
 	scope.snapshots = snaps
+	scope.engine, scope.distinctEngines = resolveScopeEngine(snaps)
 	scope.snapshotIDs = make(map[string]bool, len(snaps))
 	for _, s := range snaps {
 		scope.snapshotIDs[s.ID] = true
@@ -484,27 +512,14 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 	// snapshot resolves to postgresql (INV-ECD-02), so a PostgreSQL target
 	// whose history spans pre-/post-engine snapshots is NOT mixed; only
 	// genuinely distinct engines in one scope are rejected.
-	engine, engineVersion := "postgresql", ""
+	if scope.distinctEngines > 1 {
+		return fmt.Errorf("refusing to export an ambiguous mixed-engine scope: %d distinct engines present; one collection represents one engine (#529)", scope.distinctEngines)
+	}
+	engine, engineVersion := scope.engine, ""
+	if engine == "" {
+		engine = "postgresql"
+	}
 	if len(scope.snapshots) > 0 {
-		distinct := map[string]struct{}{}
-		for _, s := range scope.snapshots {
-			e := s.Engine
-			if e == "" {
-				e = "postgresql"
-			}
-			distinct[e] = struct{}{}
-		}
-		if len(distinct) > 1 {
-			engines := make([]string, 0, len(distinct))
-			for e := range distinct {
-				engines = append(engines, e)
-			}
-			sort.Strings(engines)
-			return fmt.Errorf("refusing to export an ambiguous mixed-engine scope: snapshots declare %d distinct engines %v; one collection represents one engine (#529)", len(distinct), engines)
-		}
-		if e := scope.snapshots[0].Engine; e != "" {
-			engine = e
-		}
 		engineVersion = scope.snapshots[0].PGVersion
 	}
 	data := map[string]any{
@@ -698,7 +713,11 @@ func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db
 		m[r.QueryID] = true
 	}
 	for _, present := range presentByTarget {
-		for _, q := range pgqueries.All() {
+		// #534 / A-08: enumerate never-run collectors from the scope's
+		// ENGINE-APPLICABLE catalog, not always the PostgreSQL catalog — a
+		// target-scoped SingleStore export must not claim unrelated PostgreSQL
+		// collectors never ran. PostgreSQL is unchanged.
+		for _, q := range registeredCollectorsForEngine(scope.engine) {
 			if present[q.ID] {
 				continue
 			}
@@ -707,11 +726,42 @@ func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db
 				Attempted: false,
 				Status:    "never_run",
 				Freshness: "never_run",
-				Cadence:   q.Cadence.String(),
+				Cadence:   q.Cadence,
 			})
 		}
 	}
 	return statuses
+}
+
+// registeredCollectorID is one entry of an engine's collector catalog for
+// never-run enumeration (#534). Cadence is the catalog cadence string, empty
+// when the engine's catalog carries none (SingleStore).
+type registeredCollectorID struct {
+	ID      string
+	Cadence string
+}
+
+// registeredCollectorsForEngine returns the engine-applicable collector catalog
+// used to enumerate never-run coverage gaps. PostgreSQL uses the pgqueries
+// catalog (with cadence); SingleStore uses its own collector catalog (no
+// cadence defined, so the never-run entry carries none rather than a fake one).
+func registeredCollectorsForEngine(engine string) []registeredCollectorID {
+	switch engine {
+	case engineid.EngineSingleStore:
+		cat := singlestore.Catalog()
+		out := make([]registeredCollectorID, 0, len(cat))
+		for _, c := range cat {
+			out = append(out, registeredCollectorID{ID: c.ID})
+		}
+		return out
+	default:
+		all := pgqueries.All()
+		out := make([]registeredCollectorID, 0, len(all))
+		for _, q := range all {
+			out = append(out, registeredCollectorID{ID: q.ID, Cadence: q.Cadence.String()})
+		}
+		return out
+	}
 }
 
 func (b *Builder) resolveTargetName(targetID int64) string {
