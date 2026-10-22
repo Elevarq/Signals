@@ -22,8 +22,14 @@ import (
 // Engine identity constants. The values are stable, language-neutral, and
 // are what a snapshot declares as its engine.
 const (
-	EnginePostgreSQL  = "postgresql"
-	EngineMySQL       = "mysql"
+	EnginePostgreSQL = "postgresql"
+	EngineMySQL      = "mysql"
+	// EngineMariaDB is a DISTINCT identity from EngineMySQL (#529 / A-09):
+	// MariaDB shares the MySQL wire protocol but is a different engine, and
+	// must never be silently labeled mysql. It is recognized (recorded) here
+	// but not yet a supported analysis engine — a downstream consumer fails
+	// closed on it exactly as for any other unsupported engine.
+	EngineMariaDB     = "mariadb"
 	EngineSingleStore = "singlestore"
 )
 
@@ -75,9 +81,17 @@ func Resolve(p Probe) (engine string, version string, err error) {
 		return EngineSingleStore, firstNonEmpty(p.Version, p.VersionComment), nil
 	}
 
-	// SS-ID-R003: MySQL family (MySQL or MariaDB), with no SingleStore
-	// signal above.
-	if contains("mysql") || contains("mariadb") {
+	// SS-ID-R003a (#529 / A-09): MariaDB branding is a DISTINCT engine identity
+	// from MySQL — checked FIRST because a MariaDB version string / comment
+	// ("mariadb.org binary distribution", "10.6.5-MariaDB") must never be
+	// conflated with mysql despite the shared wire protocol. Engine identity is
+	// distinct from wire protocol (INV-SSID-04).
+	if contains("mariadb") {
+		return EngineMariaDB, firstNonEmpty(p.Version, p.VersionComment), nil
+	}
+
+	// SS-ID-R003b: MySQL (no SingleStore or MariaDB signal above).
+	if contains("mysql") {
 		return EngineMySQL, firstNonEmpty(p.Version, p.VersionComment), nil
 	}
 

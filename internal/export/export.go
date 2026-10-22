@@ -478,8 +478,30 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 	// consumer (Analyzer) dispatches on it, instead of assuming PostgreSQL.
 	// Sourced from the persisted snapshot(s) in scope; a pre-#532 (legacy)
 	// snapshot has an empty engine and defaults to "postgresql" (INV-ECD-02).
+	// #529 / A-09: engine identity is scoped to ONE collection. Refuse an
+	// ambiguous MIXED-engine scope instead of stamping the first snapshot's
+	// engine (the pre-#529 first-snapshot-wins bug). A legacy (pre-engine)
+	// snapshot resolves to postgresql (INV-ECD-02), so a PostgreSQL target
+	// whose history spans pre-/post-engine snapshots is NOT mixed; only
+	// genuinely distinct engines in one scope are rejected.
 	engine, engineVersion := "postgresql", ""
 	if len(scope.snapshots) > 0 {
+		distinct := map[string]struct{}{}
+		for _, s := range scope.snapshots {
+			e := s.Engine
+			if e == "" {
+				e = "postgresql"
+			}
+			distinct[e] = struct{}{}
+		}
+		if len(distinct) > 1 {
+			engines := make([]string, 0, len(distinct))
+			for e := range distinct {
+				engines = append(engines, e)
+			}
+			sort.Strings(engines)
+			return fmt.Errorf("refusing to export an ambiguous mixed-engine scope: snapshots declare %d distinct engines %v; one collection represents one engine (#529)", len(distinct), engines)
+		}
 		if e := scope.snapshots[0].Engine; e != "" {
 			engine = e
 		}

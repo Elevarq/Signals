@@ -46,6 +46,20 @@ func TestResolve(t *testing.T) {
 			wantEngine:  EngineSingleStore,
 			wantVersion: "8.1.0",
 		},
+		{
+			// #529 / A-09: MariaDB branding must NOT be silently declared MySQL.
+			// Engine identity is distinct from the shared MySQL wire protocol.
+			name:        "TC-SSID-07 mariadb branding distinct from mysql (version_comment)",
+			probe:       Probe{VersionComment: "mariadb.org binary distribution", Version: "10.6.5-MariaDB"},
+			wantEngine:  EngineMariaDB,
+			wantVersion: "10.6.5-MariaDB",
+		},
+		{
+			name:        "TC-SSID-08 mariadb branding distinct from mysql (version only)",
+			probe:       Probe{Version: "10.11.2-MariaDB-1:10.11.2+maria~ubu2204"},
+			wantEngine:  EngineMariaDB,
+			wantVersion: "10.11.2-MariaDB-1:10.11.2+maria~ubu2204",
+		},
 	}
 
 	for _, tc := range cases {
