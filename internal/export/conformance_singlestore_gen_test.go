@@ -59,7 +59,13 @@ func TestGenerateSingleStoreConformanceZIP(t *testing.T) {
 	// findings and the other POC rules.
 	collectors := map[string][]map[string]any{
 		"singlestore_identity_v1": {
-			{"VARIABLE_NAME": "memsql_version", "VARIABLE_VALUE": version},
+			// Real identity collector columns (#530): the production SQL is
+			// `SELECT @@memsql_version AS memsql_version, @@version_comment AS
+			// version_comment, VERSION() AS version` (internal/singlestore/
+			// collectors.go) — NOT a VARIABLE_NAME/VARIABLE_VALUE pair (that is
+			// the GLOBAL_VARIABLES collector). The downstream Analyzer evidence
+			// contract keys on these real columns (Elevarq/Analyzer#3865).
+			{"memsql_version": version, "version_comment": "SingleStore", "version": "5.7.32"},
 		},
 		"singlestore_table_statistics_v1": {
 			{"DATABASE_NAME": "app", "TABLE_NAME": "events", "STORAGE_TYPE": "rowstore", "MEMORY_USE": 800, "ROWS": 20000000},
