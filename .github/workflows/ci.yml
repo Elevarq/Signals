@@ -108,6 +108,10 @@ jobs:
       PGHOST: localhost
       PGPORT: "5432"
       SIGNALS_TEST_PG_DSN: "postgres://signals:signals@localhost:5432/postgres?sslmode=disable"
+      # #528 (M0 PostgreSQL lock): fail-closed. With this set, the live-PG
+      # tests FAIL instead of silently skipping if the DSN ever goes missing,
+      # so PostgreSQL can never be quietly dropped from this job.
+      SIGNALS_REQUIRE_PG: "1"
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -355,3 +359,46 @@ jobs:
 
       - name: Lint gate (golangci-lint via preflight.sh)
         run: bash scripts/preflight.sh lint
+
+  # #528 — M0 PostgreSQL lock. Branch protection is not a reliable control on
+  # a single-maintainer account, so the guarantee lives IN the workflow: this
+  # terminal job depends on every gate and FAILS the whole run unless each one
+  # succeeded — PostgreSQL explicitly (integration-pg across 14-18 +
+  # built-image-smoke). `if: always()` means it runs even when a dependency
+  # fails OR is skipped, so a silently-skipped PostgreSQL job turns the run red
+  # here rather than passing unnoticed. A Signals change can therefore never go
+  # green without PostgreSQL being exercised, whatever engine it targets.
+  #
+  # Every future engine integration suite (integration-singlestore, -mysql,
+  # -clickhouse, …) MUST be added to `needs` below. The guard test
+  # TestCIGateRequiresPostgreSQL (in the unit `test` job) fails if one is not,
+  # so no engine can add a PostgreSQL-free green path.
+  ci-gate:
+    needs: [test, integration-pg, built-image-smoke, security-scan]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require every gate (PostgreSQL mandatory, #528)
+        env:
+          RESULT_TEST: ${{ needs.test.result }}
+          RESULT_PG: ${{ needs.integration-pg.result }}
+          RESULT_SMOKE: ${{ needs.built-image-smoke.result }}
+          RESULT_SECURITY: ${{ needs.security-scan.result }}
+        run: |
+          set -euo pipefail
+          echo "test=$RESULT_TEST integration-pg=$RESULT_PG built-image-smoke=$RESULT_SMOKE security-scan=$RESULT_SECURITY"
+          fail=0
+          for pair in \
+            "test:$RESULT_TEST" \
+            "integration-pg:$RESULT_PG" \
+            "built-image-smoke:$RESULT_SMOKE" \
+            "security-scan:$RESULT_SECURITY"; do
+            name="${pair%%:*}"
+            res="${pair#*:}"
+            if [ "$res" != "success" ]; then
+              echo "::error::CI gate: required job '$name' did not succeed (result=$res). PostgreSQL is mandatory (#528)."
+              fail=1
+            fi
+          done
+          [ "$fail" -eq 0 ] || exit 1
+          echo "CI gate passed — PostgreSQL exercised across the matrix."
