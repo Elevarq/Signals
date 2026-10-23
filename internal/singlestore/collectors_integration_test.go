@@ -4,6 +4,7 @@ package singlestore
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"testing"
 	"time"
@@ -42,5 +43,23 @@ func TestCollect_Live(t *testing.T) {
 	id := resultByID(results, "singlestore_identity_v1")
 	if id == nil || len(id.Rows) != 1 || id.Rows[0]["memsql_version"] == nil || id.Rows[0]["memsql_version"] == "" {
 		t.Fatalf("identity collector must report a SingleStore version, got %+v", id)
+	}
+
+	// #577: regenerate the committed fixture directly from THIS live collect,
+	// with production-default redaction (redactSensitive=true). The fixture is
+	// therefore the real producer output by construction — never hand-inserted
+	// rows or a reshaped identity. Driven by scripts/singlestore-dev-fixture.sh
+	// which sets SS_WRITE_FIXTURE to the testdata path.
+	if out := os.Getenv("SS_WRITE_FIXTURE"); out != "" {
+		redacted := Collect(ctx, NewRunner(db), Catalog(), true)
+		b, merr := json.MarshalIndent(redacted, "", "  ")
+		if merr != nil {
+			t.Fatalf("marshal fixture: %v", merr)
+		}
+		if werr := os.WriteFile(out, append(b, '\n'), 0o644); werr != nil {
+			t.Fatalf("write fixture: %v", werr)
+		}
+		t.Logf("#577: wrote faithful redacted fixture (%d collectors) from live memsql %v to %s",
+			len(redacted), id.Rows[0]["memsql_version"], out)
 	}
 }

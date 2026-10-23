@@ -41,7 +41,22 @@ func TestGoldenFixtureReplaysIntoSnapshot(t *testing.T) {
 		t.Fatalf("fixture should carry the full catalog, got %d", len(results))
 	}
 
-	snap := BuildSnapshot(BuildInfo{CollectorVersion: "fixture", CollectedAt: "2026-10-20T00:00:00Z"}, "singlestore", "8.5.22", results)
+	// #577 fidelity: the version comes from the fixture's OWN identity row (the
+	// real captured @@memsql_version), never a hardcoded literal — so the
+	// replay cannot silently drift from the producer that generated the fixture.
+	ver := ""
+	for _, r := range results {
+		if r.CollectorID == "singlestore_identity_v1" && len(r.Rows) == 1 {
+			if v, ok := r.Rows[0]["memsql_version"].(string); ok {
+				ver = v
+			}
+		}
+	}
+	if ver == "" {
+		t.Fatalf("fixture identity row missing a captured memsql_version")
+	}
+
+	snap := BuildSnapshot(BuildInfo{CollectorVersion: "fixture", CollectedAt: "2026-10-20T00:00:00Z"}, "singlestore", ver, results)
 	meta, err := snap.MetadataJSON()
 	if err != nil {
 		t.Fatalf("metadata: %v", err)
