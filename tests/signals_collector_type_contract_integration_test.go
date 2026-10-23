@@ -207,6 +207,13 @@ var notExercisedTypeClasses = map[string]string{
 func TestIntegration_CollectorTypeContractAgainstRealPG(t *testing.T) {
 	dsn := os.Getenv("SIGNALS_TEST_PG_DSN")
 	if dsn == "" {
+		// M0 PostgreSQL lock (#528): the CI integration-pg job sets
+		// SIGNALS_REQUIRE_PG=1, so a missing DSN is a hard FAILURE there —
+		// PostgreSQL can never be silently absent from a Signals test run.
+		// With the flag unset (local inner-loop), it still skips.
+		if os.Getenv("SIGNALS_REQUIRE_PG") != "" {
+			t.Fatal("SIGNALS_REQUIRE_PG is set but SIGNALS_TEST_PG_DSN is empty — PostgreSQL is mandatory in the CI gate (#528)")
+		}
 		t.Skip("SIGNALS_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
 	}
 
