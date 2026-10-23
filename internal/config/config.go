@@ -796,10 +796,15 @@ func applyEnvOverrides(cfg *Config) error {
 			dbname = "postgres"
 		}
 		tgt := TargetConfig{
-			Name:            name,
-			Host:            host,
-			Port:            port,
-			DBName:          dbname,
+			Name:   name,
+			Host:   host,
+			Port:   port,
+			DBName: dbname,
+			// Engine parity with the YAML path (#555): empty = PostgreSQL
+			// (backward-compatible default); a non-empty value must be in
+			// SupportedEngines or ValidateStrict rejects it (ETC-R002). This
+			// lets the env config path target SingleStore like the YAML path.
+			Engine:          os.Getenv("SIGNALS_TARGET_ENGINE"),
 			User:            os.Getenv("SIGNALS_TARGET_USER"),
 			SSLMode:         os.Getenv("SIGNALS_TARGET_SSLMODE"),
 			SSLRootCertFile: os.Getenv("SIGNALS_TARGET_SSLROOTCERT_FILE"),

@@ -52,3 +52,39 @@ func TestEngineMatchingIsExact(t *testing.T) {
 		t.Fatal("INV-ETC-02: engine must match the exact lowercase constant")
 	}
 }
+
+// TestEnvTargetEngineParity verifies the SIGNALS_TARGET_* env config path can
+// express the target engine (#555): empty is the backward-compatible
+// PostgreSQL default, and SINGLESTORE is accepted — parity with the YAML path.
+func TestEnvTargetEngineParity(t *testing.T) {
+	t.Run("default_postgresql", func(t *testing.T) {
+		t.Setenv("SIGNALS_TARGET_HOST", "pg.local")
+		cfg := &Config{}
+		if err := applyEnvOverrides(cfg); err != nil {
+			t.Fatalf("applyEnvOverrides: %v", err)
+		}
+		if len(cfg.Targets) != 1 {
+			t.Fatalf("want 1 env target, got %d", len(cfg.Targets))
+		}
+		if got := cfg.Targets[0].EffectiveEngine(); got != EnginePostgreSQL {
+			t.Fatalf("no SIGNALS_TARGET_ENGINE: EffectiveEngine()=%q, want %q (backward compat)", got, EnginePostgreSQL)
+		}
+	})
+	t.Run("singlestore", func(t *testing.T) {
+		t.Setenv("SIGNALS_TARGET_HOST", "ss.local")
+		t.Setenv("SIGNALS_TARGET_ENGINE", EngineSingleStore)
+		cfg := &Config{}
+		if err := applyEnvOverrides(cfg); err != nil {
+			t.Fatalf("applyEnvOverrides: %v", err)
+		}
+		if len(cfg.Targets) != 1 {
+			t.Fatalf("want 1 env target, got %d", len(cfg.Targets))
+		}
+		if cfg.Targets[0].Engine != EngineSingleStore {
+			t.Fatalf("SIGNALS_TARGET_ENGINE=singlestore: target.Engine=%q, want %q", cfg.Targets[0].Engine, EngineSingleStore)
+		}
+		if got := cfg.Targets[0].EffectiveEngine(); got != EngineSingleStore {
+			t.Fatalf("EffectiveEngine()=%q, want singlestore", got)
+		}
+	})
+}
