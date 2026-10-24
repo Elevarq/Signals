@@ -19,6 +19,8 @@ func CatalogFor(engine string) []Collector {
 		return Catalog()
 	case engineid.EngineMySQL:
 		return mysqlCatalog()
+	case engineid.EngineMariaDB:
+		return mariadbCatalog()
 	default:
 		return nil
 	}

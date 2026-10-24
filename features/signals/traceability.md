@@ -613,3 +613,23 @@ evidence. Verifier shared with SingleStore (engine-generic). Harness:
 | INV-MLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (MYC-R001). |
 | INV-MLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own MySQL | TestMySQLLiveExportReconciliation | COVERED | INTEGRATION | mysql-dev-fixture container name + mktemp stores; EXTERNAL mode for the CI service. |
 | INV-MLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status, not counts. |
+
+## MariaDB collection (PR1: catalog + seam wire-up)
+
+Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R005,
+INV-MDC-01..03) + `specifications/mariadb-grants.md` (ACTIVE, DOC). MariaDB added
+as a catalog + `CatalogFor` registry entry + `SupportedEngines` membership +
+`SelectBackend` wire mapping — no per-engine dispatch/session/identity/reporting
+edits (identity already distinct in M5). Live qualification + CI job: follow-up PR.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MDC-R001 | Every MariaDB catalog statement is a read-only SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 7 collectors. |
+| MDC-R002 | A collector error does not abort the others | TestCollectPartialFailureDoesNotAbort | COVERED | BEHAVIORAL | Shared Collect runtime, engine-agnostic. |
+| MDC-R003 | redactSensitive nils each SensitiveColumns value | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | INFO redacted to nil. |
+| MDC-R004 | A query-text column collector is HighSensitivity with it in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | processlist INFO. |
+| MDC-R005 | CatalogFor(mariadb) returns the MariaDB catalog; no cross-engine leak, no PG fallback | TestCatalogForMariaDB, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam. |
+| INV-MDC-01 | Collection never issues a non-SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog. |
+| INV-MDC-02 | mariadb_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | — |
+| INV-MDC-03 | No query-text column escapes the redaction contract | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | processlist is the only query-text collector. |
+| MDC-dispatch (engine=mariadb routed via wire session + CatalogFor) | Backend-driven dispatch routes a mariadb target through the shared wire session with the MariaDB catalog; identity validated as mariadb (distinct from mysql); one engine=mariadb snapshot persisted | TestCollectTarget_MariaDBProductionBoundary, TestCollectTarget_MariaDBIdentityMismatchFails, TestMariaDBExportSerializationReconciles | COVERED | BEHAVIORAL | No per-engine dispatch/session edit; export catalogFor delegates to the same registry. |

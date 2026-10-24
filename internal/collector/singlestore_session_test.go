@@ -203,20 +203,20 @@ func TestCollectTarget_SingleStoreIdentityMismatch(t *testing.T) {
 	}
 }
 
-// ECD-R006: a recognized engine with no backend in this build (mariadb — not in
-// SupportedEngines) is skipped explicitly — never routed through the wire
-// session (and never pgx), and no snapshot produced. (mysql became a supported
-// wire engine in the MySQL milestone and is covered by
-// TestCollectTarget_MySQLProductionBoundary.)
+// ECD-R006: an engine with no backend in this build (not in SupportedEngines)
+// is skipped explicitly — never routed through the wire session (and never
+// pgx), and no snapshot produced. postgresql/singlestore/mysql/mariadb are all
+// supported now, so this exercises the defense-in-depth skip with a
+// genuinely-unsupported engine string.
 func TestCollectTarget_UnsupportedEngineSkipped(t *testing.T) {
-	// A connector that would panic if ever called — proving an unsupported
-	// engine never enters the wire session.
+	// A connector that would fail the test if ever called — proving an
+	// unsupported engine never enters the wire session.
 	trap := func(ctx context.Context, tgt config.TargetConfig) (ssConn, error) {
 		t.Fatalf("wire connector must NOT be invoked for an unsupported-engine target (ECD-R006)")
 		return ssConn{}, nil
 	}
 	c, store := newTestCollector(t, WithSingleStoreConnectorForTest(trap))
-	tgt := config.TargetConfig{Name: "mar1", Host: "h", Port: 3306, Engine: config.EngineMariaDB, Enabled: true}
+	tgt := config.TargetConfig{Name: "u1", Host: "h", Port: 3306, Engine: "oracle", Enabled: true}
 	if err := c.collectTarget(context.Background(), tgt, true, true, "", ""); err != nil {
 		t.Fatalf("unsupported-engine skip should return nil, got %v", err)
 	}

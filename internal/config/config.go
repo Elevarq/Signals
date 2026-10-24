@@ -442,7 +442,7 @@ const (
 // is always accepted. The set grows as each engine's backend is implemented;
 // a configured engine outside it is rejected by ValidateStrict (EID-R002),
 // never silently downgraded to PostgreSQL.
-var SupportedEngines = []string{EnginePostgreSQL, EngineSingleStore, EngineMySQL}
+var SupportedEngines = []string{EnginePostgreSQL, EngineSingleStore, EngineMySQL, EngineMariaDB}
 
 // EffectiveEngine returns the target's engine, defaulting an empty value to
 // EnginePostgreSQL so existing configs keep their current behavior
