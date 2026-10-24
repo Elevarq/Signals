@@ -52,7 +52,8 @@ means "variable absent or unreadable"):
 version string), `error` (non-nil only on indeterminate identity).
 
 **Engine constants:** `EnginePostgreSQL = "postgresql"`,
-`EngineMySQL = "mysql"`, `EngineSingleStore = "singlestore"`.
+`EngineMySQL = "mysql"`, `EngineMariaDB = "mariadb"`,
+`EngineSingleStore = "singlestore"`.
 
 ## Behaviors
 
@@ -61,9 +62,12 @@ version string), `error` (non-nil only on indeterminate identity).
 - **Given** a probe where `MemsqlVersion` is empty but `VersionComment`
   names SingleStore/MemSQL, **when** `Resolve` runs, **then** engine is
   `singlestore` and version is the `Version` string.
-- **Given** a probe whose `VersionComment`/`Version` indicate MySQL or
-  MariaDB and carry **no** SingleStore signal, **when** `Resolve` runs,
-  **then** engine is `mysql`.
+- **Given** a probe whose `VersionComment`/`Version` names MariaDB and
+  carries **no** SingleStore signal, **when** `Resolve` runs, **then**
+  engine is `mariadb` (distinct from MySQL).
+- **Given** a probe whose `VersionComment`/`Version` indicate MySQL (and
+  **not** MariaDB) and carry **no** SingleStore signal, **when** `Resolve`
+  runs, **then** engine is `mysql`.
 - **Given** a probe with no recognizable signal, **when** `Resolve` runs,
   **then** it returns an error and no engine.
 
@@ -73,7 +77,8 @@ version string), `error` (non-nil only on indeterminate identity).
 |----|------|
 | **SS-ID-R001** | If `MemsqlVersion` is non-empty → `singlestore`, version = `MemsqlVersion`. This signal wins over everything else. |
 | **SS-ID-R002** | Else if `VersionComment` or `Version` contains (case-insensitive) `singlestore` or `memsql` → `singlestore`, version = `Version` (fallback `VersionComment`). |
-| **SS-ID-R003** | Else if `VersionComment` or `Version` contains (case-insensitive) `mysql` or `mariadb` → `mysql`, version = `Version` (fallback `VersionComment`). |
+| **SS-ID-R003** | Else if `VersionComment` or `Version` contains (case-insensitive) `mariadb` → `mariadb`, version = `Version` (fallback `VersionComment`). MariaDB is a **distinct** engine from MySQL (checked first, since a MariaDB `VERSION()` may also contain neither `mysql` nor other family markers). |
+| **SS-ID-R005** | Else if `VersionComment` or `Version` contains (case-insensitive) `mysql` → `mysql`, version = `Version` (fallback `VersionComment`). |
 | **SS-ID-R004** | Else → error `indeterminate engine identity`; return no engine (fail closed). |
 
 ## Invariants

@@ -1,14 +1,29 @@
 # #555: Signals daemon config for a SingleStore target.
 #
-# The env config path (SIGNALS_TARGET_*) cannot express a non-PostgreSQL engine
-# (internal/config/config.go builds the env target with no Engine field), so a
-# YAML config is REQUIRED to point the normal Signals daemon at SingleStore.
+# Two equivalent ways to point the normal Signals daemon at SingleStore:
 #
-# Ephemeral per-run values are overridden via SIGNALS_* env by
-# scripts/singlestore-daemon-cadence.sh:
+#  1. This YAML config (below), which is convenient for multi-target setups.
+#
+#  2. The environment path (SIGNALS_TARGET_*), which CAN express the engine via
+#     SIGNALS_TARGET_ENGINE. For an env-only SingleStore target set, at minimum:
+#       SIGNALS_TARGET_HOST=<host>
+#       SIGNALS_TARGET_ENGINE=singlestore      # explicit; required for SingleStore
+#       SIGNALS_TARGET_PORT=3306               # SingleStore's MySQL-wire port
+#       SIGNALS_TARGET_DBNAME=<database>
+#       SIGNALS_TARGET_USER=<read-only user>
+#       SIGNALS_TARGET_PASSWORD_ENV=<env var holding the password>
+#     Omitting SIGNALS_TARGET_ENGINE is PostgreSQL-compatibility behavior (the
+#     target defaults to PostgreSQL) — it is NOT an implicit SingleStore
+#     detection. When SIGNALS_TARGET_ENGINE=singlestore and SIGNALS_TARGET_PORT
+#     is unset, the default port is 3306 (not the PostgreSQL 5432).
+#
+# Ephemeral per-run values are overridden via SIGNALS_* env by the live
+# qualification harness (scripts/singlestore-live-qual.sh):
 #   SIGNALS_DB_PATH, SIGNALS_POLL_INTERVAL, SIGNALS_MIN_SNAPSHOT_INTERVAL,
 #   SIGNALS_API_TOKEN, SIGNALS_LISTEN_ADDR, and SS_RO_PASSWORD (password_env).
 # sslmode=disable (loopback dev image) requires SIGNALS_ALLOW_INSECURE_PG_TLS=true.
+# For a TLS SingleStore use sslmode=verify-full (or verify-ca) with
+# sslrootcert_file pointing at the private CA bundle (#585).
 
 env: dev
 

@@ -15,8 +15,15 @@ package mysqlwire
 
 import (
 	"context"
+	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"database/sql"
+	"encoding/hex"
+	"errors"
+	"fmt"
 	"net"
+	"os"
 	"strconv"
 	"time"
 
@@ -42,6 +49,13 @@ type ConnConfig struct {
 	TLS            string // go-sql-driver key: true/false/skip-verify/preferred
 	ConnectTimeout time.Duration
 	QueryTimeout   time.Duration
+	// TLSRootCAFile, when set, is a PEM CA bundle used to verify the server
+	// certificate for the declared sslmode (verify-ca / verify-full). When
+	// empty, the TLS key above is used unchanged. TLSVerifyHostname is true
+	// only for verify-full (hostname checked); verify-ca verifies the chain
+	// but not the hostname (#585, SCH-R001/R002).
+	TLSRootCAFile     string
+	TLSVerifyHostname bool
 }
 
 // ScalarQuery runs a query that yields a single string cell. It is the seam
@@ -55,9 +69,9 @@ func (c ConnConfig) driverConfig() *mysql.Config {
 	if port == 0 {
 		port = defaultPort // WIRE-R001
 	}
-	tls := c.TLS
-	if tls == "" {
-		tls = defaultTLS // WIRE-R005
+	tlsKey := c.TLS
+	if tlsKey == "" {
+		tlsKey = defaultTLS // WIRE-R005
 	}
 	ct := c.ConnectTimeout
 	if ct == 0 {
@@ -74,7 +88,7 @@ func (c ConnConfig) driverConfig() *mysql.Config {
 	dc.User = c.User
 	dc.Passwd = c.Password
 	dc.DBName = c.DBName
-	dc.TLSConfig = tls
+	dc.TLSConfig = tlsKey
 	dc.Timeout = ct
 	dc.ReadTimeout = qt
 	dc.InterpolateParams = false // WIRE-R002: no client-side interpolation
@@ -99,6 +113,16 @@ func Redacted(c ConnConfig) string {
 // no usable handle (the caller records a collection failure; nothing is
 // mislabeled).
 func Open(ctx context.Context, c ConnConfig) (*sql.DB, error) {
+	// SCH-R003: resolve TLS BEFORE dialing. When a CA is configured for a
+	// verified mode, this registers a verifying tls.Config and rewrites the
+	// driver TLS key to it; a bad/unreadable CA fails closed here — no handle,
+	// never a plaintext fallback.
+	key, err := c.resolveTLS()
+	if err != nil {
+		return nil, fmt.Errorf("tls: %w", err)
+	}
+	c.TLS = key
+
 	db, err := OpenDSN(BuildDSN(c))
 	if err != nil {
 		return nil, err
@@ -158,4 +182,87 @@ func Identify(ctx context.Context, q ScalarQuery) (engine string, version string
 		probe.Version = v
 	}
 	return engineid.Resolve(probe)
+}
+
+// BuildTLSConfig loads a PEM CA bundle into a RootCAs pool and returns a
+// *tls.Config for a SingleStore (MySQL-wire) connection (#585, SCH-R001/R002).
+//
+//   - verifyHostname == true  (verify-full): ServerName is set and the standard
+//     verification checks both the certificate chain and the hostname.
+//   - verifyHostname == false (verify-ca):   the chain is verified against the
+//     CA but the hostname is NOT checked. Go has no built-in "chain without
+//     hostname" mode, so this disables default verification and performs the
+//     chain check in VerifyPeerCertificate instead — a verification that is
+//     stricter-by-construction than the default for the hostname dimension
+//     only.
+//
+// It fails closed (returns an error, never a permissive config) when the CA
+// file is unreadable or carries no parseable certificate (SCH-R003).
+func BuildTLSConfig(caFile, serverName string, verifyHostname bool) (*tls.Config, error) {
+	pemBytes, err := os.ReadFile(caFile)
+	if err != nil {
+		return nil, fmt.Errorf("read CA file %q: %w", caFile, err)
+	}
+	pool := x509.NewCertPool()
+	if !pool.AppendCertsFromPEM(pemBytes) {
+		return nil, fmt.Errorf("CA file %q contains no parseable certificate", caFile)
+	}
+	cfg := &tls.Config{RootCAs: pool, MinVersion: tls.VersionTLS12}
+	if verifyHostname {
+		cfg.ServerName = serverName
+		return cfg, nil
+	}
+	// verify-ca: verify the chain against the configured CA, skip ONLY the
+	// hostname check. InsecureSkipVerify disables the default verification so
+	// our VerifyPeerCertificate can run the chain check without a DNS-name
+	// constraint; the connection is NOT unverified.
+	cfg.InsecureSkipVerify = true // nosemgrep: bare-tls-insecureskipverify -- chain is verified in VerifyPeerCertificate below (verify-ca semantics)
+	cfg.VerifyPeerCertificate = func(rawCerts [][]byte, _ [][]*x509.Certificate) error {
+		certs := make([]*x509.Certificate, 0, len(rawCerts))
+		for _, raw := range rawCerts {
+			crt, perr := x509.ParseCertificate(raw)
+			if perr != nil {
+				return perr
+			}
+			certs = append(certs, crt)
+		}
+		if len(certs) == 0 {
+			return errors.New("no peer certificate presented")
+		}
+		inter := x509.NewCertPool()
+		for _, crt := range certs[1:] {
+			inter.AddCert(crt)
+		}
+		_, verr := certs[0].Verify(x509.VerifyOptions{Roots: pool, Intermediates: inter})
+		return verr
+	}
+	return cfg, nil
+}
+
+// resolveTLS returns the effective go-sql-driver TLS key. When a CA file is
+// configured it builds + registers a verifying tls.Config (SCH-R001/R002) and
+// returns its registered name; otherwise the base key is returned unchanged.
+// It fails closed on bad CA material (SCH-R003).
+func (c ConnConfig) resolveTLS() (string, error) {
+	if c.TLSRootCAFile == "" {
+		return c.TLS, nil
+	}
+	cfg, err := BuildTLSConfig(c.TLSRootCAFile, c.Host, c.TLSVerifyHostname)
+	if err != nil {
+		return "", err
+	}
+	name := tlsConfigName(c)
+	if err := mysql.RegisterTLSConfig(name, cfg); err != nil {
+		return "", fmt.Errorf("register tls config: %w", err)
+	}
+	return name, nil
+}
+
+// tlsConfigName derives a deterministic, collision-resistant registration name
+// from the CA path + host + verification mode, so repeated opens for the same
+// target reuse (overwrite) the same registered config rather than leaking
+// entries.
+func tlsConfigName(c ConnConfig) string {
+	h := sha256.Sum256([]byte(fmt.Sprintf("%s|%s|%d|%v", c.TLSRootCAFile, c.Host, c.Port, c.TLSVerifyHostname)))
+	return "signals-ss-" + hex.EncodeToString(h[:8])
 }

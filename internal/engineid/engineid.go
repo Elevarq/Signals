@@ -24,6 +24,7 @@ import (
 const (
 	EnginePostgreSQL  = "postgresql"
 	EngineMySQL       = "mysql"
+	EngineMariaDB     = "mariadb"
 	EngineSingleStore = "singlestore"
 )
 
@@ -54,8 +55,9 @@ type Probe struct {
 // Precedence (specification SS-ID-R001..R004):
 //  1. @@memsql_version present            -> singlestore (version = memsql_version)
 //  2. SingleStore/MemSQL named in strings -> singlestore (version = Version|VersionComment)
-//  3. MySQL/MariaDB named in strings      -> mysql       (version = Version|VersionComment)
-//  4. otherwise                           -> ErrIndeterminate
+//  3. MariaDB named in strings            -> mariadb     (version = Version|VersionComment)
+//  4. MySQL named in strings (not MariaDB) -> mysql       (version = Version|VersionComment)
+//  5. otherwise                           -> ErrIndeterminate
 func Resolve(p Probe) (engine string, version string, err error) {
 	// SS-ID-R001: @@memsql_version exists only on SingleStore and wins over
 	// everything, including a misleading MySQL-compatible comment
@@ -75,9 +77,16 @@ func Resolve(p Probe) (engine string, version string, err error) {
 		return EngineSingleStore, firstNonEmpty(p.Version, p.VersionComment), nil
 	}
 
-	// SS-ID-R003: MySQL family (MySQL or MariaDB), with no SingleStore
-	// signal above.
-	if contains("mysql") || contains("mariadb") {
+	// SS-ID-R003: MariaDB is a DISTINCT engine from MySQL. Checked before the
+	// MySQL branch: a MariaDB server brands itself "mariadb" in VersionComment
+	// ("mariadb.org binary distribution") and/or Version ("10.11.6-MariaDB"),
+	// and must never fold into `mysql`.
+	if contains("mariadb") {
+		return EngineMariaDB, firstNonEmpty(p.Version, p.VersionComment), nil
+	}
+
+	// SS-ID-R005: MySQL (not MariaDB), with no SingleStore signal above.
+	if contains("mysql") {
 		return EngineMySQL, firstNonEmpty(p.Version, p.VersionComment), nil
 	}
 

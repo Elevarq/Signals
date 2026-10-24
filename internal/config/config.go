@@ -783,7 +783,16 @@ func applyEnvOverrides(cfg *Config) error {
 		if name == "" {
 			name = "default"
 		}
+		// SCH-R006 (#587): the environment path can express a non-PostgreSQL
+		// engine. An omitted value defaults to PostgreSQL via EffectiveEngine
+		// (backward compatible) — never an implicit SingleStore detection.
+		engine := os.Getenv("SIGNALS_TARGET_ENGINE")
+		// Engine-aware default port when SIGNALS_TARGET_PORT is unset:
+		// SingleStore speaks the MySQL wire (3306); PostgreSQL stays 5432.
 		port := 5432
+		if engine == EngineSingleStore {
+			port = 3306
+		}
 		if n, ok, err := parseEnvInt("SIGNALS_TARGET_PORT"); err != nil {
 			return err
 		} else if ok {
@@ -797,6 +806,7 @@ func applyEnvOverrides(cfg *Config) error {
 			Name:            name,
 			Host:            host,
 			Port:            port,
+			Engine:          engine,
 			DBName:          dbname,
 			User:            os.Getenv("SIGNALS_TARGET_USER"),
 			SSLMode:         os.Getenv("SIGNALS_TARGET_SSLMODE"),
