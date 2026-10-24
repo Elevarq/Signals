@@ -169,3 +169,21 @@ pass — exercising the ZIP reader + reconciliation deterministically in CI.
 
 **Expected Result:** Pass (CI) — the deterministic serialization leg of the
 coverage receipt.
+
+---
+
+### TC-SLQ-11: runs in CI through the PostgreSQL-mandatory gate (structural)
+
+**Rule:** SLQ-R010
+
+**Given:** `.github/workflows/ci.yml`.
+
+**When:** the workflow is parsed (the M0 guard test
+`TestCIGateRequiresPostgreSQL`).
+
+**Then:** an `integration-singlestore` job exists and is in `ci-gate.needs` (so
+it routes through the same terminal gate as PostgreSQL and cannot add a
+PostgreSQL-free green path). The job runs the harness in EXTERNAL mode
+(`SINGLESTORE_QUAL_EXTERNAL=1`) against the pinned Dev Image service container.
+
+**Expected Result:** Pass when `integration-singlestore` is wired into the gate.

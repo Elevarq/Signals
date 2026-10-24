@@ -71,17 +71,22 @@ collector is correctly flagged.
 
 ---
 
-### TC-SSC-LIVE: Live catalog validation (integration — build-tag guarded)
+### TC-SSC-LIVE: Live catalog validation (the `integration-singlestore` CI job)
 
 **Rule:** SSC-R001, SSC-R002
 
-**Given:** a reachable SingleStore instance (`SINGLESTORE_TEST_DSN`, tag
-`singlestore_integration`; skipped when unset).
+**Given:** the pinned SingleStore Dev Image running as the `integration-singlestore`
+CI service container (also reproducible locally via
+`scripts/singlestore-live-qual.sh`).
 
-**When:** the real `Catalog()` runs via `NewRunner` against the live instance.
+**When:** the normal `cmd/signals` daemon collects the live instance through the
+real catalog and the live verifier runs (`//go:build singlestore_live`).
 
-**Then:** no collector returns a fatal error; `singlestore_identity_v1`
-reports a non-empty `@@memsql_version`.
+**Then:** every expected collector persists `status='success'` with reconciled
+evidence and `singlestore_identity_v1` reports a non-empty `@@memsql_version`
+(`9.x`) — the catalog SQL/columns are validated against the current catalog on
+every CI run, not a frozen capture.
 
-**Expected Result:** Pass against the SingleStore workspace; skipped when no
-instance is configured. This is how the catalog SQL/columns were validated.
+**Expected Result:** Pass in CI and locally. This supersedes the retired
+`SINGLESTORE_TEST_DSN` / `singlestore_integration` DSN catalog test (#577/#589):
+the live qualification exercises the same catalog under the real producer path.

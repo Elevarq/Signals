@@ -16,20 +16,27 @@
 #                          persisted == exported, redaction held, manifest
 #                          complete, no foreign PostgreSQL collector.
 #
-# This is OPT-IN / LOCAL producer evidence; it is not a CI lane. Requires docker
-# + a Go toolchain. No cloud, no AWS, no license.
+# This is the ONLY source of SingleStore producer evidence. It runs in two modes
+# (SLQ-R010), mirroring the MySQL/MariaDB/ClickHouse live-qual drivers:
+#   LOCAL (default): brings the pinned Dev Image up via
+#                    scripts/singlestore-dev-fixture.sh (docker) and tears it
+#                    down on exit — never touches a developer's own SingleStore
+#                    container or store (INV-SLQ-02).
+#   EXTERNAL (CI):   SINGLESTORE_QUAL_EXTERNAL=1 — the Dev Image is already up and
+#                    seeded (the integration-singlestore CI service container), so
+#                    this script only builds, drives the real daemon, and verifies.
 #
-#   bash scripts/singlestore-live-qual.sh all
+#   bash scripts/singlestore-live-qual.sh all                            # local, docker
+#   SINGLESTORE_QUAL_EXTERNAL=1 bash scripts/singlestore-live-qual.sh all # CI, service container
 #
-# It uses a dedicated container name and isolated temp stores, and tears
-# everything down on exit — it never touches a developer's own SingleStore
-# container or store (INV-SLQ-02).
+# Requires a Go toolchain (+ docker for LOCAL mode). No cloud, no AWS, no license.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 FIXTURE="${REPO_ROOT}/scripts/singlestore-dev-fixture.sh"
 CONFIG="${REPO_ROOT}/examples/singlestore-daemon.yaml"
+EXTERNAL="${SINGLESTORE_QUAL_EXTERNAL:-}"
 WORK="$(mktemp -d)"
 CADENCE_DB="${WORK}/cadence.db"
 EXPORT_DB="${WORK}/export.db"
@@ -45,7 +52,7 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 cleanup() {
   [ -n "${DAEMON_PID}" ] && kill -TERM "${DAEMON_PID}" >/dev/null 2>&1 || true
-  bash "${FIXTURE}" down >/dev/null 2>&1 || true
+  [ -z "${EXTERNAL}" ] && bash "${FIXTURE}" down >/dev/null 2>&1 || true
   rm -rf "${WORK}" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -83,8 +90,8 @@ wait_health() {
   die "daemon did not become healthy"
 }
 
-say "workdir=${WORK}"
-bash "${FIXTURE}" up
+say "workdir=${WORK}; external=${EXTERNAL:-no}"
+[ -z "${EXTERNAL}" ] && bash "${FIXTURE}" up
 ( cd "${REPO_ROOT}" && go build -o "${BIN}" ./cmd/signals ) || die "build cmd/signals failed"
 ( cd "${REPO_ROOT}" && go build -o "${CTL}" ./cmd/signalsctl ) || die "build cmd/signalsctl failed"
 say "built the real daemon + signalsctl"
