@@ -45,8 +45,13 @@ die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
 cmd_up() {
   [ -f "${INIT_SQL}" ] || die "seed not found: ${INIT_SQL}"
+  # #588: never silently remove a container this script did not create. If the
+  # dedicated name is taken, refuse and tell the operator to run `down` — we only
+  # ever delete it from cmd_down (explicit teardown).
+  if [ -n "$(docker ps -aq -f "name=^${CONTAINER}$" 2>/dev/null)" ]; then
+    die "container ${CONTAINER} already exists — run '$0 down' first (refusing to remove a container this script did not create)"
+  fi
   say "starting pinned SingleStore Dev Image (${SS_IMAGE_DIGEST})"
-  docker rm -f "${CONTAINER}" >/dev/null 2>&1 || true
   docker run -d --name "${CONTAINER}" -e ROOT_PASSWORD="${ROOT_PW}" \
     -p "${HOST_PORT}:3306" "${SS_IMAGE}" >/dev/null
   say "waiting for SingleStore to accept connections"
@@ -65,8 +70,14 @@ cmd_up() {
     *) die "unexpected SingleStore version '${ver}' (want ${SS_EXPECTED_VERSION_PREFIX}x from the pinned image)" ;;
   esac
   say "applying deterministic seed (user + grants + schema + seed + workload)"
-  docker exec -i "${CONTAINER}" singlestore -u root -p"${ROOT_PW}" < "${INIT_SQL}" 2>&1 \
-    | grep -v 'getopt: command not found' || true
+  # #588: fail closed. The benign "getopt: command not found" client diagnostic
+  # is filtered from stderr via process substitution so the singlestore client's
+  # exit status still propagates — a failed user/grant/schema/seed stops cmd_up
+  # (no false "seed applied"), no longer masked by a pipe + `|| true`.
+  if ! docker exec -i "${CONTAINER}" singlestore -u root -p"${ROOT_PW}" < "${INIT_SQL}" \
+      2> >(grep -v 'getopt: command not found' >&2); then
+    die "seed failed — required setup SQL did not apply cleanly (see errors above)"
+  fi
   say "seed applied — SingleStore ${ver} ready on 127.0.0.1:${HOST_PORT}"
 }
 
