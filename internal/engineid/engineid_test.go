@@ -46,6 +46,18 @@ func TestResolve(t *testing.T) {
 			wantEngine:  EngineSingleStore,
 			wantVersion: "8.1.0",
 		},
+		{
+			name:        "TC-SSID-07 mariadb is distinct from mysql (version_comment)",
+			probe:       Probe{VersionComment: "mariadb.org binary distribution", Version: "10.11.6-MariaDB"},
+			wantEngine:  EngineMariaDB,
+			wantVersion: "10.11.6-MariaDB",
+		},
+		{
+			name:        "TC-SSID-07 mariadb via version string only",
+			probe:       Probe{Version: "10.6.16-MariaDB-1:10.6.16+maria~ubu2004"},
+			wantEngine:  EngineMariaDB,
+			wantVersion: "10.6.16-MariaDB-1:10.6.16+maria~ubu2004",
+		},
 	}
 
 	for _, tc := range cases {

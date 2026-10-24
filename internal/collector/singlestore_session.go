@@ -59,15 +59,51 @@ func singleStoreTLS(sslmode string) string {
 }
 
 // singleStoreConnConfig builds the MySQL-wire connection config from the normal
-// target config + a resolved password. Pure; no I/O (ECD-R003).
-func singleStoreConnConfig(tgt config.TargetConfig, password string) mysqlwire.ConnConfig {
-	return mysqlwire.ConnConfig{
-		Host:     tgt.Host,
-		Port:     tgt.Port,
-		User:     tgt.User,
-		Password: password,
-		DBName:   tgt.DBName,
-		TLS:      singleStoreTLS(tgt.SSLMode),
+// target config + a resolved password + the configured per-query timeout. Pure;
+// no I/O (ECD-R003). For verify-ca/verify-full it carries the configured CA path
+// + verification mode so the connection honors the private CA (#585, SCH-R001/
+// R002); the CA file is loaded (I/O) later, inside mysqlwire.Open.
+func singleStoreConnConfig(tgt config.TargetConfig, password string, queryTimeout time.Duration) mysqlwire.ConnConfig {
+	cc := mysqlwire.ConnConfig{
+		Host:         tgt.Host,
+		Port:         tgt.Port,
+		User:         tgt.User,
+		Password:     password,
+		DBName:       tgt.DBName,
+		TLS:          singleStoreTLS(tgt.SSLMode),
+		QueryTimeout: queryTimeout,
+	}
+	switch strings.ToLower(strings.TrimSpace(tgt.SSLMode)) {
+	case "verify-ca":
+		cc.TLSRootCAFile = tgt.SSLRootCertFile
+		cc.TLSVerifyHostname = false
+	case "verify-full":
+		cc.TLSRootCAFile = tgt.SSLRootCertFile
+		cc.TLSVerifyHostname = true
+	}
+	return cc
+}
+
+// boundedSingleStoreRunner wraps a QueryRunner so each collector operation is
+// bounded by min(queryTimeout, remaining target budget) (#586, SCH-R004/R005).
+// A per-collector deadline means one slow collector is canceled at the query
+// timeout without aborting the cycle; the target context remains the outer
+// bound. A non-positive queryTimeout with no target deadline means no inner
+// bound (the target deadline, if any, still applies).
+func boundedSingleStoreRunner(base singlestore.QueryRunner, queryTimeout time.Duration) singlestore.QueryRunner {
+	return func(ctx context.Context, query string) ([]map[string]any, error) {
+		timeout := queryTimeout
+		if deadline, ok := ctx.Deadline(); ok {
+			if remaining := time.Until(deadline); timeout <= 0 || remaining < timeout {
+				timeout = remaining
+			}
+		}
+		if timeout <= 0 {
+			return base(ctx, query)
+		}
+		qctx, cancel := context.WithTimeout(ctx, timeout)
+		defer cancel()
+		return base(qctx, query)
 	}
 }
 
@@ -80,7 +116,7 @@ func (c *Collector) openSingleStore(ctx context.Context, tgt config.TargetConfig
 	if err != nil {
 		return ssConn{}, fmt.Errorf("resolve credential: %w", err)
 	}
-	database, err := mysqlwire.Open(ctx, singleStoreConnConfig(tgt, cred.Password))
+	database, err := mysqlwire.Open(ctx, singleStoreConnConfig(tgt, cred.Password, c.queryTimeout))
 	if err != nil {
 		return ssConn{}, err
 	}
@@ -113,6 +149,9 @@ func mapSingleStoreCollection(snapID string, targetID int64, version, collectedA
 				reason = "permission_denied"
 			} else {
 				status = "failed"
+				// SCH-R007: canonical reason (timeout / permission_denied /
+				// object_missing / execution_error), never empty.
+				reason = classifyRunError(r.Err)
 			}
 		}
 		payload, compressed, size, err := db.EncodeNDJSON(r.Rows)
@@ -218,7 +257,10 @@ func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetCon
 
 	// Collector orchestration (real). Redaction mirrors the PostgreSQL
 	// high-sensitivity posture: redact sensitive query text unless opted in.
-	results := singlestore.Collect(ctx, conn.runner, singlestore.Catalog(), !c.highSensitivityEnabled)
+	// SCH-R004: bound each collector by the configured per-query timeout while
+	// the target context remains the outer bound of the cycle.
+	runner := boundedSingleStoreRunner(conn.runner, c.queryTimeout)
+	results := singlestore.Collect(ctx, runner, singlestore.Catalog(), !c.highSensitivityEnabled)
 
 	for _, r := range results {
 		if cerr := c.db.UpsertQueryCatalog(db.QueryCatalogRow{

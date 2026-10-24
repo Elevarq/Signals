@@ -30,7 +30,7 @@ resolution for MySQL-wire servers (SingleStore vs MySQL), fail-closed.
 
 ### TC-SSID-02: MySQL, no SingleStore signal (boundary — must not say singlestore)
 
-**Rule:** SS-ID-R003, INV-SSID-01
+**Rule:** SS-ID-R005, INV-SSID-01
 
 **Scenario:** A stock MySQL 8.0 server.
 
@@ -43,10 +43,34 @@ resolution for MySQL-wire servers (SingleStore vs MySQL), fail-closed.
 **Then:**
 - engine == `mysql`.
 - engine != `singlestore`.
+- engine != `mariadb`.
 - error is nil.
 
 **Expected Result:** Pass when a MySQL-compatible version with no
-SingleStore signal resolves to `mysql` and never `singlestore`.
+SingleStore signal resolves to `mysql` and never `singlestore`/`mariadb`.
+
+---
+
+### TC-SSID-07: MariaDB, no SingleStore signal (boundary — distinct from MySQL)
+
+**Rule:** SS-ID-R003, INV-SSID-01
+
+**Scenario:** A stock MariaDB server.
+
+**Given:**
+- `Probe{MemsqlVersion: "", VersionComment: "mariadb.org binary distribution", Version: "10.11.6-MariaDB"}`.
+
+**When:**
+- `Resolve(probe)` runs.
+
+**Then:**
+- engine == `mariadb`.
+- engine != `mysql`.
+- engine != `singlestore`.
+- error is nil.
+
+**Expected Result:** Pass when a MariaDB server resolves to the distinct
+`mariadb` engine, never folding into `mysql` or `singlestore`.
 
 ---
 

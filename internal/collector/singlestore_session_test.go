@@ -19,7 +19,7 @@ func TestSingleStoreConnConfigFromTarget(t *testing.T) {
 		Name: "ss1", Host: "ss.example", Port: 3306, User: "admin",
 		DBName: "memsql", SSLMode: "require",
 	}
-	cc := singleStoreConnConfig(tgt, "secret")
+	cc := singleStoreConnConfig(tgt, "secret", 10*time.Second)
 	if cc.Host != "ss.example" || cc.Port != 3306 || cc.User != "admin" || cc.DBName != "memsql" {
 		t.Errorf("conn config fields not mapped from target: %+v", cc)
 	}

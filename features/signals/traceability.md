@@ -544,3 +544,26 @@ producer evidence). Verifier + readers: `internal/collector/singlestore_qual.go`
 | INV-SLQ-01 | Collection is read-only; only the one-time deterministic seed writes to SingleStore | TestSingleStoreLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (SSC-R001); seed applied once by the fixture. |
 | INV-SLQ-02 | Dedicated container + isolated temp stores; never touches a developer's own container/store | TestSingleStoreLiveExportReconciliation | COVERED | INTEGRATION | `ss-dev-fixture` container + mktemp stores; torn down on exit. |
 | INV-SLQ-03 | status='success' is the success signal; a row/snapshot existing or a distinct-query_id count is never sufficient | TestVerifyCadenceSnapshot_InjectedNonSuccessFailsLoudly | COVERED | BEHAVIORAL | The anti-pattern the superseded cadence script embodied. |
+
+## #585/#586/#587 — SingleStore connection hardening + MariaDB identity (M5)
+
+Specs: `specifications/singlestore-connection-hardening.md` (ACTIVE, SCH-R001..R007,
+INV-SCH-01..03) and the MariaDB-distinct extension of
+`specifications/singlestore-engine-identity.md` (SS-ID-R003 → mariadb, SS-ID-R005
+→ mysql). TLS CA (#585), per-collector query timeout (#586), env engine selection
+(#587). PostgreSQL TLS/timeout behavior unchanged.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| SCH-R001 | verify-full verifies chain against the configured CA AND the hostname | TestBuildTLSConfig_VerifyFullTrustedCASucceeds, TestBuildTLSConfig_VerifyFullRejectsUntrustedAndHostname, TestSingleStoreConnConfig_TLSAndTimeoutMapping | COVERED | BEHAVIORAL | Hermetic: temp CA + local TLS listener. Trusted+matching succeeds; untrusted CA / hostname mismatch fail. |
+| SCH-R002 | verify-ca verifies the chain against the CA but not the hostname | TestBuildTLSConfig_VerifyCAIgnoresHostnameButChecksChain, TestSingleStoreConnConfig_TLSAndTimeoutMapping | COVERED | BEHAVIORAL | Hostname mismatch accepted under a trusted CA; untrusted CA still rejected. |
+| SCH-R003 | TLS fails closed on bad CA; a verified connection never falls back to plaintext | TestBuildTLSConfig_BadCAFailsClosed, TestResolveTLS_FailsClosedOnBadCA | COVERED | BEHAVIORAL | Non-existent + unparseable CA both error; Open resolves TLS before dialing. |
+| SCH-R004 | Each collector bounded by min(query_timeout, remaining target budget); timed-out collector fails with reason timeout; later collectors run | TestBoundedSingleStoreRunner_CancelsAtQueryTimeout, TestBoundedSingleStoreRunner_LaterCollectorsRun, TestBoundedSingleStoreRunner_DeadlineErrorType | COVERED | BEHAVIORAL | #586. Deterministic via a blocking fake runner + a 10ms bound. |
+| SCH-R005 | The per-target timeout remains the outer bound; query timeout never silently replaces it | TestBoundedSingleStoreRunner_LaterCollectorsRun | COVERED | BEHAVIORAL | min() logic derives from the ctx deadline; cycle not aborted by one timeout. |
+| SCH-R006 | Env SIGNALS_TARGET_ENGINE sets the engine; omission defaults to PostgreSQL; engine-aware default port | TestEnvTargetEngineParity | COVERED | BEHAVIORAL | #587. singlestore→3306, omitted→postgresql/5432, explicit port wins. |
+| SCH-R007 | A failed SingleStore run carries a canonical reason (timeout/permission_denied/object_missing/execution_error), never empty; elevated degrade stays skipped | TestMapSingleStoreCollection_CanonicalReasons | COVERED | BEHAVIORAL | Reuses classifyRunError; MKR-R007 elevated degrade preserved. |
+| INV-SCH-01 | No credential/private key/certificate private material logged or persisted | — | COVERED | DOC | Redacted DSN blanks the password (INV-WIRE-02); the CA file path is non-secret. |
+| INV-SCH-02 | PostgreSQL TLS + query-timeout behavior unchanged | — | COVERED | DOC | Changes are MySQL-wire-only + the previously-PostgreSQL-only env engine field; existing PostgreSQL timeout/TLS tests remain green. |
+| INV-SCH-03 | Collection stays read-only; no engine is written | — | COVERED | DOC | Collectors are SELECT-only (SSC-R001 / INV-WIRE-01); no new statements added. |
+| SS-ID-R003 (mariadb distinct) | A MariaDB server resolves to the distinct `mariadb` engine, never folding into `mysql` | TestResolve | COVERED | BEHAVIORAL | TC-SSID-07; engineid_test.go. Checked before the mysql branch. |
+| SS-ID-R005 (mysql only) | A MySQL (non-MariaDB) server resolves to `mysql` | TestResolve | COVERED | BEHAVIORAL | TC-SSID-02; renumbered from the old combined mysql/mariadb rule. |
