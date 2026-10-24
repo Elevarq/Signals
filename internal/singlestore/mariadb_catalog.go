@@ -5,12 +5,21 @@ package singlestore
 // and SingleStore — only the catalog differs. Every statement is a read-only
 // SELECT, confirmed live against a MariaDB 11.4 server (not authored blind).
 //
-// MariaDB's information_schema differs from MySQL 8: GLOBAL_VARIABLES and
-// GLOBAL_STATUS live in information_schema (MySQL 8 moved them to
-// performance_schema, which MariaDB leaves OFF by default). INNODB_METRICS and
-// the perf_schema replication views are not available under the baseline role /
-// default config, so the MariaDB catalog omits them — every collector here
-// succeeds under GRANT SELECT, PROCESS.
+// MariaDB's system views differ from MySQL 8 (#616 brings the catalog to parity
+// by capability, with MariaDB-native SQL — not a copy of MySQL's):
+//   - GLOBAL_VARIABLES / GLOBAL_STATUS (and wsrep/Galera status) live in
+//     information_schema (MySQL 8 moved them to performance_schema).
+//   - InnoDB transactions + locks live in information_schema: INNODB_TRX,
+//     INNODB_LOCKS, INNODB_LOCK_WAITS (MySQL 8.0 removed the latter two and uses
+//     performance_schema.data_locks / data_lock_waits, which MariaDB lacks).
+//     INNODB_METRICS IS available under SELECT, PROCESS (an earlier claim that it
+//     was not was wrong — disproven live against MariaDB 11.4.13).
+//   - performance_schema is OFF by default, so metadata_locks and
+//     events_statements_summary_by_digest return a legitimate empty result until
+//     an operator enables it (perf_schema-gated, not absent).
+//   - MariaDB has Galera (wsrep), not Group Replication, and exposes replica
+//     state via GTID server variables, not a SHOW SLAVE STATUS table.
+// Every collector here succeeds under GRANT SELECT, PROCESS.
 
 // mariadbCatalog returns the validated MariaDB collector set. Columns were
 // confirmed live against MariaDB 11.4; all statements are read-only SELECTs
@@ -53,6 +62,85 @@ func mariadbCatalog() []Collector {
 			ID:       "mariadb_schemata_v1",
 			Category: "schema",
 			SQL:      "SELECT SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA",
+		},
+		{
+			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
+			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
+			// STATUS='enabled').
+			ID:       "mariadb_innodb_metrics_v1",
+			Category: "resources",
+			SQL:      "SELECT NAME, SUBSYSTEM, COUNT, TYPE, COMMENT FROM information_schema.INNODB_METRICS WHERE ENABLED=1",
+		},
+		{
+			// #616: active InnoDB transactions (point-in-time session evidence).
+			// trx_query carries the transaction's live SQL text -> HighSensitivity +
+			// redacted; the result key is lowercase trx_query. Oldest-first +
+			// bounded. trx_state distinguishes RUNNING vs LOCK WAIT. Empty on an idle
+			// server is a legitimate success. Needs the PROCESS grant (held).
+			ID:               "mariadb_innodb_transactions_v1",
+			Category:         "activity",
+			SQL:              "SELECT trx_id, trx_state, trx_started, trx_requested_lock_id, trx_wait_started, trx_weight, trx_mysql_thread_id, trx_query, trx_operation_state, trx_tables_in_use, trx_tables_locked, trx_rows_locked, trx_rows_modified, trx_isolation_level FROM information_schema.INNODB_TRX ORDER BY trx_started LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"trx_query"},
+		},
+		{
+			// #616: the active lock inventory (MariaDB's information_schema.INNODB_LOCKS,
+			// which MySQL 8.0 removed). lock_data is the locked index-key value (row
+			// data, not SQL) -> HighSensitivity + redacted; native lock descriptors
+			// (mode/type/table/index) are preserved. Bounded. Empty when no locks are
+			// held is a legitimate success.
+			ID:               "mariadb_innodb_locks_v1",
+			Category:         "activity",
+			SQL:              "SELECT lock_id, lock_trx_id, lock_mode, lock_type, lock_table, lock_index, lock_space, lock_page, lock_rec, lock_data FROM information_schema.INNODB_LOCKS LIMIT 500",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"lock_data"},
+		},
+		{
+			// #616: the blocked -> blocking wait-for edges (trx + lock ids only; no
+			// SQL, no row data). Empty when nothing is blocked is a legitimate
+			// success.
+			ID:       "mariadb_innodb_lock_waits_v1",
+			Category: "activity",
+			SQL:      "SELECT requesting_trx_id, requested_lock_id, blocking_trx_id, blocking_lock_id FROM information_schema.INNODB_LOCK_WAITS LIMIT 500",
+		},
+		{
+			// #616: metadata-lock (MDL) inventory. performance_schema is OFF by
+			// default on MariaDB, so this is a legitimate empty result until an
+			// operator enables it (perf_schema-gated, not a failure). PENDING-first +
+			// bounded. Object schema/name only, no SQL or row data.
+			ID:       "mariadb_metadata_locks_v1",
+			Category: "activity",
+			SQL:      "SELECT OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME, LOCK_TYPE, LOCK_DURATION, LOCK_STATUS, SOURCE, OWNER_THREAD_ID FROM performance_schema.metadata_locks ORDER BY LOCK_STATUS DESC LIMIT 500",
+		},
+		{
+			// #616: the query-workload signal (MariaDB's perf_schema digest summary).
+			// DIGEST_TEXT is the normalized sample SQL -> HighSensitivity + redacted.
+			// perf_schema is OFF by default -> legitimate empty until enabled. Top
+			// statements by accumulated latency, bounded. A digest id is never
+			// equated with a PostgreSQL queryid.
+			ID:               "mariadb_statement_digests_v1",
+			Category:         "workload",
+			SQL:              "SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_TIMER_WAIT, SUM_LOCK_TIME, SUM_ROWS_EXAMINED, SUM_ROWS_SENT, SUM_ERRORS, SUM_SELECT_SCAN, SUM_NO_INDEX_USED, FIRST_SEEN, LAST_SEEN FROM performance_schema.events_statements_summary_by_digest ORDER BY SUM_TIMER_WAIT DESC LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"DIGEST_TEXT"},
+		},
+		{
+			// #616: MariaDB replica-state signal. MariaDB has no SHOW SLAVE STATUS
+			// table nor the MySQL perf_schema replication_* views; the GTID + binlog
+			// server variables are the SELECT-able source. Standalone (no replica) ->
+			// empty GTID positions, a legitimate distinct state.
+			ID:       "mariadb_replication_status_v1",
+			Category: "topology",
+			SQL:      "SELECT @@global.server_id AS server_id, @@global.log_bin AS log_bin, @@global.read_only AS read_only, @@global.gtid_current_pos AS gtid_current_pos, @@global.gtid_binlog_pos AS gtid_binlog_pos, @@global.gtid_slave_pos AS gtid_slave_pos",
+		},
+		{
+			// #616: Galera (wsrep) cluster state via information_schema.GLOBAL_STATUS
+			// — MariaDB's Group-Replication analogue. A standalone server reports
+			// WSREP_READY=OFF / WSREP_CLUSTER_STATUS=Disconnected / size 0, a
+			// legitimate "not clustered" state, never a failure.
+			ID:       "mariadb_galera_status_v1",
+			Category: "topology",
+			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('WSREP_CLUSTER_SIZE', 'WSREP_CLUSTER_STATUS', 'WSREP_CONNECTED', 'WSREP_READY', 'WSREP_LOCAL_STATE_COMMENT', 'WSREP_LOCAL_RECV_QUEUE', 'WSREP_FLOW_CONTROL_PAUSED', 'WSREP_CERT_DEPS_DISTANCE')",
 		},
 	}
 }
