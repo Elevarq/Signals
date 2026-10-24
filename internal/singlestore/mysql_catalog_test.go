@@ -24,12 +24,18 @@ func TestMySQLCatalogReadOnly(t *testing.T) {
 // TC-MYC-02 (MYC-R005): expected MySQL collector set.
 func TestMySQLCatalogExpectedSet(t *testing.T) {
 	want := []string{
+		"mysql_data_lock_waits_v1",
+		"mysql_data_locks_v1",
 		"mysql_engines_v1",
 		"mysql_global_status_v1",
 		"mysql_global_variables_v1",
+		"mysql_group_replication_members_v1",
 		"mysql_identity_v1",
 		"mysql_innodb_metrics_v1",
+		"mysql_innodb_transactions_v1",
+		"mysql_metadata_locks_v1",
 		"mysql_processlist_v1",
+		"mysql_replica_applier_status_v1",
 		"mysql_replication_status_v1",
 		"mysql_schemata_v1",
 		"mysql_statement_digests_v1",
@@ -152,28 +158,122 @@ func TestMySQLStatementDigestsRedaction(t *testing.T) {
 	}
 }
 
-// TC-MYC-05 (INV-MYC-03): no query-text column escapes the redaction contract.
-func TestMySQLCatalogNoUnredactedQueryText(t *testing.T) {
+// TC-MYC-05 (INV-MYC-03, MYC-R004/R008): no query-text column or locked-key data
+// escapes the redaction contract — catalog-wide, case-insensitive on the SQL, and
+// SensitiveColumns must carry the exact result-row case so runtime redaction (an
+// exact map-key nil) actually fires.
+func TestMySQLCatalogNoUnredactedSensitiveColumn(t *testing.T) {
+	// sensitive column -> its exact result-row case.
+	sensitive := map[string]string{
+		"INFO":        "INFO",
+		"DIGEST_TEXT": "DIGEST_TEXT",
+		"TRX_QUERY":   "trx_query",
+		"LOCK_DATA":   "LOCK_DATA",
+	}
 	for _, c := range mysqlCatalog() {
 		up := strings.ToUpper(c.SQL)
-		for _, qt := range []string{"INFO"} {
-			// Match the query-text column as a select-list token (preceded by a
-			// comma or followed by FROM), not a substring of another identifier
-			// like INFORMATION_SCHEMA.
+		for qt, exactCase := range sensitive {
+			// Match the column as a select-list token (preceded by a comma or
+			// followed by FROM), not a substring of another identifier like
+			// INFORMATION_SCHEMA.
 			if strings.Contains(up, ", "+qt) || strings.Contains(up, " "+qt+" FROM") || strings.Contains(up, " "+qt+",") {
 				if !c.HighSensitivity {
 					t.Errorf("collector %q selects %s but is not HighSensitivity", c.ID, qt)
 				}
 				has := false
 				for _, col := range c.SensitiveColumns {
-					if col == qt {
+					if col == exactCase {
 						has = true
 					}
 				}
 				if !has {
-					t.Errorf("collector %q selects %s but it is not in SensitiveColumns", c.ID, qt)
+					t.Errorf("collector %q selects %s but %q (exact result-row case) is not in SensitiveColumns %v", c.ID, qt, exactCase, c.SensitiveColumns)
 				}
 			}
 		}
+	}
+}
+
+// TC-MYC-06 (#543): the InnoDB-transactions collector carries live SQL text in
+// trx_query (lowercase result key) and must be HighSensitivity with it redacted.
+func TestMySQLInnodbTransactionsRedaction(t *testing.T) {
+	var trx *Collector
+	for i := range mysqlCatalog() {
+		if mysqlCatalog()[i].ID == "mysql_innodb_transactions_v1" {
+			trx = &mysqlCatalog()[i]
+		}
+	}
+	if trx == nil {
+		t.Fatal("mysql_innodb_transactions_v1 missing")
+	}
+	if !trx.HighSensitivity {
+		t.Error("mysql_innodb_transactions_v1 must be HighSensitivity (carries trx_query)")
+	}
+	found := false
+	for _, col := range trx.SensitiveColumns {
+		if col == "trx_query" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("mysql_innodb_transactions_v1 must list trx_query (lowercase) in SensitiveColumns")
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "INNODB_TRX") {
+			return []map[string]any{{"trx_id": "1831", "trx_query": "UPDATE accounts SET balance=balance+5 WHERE id=1"}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*trx}, true)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["trx_query"]; v != nil {
+		t.Errorf("trx_query must be redacted to nil, got %v", v)
+	}
+}
+
+// TC-MYC-07 (#543): the data-locks collector carries the locked index-key value in
+// LOCK_DATA (row data) and must be HighSensitivity with it redacted, while native
+// lock descriptors are preserved.
+func TestMySQLDataLocksRedaction(t *testing.T) {
+	var dl *Collector
+	for i := range mysqlCatalog() {
+		if mysqlCatalog()[i].ID == "mysql_data_locks_v1" {
+			dl = &mysqlCatalog()[i]
+		}
+	}
+	if dl == nil {
+		t.Fatal("mysql_data_locks_v1 missing")
+	}
+	if !dl.HighSensitivity {
+		t.Error("mysql_data_locks_v1 must be HighSensitivity (carries LOCK_DATA)")
+	}
+	found := false
+	for _, col := range dl.SensitiveColumns {
+		if col == "LOCK_DATA" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("mysql_data_locks_v1 must list LOCK_DATA in SensitiveColumns")
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "data_locks") {
+			return []map[string]any{{"OBJECT_NAME": "accounts", "LOCK_MODE": "X,REC_NOT_GAP", "LOCK_STATUS": "WAITING", "LOCK_DATA": "1"}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*dl}, true)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	row := rs[0].Rows[0]
+	if v := row["LOCK_DATA"]; v != nil {
+		t.Errorf("LOCK_DATA must be redacted to nil, got %v", v)
+	}
+	// Native descriptors preserved.
+	if row["OBJECT_NAME"] != "accounts" || row["LOCK_STATUS"] != "WAITING" {
+		t.Errorf("native lock descriptors must be preserved, got %+v", row)
 	}
 }
