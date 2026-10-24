@@ -499,6 +499,10 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) error {
 // non-connection field, forcing a test-time decision rather than a
 // silent omission from the reload comparison.
 type connIdentity struct {
+	// Backend selection: the engine determines which driver/backend dials
+	// the target (PostgreSQL via pgx vs the MySQL-wire engines), so a change
+	// to it must recreate the pool (engine-identity.md, EID-R001).
+	Engine string
 	// Dialing
 	Host    string
 	Port    int
@@ -528,6 +532,7 @@ type connIdentity struct {
 // connectionIdentity derives the connIdentity of a target.
 func connectionIdentity(t config.TargetConfig) connIdentity {
 	return connIdentity{
+		Engine:                       t.EffectiveEngine(),
 		Host:                         t.Host,
 		Port:                         t.Port,
 		DBName:                       t.DBName,
@@ -1621,8 +1626,11 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		TargetID:    targetID,
 		CollectedAt: collectedAt,
 		PGVersion:   data.Version,
-		Payload:     json.RawMessage(payload),
-		SizeBytes:   len(payload),
+		// EID-R003: stamp the target's effective engine on the snapshot.
+		// This is the PostgreSQL path, so it resolves to "postgresql".
+		Engine:    tgt.EffectiveEngine(),
+		Payload:   json.RawMessage(payload),
+		SizeBytes: len(payload),
 	}
 
 	// Step 5: Persist snapshot + runs + results atomically (R077). A

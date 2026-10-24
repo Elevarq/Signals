@@ -242,6 +242,13 @@ type TargetConfig struct {
 	PgpassFile      string `yaml:"pgpass_file"`
 	Enabled         bool   `yaml:"enabled"`
 
+	// Engine is the target's database engine identity (engine-identity.md,
+	// EID-R001). Empty means PostgreSQL (see EffectiveEngine), preserving
+	// existing configs. A non-empty value must appear in SupportedEngines or
+	// ValidateStrict rejects it (EID-R002); the set grows as each engine's
+	// collection backend lands.
+	Engine string `yaml:"engine"`
+
 	// AuthMethod selects the credential provider for this target
 	// (credential-providers.md, #93). Empty means the default
 	// password provider, preserving existing behavior. Non-empty
@@ -417,6 +424,34 @@ func (t TargetConfig) EffectiveAuthMethod() string {
 		return AuthMethodPassword
 	}
 	return t.AuthMethod
+}
+
+// Engine identity constants (engine-identity.md). PostgreSQL is the only
+// engine with a collection backend in this build; the others are reserved
+// identifiers so identity, config, and persistence are ready before their
+// backends land (SingleStore/MySQL/MariaDB share the MySQL wire protocol).
+const (
+	EnginePostgreSQL  = "postgresql"
+	EngineSingleStore = "singlestore"
+	EngineMySQL       = "mysql"
+	EngineMariaDB     = "mariadb"
+)
+
+// SupportedEngines enumerates every engine this build can actually collect.
+// The empty value is equivalent to EnginePostgreSQL (see EffectiveEngine) and
+// is always accepted. The set grows as each engine's backend is implemented;
+// a configured engine outside it is rejected by ValidateStrict (EID-R002),
+// never silently downgraded to PostgreSQL.
+var SupportedEngines = []string{EnginePostgreSQL}
+
+// EffectiveEngine returns the target's engine, defaulting an empty value to
+// EnginePostgreSQL so existing configs keep their current behavior
+// (EID-R001, INV-EID-01).
+func (t TargetConfig) EffectiveEngine() string {
+	if t.Engine == "" {
+		return EnginePostgreSQL
+	}
+	return t.Engine
 }
 
 type APIConfig struct {
@@ -918,6 +953,21 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): duplicate name (also at target[%d])", i, t.Name, prev))
 		} else {
 			seen[t.Name] = i
+		}
+		// EID-R002: a configured engine must be one this build can collect.
+		// Fail-closed — never silently downgrade an unsupported engine to
+		// PostgreSQL. Empty is fine (EffectiveEngine defaults it).
+		if t.Engine != "" {
+			ok := false
+			for _, e := range SupportedEngines {
+				if t.Engine == e {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				hard = append(hard, fmt.Sprintf("target[%d] (%s): engine %q is not supported by this build (supported: %s)", i, t.Name, t.Engine, strings.Join(SupportedEngines, ", ")))
+			}
 		}
 		if t.Host == "" {
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): host is required", i, t.Name))

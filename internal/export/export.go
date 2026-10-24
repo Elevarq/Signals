@@ -474,7 +474,14 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
+	// EID-R004 / INV-EID-01: declare the engine identity of the collection,
+	// sourced from the scoped snapshot; empty/legacy normalizes to postgresql.
+	engine := "postgresql"
+	if len(scope.snapshots) > 0 && scope.snapshots[0].Engine != "" {
+		engine = scope.snapshots[0].Engine
+	}
 	data := map[string]any{
+		"engine":                              engine,
 		"schema_version":                      snapshot.SchemaVersion,
 		"collector_status_schema_version":     CollectorStatusSchemaVersion,
 		"instance_id":                         b.instanceID,
