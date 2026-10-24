@@ -1219,24 +1219,27 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		}
 	}()
 
-	// Engine dispatch (#593, ECD-R002): a SingleStore target is collected by
-	// its MySQL-wire session, not pgx (INV-ECD-01), behind the SAME common
-	// lifecycle — the deferred outcome/metrics/circuit handling above runs via
-	// the snapID+runs+err set here.
-	switch tgt.EffectiveEngine() {
-	case config.EngineSingleStore:
-		snapID, runs, err = c.collectSingleStore(ctx, tgt)
+	// Engine dispatch (ECD-R002) is BACKEND-DRIVEN, not per-engine: every
+	// MySQL-wire engine (SingleStore, MySQL, …) is served by the one shared
+	// wire session (which picks its catalog via CatalogFor, ECD-R008), never
+	// pgx (INV-ECD-01), behind the SAME common lifecycle — the deferred
+	// outcome/metrics/circuit handling above runs via the snapID+runs+err here.
+	// Adding a wire engine adds no branch below.
+	switch SelectBackend(tgt) {
+	case BackendMySQLWire:
+		snapID, runs, err = c.collectMySQLWire(ctx, tgt)
 		return err
-	case config.EnginePostgreSQL:
-		// Fall through to the pgx path below.
-	default:
-		// A recognized non-PostgreSQL engine with no collection backend in
-		// this build (e.g. mysql/mariadb). Config validation rejects these at
-		// load (EID-R002); this is defense-in-depth so such a target can never
-		// be routed to pgx (INV-ECD-01 / ECD-R006). Skip, do not fail.
-		slog.Info("skipping target: engine has no collection backend in this build",
-			"target", tgt.Name, "engine", tgt.EffectiveEngine())
-		return nil
+	case BackendPostgreSQL:
+		if tgt.EffectiveEngine() != config.EnginePostgreSQL {
+			// A recognized non-PostgreSQL engine with no wire backend in this
+			// build (e.g. mariadb). Config validation rejects these at load
+			// (EID-R002); this is defense-in-depth so such a target can never
+			// be routed to pgx (INV-ECD-01 / ECD-R006). Skip, do not fail.
+			slog.Info("skipping target: engine has no collection backend in this build",
+				"target", tgt.Name, "engine", tgt.EffectiveEngine())
+			return nil
+		}
+		// PostgreSQL: fall through to the pgx path below.
 	}
 
 	pool, err := c.getPool(ctx, tgt)

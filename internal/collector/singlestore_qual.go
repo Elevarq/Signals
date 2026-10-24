@@ -130,8 +130,10 @@ func VerifyCadenceSnapshot(s QualSnapshot, expected []string, versionPrefix stri
 func VerifyExportReconciliation(s QualSnapshot, z QualExport, expected []string, versionPrefix string) error {
 	var errs []string
 
-	if z.Engine != "singlestore" {
-		errs = append(errs, fmt.Sprintf("metadata engine=%q, want singlestore", z.Engine))
+	// The exported metadata engine must match the persisted snapshot's engine
+	// (engine-generic: singlestore, mysql, …).
+	if z.Engine != s.Engine {
+		errs = append(errs, fmt.Sprintf("metadata engine=%q, want %q (the snapshot's engine)", z.Engine, s.Engine))
 	}
 	if z.EngineVersion == "" {
 		errs = append(errs, "metadata engine_version is empty")

@@ -50,7 +50,7 @@ func TestMapSingleStoreCollection(t *testing.T) {
 		{CollectorID: "singlestore_aggregators_v1", Category: "topology", Rows: []map[string]any{{"state": "online"}, {"state": "online"}}},
 		{CollectorID: "singlestore_cluster_status_v1", Category: "topology", Err: "permission denied"},
 	}
-	snap, runs, payloads, err := mapSingleStoreCollection("snap-1", 7, "8.5.22", "2026-10-21T00:00:00Z", results)
+	snap, runs, payloads, err := mapWireCollection("singlestore", "snap-1", 7, "8.5.22", "2026-10-21T00:00:00Z", results)
 	if err != nil {
 		t.Fatalf("mapSingleStoreCollection: %v", err)
 	}
@@ -203,17 +203,20 @@ func TestCollectTarget_SingleStoreIdentityMismatch(t *testing.T) {
 	}
 }
 
-// ECD-R006: an unsupported engine (mysql) is skipped explicitly — not routed
-// through the SingleStore session, and no snapshot produced.
+// ECD-R006: a recognized engine with no backend in this build (mariadb — not in
+// SupportedEngines) is skipped explicitly — never routed through the wire
+// session (and never pgx), and no snapshot produced. (mysql became a supported
+// wire engine in the MySQL milestone and is covered by
+// TestCollectTarget_MySQLProductionBoundary.)
 func TestCollectTarget_UnsupportedEngineSkipped(t *testing.T) {
-	// A connector that would panic if ever called — proving mysql never enters
-	// the SingleStore session.
+	// A connector that would panic if ever called — proving an unsupported
+	// engine never enters the wire session.
 	trap := func(ctx context.Context, tgt config.TargetConfig) (ssConn, error) {
-		t.Fatalf("SingleStore connector must NOT be invoked for a mysql target (ECD-R006)")
+		t.Fatalf("wire connector must NOT be invoked for an unsupported-engine target (ECD-R006)")
 		return ssConn{}, nil
 	}
 	c, store := newTestCollector(t, WithSingleStoreConnectorForTest(trap))
-	tgt := config.TargetConfig{Name: "my1", Host: "h", Port: 3306, Engine: config.EngineMySQL, Enabled: true}
+	tgt := config.TargetConfig{Name: "mar1", Host: "h", Port: 3306, Engine: config.EngineMariaDB, Enabled: true}
 	if err := c.collectTarget(context.Background(), tgt, true, true, "", ""); err != nil {
 		t.Fatalf("unsupported-engine skip should return nil, got %v", err)
 	}

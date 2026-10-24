@@ -52,10 +52,18 @@ func TestCatalogForIsTotal(t *testing.T) {
 		}
 	}
 
-	if got := catalogFor("mysql"); len(got) != 0 {
-		t.Errorf("catalogFor(mysql) = %d entries, want 0 (no PostgreSQL fallback)", len(got))
+	// mysql is now a supported wire engine: its reporting catalog comes from the
+	// single registry (no PostgreSQL fallback, no PG ids).
+	my := ids(catalogFor("mysql"))
+	if len(my) != len(singlestore.CatalogFor("mysql")) || !my["mysql_identity_v1"] {
+		t.Errorf("catalogFor(mysql) wrong: %v", my)
+	}
+	for _, q := range pgqueries.All() {
+		if my[q.ID] {
+			t.Errorf("catalogFor(mysql) leaked PostgreSQL id %q", q.ID)
+		}
 	}
 	if got := catalogFor("nonsense-engine"); len(got) != 0 {
-		t.Errorf("catalogFor(unknown) = %d entries, want 0", len(got))
+		t.Errorf("catalogFor(unknown) = %d entries, want 0 (no fallback)", len(got))
 	}
 }
