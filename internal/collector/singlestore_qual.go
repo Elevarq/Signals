@@ -18,6 +18,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/elevarq/signals/internal/clickhouse"
+	"github.com/elevarq/signals/internal/config"
 	"github.com/elevarq/signals/internal/db"
 	"github.com/elevarq/signals/internal/singlestore"
 )
@@ -56,13 +58,20 @@ type QualExport struct {
 	MemberNames        []string
 }
 
-// ExpectedCollectorsFor returns the expected collector id set for a wire engine
-// (from the single CatalogFor registry), sorted for deterministic comparison.
+// ExpectedCollectorsFor returns the expected collector id set for an engine,
+// sorted for deterministic comparison. Wire engines (singlestore/mysql/mariadb)
+// come from the MySQL-wire CatalogFor registry; ClickHouse is its own backend
+// with its own catalog.
 func ExpectedCollectorsFor(engine string) []string {
-	cat := singlestore.CatalogFor(engine)
-	out := make([]string, 0, len(cat))
-	for _, c := range cat {
-		out = append(out, c.ID)
+	var out []string
+	if engine == config.EngineClickHouse {
+		for _, c := range clickhouse.Catalog() {
+			out = append(out, c.ID)
+		}
+	} else {
+		for _, c := range singlestore.CatalogFor(engine) {
+			out = append(out, c.ID)
+		}
 	}
 	sort.Strings(out)
 	return out

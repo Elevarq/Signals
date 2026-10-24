@@ -692,3 +692,25 @@ replacing the CH-1 identity-only foundation; validated live against ClickHouse
 | CHC-R005 | Catalog() is the 14-collector set, identity first; query-log bounded (recent + LIMIT) | TestCatalogExpectedSet | COVERED | BEHAVIORAL | — |
 | INV-CHC-01 | Collection never issues a non-SELECT | TestCatalogReadOnly | COVERED | BEHAVIORAL | — |
 | INV-CHC-02 | No query-text column escapes the redaction contract | TestQueryLogRedaction | COVERED | BEHAVIORAL | query_log + query_thread_log. |
+
+## ClickHouse live qualification (CH-3, #566/#567)
+
+Spec: `specifications/clickhouse-live-qualification.md` (ACTIVE, CHLQ-R001..R005,
+INV-CHLQ-01..03). The normal cmd/signals daemon collects a real ClickHouse (CI
+service container `integration-clickhouse` + local Dev Image, single-node) and
+exports through the production exporter; success asserted as status='success'
+with reconciled evidence. Harness: `scripts/clickhouse-dev-fixture.sh`,
+`scripts/clickhouse-live-qual.sh`, `internal/collector/clickhouse_live_test.go`
+(//go:build clickhouse_live), `examples/clickhouse-init.sql`,
+`examples/clickhouse-daemon.yaml`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CHLQ-R001 | Producer is the normal cmd/signals daemon; never direct Collect | TestClickHouseLiveCadenceQualification, TestClickHouseLiveExportReconciliation | COVERED | INTEGRATION | `//go:build clickhouse_live`; pinned ClickHouse 24.8 (CI service + local). |
+| CHLQ-R002 | Each snapshot passes VerifyCadenceSnapshot (engine=clickhouse, every collector status='success', reconciled, ids unique, restart appends) | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | 11 snapshots all success, local run. |
+| CHLQ-R003 | Legitimate empty system.* results are successes, never failures | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | single-node replicas/merges/mutations empty = success. |
+| CHLQ-R004 | One exact snapshot passes VerifyExportReconciliation: metadata engine/version, no foreign PG collector, collected==persisted==exported, query redacted, manifest complete | TestClickHouseLiveExportReconciliation, TestClickHouseExportSerializationReconciles | COVERED | INTEGRATION | Live + deterministic serialization legs. |
+| CHLQ-R005 | The ClickHouse live qualification runs in CI as integration-clickhouse and is a dependency of ci-gate | TestCIGateRequiresPostgreSQL | COVERED | STRUCTURAL | M0 guard asserts every integration-* job in ci-gate.needs. |
+| INV-CHLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | SELECT-only (CHC-R001). |
+| INV-CHLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own ClickHouse | TestClickHouseLiveExportReconciliation | COVERED | INTEGRATION | clickhouse-dev-fixture fail-closed, refuses existing container (#588). |
+| INV-CHLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status. |
