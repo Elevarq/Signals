@@ -1,0 +1,1679 @@
+[
+  {
+    "CollectorID": "singlestore_identity_v1",
+    "Category": "server",
+    "Rows": [
+      {
+        "memsql_version": "9.1.1",
+        "version": "5.7.32",
+        "version_comment": "SingleStoreDB source distribution (compatible; MySQL Enterprise \u0026 MySQL Commercial)"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_aggregators_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "AVAILABILITY_GROUP": null,
+        "AVERAGE_ROUNDTRIP_LATENCY": null,
+        "HOST": "127.0.0.1",
+        "NODE_ID": 1,
+        "OPENED_CONNECTIONS": 1,
+        "PORT": 3306,
+        "ROLE": "Leader",
+        "STATE": "online"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_leaves_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "AVAILABILITY_GROUP": 1,
+        "HOST": "127.0.0.1",
+        "NODE_ID": 2,
+        "OPENED_CONNECTIONS": 3,
+        "PAIR_HOST": null,
+        "PAIR_PORT": null,
+        "PORT": 3307,
+        "STATE": "online"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_cluster_status_v1",
+    "Category": "topology",
+    "Rows": [
+      {
+        "DATABASE_NAME": "cluster",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 1,
+        "PORT": 3306,
+        "POSITION": "0:66",
+        "ROLE": "master",
+        "STATE": "online"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 1,
+        "PORT": 3306,
+        "POSITION": "0:14",
+        "ROLE": "master",
+        "STATE": "online"
+      },
+      {
+        "DATABASE_NAME": "cluster",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 2,
+        "PORT": 3307,
+        "POSITION": "0:66",
+        "ROLE": "async slave",
+        "STATE": "replicating"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 2,
+        "PORT": 3307,
+        "POSITION": "0:14",
+        "ROLE": "async slave",
+        "STATE": "replicating"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture_0",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 2,
+        "PORT": 3307,
+        "POSITION": "0:11",
+        "ROLE": "master",
+        "STATE": "online"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture_1",
+        "HOST": "127.0.0.1",
+        "NODE_ID": 2,
+        "PORT": 3307,
+        "POSITION": "0:11",
+        "ROLE": "master",
+        "STATE": "online"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_table_statistics_v1",
+    "Category": "schema",
+    "Rows": [
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "MEMORY_USE": 132032,
+        "PARTITION_TYPE": "Master",
+        "ROWS": 15,
+        "STORAGE_TYPE": "INMEMORY_ROWSTORE",
+        "TABLE_NAME": "accounts"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "MEMORY_USE": 131648,
+        "PARTITION_TYPE": "Master",
+        "ROWS": 18,
+        "STORAGE_TYPE": "COLUMNSTORE",
+        "TABLE_NAME": "ledger"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "MEMORY_USE": 132032,
+        "PARTITION_TYPE": "Master",
+        "ROWS": 15,
+        "STORAGE_TYPE": "INMEMORY_ROWSTORE",
+        "TABLE_NAME": "accounts"
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "MEMORY_USE": 131776,
+        "PARTITION_TYPE": "Master",
+        "ROWS": 22,
+        "STORAGE_TYPE": "COLUMNSTORE",
+        "TABLE_NAME": "ledger"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_plancache_v1",
+    "Category": "workload",
+    "Rows": [
+      {
+        "AVERAGE_EXEC_TIME": 4,
+        "COMMITS": 17,
+        "CPU_TIME": 64,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 69,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 0,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 17
+      },
+      {
+        "AVERAGE_EXEC_TIME": 3,
+        "COMMITS": 2,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 7,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 4,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 22,
+        "COMMITS": 2,
+        "CPU_TIME": 41,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 45,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 5,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 16,
+        "COMMITS": 1,
+        "CPU_TIME": 11,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 16,
+        "LAST_EXECUTED": "2026-10-23 20:00:08",
+        "PLAN_ID": 6,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 5,
+        "COMMITS": 2,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 11,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 23,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 0,
+        "COMMITS": 1,
+        "CPU_TIME": 0,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 0,
+        "LAST_EXECUTED": "2026-10-23 20:00:14",
+        "PLAN_ID": 25,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 6,
+        "COMMITS": 1,
+        "CPU_TIME": 3,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 6,
+        "LAST_EXECUTED": "2026-10-23 20:00:09",
+        "PLAN_ID": 7,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 8,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 8,
+        "LAST_EXECUTED": "2026-10-23 20:00:09",
+        "PLAN_ID": 8,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 66,
+        "COMMITS": 1,
+        "CPU_TIME": 18,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 66,
+        "LAST_EXECUTED": "2026-10-23 20:00:15",
+        "PLAN_ID": 26,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 4
+      },
+      {
+        "AVERAGE_EXEC_TIME": 62,
+        "COMMITS": 2,
+        "CPU_TIME": 60,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 125,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 27,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 232
+      },
+      {
+        "AVERAGE_EXEC_TIME": 40,
+        "COMMITS": 1,
+        "CPU_TIME": 8,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 40,
+        "LAST_EXECUTED": "2026-10-23 20:00:14",
+        "PLAN_ID": 24,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 25
+      },
+      {
+        "AVERAGE_EXEC_TIME": 18,
+        "COMMITS": 1,
+        "CPU_TIME": 8,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 18,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 28,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      },
+      {
+        "AVERAGE_EXEC_TIME": 12,
+        "COMMITS": 2,
+        "CPU_TIME": 22,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 25,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 3,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 10,
+        "COMMITS": 1,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 10,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 9,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 12,
+        "COMMITS": 6,
+        "CPU_TIME": 17,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 77,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 21,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 9
+      },
+      {
+        "AVERAGE_EXEC_TIME": 7,
+        "COMMITS": 6,
+        "CPU_TIME": 5,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 43,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 20,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      },
+      {
+        "AVERAGE_EXEC_TIME": 16,
+        "COMMITS": 23,
+        "CPU_TIME": 13,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 387,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 22,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      },
+      {
+        "AVERAGE_EXEC_TIME": 39,
+        "COMMITS": 1,
+        "CPU_TIME": 9,
+        "DATABASE_NAME": "signals_fixture_0",
+        "EXECUTION_TIME": 39,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 12,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 15
+      },
+      {
+        "AVERAGE_EXEC_TIME": 16,
+        "COMMITS": 1,
+        "CPU_TIME": 11,
+        "DATABASE_NAME": "signals_fixture_0",
+        "EXECUTION_TIME": 16,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 10,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 0
+      },
+      {
+        "AVERAGE_EXEC_TIME": 16,
+        "COMMITS": 1,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "signals_fixture_0",
+        "EXECUTION_TIME": 16,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 16,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 18
+      },
+      {
+        "AVERAGE_EXEC_TIME": 38,
+        "COMMITS": 1,
+        "CPU_TIME": 8,
+        "DATABASE_NAME": "signals_fixture_0",
+        "EXECUTION_TIME": 38,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 14,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 0
+      },
+      {
+        "AVERAGE_EXEC_TIME": 9,
+        "COMMITS": 2,
+        "CPU_TIME": 9,
+        "DATABASE_NAME": "signals_fixture_0",
+        "EXECUTION_TIME": 19,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 19,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 36,
+        "COMMITS": 1,
+        "CPU_TIME": 4,
+        "DATABASE_NAME": "signals_fixture_1",
+        "EXECUTION_TIME": 36,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 13,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 15
+      },
+      {
+        "AVERAGE_EXEC_TIME": 17,
+        "COMMITS": 1,
+        "CPU_TIME": 3,
+        "DATABASE_NAME": "signals_fixture_1",
+        "EXECUTION_TIME": 17,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 11,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 0
+      },
+      {
+        "AVERAGE_EXEC_TIME": 12,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "signals_fixture_1",
+        "EXECUTION_TIME": 12,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 17,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 22
+      },
+      {
+        "AVERAGE_EXEC_TIME": 38,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "signals_fixture_1",
+        "EXECUTION_TIME": 38,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 15,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 0
+      },
+      {
+        "AVERAGE_EXEC_TIME": 5,
+        "COMMITS": 2,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "signals_fixture_1",
+        "EXECUTION_TIME": 11,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 18,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 0,
+        "COMMITS": 13,
+        "CPU_TIME": 5,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 9,
+        "LAST_EXECUTED": "2026-10-23 20:00:15",
+        "PLAN_ID": 1,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 13
+      },
+      {
+        "AVERAGE_EXEC_TIME": 1,
+        "COMMITS": 13,
+        "CPU_TIME": 4,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 24,
+        "LAST_EXECUTED": "2026-10-23 20:00:15",
+        "PLAN_ID": 2,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 13
+      },
+      {
+        "AVERAGE_EXEC_TIME": 9,
+        "COMMITS": 18,
+        "CPU_TIME": 83,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 174,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 0,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 18
+      },
+      {
+        "AVERAGE_EXEC_TIME": 2,
+        "COMMITS": 2,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 5,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 2,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 130,
+        "COMMITS": 2,
+        "CPU_TIME": 61,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 260,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 26,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 288
+      },
+      {
+        "AVERAGE_EXEC_TIME": 23,
+        "COMMITS": 1,
+        "CPU_TIME": 16,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 23,
+        "LAST_EXECUTED": "2026-10-23 20:00:08",
+        "PLAN_ID": 3,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 7,
+        "COMMITS": 2,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 14,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 20,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 1,
+        "COMMITS": 1,
+        "CPU_TIME": 1,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 1,
+        "LAST_EXECUTED": "2026-10-23 20:00:14",
+        "PLAN_ID": 23,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 73,
+        "COMMITS": 1,
+        "CPU_TIME": 17,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 73,
+        "LAST_EXECUTED": "2026-10-23 20:00:15",
+        "PLAN_ID": 24,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 4
+      },
+      {
+        "AVERAGE_EXEC_TIME": 53,
+        "COMMITS": 2,
+        "CPU_TIME": 50,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 107,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 27,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 248
+      },
+      {
+        "AVERAGE_EXEC_TIME": 39,
+        "COMMITS": 1,
+        "CPU_TIME": 11,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 39,
+        "LAST_EXECUTED": "2026-10-23 20:00:14",
+        "PLAN_ID": 21,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 22
+      },
+      {
+        "AVERAGE_EXEC_TIME": 26,
+        "COMMITS": 1,
+        "CPU_TIME": 13,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 26,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 29,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      },
+      {
+        "AVERAGE_EXEC_TIME": 15,
+        "COMMITS": 2,
+        "CPU_TIME": 26,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 31,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 1,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 7,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "information_schema",
+        "EXECUTION_TIME": 7,
+        "LAST_EXECUTED": "2026-10-23 20:00:11",
+        "PLAN_ID": 7,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 92,
+        "COMMITS": 1,
+        "CPU_TIME": 24,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 92,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 9,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 30
+      },
+      {
+        "AVERAGE_EXEC_TIME": 75,
+        "COMMITS": 1,
+        "CPU_TIME": 5,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 75,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 10,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 40
+      },
+      {
+        "AVERAGE_EXEC_TIME": 36,
+        "COMMITS": 3,
+        "CPU_TIME": 12,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 108,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 13,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      },
+      {
+        "AVERAGE_EXEC_TIME": 86,
+        "COMMITS": 3,
+        "CPU_TIME": 45,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 258,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 12,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 9
+      },
+      {
+        "AVERAGE_EXEC_TIME": 62,
+        "COMMITS": 3,
+        "CPU_TIME": 85,
+        "DATABASE_NAME": "signals_fixture",
+        "EXECUTION_TIME": 186,
+        "LAST_EXECUTED": "2026-10-23 20:00:13",
+        "PLAN_ID": 11,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 9
+      },
+      {
+        "AVERAGE_EXEC_TIME": 6,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 6,
+        "LAST_EXECUTED": "2026-10-23 20:00:09",
+        "PLAN_ID": 5,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 5,
+        "COMMITS": 1,
+        "CPU_TIME": 2,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 5,
+        "LAST_EXECUTED": "2026-10-23 20:00:09",
+        "PLAN_ID": 6,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 4,
+        "COMMITS": 2,
+        "CPU_TIME": 4,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 9,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 14,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 1295,
+        "COMMITS": 1,
+        "CPU_TIME": 10,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 1295,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 25,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 66
+      },
+      {
+        "AVERAGE_EXEC_TIME": 11,
+        "COMMITS": 1,
+        "CPU_TIME": 4,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 11,
+        "LAST_EXECUTED": "2026-10-23 20:00:12",
+        "PLAN_ID": 8,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 1
+      },
+      {
+        "AVERAGE_EXEC_TIME": 119,
+        "COMMITS": 1,
+        "CPU_TIME": 14,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 119,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 30,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 181,
+        "COMMITS": 1,
+        "CPU_TIME": 52,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 181,
+        "LAST_EXECUTED": "2026-10-23 20:00:14",
+        "PLAN_ID": 19,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 47
+      },
+      {
+        "AVERAGE_EXEC_TIME": 18,
+        "COMMITS": 2,
+        "CPU_TIME": 10,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 36,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 18,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 8
+      },
+      {
+        "AVERAGE_EXEC_TIME": 10,
+        "COMMITS": 2,
+        "CPU_TIME": 9,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 20,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 16,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 6,
+        "COMMITS": 2,
+        "CPU_TIME": 6,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 12,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 15,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 2
+      },
+      {
+        "AVERAGE_EXEC_TIME": 19,
+        "COMMITS": 2,
+        "CPU_TIME": 10,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 38,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 17,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 12
+      },
+      {
+        "AVERAGE_EXEC_TIME": 40,
+        "COMMITS": 1,
+        "CPU_TIME": 10,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 40,
+        "LAST_EXECUTED": "2026-10-23 20:00:16",
+        "PLAN_ID": 28,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 6
+      },
+      {
+        "AVERAGE_EXEC_TIME": 122,
+        "COMMITS": 1,
+        "CPU_TIME": 16,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 122,
+        "LAST_EXECUTED": "2026-10-23 20:00:15",
+        "PLAN_ID": 22,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 8
+      },
+      {
+        "AVERAGE_EXEC_TIME": 5,
+        "COMMITS": 3,
+        "CPU_TIME": 10,
+        "DATABASE_NAME": "",
+        "EXECUTION_TIME": 15,
+        "LAST_EXECUTED": "2026-10-23 20:00:09",
+        "PLAN_ID": 4,
+        "QUERY_TEXT": null,
+        "ROWCOUNT": 3
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_global_variables_v1",
+    "Category": "config",
+    "Rows": [
+      {
+        "VARIABLE_NAME": "MAX_CONNECTIONS",
+        "VARIABLE_VALUE": "100000"
+      },
+      {
+        "VARIABLE_NAME": "WORKLOAD_MANAGEMENT_MAX_QUEUE_DEPTH",
+        "VARIABLE_VALUE": "100"
+      },
+      {
+        "VARIABLE_NAME": "MAXIMUM_MEMORY",
+        "VARIABLE_VALUE": "5330"
+      },
+      {
+        "VARIABLE_NAME": "MAXIMUM_TABLE_MEMORY",
+        "VARIABLE_VALUE": "4306"
+      },
+      {
+        "VARIABLE_NAME": "MAX_CONNECTIONS",
+        "VARIABLE_VALUE": "100000"
+      },
+      {
+        "VARIABLE_NAME": "WORKLOAD_MANAGEMENT_MAX_QUEUE_DEPTH",
+        "VARIABLE_VALUE": "100"
+      },
+      {
+        "VARIABLE_NAME": "MAXIMUM_MEMORY",
+        "VARIABLE_VALUE": "5330"
+      },
+      {
+        "VARIABLE_NAME": "MAXIMUM_TABLE_MEMORY",
+        "VARIABLE_VALUE": "4306"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_activities_v1",
+    "Category": "resources",
+    "Rows": [
+      {
+        "ACTIVITY_NAME": "RunAutostatsUpdater",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "signals_fixture",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ReconcileReplicas Worker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 16176,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 16
+      },
+      {
+        "ACTIVITY_NAME": "Sharding GC",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ColumnstoreBlobCacheEvictionBackgroundThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "RunBackgroundMerger",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 3,
+        "DATABASE_NAME": "signals_fixture",
+        "ELAPSED_TIME_MS": 6,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "skynetTickUpdateThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "BottleServiceComputeGCThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "DetectDroppedTempTableThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1012,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "TakeDatabaseSnapshot",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "information_schema",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ReplayManagerV6::ReplayThreadV6Fn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 10114,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 10
+      },
+      {
+        "ACTIVITY_NAME": "frozenServerDetector",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "GarbageCollectorThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ShardingChildAggsThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1009,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "AsyncCompileManager::HandlerThreadEntry",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 10,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ShardingPingLeavesThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1010,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "ReplLog::ReplicaThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 10115,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 10
+      },
+      {
+        "ACTIVITY_NAME": "HandleSchedulerThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::FileReplenisherThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::PeriodicCleanupThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ActionRunner Worker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 16170,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 16
+      },
+      {
+        "ACTIVITY_NAME": "Single Threaded GC",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 3,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 11,
+        "MEMORY_BS": 310,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "TimedThreadPool::Worker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 12133,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 12
+      },
+      {
+        "ACTIVITY_NAME": "SHOW_STATUS",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "AcceptLoop",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "RunBackgroundFlusher",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "signals_fixture",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::SyncDurabilityIoSubmissionThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "BackgroundMergerThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 4044,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 4
+      },
+      {
+        "ACTIVITY_NAME": "Select_profile_partial_MV_ACTIVITIES_afc3ff961cd1ec3c",
+        "ACTIVITY_TYPE": "Query",
+        "CPU_TIME_MS": 3,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1010,
+        "MEMORY_BS": 131746,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "Select_profile_partial_MV_PERMISSIONS__et_al_529449997c35aeea",
+        "ACTIVITY_TYPE": "Query",
+        "CPU_TIME_MS": 13,
+        "DATABASE_NAME": "information_schema",
+        "ELAPSED_TIME_MS": 7,
+        "MEMORY_BS": 13313,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "PipelineManager::RunBackgroundPipelineThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "TakeDatabaseSnapshot",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 1,
+        "DATABASE_NAME": "memsql",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "Select_dual_6ea9d1e122c1554d",
+        "ACTIVITY_TYPE": "Query",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "RunAlteringBlobPopulator",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "memsql",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "WorkloadMonitor",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 3,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "StringLockManagerContainer::DeadlockResolutionThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "DetectDanglingLiveStatsThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ShardingLeafFailoverThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::IoCompletionThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "networkEventsThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 2,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "TakeDatabaseSnapshot",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "signals_fixture",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ResolvePendingTransactionsThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::BottomlessUploadLogChunksThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "SnapshotThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "registrationRunner",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 94,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLog::NetworkAckThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 2,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 10115,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 10
+      },
+      {
+        "ACTIVITY_NAME": "ShardingAutoAttachThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "consensusNotificationThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "IdleFRBackgroundThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2020,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "RunAutostatsUpdater",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "memsql",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "detectEc2MetadataConnectivity",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1013,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "ColumnstoreSampleBackgroundThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 4042,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 4
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::IoSubmissionThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ColumnstoreBlobCacheWorker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "BackgroundFlusherPerDatabaseThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 4049,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 4
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::ReplQueueThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "BottomlessGCThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::PeriodicFSyncThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "TakeDatabaseSnapshot",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "cluster",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ReplicationManagement::PeriodicNoOp",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "memsqld_main",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "BackgroundStatisticsThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1010,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "Select_dual_d31b937ec619df84",
+        "ACTIVITY_TYPE": "Query",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "RunBackgroundMerger",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "memsql",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "ProfileExecTimeSamplingThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ColumnStoreBlobCacheFsyncWorker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplicationManagement::Fn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "HandleConnectionThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 15171,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 15
+      },
+      {
+        "ACTIVITY_NAME": "RunAutostatsUpdater",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "cluster",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "WorkloadMonitorThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ardThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 2,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ShardingGCThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2023,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "RunAlteringBlobPopulator",
+        "ACTIVITY_TYPE": "Database",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": "signals_fixture",
+        "ELAPSED_TIME_MS": 0,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 0
+      },
+      {
+        "ACTIVITY_NAME": "consensusTransactionThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2021,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLogContainer::IdleFlushThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 44,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 2022,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 2
+      },
+      {
+        "ACTIVITY_NAME": "ReplLog::NonSyncSlaveSendThreadFn",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 10115,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 10
+      },
+      {
+        "ACTIVITY_NAME": "OptimizerBackgroundThread",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 0,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 1010,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 1
+      },
+      {
+        "ACTIVITY_NAME": "Garbage Collection Worker",
+        "ACTIVITY_TYPE": "System",
+        "CPU_TIME_MS": 2,
+        "DATABASE_NAME": null,
+        "ELAPSED_TIME_MS": 4043,
+        "MEMORY_BS": 0,
+        "RUN_COUNT": 4
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_processlist_v1",
+    "Category": "activity",
+    "Rows": [
+      {
+        "COMMAND": "Sleep",
+        "DB": null,
+        "HOST": "localhost:20147",
+        "ID": 19,
+        "INFO": null,
+        "NODE_ID": 2,
+        "PLAN_ID": null,
+        "STATE": "",
+        "TIME": 1,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      },
+      {
+        "COMMAND": "Query",
+        "DB": "information_schema",
+        "HOST": "localhost:10931",
+        "ID": 15,
+        "INFO": null,
+        "NODE_ID": 2,
+        "PLAN_ID": 28,
+        "STATE": "executing",
+        "TIME": 0,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      },
+      {
+        "COMMAND": "Sleep",
+        "DB": null,
+        "HOST": "localhost:9907",
+        "ID": 14,
+        "INFO": null,
+        "NODE_ID": 2,
+        "PLAN_ID": null,
+        "STATE": "",
+        "TIME": 1,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      },
+      {
+        "COMMAND": "Sleep",
+        "DB": "information_schema",
+        "HOST": "localhost:64743",
+        "ID": 19,
+        "INFO": null,
+        "NODE_ID": 1,
+        "PLAN_ID": null,
+        "STATE": "",
+        "TIME": 0,
+        "TRANSACTION_STATE": null,
+        "USER": "root"
+      },
+      {
+        "COMMAND": "Query",
+        "DB": null,
+        "HOST": "192.168.65.1:55022",
+        "ID": 16,
+        "INFO": null,
+        "NODE_ID": 1,
+        "PLAN_ID": 28,
+        "STATE": "executing",
+        "TIME": 0,
+        "TRANSACTION_STATE": "running",
+        "USER": "signals_ro"
+      },
+      {
+        "COMMAND": "Query",
+        "DB": "information_schema",
+        "HOST": "localhost:45237",
+        "ID": 5,
+        "INFO": null,
+        "NODE_ID": 1,
+        "PLAN_ID": 29,
+        "STATE": "executing",
+        "TIME": 0,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      },
+      {
+        "COMMAND": "Sleep",
+        "DB": null,
+        "HOST": "localhost:42677",
+        "ID": 2,
+        "INFO": null,
+        "NODE_ID": 1,
+        "PLAN_ID": null,
+        "STATE": "",
+        "TIME": 5,
+        "TRANSACTION_STATE": null,
+        "USER": "distributed"
+      }
+    ],
+    "Err": ""
+  },
+  {
+    "CollectorID": "singlestore_distributed_partitions_v1",
+    "Category": "resources",
+    "Rows": [
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "HOST": "127.0.0.1",
+        "IS_OFFLINE": 0,
+        "NODE_ID": 2,
+        "ORDINAL": 0,
+        "PORT": 3307,
+        "ROLE": "Master",
+        "STATE": ""
+      },
+      {
+        "DATABASE_NAME": "signals_fixture",
+        "HOST": "127.0.0.1",
+        "IS_OFFLINE": 0,
+        "NODE_ID": 2,
+        "ORDINAL": 1,
+        "PORT": 3307,
+        "ROLE": "Master",
+        "STATE": ""
+      }
+    ],
+    "Err": ""
+  }
+]

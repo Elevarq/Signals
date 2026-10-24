@@ -193,7 +193,17 @@ func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, s
 	// the payload survived.
 	for i, stamp := range []string{fx.olderStamp, fx.watermarkStamp} {
 		snapID := fmt.Sprintf("snap-%d", i)
-		snap := db.Snapshot{ID: snapID, TargetID: fx.targetID, CollectedAt: stamp, PGVersion: "17.4", Payload: []byte(`{"ok":true}`), SizeBytes: 11}
+		// Model the EARLIER release's write against the prefix (pre-007) schema:
+		// a raw snapshot INSERT WITHOUT the engine column, exactly as a binary
+		// that predates migration 007 would. Upgrading (Migrate applies 007)
+		// must backfill engine=postgresql and preserve the row — this gate now
+		// also proves the additive engine migration survives (#504 / #593).
+		if _, err := store.SQL().Exec(
+			"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?)",
+			snapID, fx.targetID, stamp, "17.4", `{"ok":true}`, 11,
+		); err != nil {
+			t.Fatalf("vPREV insert snapshot[%d]: %v", i, err)
+		}
 		run := db.QueryRun{
 			ID: fmt.Sprintf("run-%d", i), TargetID: fx.targetID, SnapshotID: snapID,
 			QueryID: fx.watermarkQueryID, CollectedAt: stamp, PGVersion: "17.4",
@@ -203,8 +213,8 @@ func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, s
 		if i == 1 {
 			results = []db.QueryResult{{RunID: run.ID, Payload: fx.resultPayload, Compressed: false, SizeBytes: len(fx.resultPayload)}}
 		}
-		if err := store.InsertCollectionAtomic(snap, []db.QueryRun{run}, results); err != nil {
-			t.Fatalf("vPREV InsertCollectionAtomic[%d]: %v", i, err)
+		if err := store.InsertQueryRunBatch([]db.QueryRun{run}, results); err != nil {
+			t.Fatalf("vPREV InsertQueryRunBatch[%d]: %v", i, err)
 		}
 		fx.wantSnapshots++
 		fx.wantRuns++
