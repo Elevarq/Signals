@@ -105,7 +105,7 @@ func TestCatalogForRegistry(t *testing.T) {
 	if mysqlIDs["singlestore_identity_v1"] || ssIDs["mysql_identity_v1"] {
 		t.Error("CatalogFor leaked a collector across engines")
 	}
-	for _, e := range []string{"postgresql", "mariadb", "nonsense"} {
+	for _, e := range []string{"postgresql", "nonsense"} {
 		if got := CatalogFor(e); got != nil {
 			t.Errorf("CatalogFor(%q) = %v, want nil (no fallback)", e, got)
 		}

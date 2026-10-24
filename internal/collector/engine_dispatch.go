@@ -19,10 +19,10 @@ const (
 )
 
 // SelectBackend maps a target's effective engine to its collection backend.
-// Empty/postgresql → BackendPostgreSQL; mysql/singlestore → BackendMySQLWire.
+// Empty/postgresql → BackendPostgreSQL; mysql/mariadb/singlestore → BackendMySQLWire.
 func SelectBackend(t config.TargetConfig) Backend {
 	switch t.EffectiveEngine() {
-	case config.EngineMySQL, config.EngineSingleStore:
+	case config.EngineMySQL, config.EngineMariaDB, config.EngineSingleStore:
 		return BackendMySQLWire
 	default:
 		return BackendPostgreSQL
