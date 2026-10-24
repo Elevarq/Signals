@@ -111,7 +111,7 @@ func TestSingleStoreExportSerializationReconciles(t *testing.T) {
 		t.Fatalf("ReadQualExport: %v", err)
 	}
 	expected := collector.SingleStoreExpectedCollectors()
-	if err := collector.VerifyCadenceSnapshot(qs, expected, "9."); err != nil {
+	if err := collector.VerifyCadenceSnapshot(qs, expected, "singlestore", "9."); err != nil {
 		t.Fatalf("cadence verify (serialization leg): %v", err)
 	}
 	if err := collector.VerifyExportReconciliation(qs, z, expected, "9."); err != nil {

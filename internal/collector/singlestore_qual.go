@@ -56,10 +56,10 @@ type QualExport struct {
 	MemberNames        []string
 }
 
-// SingleStoreExpectedCollectors returns the expected SingleStore collector id
-// set (from the engine catalog), sorted for deterministic comparison.
-func SingleStoreExpectedCollectors() []string {
-	cat := singlestore.Catalog()
+// ExpectedCollectorsFor returns the expected collector id set for a wire engine
+// (from the single CatalogFor registry), sorted for deterministic comparison.
+func ExpectedCollectorsFor(engine string) []string {
+	cat := singlestore.CatalogFor(engine)
 	out := make([]string, 0, len(cat))
 	for _, c := range cat {
 		out = append(out, c.ID)
@@ -68,16 +68,23 @@ func SingleStoreExpectedCollectors() []string {
 	return out
 }
 
+// SingleStoreExpectedCollectors returns the expected SingleStore collector id
+// set, sorted. Thin wrapper over ExpectedCollectorsFor for the SingleStore
+// qualification.
+func SingleStoreExpectedCollectors() []string {
+	return ExpectedCollectorsFor("singlestore")
+}
+
 // VerifyCadenceSnapshot asserts one snapshot's full-grant cadence semantics
 // (SLQ-R002..R004, INV-SLQ-03): engine/version, exactly the expected collector
 // set, every expected collector status='success', each success reconciled to a
 // persisted result whose decoded row count equals row_count (incl. 0==0), and
 // every run's snapshot_id matching the enclosing snapshot. Returns a non-nil
 // error naming EVERY violation so a partial/all-failed cycle fails loudly.
-func VerifyCadenceSnapshot(s QualSnapshot, expected []string, versionPrefix string) error {
+func VerifyCadenceSnapshot(s QualSnapshot, expected []string, engine, versionPrefix string) error {
 	var errs []string
-	if s.Engine != "singlestore" {
-		errs = append(errs, fmt.Sprintf("snapshot %s engine=%q, want singlestore", s.ID, s.Engine))
+	if s.Engine != engine {
+		errs = append(errs, fmt.Sprintf("snapshot %s engine=%q, want %q", s.ID, s.Engine, engine))
 	}
 	if !strings.HasPrefix(s.Version, versionPrefix) {
 		errs = append(errs, fmt.Sprintf("snapshot %s version=%q, want prefix %q", s.ID, s.Version, versionPrefix))
