@@ -516,3 +516,31 @@ byte-identical. Tests: `internal/export/engine_keyed_reporting_test.go`,
 | INV-MKR-01 | No export's collector_status.json / query_catalog.json contains a foreign-engine collector | TestSingleStoreExportCollectorStatusHasNoPostgreSQLLeak, TestSingleStoreExportQueryCatalogExcludesPostgreSQL | COVERED | BEHAVIORAL | The reporting-seam invariant. |
 | INV-MKR-02 | PostgreSQL export output is byte-identical to pre-change for the same store state | TestPostgreSQLExportCollectorStatusUnchanged, TestPostgreSQLExportQueryCatalogRetained, TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | Plus the M0 PostgreSQL CI matrix (integration-pg 14-18). |
 | INV-MKR-03 | catalogFor is total: unknown engine yields empty catalog, never a PostgreSQL fallback | TestCatalogForIsTotal | COVERED | BEHAVIORAL | postgresql/"" -> pgqueries; singlestore -> SingleStore; mysql/unknown -> empty. |
+
+## #583/#584 — SingleStore live qualification (M4)
+
+Spec: `specifications/singlestore-live-qualification.md` (ACTIVE). Acceptance:
+`specifications/singlestore-live-qualification.acceptance.md`. The normal
+`cmd/signals` daemon collects a real pinned SingleStore and exports through the
+production exporter; success is asserted as `status='success'` with reconciled
+result evidence, never an attempt/row count. Coverage receipt: live producer
+evidence is the `//go:build singlestore_live` test driven by
+`scripts/singlestore-live-qual.sh`; deterministic CI coverage is
+`internal/collector/singlestore_qual_test.go` +
+`tests/singlestore_export_serialization_test.go` (serialization/verifier, NOT
+producer evidence). Verifier + readers: `internal/collector/singlestore_qual.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| SLQ-R001 | Producer is the normal cmd/signals daemon; never direct Collect() nor the standalone ZIP writer | TestSingleStoreLiveCadenceQualification, TestSingleStoreLiveExportReconciliation | COVERED | INTEGRATION | `//go:build singlestore_live`; driven by `scripts/singlestore-live-qual.sh` against the pinned Dev Image. Opt-in/local producer evidence. |
+| SLQ-R002 | Per snapshot: engine/version, exactly the expected collector set, every collector status='success', snapshot_id matches | TestVerifyCadenceSnapshot_GoodPasses, TestVerifyCadenceSnapshot_IdentityViolationsFail, TestSingleStoreLiveCadenceQualification | COVERED | BEHAVIORAL | Live leg asserts against real daemon output; logic leg is deterministic (CI). |
+| SLQ-R003 | Each success reconciled to a persisted result whose decoded row count == row_count (incl. legitimate 0==0) | TestVerifyCadenceSnapshot_ZeroRowSuccessPasses, TestVerifyCadenceSnapshot_MissingOrMismatchedResultFails | COVERED | BEHAVIORAL | Zero-row success passes; missing/mismatched result fails. |
+| SLQ-R004 | An injected non-success collector fails the qualification loudly (never passes on distinct query ids) | TestVerifyCadenceSnapshot_InjectedNonSuccessFailsLoudly | COVERED | BEHAVIORAL | failed AND skipped both rejected; error names the collector. |
+| SLQ-R005 | >=2 independent snapshots, unique ULIDs, restart appends without overwrite; real-cadence expected count derived + recorded before run | TestSingleStoreLiveCadenceQualification | COVERED | INTEGRATION | Short-poll multi-cycle + restart; live only. |
+| SLQ-R006 | metadata engine/version truthful; no foreign PostgreSQL collector in collector_status/query_catalog | TestVerifyExportReconciliation_GoodPasses, TestVerifyExportReconciliation_ViolationsFail, TestSingleStoreExportSerializationReconciles, TestSingleStoreLiveExportReconciliation | COVERED | BEHAVIORAL | Reuses the M3 engine-keyed seam; deterministic + live legs. |
+| SLQ-R007 | For every successful collector collected==persisted==exported; failed/skipped never emitted as successful payload | TestVerifyExportReconciliation_ViolationsFail, TestSingleStoreExportSerializationReconciles, TestSingleStoreLiveExportReconciliation | COVERED | BEHAVIORAL | The live leg caught a real orchestration mismatch (default vs exact-snapshot scope) before passing. |
+| SLQ-R008 | Default redaction held in exported payloads (no QUERY_TEXT / INFO) | TestVerifyExportReconciliation_RedactionBreachFails, TestSingleStoreLiveExportReconciliation | COVERED | BEHAVIORAL | Breach of either column fails. |
+| SLQ-R009 | Manifest covers every ZIP member (non-empty sha) and lists no absent member | TestVerifyExportReconciliation_ManifestCoverageFails, TestSingleStoreExportSerializationReconciles, TestSingleStoreLiveExportReconciliation | COVERED | BEHAVIORAL | Member<->manifest cross-check. |
+| INV-SLQ-01 | Collection is read-only; only the one-time deterministic seed writes to SingleStore | TestSingleStoreLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (SSC-R001); seed applied once by the fixture. |
+| INV-SLQ-02 | Dedicated container + isolated temp stores; never touches a developer's own container/store | TestSingleStoreLiveExportReconciliation | COVERED | INTEGRATION | `ss-dev-fixture` container + mktemp stores; torn down on exit. |
+| INV-SLQ-03 | status='success' is the success signal; a row/snapshot existing or a distinct-query_id count is never sufficient | TestVerifyCadenceSnapshot_InjectedNonSuccessFailsLoudly | COVERED | BEHAVIORAL | The anti-pattern the superseded cadence script embodied. |
