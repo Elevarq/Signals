@@ -12,17 +12,18 @@ Add ClickHouse as a collectable engine. ClickHouse speaks neither the PostgreSQL
 parallel to the pgx path, NOT an entry in the MySQL-wire `CatalogFor` registry.
 
 CH-1 is the **backend foundation**: the native-protocol connection, engine
-identity, backend dispatch, config support, and a minimal catalog (identity),
-all behind the SAME common collection lifecycle and engine-neutral persistence /
-export / verifier used by every other engine. The full `system.*` diagnostic
-catalog is CH-2; fixtures + live qualification + the `integration-clickhouse` CI
-job are CH-3. Design record: epic #527.
+identity, backend dispatch, config support, and the catalog, all behind the SAME
+common collection lifecycle and engine-neutral persistence / export / verifier
+used by every other engine. The full `system.*` diagnostic catalog is delivered
+by CH-2 (`specifications/clickhouse-collectors.md`); fixtures + live qualification
++ the `integration-clickhouse` CI job are CH-3. Design record: epic #527.
 
 ## Scope
 
 - `internal/clickhouse`: `ConnConfig` + `Open` (ClickHouse native via
   `ClickHouse/clickhouse-go/v2`), `Identify` (version), `Collector`/`Result`,
-  `Collect`, `NewRunner`, `IsPermissionDenied`, `Catalog()` (minimal: identity).
+  `Collect`, `NewRunner`, `IsPermissionDenied`, `Catalog()` (full set in CH-2,
+  `specifications/clickhouse-collectors.md`).
 - `SelectBackend`: `clickhouse → BackendClickHouse`; `config.SupportedEngines`
   includes `clickhouse`; `config.EngineClickHouse`.
 - `collector`: `collectClickHouse` session (+ `chConnect` seam,

@@ -675,3 +675,20 @@ are CH-3. Package `internal/clickhouse`; session `internal/collector/clickhouse_
 | INV-CHB-01 | Collection never issues a non-SELECT | TestCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the catalog. |
 | INV-CHB-02 | pgx/MySQL-wire never used for a ClickHouse target | TestSelectBackend, TestCollectTarget_ClickHouseProductionBoundary | COVERED | BEHAVIORAL | Dedicated BackendClickHouse dispatch. |
 | INV-CHB-03 | Other engines unchanged; ClickHouse purely additive | TestSelectBackend | COVERED | BEHAVIORAL | PG/SingleStore/MySQL/MariaDB untouched; new backend + dep. |
+
+## ClickHouse collectors (CH-2, #559-#565)
+
+Spec: `specifications/clickhouse-collectors.md` (ACTIVE, CHC-R001..R005,
+INV-CHC-01..02). The full ClickHouse system.* diagnostic catalog (14 collectors)
+replacing the CH-1 identity-only foundation; validated live against ClickHouse
+24.8 (14/14 clean under GRANT SELECT ON system.*, query redacted).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CHC-R001 | Every catalog statement is a read-only SELECT over system.* | TestCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 14. |
+| CHC-R002 | A collector error does not abort the others | TestCollectPartialFailure | COVERED | BEHAVIORAL | Shared Collect runtime. |
+| CHC-R003 | Empty system.* result (idle/single-node) is a successful zero-row collection, not a failure | TestCatalogExpectedSet | COVERED | BEHAVIORAL | Live-validated: replicas/merges/mutations/query_thread_log 0-row success on single node. |
+| CHC-R004 | query_log + query_thread_log are HighSensitivity with query redacted | TestQueryLogRedaction | COVERED | BEHAVIORAL | query nilled under redactSensitive. |
+| CHC-R005 | Catalog() is the 14-collector set, identity first; query-log bounded (recent + LIMIT) | TestCatalogExpectedSet | COVERED | BEHAVIORAL | — |
+| INV-CHC-01 | Collection never issues a non-SELECT | TestCatalogReadOnly | COVERED | BEHAVIORAL | — |
+| INV-CHC-02 | No query-text column escapes the redaction contract | TestQueryLogRedaction | COVERED | BEHAVIORAL | query_log + query_thread_log. |
