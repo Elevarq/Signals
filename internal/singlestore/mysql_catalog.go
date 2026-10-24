@@ -92,5 +92,65 @@ func mysqlCatalog() []Collector {
 			HighSensitivity:  true,
 			SensitiveColumns: []string{"DIGEST_TEXT"},
 		},
+		{
+			// #543: active InnoDB transactions (point-in-time session evidence,
+			// distinct from the aggregate workload/resources counters). trx_query
+			// carries the transaction's live SQL text -> HighSensitivity + redacted;
+			// the result key is lowercase `trx_query` (information_schema.INNODB_TRX
+			// returns lowercase columns). Oldest-first + bounded so a busy server
+			// surfaces the long-running transactions without an unbounded payload.
+			// trx_state distinguishes RUNNING from LOCK WAIT. Empty on an idle
+			// server is a legitimate success. Needs the PROCESS grant (held).
+			ID:               "mysql_innodb_transactions_v1",
+			Category:         "activity",
+			SQL:              "SELECT trx_id, trx_state, trx_started, trx_requested_lock_id, trx_wait_started, trx_weight, trx_mysql_thread_id, trx_query, trx_operation_state, trx_tables_in_use, trx_tables_locked, trx_rows_locked, trx_rows_modified, trx_isolation_level FROM information_schema.INNODB_TRX ORDER BY trx_started LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"trx_query"},
+		},
+		{
+			// #543: the active lock inventory. LOCK_DATA is the locked index-key
+			// value (row data, not SQL) -> HighSensitivity + redacted; the native
+			// lock descriptors (engine/object/index/mode/status) are preserved so
+			// contention is still analyzable. WAITING-first + bounded. Empty when no
+			// locks are held is a legitimate success.
+			ID:               "mysql_data_locks_v1",
+			Category:         "activity",
+			SQL:              "SELECT ENGINE, ENGINE_TRANSACTION_ID, THREAD_ID, OBJECT_SCHEMA, OBJECT_NAME, PARTITION_NAME, INDEX_NAME, LOCK_TYPE, LOCK_MODE, LOCK_STATUS, LOCK_DATA FROM performance_schema.data_locks ORDER BY LOCK_STATUS DESC LIMIT 500",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"LOCK_DATA"},
+		},
+		{
+			// #543: the blocked -> blocking wait-for edges. Transaction + thread ids
+			// only (no SQL, no row data). Empty when nothing is blocked is a
+			// legitimate success.
+			ID:       "mysql_data_lock_waits_v1",
+			Category: "activity",
+			SQL:      "SELECT ENGINE, REQUESTING_ENGINE_TRANSACTION_ID, REQUESTING_THREAD_ID, BLOCKING_ENGINE_TRANSACTION_ID, BLOCKING_THREAD_ID FROM performance_schema.data_lock_waits LIMIT 500",
+		},
+		{
+			// #543: the metadata-lock (MDL) inventory, PENDING waits first. Object
+			// schema/name only, no SQL or row data. The reading session's own MDL is
+			// typically visible; a zero-row result is still a legitimate success.
+			ID:       "mysql_metadata_locks_v1",
+			Category: "activity",
+			SQL:      "SELECT OBJECT_TYPE, OBJECT_SCHEMA, OBJECT_NAME, COLUMN_NAME, LOCK_TYPE, LOCK_DURATION, LOCK_STATUS, SOURCE, OWNER_THREAD_ID FROM performance_schema.metadata_locks ORDER BY LOCK_STATUS DESC LIMIT 500",
+		},
+		{
+			// #543: replica applier state per channel. Zero rows on a standalone
+			// (non-replica) server is a legitimate, DISTINCT state (not a failure);
+			// native state fields are preserved. Complements the existing
+			// mysql_replication_status_v1 (connection/IO side).
+			ID:       "mysql_replica_applier_status_v1",
+			Category: "topology",
+			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, REMAINING_DELAY, COUNT_TRANSACTIONS_RETRIES FROM performance_schema.replication_applier_status",
+		},
+		{
+			// #543: Group Replication membership + role/state. Zero rows when Group
+			// Replication is not enabled is a legitimate, DISTINCT state (not a
+			// failure); native topology fields (host/port/role/state) are preserved.
+			ID:       "mysql_group_replication_members_v1",
+			Category: "topology",
+			SQL:      "SELECT CHANNEL_NAME, MEMBER_ID, MEMBER_HOST, MEMBER_PORT, MEMBER_STATE, MEMBER_ROLE, MEMBER_VERSION FROM performance_schema.replication_group_members",
+		},
 	}
 }

@@ -571,24 +571,27 @@ INV-SCH-01..03) and the MariaDB-distinct extension of
 
 ## MySQL collection (PR1: seam generalization + catalog)
 
-Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R005, INV-MYC-01..03),
+Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R008, INV-MYC-01..03),
 `specifications/mysql-grants.md` (ACTIVE, DOC), and the backend-driven dispatch +
 `CatalogFor` generalization in `specifications/engine-collection-dispatch.md`
 (ECD-R002/R004/R006/R008). The MySQL-wire session, dispatch, identity, and
 reporting are engine-generic; MySQL is added as a catalog + registry entry +
-`SupportedEngines` membership, not a new code path. Live qualification + CI
-integration job are a follow-up PR.
+`SupportedEngines` membership, not a new code path. Live qualification runs in CI
+(`integration-mysql`).
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
-| MYC-R001 | Every MySQL catalog statement is a read-only SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 9 collectors. |
+| MYC-R001 | Every MySQL catalog statement is a read-only SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 16 collectors. |
 | MYC-R002 | A collector error does not abort the others (partial capture) | TestCollectPartialFailureDoesNotAbort | COVERED | BEHAVIORAL | Shared Collect runtime (singlestore pkg), engine-agnostic. |
 | MYC-R003 | redactSensitive nils each SensitiveColumns value | TestMySQLProcesslistRedaction | COVERED | BEHAVIORAL | INFO redacted to nil. |
-| MYC-R004 | A query-text column collector is HighSensitivity with it in SensitiveColumns | TestMySQLProcesslistRedaction, TestMySQLCatalogNoUnredactedQueryText | COVERED | BEHAVIORAL | processlist INFO. |
-| MYC-R005 | CatalogFor routes by engine (mysql/singlestore), nil otherwise; no cross-engine leak, no PostgreSQL fallback | TestCatalogForRegistry, TestMySQLCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam. |
-| INV-MYC-01 | Collection never issues a non-SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog. |
+| MYC-R004 | A query-text column collector (INFO/DIGEST_TEXT/trx_query) is HighSensitivity with it in SensitiveColumns (exact result-row case) | TestMySQLProcesslistRedaction, TestMySQLInnodbTransactionsRedaction, TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | processlist INFO, digests DIGEST_TEXT, trx_query (#543). |
+| MYC-R005 | CatalogFor routes by engine (mysql/singlestore), nil otherwise; no cross-engine leak, no PostgreSQL fallback | TestCatalogForRegistry, TestMySQLCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 16 collectors. |
+| MYC-R006 | Activity collectors (transactions/locks/waits/MDL) are bounded point-in-time session evidence; idle = legitimate zero-row success | TestMySQLCatalogExpectedSet, TestMySQLInnodbTransactionsRedaction, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #543; LIMIT 200/500, oldest/WAITING/PENDING first; live leg exercises idle empty-success. |
+| MYC-R007 | Replication collectors return legitimate zero-row success when standalone / replication-disabled / GR-not-enabled (distinct from error/denial); native fields preserved | TestMySQLCatalogExpectedSet, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #543; replication_status + replica_applier_status + group_replication_members; live leg runs standalone (zero-row). |
+| MYC-R008 | Locked-key data (LOCK_DATA) is redacted like query text; native lock descriptors preserved | TestMySQLDataLocksRedaction, TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | #543; data_locks HighSensitivity, LOCK_DATA nil, object/mode/status kept. |
+| INV-MYC-01 | Collection never issues a non-SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (16). |
 | INV-MYC-02 | mysql_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMySQLProcesslistRedaction | COVERED | BEHAVIORAL | — |
-| INV-MYC-03 | No query-text column escapes the redaction contract | TestMySQLCatalogNoUnredactedQueryText | COVERED | BEHAVIORAL | Catalog-wide scan. |
+| INV-MYC-03 | No query-text column (INFO/DIGEST_TEXT/trx_query) or locked-key data (LOCK_DATA) escapes the redaction contract | TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |
 | ECD-R002 (backend-driven dispatch) | collectTarget dispatches by SelectBackend; a BackendMySQLWire target (singlestore, mysql) is collected via the one shared wire session; adding a wire engine adds no branch | TestCollectTarget_MySQLProductionBoundary, TestCollectTarget_SingleStoreProductionBoundary, TestCollectTarget_UnsupportedEngineSkipped | COVERED | BEHAVIORAL | mysql persists engine=mysql; mariadb (unsupported) skipped, never pgx. |
 | ECD-R004 (identity vs configured engine) | The wire session requires the server to identify as the target's configured engine; a mismatch is a target-scoped failure, not a fallback | TestCollectTarget_MySQLIdentityMismatchFails | COVERED | BEHAVIORAL | mysql target + singlestore server → refusing to collect. |
 | ECD-R008 (CatalogFor seam) | The wire session selects the catalog by engine via CatalogFor; never a foreign catalog; a new engine is a CatalogFor + SupportedEngines entry only | TestCollectTarget_MySQLProductionBoundary, TestCatalogForRegistry, TestMySQLExportSerializationReconciles | COVERED | BEHAVIORAL | Reporting (export catalogFor) delegates to the same registry. |
