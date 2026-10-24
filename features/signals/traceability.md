@@ -492,3 +492,27 @@ Spec: `specifications/stdd-gate-enforcement.md` (ACTIVE). Gates:
 | INV-GATE-01 | A COVERED matrix rule always has a test or an explicit no-test marker | TestSTDDGates_TraceabilityRejectsOrphan | COVERED | BEHAVIORAL | Orphan COVERED/non-DOC row fails. |
 | INV-GATE-02 | Every shipped root spec has an explicit ACTIVE lifecycle state | TestSTDDGates_SpecStatusRejectsDraft | COVERED | BEHAVIORAL | Undeclared/DRAFT shipped spec cannot pass. |
 | INV-GATE-03 | Spec/test change and `.fingerprint` are committed together | TestSTDDGates_FingerprintDetectsDrift | COVERED | BEHAVIORAL | Cryptographic atomic-commit enforcement. |
+
+## #595 — Engine-keyed reporting seam (M3)
+
+Spec: `specifications/engine-keyed-reporting.md` (ACTIVE). Acceptance:
+`specifications/engine-keyed-reporting.acceptance.md`. The export and the
+SingleStore session are engine-keyed through a single `catalogFor(engine)` seam;
+no foreign engine's catalog leaks into an export; PostgreSQL output stays
+byte-identical. Tests: `internal/export/engine_keyed_reporting_test.go`,
+`internal/export/catalog_for_test.go`, `internal/collector/singlestore_mapping_test.go`,
+`internal/collector/budget_exhaustion_test.go`, `internal/singlestore/duration_test.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MKR-R001 | collector_status.json freshness + never_run enumerate the export engine's catalog via `catalogFor`, never pgqueries unconditionally | TestSingleStoreExportCollectorStatusHasNoPostgreSQLLeak, TestPostgreSQLExportCollectorStatusUnchanged | COVERED | BEHAVIORAL | #534, #578. SingleStore export has zero PostgreSQL never_run; PostgreSQL still enumerates every pgqueries collector. |
+| MKR-R002 | query_catalog.json contains only the export engine's collectors; PostgreSQL rows retained whole | TestSingleStoreExportQueryCatalogExcludesPostgreSQL, TestPostgreSQLExportQueryCatalogRetained | COVERED | BEHAVIORAL | #534. Mixed store filtered to SingleStore; PostgreSQL filter is a no-op (byte-identical). |
+| MKR-R003 | SingleStore session logs each failed collector by identity | TestSSFailedCollectorsCarryIdentity | COVERED | BEHAVIORAL | #581. ssFailedCollectors names id+error; skipped not reported as failed. |
+| MKR-R004 | "snapshot collected" reports success/failed/skipped counts, not len(results) | TestSSOutcomeCounts | COVERED | BEHAVIORAL | #582. Per-outcome tally sums to run count. |
+| MKR-R005 | A cycle that attempted collectors but recorded zero successes is failed; nothing-due stays success | TestCycleStatus | COVERED | BEHAVIORAL | #580. cycleStatus gains the success count; mutation-covered across the truth table. |
+| MKR-R006 | Each SingleStore collector run carries a measured duration, not a fake 0 | TestMapSingleStoreCollectionPropagatesDuration, TestCollectMeasuresDuration, TestCollectPopulatesDuration | COVERED | BEHAVIORAL | #579. Injected step clock proves a real measurement deterministically. |
+| MKR-R007 | An elevated collector's permission-denied error is skipped (reason permission_denied), not failed | TestMapSingleStoreCollectionElevatedPermissionDeniedIsSkipped, TestIsPermissionDenied, TestCollectCarriesElevatedPrivilege | COVERED | BEHAVIORAL | cluster_status needs CLUSTER; non-elevated permission error stays failed. |
+| MKR-R008 | metadata.json carries engine_version for non-PostgreSQL engines; PostgreSQL unchanged | TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | #531 testable slice; pg_version carrier not rewritten (deferred). |
+| INV-MKR-01 | No export's collector_status.json / query_catalog.json contains a foreign-engine collector | TestSingleStoreExportCollectorStatusHasNoPostgreSQLLeak, TestSingleStoreExportQueryCatalogExcludesPostgreSQL | COVERED | BEHAVIORAL | The reporting-seam invariant. |
+| INV-MKR-02 | PostgreSQL export output is byte-identical to pre-change for the same store state | TestPostgreSQLExportCollectorStatusUnchanged, TestPostgreSQLExportQueryCatalogRetained, TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | Plus the M0 PostgreSQL CI matrix (integration-pg 14-18). |
+| INV-MKR-03 | catalogFor is total: unknown engine yields empty catalog, never a PostgreSQL fallback | TestCatalogForIsTotal | COVERED | BEHAVIORAL | postgresql/"" -> pgqueries; singlestore -> SingleStore; mysql/unknown -> empty. |

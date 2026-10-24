@@ -62,9 +62,17 @@ func (s Snapshot) QueryResultsNDJSON() ([]byte, error) {
 	var buf bytes.Buffer
 	enc := json.NewEncoder(&buf)
 	for _, r := range s.Collectors {
-		// ndjsonRow mirrors Result's fields but carries the JSON tags for the
-		// query_results.ndjson shape; a direct conversion keeps them in sync.
-		if err := enc.Encode(ndjsonRow(r)); err != nil {
+		// ndjsonRow carries the JSON tags for the query_results.ndjson shape.
+		// Mapped explicitly (not a struct conversion) because Result also
+		// carries reporting-only fields (DurationMS, ElevatedPrivilege) that
+		// are not part of this NDJSON contract.
+		row := ndjsonRow{
+			CollectorID: r.CollectorID,
+			Category:    r.Category,
+			Rows:        r.Rows,
+			Err:         r.Err,
+		}
+		if err := enc.Encode(row); err != nil {
 			return nil, err
 		}
 	}

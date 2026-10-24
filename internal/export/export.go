@@ -16,7 +16,6 @@ import (
 
 	"github.com/elevarq/signals/internal/collector"
 	"github.com/elevarq/signals/internal/db"
-	"github.com/elevarq/signals/internal/pgqueries"
 	"github.com/elevarq/signals/internal/safety"
 	"github.com/elevarq/signals/snapshot"
 )
@@ -333,7 +332,7 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 		return fmt.Errorf("write snapshots.ndjson: %w", err)
 	}
 
-	if err := b.writeQueryCatalog(hz); err != nil {
+	if err := b.writeQueryCatalog(hz, scope); err != nil {
 		return fmt.Errorf("write query_catalog.json: %w", err)
 	}
 
@@ -480,6 +479,16 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 	if len(scope.snapshots) > 0 && scope.snapshots[0].Engine != "" {
 		engine = scope.snapshots[0].Engine
 	}
+	// MKR-R008 (#531): for a non-PostgreSQL export, expose the collected server
+	// version under an engine-neutral `engine_version` key so `pg_version` is
+	// not the generic version carrier. A PostgreSQL export does NOT gain this
+	// field — its output stays byte-identical (INV-MKR-02), and `pg_version`
+	// remains its carrier in snapshots/query_runs (renaming it would rewrite
+	// valid PostgreSQL archives — out of scope).
+	var engineVersion string
+	if engine != "postgresql" && len(scope.snapshots) > 0 {
+		engineVersion = scope.snapshots[0].PGVersion
+	}
 	data := map[string]any{
 		"engine":                              engine,
 		"schema_version":                      snapshot.SchemaVersion,
@@ -513,6 +522,9 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 		// default-scope endpoint refuses the two non-ok cases (R125);
 		// the forensic --all scope is permissive but carries the marker.
 		"collection_status": b.collectionStatus(scope),
+	}
+	if engineVersion != "" {
+		data["engine_version"] = engineVersion
 	}
 	if opts.TargetID > 0 {
 		if name, err := b.store.GetTargetName(opts.TargetID); err == nil && name != "" {
@@ -631,20 +643,32 @@ func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db
 	}
 	now := time.Now().UTC()
 
+	// MKR-R001: enumerate the EXPORT'S engine catalog through the single seam,
+	// never pgqueries unconditionally. byID maps collector id -> reporting view.
+	cat := catalogFor(engineOf(scope))
+	byID := make(map[string]reportCollector, len(cat))
+	for _, c := range cat {
+		byID[c.ID] = c
+	}
+
 	for i := range statuses {
-		qd := pgqueries.ByID(statuses[i].ID)
-		if qd == nil {
+		qd, ok := byID[statuses[i].ID]
+		if !ok {
 			continue
 		}
-		statuses[i].Cadence = qd.Cadence.String()
-		if statuses[i].Status == "skipped" || statuses[i].CollectedAt == "" {
+		statuses[i].Cadence = qd.CadenceString
+		// Skip freshness for gated/not-run entries and for engines with no
+		// cadence concept (CadenceString == ""; SingleStore). A PostgreSQL
+		// collector with a zero cadence still renders "0s", so its prior
+		// fresh/stale behavior is preserved (byte-identical).
+		if statuses[i].Status == "skipped" || statuses[i].CollectedAt == "" || qd.CadenceString == "" {
 			continue
 		}
 		ts, err := time.Parse(time.RFC3339, statuses[i].CollectedAt)
 		if err != nil {
 			continue
 		}
-		if now.Sub(ts) <= 2*time.Duration(qd.Cadence) {
+		if now.Sub(ts) <= 2*qd.Cadence {
 			statuses[i].Freshness = "fresh"
 		} else {
 			statuses[i].Freshness = "stale"
@@ -670,7 +694,9 @@ func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db
 		m[r.QueryID] = true
 	}
 	for _, present := range presentByTarget {
-		for _, q := range pgqueries.All() {
+		// MKR-R001: never_run entries come from the EXPORT'S engine catalog, so
+		// a SingleStore export never gains PostgreSQL collectors as never_run.
+		for _, q := range cat {
 			if present[q.ID] {
 				continue
 			}
@@ -679,7 +705,7 @@ func (b *Builder) applyFreshness(statuses []collector.CollectorStatus, runs []db
 				Attempted: false,
 				Status:    "never_run",
 				Freshness: "never_run",
-				Cadence:   q.Cadence.String(),
+				Cadence:   q.CadenceString,
 			})
 		}
 	}
@@ -694,7 +720,7 @@ func (b *Builder) resolveTargetName(targetID int64) string {
 	return name
 }
 
-func (b *Builder) writeQueryCatalog(zw zipCreator) error {
+func (b *Builder) writeQueryCatalog(zw zipCreator, scope *exportScope) error {
 	f, err := zw.Create("query_catalog.json")
 	if err != nil {
 		return err
@@ -704,7 +730,27 @@ func (b *Builder) writeQueryCatalog(zw zipCreator) error {
 	if err != nil {
 		return err
 	}
-	return json.NewEncoder(f).Encode(catalog)
+
+	// MKR-R002: a mixed (PostgreSQL + SingleStore) store's query_catalog table
+	// carries both engines' collectors. Keep only those belonging to the
+	// export's engine, enumerated through the single seam. For a PostgreSQL
+	// export every stored row is a pgqueries collector, so nothing is dropped
+	// and the exact original value (including a nil/"null" empty catalog) is
+	// re-encoded — byte-identical (INV-MKR-02).
+	allowed := make(map[string]bool)
+	for _, c := range catalogFor(engineOf(scope)) {
+		allowed[c.ID] = true
+	}
+	var filtered []db.QueryCatalogRow
+	for _, row := range catalog {
+		if allowed[row.QueryID] {
+			filtered = append(filtered, row)
+		}
+	}
+	if len(filtered) == len(catalog) {
+		return json.NewEncoder(f).Encode(catalog)
+	}
+	return json.NewEncoder(f).Encode(filtered)
 }
 
 // writeQueryRuns emits one NDJSON row per query_run whose

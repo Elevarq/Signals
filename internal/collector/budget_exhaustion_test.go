@@ -62,20 +62,27 @@ func TestBudgetSkippedRunsEmpty(t *testing.T) {
 	}
 }
 
+// TC-MKR-06 (MKR-R005): a cycle that attempted collectors but recorded zero
+// successes is failed; a nothing-due cycle (no attempts) stays success.
 func TestCycleStatus(t *testing.T) {
 	cases := []struct {
 		name            string
 		err             bool
+		success         int
 		failed          int
 		budgetExhausted int
 		want            string
 	}{
-		{"clean", false, 0, 0, "success"},
-		{"failure short-circuits", true, 0, 0, "failed"},
-		{"failure wins over partial", true, 2, 3, "failed"},
-		{"failed collectors -> partial", false, 1, 0, "partial"},
-		{"budget skips -> partial", false, 0, 2, "partial"},
-		{"both -> partial", false, 1, 2, "partial"},
+		{"clean", false, 5, 0, 0, "success"},
+		{"nothing due (no attempts)", false, 0, 0, 0, "success"},
+		{"failure short-circuits", true, 0, 0, 0, "failed"},
+		{"failure wins over partial", true, 3, 2, 3, "failed"},
+		{"mixed success+failed -> partial", false, 3, 1, 0, "partial"},
+		{"mixed success+budget -> partial", false, 3, 0, 2, "partial"},
+		{"mixed both -> partial", false, 3, 1, 2, "partial"},
+		{"zero success, all failed -> failed", false, 0, 4, 0, "failed"},
+		{"zero success, all budget-skipped -> failed", false, 0, 0, 2, "failed"},
+		{"zero success, failed+budget -> failed", false, 0, 1, 2, "failed"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -83,9 +90,9 @@ func TestCycleStatus(t *testing.T) {
 			if tc.err {
 				err = errSentinel
 			}
-			if got := cycleStatus(err, tc.failed, tc.budgetExhausted); got != tc.want {
-				t.Errorf("cycleStatus(err=%v, failed=%d, budget=%d) = %q, want %q",
-					tc.err, tc.failed, tc.budgetExhausted, got, tc.want)
+			if got := cycleStatus(err, tc.success, tc.failed, tc.budgetExhausted); got != tc.want {
+				t.Errorf("cycleStatus(err=%v, success=%d, failed=%d, budget=%d) = %q, want %q",
+					tc.err, tc.success, tc.failed, tc.budgetExhausted, got, tc.want)
 			}
 		})
 	}

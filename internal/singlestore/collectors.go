@@ -12,6 +12,7 @@ import (
 	"context"
 	"database/sql"
 	"strings"
+	"time"
 )
 
 // Collector is one read-only SingleStore query and its handling metadata.
@@ -36,6 +37,16 @@ type Result struct {
 	Category    string
 	Rows        []map[string]any
 	Err         string
+	// DurationMS is the measured wall-clock duration of the collector's
+	// statement, in milliseconds (MKR-R006). It is a real measurement, never
+	// a hardcoded 0, so a downstream consumer can tell "ran in 0ms" from
+	// "not measured".
+	DurationMS int
+	// ElevatedPrivilege mirrors the Collector field: when non-empty, a
+	// permission-denied error from this collector is an EXPECTED degrade
+	// (skipped), not a fault (MKR-R007). Carried onto the Result so the
+	// persistence layer can classify without re-consulting the catalog.
+	ElevatedPrivilege string
 }
 
 // QueryRunner runs a single read-only statement and returns its rows as maps.
@@ -107,12 +118,22 @@ func Catalog() []Collector {
 
 // Collect runs every collector in cat via run, capturing rows or a non-fatal
 // error per collector (SSC-R002). When redactSensitive is true, each
-// SensitiveColumns value is nilled in every row (SSC-R003).
+// SensitiveColumns value is nilled in every row (SSC-R003). Each collector's
+// wall-clock duration is measured (MKR-R006).
 func Collect(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive bool) []Result {
+	return CollectWithClock(ctx, run, cat, redactSensitive, time.Now)
+}
+
+// CollectWithClock is Collect with an injectable clock so the per-collector
+// duration measurement (MKR-R006) is deterministically testable. Production
+// passes time.Now; a test passes a step clock and asserts the measured delta.
+func CollectWithClock(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive bool, now func() time.Time) []Result {
 	results := make([]Result, 0, len(cat))
 	for _, c := range cat {
-		res := Result{CollectorID: c.ID, Category: c.Category}
+		res := Result{CollectorID: c.ID, Category: c.Category, ElevatedPrivilege: c.ElevatedPrivilege}
+		start := now()
 		rows, err := run(ctx, c.SQL)
+		res.DurationMS = int(now().Sub(start).Milliseconds())
 		if err != nil {
 			res.Err = err.Error()
 			results = append(results, res)
@@ -131,6 +152,27 @@ func Collect(ctx context.Context, run QueryRunner, cat []Collector, redactSensit
 		results = append(results, res)
 	}
 	return results
+}
+
+// IsPermissionDenied reports whether a MySQL-wire error string denotes a
+// privilege error (MKR-R007). SingleStore surfaces these as MySQL error codes
+// 1142 (command denied), 1227 (access denied; need privilege), and 1045
+// (access denied for user). Matching is on the textual error the driver
+// returns (the collector layer only has the string form).
+func IsPermissionDenied(msg string) bool {
+	if msg == "" {
+		return false
+	}
+	m := strings.ToLower(msg)
+	if strings.Contains(m, "command denied") || strings.Contains(m, "access denied") {
+		return true
+	}
+	for _, code := range []string{"error 1142", "error 1227", "error 1045"} {
+		if strings.Contains(m, code) {
+			return true
+		}
+	}
+	return false
 }
 
 // NewRunner adapts a *sql.DB into a QueryRunner that scans each row into a
