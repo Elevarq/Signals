@@ -655,3 +655,23 @@ evidence. Verifier shared with SingleStore/MySQL (engine-generic). Harness:
 | INV-MDLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (MDC-R001). |
 | INV-MDLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own MariaDB | TestMariaDBLiveExportReconciliation | COVERED | INTEGRATION | mariadb-dev-fixture fail-closed, refuses existing container (#588); EXTERNAL mode for CI. |
 | INV-MDLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status, not counts. |
+
+## ClickHouse backend (CH-1 foundation, #558)
+
+Spec: `specifications/clickhouse-backend.md` (ACTIVE, CHB-R001..R006,
+INV-CHB-01..03). ClickHouse is a THIRD backend (native protocol via
+clickhouse-go), not a MySQL-wire catalog add. CH-1 ships the backend foundation
++ a minimal identity catalog; the full system.* catalog is CH-2, live qual + CI
+are CH-3. Package `internal/clickhouse`; session `internal/collector/clickhouse_session.go`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CHB-R001 | SelectBackend(clickhouse)=BackendClickHouse; clickhouse in SupportedEngines | TestSelectBackend, TestValidateAcceptsClickHouseEngine | COVERED | BEHAVIORAL | Third backend value. |
+| CHB-R002 | Session opens a native clickhouse-go connection from the normal TargetConfig + resolver; never pgx/MySQL-wire | TestCollectTarget_ClickHouseProductionBoundary | COVERED | BEHAVIORAL | Production boundary faked only at the DB/network seam; real clickhouse-go Open validated live against ClickHouse 24.8. |
+| CHB-R003 | Session validates ClickHouse identity (non-empty version) before collecting; failure is target-scoped | TestIdentify, TestCollectTarget_ClickHouseProductionBoundary | COVERED | BEHAVIORAL | — |
+| CHB-R004 | Persist via common InsertCollectionAtomic; permission-denied (497/ACCESS_DENIED) degrades to skipped | TestMapClickHouseCollection, TestCollectTarget_ClickHouseProductionBoundary | COVERED | BEHAVIORAL | — |
+| CHB-R005 | Failed runs carry a canonical reason, never empty | TestMapClickHouseCollection | COVERED | BEHAVIORAL | classifyRunError → timeout/execution_error. |
+| CHB-R006 | export.catalogFor(clickhouse) returns the ClickHouse catalog; reporting files contain only ClickHouse collectors | TestClickHouseExportSerializationReconciles | COVERED | BEHAVIORAL | The one reporting touch-point. |
+| INV-CHB-01 | Collection never issues a non-SELECT | TestCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the catalog. |
+| INV-CHB-02 | pgx/MySQL-wire never used for a ClickHouse target | TestSelectBackend, TestCollectTarget_ClickHouseProductionBoundary | COVERED | BEHAVIORAL | Dedicated BackendClickHouse dispatch. |
+| INV-CHB-03 | Other engines unchanged; ClickHouse purely additive | TestSelectBackend | COVERED | BEHAVIORAL | PG/SingleStore/MySQL/MariaDB untouched; new backend + dep. |

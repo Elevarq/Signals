@@ -435,6 +435,7 @@ const (
 	EngineSingleStore = "singlestore"
 	EngineMySQL       = "mysql"
 	EngineMariaDB     = "mariadb"
+	EngineClickHouse  = "clickhouse"
 )
 
 // SupportedEngines enumerates every engine this build can actually collect.
@@ -442,7 +443,7 @@ const (
 // is always accepted. The set grows as each engine's backend is implemented;
 // a configured engine outside it is rejected by ValidateStrict (EID-R002),
 // never silently downgraded to PostgreSQL.
-var SupportedEngines = []string{EnginePostgreSQL, EngineSingleStore, EngineMySQL, EngineMariaDB}
+var SupportedEngines = []string{EnginePostgreSQL, EngineSingleStore, EngineMySQL, EngineMariaDB, EngineClickHouse}
 
 // EffectiveEngine returns the target's engine, defaulting an empty value to
 // EnginePostgreSQL so existing configs keep their current behavior

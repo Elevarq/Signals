@@ -3,6 +3,7 @@ package export
 import (
 	"time"
 
+	"github.com/elevarq/signals/internal/clickhouse"
 	"github.com/elevarq/signals/internal/config"
 	"github.com/elevarq/signals/internal/pgqueries"
 	"github.com/elevarq/signals/internal/singlestore"
@@ -34,6 +35,16 @@ func catalogFor(engine string) []reportCollector {
 				Cadence:       time.Duration(q.Cadence),
 				CadenceString: q.Cadence.String(),
 			})
+		}
+		return out
+	case config.EngineClickHouse:
+		// ClickHouse is its own backend (not MySQL-wire); its reporting catalog
+		// comes from the clickhouse package. No cadence concept → freshness
+		// enrichment is skipped (CadenceString == "").
+		cat := clickhouse.Catalog()
+		out := make([]reportCollector, 0, len(cat))
+		for _, c := range cat {
+			out = append(out, reportCollector{ID: c.ID})
 		}
 		return out
 	default:

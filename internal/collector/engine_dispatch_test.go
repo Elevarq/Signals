@@ -18,6 +18,8 @@ func TestSelectBackend(t *testing.T) {
 		{"TC-ECD-01 postgresql", config.EnginePostgreSQL, BackendPostgreSQL},
 		{"TC-ECD-02 singlestore", config.EngineSingleStore, BackendMySQLWire},
 		{"TC-ECD-03 mysql", config.EngineMySQL, BackendMySQLWire},
+		{"mariadb -> wire", config.EngineMariaDB, BackendMySQLWire},
+		{"clickhouse -> clickhouse backend", config.EngineClickHouse, BackendClickHouse},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
