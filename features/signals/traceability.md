@@ -714,3 +714,16 @@ with reconciled evidence. Harness: `scripts/clickhouse-dev-fixture.sh`,
 | INV-CHLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | SELECT-only (CHC-R001). |
 | INV-CHLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own ClickHouse | TestClickHouseLiveExportReconciliation | COVERED | INTEGRATION | clickhouse-dev-fixture fail-closed, refuses existing container (#588). |
 | INV-CHLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status. |
+
+## MySQL statement-digest workload collector (#540)
+
+Adds `mysql_statement_digests_v1` (performance_schema.events_statements_summary_by_digest,
+top-200 by latency) — MySQL's query-workload signal (analogue of pg_stat_statements).
+Spec: `specifications/mysql-collectors.md` (MYC-R004 extended to DIGEST_TEXT).
+Validated live against MySQL 8.4 (full 10-collector catalog clean via the daemon;
+DIGEST_TEXT redacted end-to-end).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MYC-R004 (digest) | mysql_statement_digests_v1 is HighSensitivity with DIGEST_TEXT redacted (normalized sample SQL) | TestMySQLStatementDigestsRedaction, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #540. Deterministic redaction + live reconciliation (redaction held). |
+| MYC-540-01 | The digest collector is a read-only SELECT, bounded (top-200 by latency), empty when Performance Schema is off, NULL-digest overflow row included | TestMySQLCatalogReadOnly, TestMySQLCatalogExpectedSet, TestMySQLLiveCadenceQualification | COVERED | BEHAVIORAL | 10-collector catalog; live 12-snapshot cadence all status=success. A digest id is never equated with a PostgreSQL queryid (engine-native evidence). |

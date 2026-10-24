@@ -49,6 +49,7 @@ wire session, identity resolution, and persistence/export.
 | `mysql_engines_v1` | server | `information_schema.ENGINES` | storage engine support |
 | `mysql_schemata_v1` | schema | `information_schema.SCHEMATA` | databases + charset/collation |
 | `mysql_replication_status_v1` | topology | `performance_schema.replication_connection_status` | legitimate zero-row on a standalone server |
+| `mysql_statement_digests_v1` | workload | `performance_schema.events_statements_summary_by_digest` (top-200 by latency) | #540; **HighSensitivity**, `DIGEST_TEXT` redacted; empty when Performance Schema is off; NULL-digest overflow row included naturally. The MySQL query-workload signal (analogue of pg_stat_statements). A digest id is never equated with a PostgreSQL queryid. |
 
 ## Behaviors
 
@@ -68,7 +69,7 @@ wire session, identity resolution, and persistence/export.
   abort the others (partial collection captured, not fatal).
 - **MYC-R003** | With `redactSensitive=true`, each `SensitiveColumns` value is
   nil in every row of that collector's result.
-- **MYC-R004** | Any collector selecting a query-text column (`INFO`) MUST be
+- **MYC-R004** | Any collector selecting a query-text column (`INFO`, `DIGEST_TEXT`) MUST be
   `HighSensitivity` with that column in `SensitiveColumns`.
 - **MYC-R005** | `CatalogFor(mysql)` returns exactly `mysqlCatalog()`;
   `CatalogFor(singlestore)` returns `Catalog()`; `CatalogFor` of any other

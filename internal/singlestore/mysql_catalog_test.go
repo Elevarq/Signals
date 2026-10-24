@@ -32,6 +32,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_processlist_v1",
 		"mysql_replication_status_v1",
 		"mysql_schemata_v1",
+		"mysql_statement_digests_v1",
 		"mysql_table_statistics_v1",
 	}
 	var got []string
@@ -109,6 +110,45 @@ func TestCatalogForRegistry(t *testing.T) {
 		if got := CatalogFor(e); got != nil {
 			t.Errorf("CatalogFor(%q) = %v, want nil (no fallback)", e, got)
 		}
+	}
+}
+
+// #540: the statement-digest collector carries normalized sample SQL in
+// DIGEST_TEXT and must be HighSensitivity with it redacted.
+func TestMySQLStatementDigestsRedaction(t *testing.T) {
+	var sd *Collector
+	for i := range mysqlCatalog() {
+		if mysqlCatalog()[i].ID == "mysql_statement_digests_v1" {
+			sd = &mysqlCatalog()[i]
+		}
+	}
+	if sd == nil {
+		t.Fatal("mysql_statement_digests_v1 missing")
+	}
+	if !sd.HighSensitivity {
+		t.Error("mysql_statement_digests_v1 must be HighSensitivity (carries DIGEST_TEXT)")
+	}
+	found := false
+	for _, col := range sd.SensitiveColumns {
+		if col == "DIGEST_TEXT" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("mysql_statement_digests_v1 must list DIGEST_TEXT in SensitiveColumns")
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "events_statements_summary_by_digest") {
+			return []map[string]any{{"DIGEST": "abc", "DIGEST_TEXT": "SELECT ? FROM secret_t"}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*sd}, true)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["DIGEST_TEXT"]; v != nil {
+		t.Errorf("DIGEST_TEXT must be redacted to nil, got %v", v)
 	}
 }
 
