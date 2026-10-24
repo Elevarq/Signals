@@ -21,15 +21,18 @@ func TestEffectiveEngine(t *testing.T) {
 // TC-EID-03 (EID-R002, failure condition): a configured engine without a
 // collection backend is rejected — never silently downgraded to postgresql.
 func TestValidateRejectsUnsupportedEngine(t *testing.T) {
+	// mysql is a recognized engine constant but has no collection backend yet
+	// (not in SupportedEngines), so it must be rejected. (singlestore became
+	// supported in M2/#593.)
 	tgt := TargetConfig{
 		Name: "t", Host: "h", User: "u", Port: 5432,
-		SSLMode: "require", Enabled: true, Engine: EngineSingleStore,
+		SSLMode: "require", Enabled: true, Engine: EngineMySQL,
 	}
 	_, err := ValidateStrict(baseValidConfig(tgt))
 	if err == nil {
-		t.Fatal("expected ValidateStrict to reject engine=singlestore, got nil")
+		t.Fatal("expected ValidateStrict to reject engine=mysql, got nil")
 	}
-	if !strings.Contains(err.Error(), "singlestore") || !strings.Contains(err.Error(), "not supported") {
+	if !strings.Contains(err.Error(), "mysql") || !strings.Contains(err.Error(), "not supported") {
 		t.Fatalf("error must name the unsupported engine: %v", err)
 	}
 }

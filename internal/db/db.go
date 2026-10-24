@@ -1024,8 +1024,8 @@ func (d *DB) InsertCollectionAtomic(snapshot Snapshot, runs []QueryRun, results 
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?)",
-		snapshot.ID, snapshot.TargetID, snapshot.CollectedAt, snapshot.PGVersion, string(snapshot.Payload), snapshot.SizeBytes,
+		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, engine, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)",
+		snapshot.ID, snapshot.TargetID, snapshot.CollectedAt, snapshot.PGVersion, snapshotEngine(snapshot.Engine), string(snapshot.Payload), snapshot.SizeBytes,
 	); err != nil {
 		return fmt.Errorf("insert snapshot: %w", err)
 	}
