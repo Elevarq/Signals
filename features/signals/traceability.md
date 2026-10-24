@@ -620,22 +620,26 @@ evidence. Verifier shared with SingleStore (engine-generic). Harness:
 
 ## MariaDB collection (PR1: catalog + seam wire-up)
 
-Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R005,
+Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R008,
 INV-MDC-01..03) + `specifications/mariadb-grants.md` (ACTIVE, DOC). MariaDB added
 as a catalog + `CatalogFor` registry entry + `SupportedEngines` membership +
 `SelectBackend` wire mapping — no per-engine dispatch/session/identity/reporting
-edits (identity already distinct in M5). Live qualification + CI job: follow-up PR.
+edits (identity already distinct in M5). Live qualification runs in CI
+(`integration-mariadb`). #616 brought the catalog to MySQL parity (15 collectors).
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
-| MDC-R001 | Every MariaDB catalog statement is a read-only SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 7 collectors. |
+| MDC-R001 | Every MariaDB catalog statement is a read-only SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 15 collectors. |
 | MDC-R002 | A collector error does not abort the others | TestCollectPartialFailureDoesNotAbort | COVERED | BEHAVIORAL | Shared Collect runtime, engine-agnostic. |
 | MDC-R003 | redactSensitive nils each SensitiveColumns value | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | INFO redacted to nil. |
-| MDC-R004 | A query-text column collector is HighSensitivity with it in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | processlist INFO. |
-| MDC-R005 | CatalogFor(mariadb) returns the MariaDB catalog; no cross-engine leak, no PG fallback | TestCatalogForMariaDB, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam. |
-| INV-MDC-01 | Collection never issues a non-SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog. |
+| MDC-R004 | A query-text column collector (INFO/trx_query/DIGEST_TEXT) is HighSensitivity with it in SensitiveColumns (exact result-row case) | TestMariaDBProcesslistRedaction, TestMariaDBInnodbTransactionsRedaction, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | processlist INFO, trx_query, digests DIGEST_TEXT (#616). |
+| MDC-R005 | CatalogFor(mariadb) returns the MariaDB catalog; no cross-engine leak, no PG fallback | TestCatalogForMariaDB, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 15 collectors. |
+| MDC-R006 | Activity collectors (transactions/locks/waits/MDL) are bounded point-in-time session evidence; idle = legitimate zero-row success | TestMariaDBCatalogExpectedSet, TestMariaDBInnodbTransactionsRedaction, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #616; LIMIT 200/500; live leg exercises idle empty-success. |
+| MDC-R007 | Topology / perf_schema-gated collectors return legitimate zero-row success when standalone / Galera-not-connected / perf_schema-off (distinct from error/denial); native fields preserved | TestMariaDBCatalogExpectedSet, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #616; replication_status (GTID), galera_status (wsrep), metadata_locks + digests perf_schema-gated; live leg runs standalone/perf_schema-off. |
+| MDC-R008 | Locked-key data (lock_data) is redacted like query text; native lock descriptors preserved | TestMariaDBInnodbLocksRedaction, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | #616; INNODB_LOCKS HighSensitivity, lock_data nil, mode/table kept. |
+| INV-MDC-01 | Collection never issues a non-SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (15). |
 | INV-MDC-02 | mariadb_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | — |
-| INV-MDC-03 | No query-text column escapes the redaction contract | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | processlist is the only query-text collector. |
+| INV-MDC-03 | No query-text column (INFO/trx_query/DIGEST_TEXT) or locked-key data (lock_data) escapes the redaction contract | TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |
 | MDC-dispatch (engine=mariadb routed via wire session + CatalogFor) | Backend-driven dispatch routes a mariadb target through the shared wire session with the MariaDB catalog; identity validated as mariadb (distinct from mysql); one engine=mariadb snapshot persisted | TestCollectTarget_MariaDBProductionBoundary, TestCollectTarget_MariaDBIdentityMismatchFails, TestMariaDBExportSerializationReconciles | COVERED | BEHAVIORAL | No per-engine dispatch/session edit; export catalogFor delegates to the same registry. |
 
 ## MariaDB collection (PR2: live qualification + CI integration job)
