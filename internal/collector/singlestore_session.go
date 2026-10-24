@@ -102,8 +102,18 @@ func mapSingleStoreCollection(snapID string, targetID int64, version, collectedA
 	for i, r := range results {
 		runID := fmt.Sprintf("%s-%03d-%s", snapID, i, r.CollectorID)
 		status := "success"
+		reason := ""
 		if r.Err != "" {
-			status = "failed"
+			// MKR-R007: a permission-denied error on a collector that declares
+			// an elevated privilege (e.g. MV_CLUSTER_STATUS needs CLUSTER) is an
+			// EXPECTED least-privilege degrade — recorded skipped, not failed.
+			// A non-elevated collector's permission error stays a genuine fault.
+			if r.ElevatedPrivilege != "" && singlestore.IsPermissionDenied(r.Err) {
+				status = "skipped"
+				reason = "permission_denied"
+			} else {
+				status = "failed"
+			}
 		}
 		payload, compressed, size, err := db.EncodeNDJSON(r.Rows)
 		if err != nil {
@@ -112,7 +122,10 @@ func mapSingleStoreCollection(snapID string, targetID int64, version, collectedA
 		runs = append(runs, db.QueryRun{
 			ID: runID, TargetID: targetID, SnapshotID: snapID,
 			QueryID: r.CollectorID, CollectedAt: collectedAt, PGVersion: version,
-			RowCount: len(r.Rows), Error: r.Err, CreatedAt: collectedAt, Status: status,
+			// MKR-R006: carry the measured per-collector duration, not a fake 0.
+			DurationMS: r.DurationMS,
+			RowCount:   len(r.Rows), Error: r.Err, CreatedAt: collectedAt,
+			Status: status, Reason: reason,
 		})
 		payloads = append(payloads, db.QueryResult{RunID: runID, Payload: payload, Compressed: compressed, SizeBytes: size})
 	}
@@ -130,6 +143,43 @@ func mapSingleStoreCollection(snapID string, targetID int64, version, collectedA
 		Payload: mono, SizeBytes: len(mono),
 	}
 	return snap, runs, payloads, nil
+}
+
+// ssOutcomeCounts tallies persisted runs by outcome (MKR-R004) so the
+// SingleStore "snapshot collected" log reports per-outcome counts instead of a
+// single conflated total.
+func ssOutcomeCounts(runs []db.QueryRun) (success, failed, skipped int) {
+	for _, r := range runs {
+		switch r.Status {
+		case "failed":
+			failed++
+		case "skipped":
+			skipped++
+		default:
+			success++
+		}
+	}
+	return success, failed, skipped
+}
+
+// ssFailure identifies one failed SingleStore collector for the per-collector
+// failure log (MKR-R003).
+type ssFailure struct {
+	ID     string
+	Reason string
+	Error  string
+}
+
+// ssFailedCollectors returns the failed runs by collector identity (MKR-R003).
+// Skipped (e.g. permission-denied elevated) collectors are not failures.
+func ssFailedCollectors(runs []db.QueryRun) []ssFailure {
+	var out []ssFailure
+	for _, r := range runs {
+		if r.Status == "failed" {
+			out = append(out, ssFailure{ID: r.QueryID, Reason: r.Reason, Error: r.Error})
+		}
+	}
+	return out
 }
 
 // collectSingleStore is the SingleStore engine session. It returns the snapshot
@@ -189,9 +239,19 @@ func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetCon
 		c.metrics.IncSQLitePersistenceFailure()
 		return snapID, runs, fmt.Errorf("persist collection cycle for %s: %w", tgt.Name, insErr)
 	}
+	// MKR-R003: log each failed collector by identity, not just an aggregate.
+	for _, f := range ssFailedCollectors(runs) {
+		slog.Warn("singlestore collector failed", "target", tgt.Name,
+			"collector", f.ID, "reason", f.Reason, "error", f.Error)
+	}
+	// MKR-R004: report per-outcome counts, not a single len(results) total.
+	success, failed, skipped := ssOutcomeCounts(runs)
 	slog.Info("snapshot collected", "target", tgt.Name, "id", snapID,
-		"engine", engineid.EngineSingleStore, "engine_version", version, "collectors", len(results))
+		"engine", engineid.EngineSingleStore, "engine_version", version,
+		"collectors_total", len(runs), "collectors_success", success,
+		"collectors_failed", failed, "collectors_skipped", skipped)
 	_ = c.db.InsertTargetEvent(targetID, "snapshot_collected",
-		fmt.Sprintf("target=%s id=%s engine=singlestore collectors=%d", tgt.Name, snapID, len(results)))
+		fmt.Sprintf("target=%s id=%s engine=singlestore collectors=%d success=%d failed=%d skipped=%d",
+			tgt.Name, snapID, len(runs), success, failed, skipped))
 	return snapID, runs, nil
 }

@@ -294,7 +294,7 @@ func TestIntegration_BudgetExhaustionMidQuery(t *testing.T) {
 	// --- The cycle is partial, not failed -----------------------------
 	// cycleStatus is the production classifier used in the audit/metrics
 	// path; a persisted cycle with budget-exhausted skips is PARTIAL.
-	if got := cycleStatus(nil, failedTimeout+failedOther, budgetExhausted); got != "partial" {
+	if got := cycleStatus(nil, success, failedTimeout+failedOther, budgetExhausted); got != "partial" {
 		t.Errorf("cycle status = %q, want partial (budget exhaustion is partial, not failed)", got)
 	}
 }

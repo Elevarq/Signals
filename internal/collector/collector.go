@@ -1020,12 +1020,16 @@ func (c *Collector) warnOnce(target, query, kind string) bool {
 	return true
 }
 
-// cycleStatus classifies a completed collection cycle (R108). A non-nil
-// err is "failed"; otherwise any failed collector or any
-// budget-exhausted skip makes the cycle "partial"; else "success".
-func cycleStatus(err error, failed, budgetExhausted int) string {
+// cycleStatus classifies a completed collection cycle (R108, MKR-R005). A
+// non-nil err is "failed". A cycle that ATTEMPTED at least one collector but
+// recorded ZERO successes is "failed" (MKR-R005: it produced no data). Any
+// other cycle with a failed collector or a budget-exhausted skip is "partial".
+// A cycle with no attempts (nothing due) or an all-success cycle is "success".
+func cycleStatus(err error, success, failed, budgetExhausted int) string {
 	switch {
 	case err != nil:
+		return "failed"
+	case success == 0 && (failed > 0 || budgetExhausted > 0):
 		return "failed"
 	case failed > 0 || budgetExhausted > 0:
 		return "partial"
@@ -1144,7 +1148,10 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		}
 		// R108: a budget-exhausted skip makes the cycle partial, same as
 		// a failed collector — the cycle did not complete its full due set.
-		status := cycleStatus(err, failed, skippedByReason[reasonBudgetExhausted])
+		// MKR-R005: a cycle that attempted collectors but recorded zero
+		// successes is failed (it produced no data), so pass the success
+		// count too.
+		status := cycleStatus(err, success, failed, skippedByReason[reasonBudgetExhausted])
 		duration := time.Since(cycleStart)
 		completedAttrs := []any{
 			"target", tgt.Name,
@@ -1179,6 +1186,13 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		outcomeCategory := ""
 		if status == "failed" {
 			outcomeCategory = classifyCollectionFailure(err)
+			// MKR-R005: a zero-success cycle can be failed with err == nil
+			// (collectors are individually captured, so no cycle-level error).
+			// classifyCollectionFailure(nil) is empty — give it a bounded
+			// category so the persisted outcome and metric are not blank.
+			if outcomeCategory == "" {
+				outcomeCategory = "no_successful_collectors"
+			}
 		}
 		if recErr := c.db.RecordCycleOutcome(tgt.Name, status, outcomeCategory); recErr != nil {
 			slog.Warn("failed to persist cycle outcome (R126)",
@@ -1188,7 +1202,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		c.metrics.ObserveCollection(tgt.Name, status, duration.Seconds())
 		c.metrics.AddCollectorOutcomes(tgt.Name, success, failedByReason, skippedByReason)
 		if status == "failed" {
-			c.metrics.ObserveCollectionFailure(tgt.Name, classifyCollectionFailure(err))
+			c.metrics.ObserveCollectionFailure(tgt.Name, outcomeCategory)
 		} else {
 			c.metrics.SetLastSuccessfulCollection(tgt.Name, float64(time.Now().Unix()))
 		}
