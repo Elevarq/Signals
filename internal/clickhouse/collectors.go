@@ -43,18 +43,89 @@ type Result struct {
 // A seam so Collect is unit-testable without a live server.
 type QueryRunner func(ctx context.Context, query string) ([]map[string]any, error)
 
-// Catalog returns the validated ClickHouse collector set. CH-1 is the backend
-// foundation: a single identity collector proves the end-to-end
-// connect→identify→collect→persist→export path. The full system.* catalog
-// (clusters/databases/tables/parts/replicas/merges/mutations/metrics/settings/
-// query_log) is CH-2. Every statement is a read-only SELECT (INV-CHB-01),
-// confirmed live against ClickHouse 24.8.
+// Catalog returns the validated ClickHouse collector set
+// (specifications/clickhouse-collectors.md). Every statement is a read-only
+// SELECT over system.* (INV-CHB-01 / CHC-R001), with columns confirmed live
+// against ClickHouse 24.8. Collectors that are empty on a single node
+// (replicas/merges/mutations/query_thread_log) are legitimate zero-row results,
+// not failures (CHC-R003). query_log / query_thread_log carry application SQL
+// text in the `query` column and are HighSensitivity with it redacted
+// (CHC-R004). The identity collector stays first.
 func Catalog() []Collector {
 	return []Collector{
 		{
 			ID:       "clickhouse_identity_v1",
 			Category: "server",
 			SQL:      "SELECT version() AS version, uptime() AS uptime_s",
+		},
+		{
+			ID:       "clickhouse_clusters_v1",
+			Category: "topology",
+			SQL:      "SELECT cluster, shard_num, replica_num, host_name, host_address, port, is_local FROM system.clusters",
+		},
+		{
+			ID:       "clickhouse_databases_v1",
+			Category: "schema",
+			SQL:      "SELECT name, engine FROM system.databases",
+		},
+		{
+			ID:       "clickhouse_tables_v1",
+			Category: "schema",
+			SQL:      "SELECT database, name, engine, total_rows, total_bytes FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')",
+		},
+		{
+			ID:       "clickhouse_parts_v1",
+			Category: "storage",
+			SQL:      "SELECT database, table, part_type, rows, bytes_on_disk FROM system.parts WHERE active AND database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')",
+		},
+		{
+			ID:       "clickhouse_replicas_v1",
+			Category: "topology",
+			SQL:      "SELECT database, table, is_leader, is_readonly, absolute_delay, queue_size FROM system.replicas",
+		},
+		{
+			ID:       "clickhouse_merges_v1",
+			Category: "resources",
+			SQL:      "SELECT database, table, elapsed, progress, num_parts, is_mutation FROM system.merges",
+		},
+		{
+			ID:       "clickhouse_mutations_v1",
+			Category: "resources",
+			SQL:      "SELECT database, table, mutation_id, is_done, parts_to_do FROM system.mutations WHERE NOT is_done",
+		},
+		{
+			ID:       "clickhouse_metrics_v1",
+			Category: "resources",
+			SQL:      "SELECT metric, value, description FROM system.metrics WHERE value != 0",
+		},
+		{
+			ID:       "clickhouse_events_v1",
+			Category: "resources",
+			SQL:      "SELECT event, value, description FROM system.events",
+		},
+		{
+			ID:       "clickhouse_asynchronous_metrics_v1",
+			Category: "resources",
+			SQL:      "SELECT metric, value FROM system.asynchronous_metrics",
+		},
+		{
+			ID:       "clickhouse_settings_v1",
+			Category: "config",
+			SQL:      "SELECT name, value, changed FROM system.settings WHERE name IN ('max_threads', 'max_memory_usage', 'max_concurrent_queries', 'max_server_memory_usage', 'background_pool_size', 'readonly')",
+		},
+		{
+			ID:               "clickhouse_query_log_v1",
+			Category:         "workload",
+			SQL:              "SELECT type, query_duration_ms, read_rows, result_rows, memory_usage, query FROM system.query_log WHERE type = 'QueryFinish' AND event_time > now() - INTERVAL 1 HOUR ORDER BY event_time DESC LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"query"},
+		},
+		{
+			ID:               "clickhouse_query_thread_log_v1",
+			Category:         "workload",
+			SQL:              "SELECT event_time, query_duration_ms, memory_usage, read_rows, thread_name, query FROM system.query_thread_log WHERE event_time > now() - INTERVAL 1 HOUR ORDER BY event_time DESC LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"query"},
 		},
 	}
 }

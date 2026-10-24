@@ -56,6 +56,84 @@ func TestCollectPartialFailure(t *testing.T) {
 	}
 }
 
+// TC-CHC-01 (CHC-R005): the full CH-2 system.* catalog id set, identity first.
+func TestCatalogExpectedSet(t *testing.T) {
+	want := []string{
+		"clickhouse_identity_v1",
+		"clickhouse_clusters_v1",
+		"clickhouse_databases_v1",
+		"clickhouse_tables_v1",
+		"clickhouse_parts_v1",
+		"clickhouse_replicas_v1",
+		"clickhouse_merges_v1",
+		"clickhouse_mutations_v1",
+		"clickhouse_metrics_v1",
+		"clickhouse_events_v1",
+		"clickhouse_asynchronous_metrics_v1",
+		"clickhouse_settings_v1",
+		"clickhouse_query_log_v1",
+		"clickhouse_query_thread_log_v1",
+	}
+	cat := Catalog()
+	if len(cat) != len(want) {
+		t.Fatalf("catalog has %d collectors, want %d", len(cat), len(want))
+	}
+	if cat[0].ID != "clickhouse_identity_v1" {
+		t.Errorf("identity collector must be first, got %q", cat[0].ID)
+	}
+	have := map[string]bool{}
+	for _, c := range cat {
+		have[c.ID] = true
+	}
+	for _, id := range want {
+		if !have[id] {
+			t.Errorf("catalog missing %q", id)
+		}
+	}
+}
+
+// TC-CHC-02 (CHC-R004, INV-CHB-01): the query-log collectors carry application
+// SQL text and must be HighSensitivity with `query` redacted; no OTHER collector
+// selects a `query` column unredacted.
+func TestQueryLogRedaction(t *testing.T) {
+	queryLogIDs := map[string]bool{"clickhouse_query_log_v1": true, "clickhouse_query_thread_log_v1": true}
+	for _, c := range Catalog() {
+		selectsQuery := strings.Contains(strings.ToLower(c.SQL), " query ") || strings.HasSuffix(strings.ToLower(strings.TrimSpace(c.SQL)), "query")
+		_ = selectsQuery
+		if queryLogIDs[c.ID] {
+			if !c.HighSensitivity {
+				t.Errorf("%s selects query text — must be HighSensitivity", c.ID)
+			}
+			found := false
+			for _, col := range c.SensitiveColumns {
+				if col == "query" {
+					found = true
+				}
+			}
+			if !found {
+				t.Errorf("%s must list `query` in SensitiveColumns", c.ID)
+			}
+		}
+	}
+	// Collect redacts the query column for a query-log collector.
+	var ql Collector
+	for _, c := range Catalog() {
+		if c.ID == "clickhouse_query_log_v1" {
+			ql = c
+		}
+	}
+	runner := func(_ context.Context, _ string) ([]map[string]any, error) {
+		return []map[string]any{{"type": "QueryFinish", "query": "SELECT secret FROM t"}}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{ql}, true)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["query"]; v != nil {
+		t.Errorf("query must be redacted to nil, got %v", v)
+	}
+}
+
 // TC-CHB-04: Identify returns the version from a ClickHouse server.
 func TestIdentify(t *testing.T) {
 	v, err := Identify(context.Background(), func(_ context.Context, _ string) (string, error) {
