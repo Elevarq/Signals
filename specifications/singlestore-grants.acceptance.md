@@ -22,18 +22,19 @@ every other collector has an empty `ElevatedPrivilege` (baseline SELECT+PROCESS)
 
 ---
 
-### TC-SSG-02: Golden fixture replays into an engine=singlestore snapshot (#555)
+### TC-SSG-02: RETIRED (#577/#589) — golden-fixture replay superseded by the live CI qualification
 
-**Rule:** (collectors + assembly contract; #555 deterministic fixture)
+The committed `testdata/singlestore_collect_fixture.json` was a hand-captured,
+row-trimmed snapshot of the catalog. It drifted from the real catalog and its
+provenance could not prove the capture revision (#589), so it was never a
+verifiable gate. It is retired along with the `TestGoldenFixtureReplaysIntoSnapshot`
+replay test and the `singlestore_integration` DSN catalog test.
 
-**Given:** the committed `testdata/singlestore_collect_fixture.json` — a real,
-redacted, row-trimmed capture of the 10 collectors from a live workspace.
-
-**When:** it is loaded into `[]Result` and passed to `BuildSnapshot(info,
-"singlestore", version, results)`.
-
-**Then:** `MetadataJSON` declares `engine=singlestore`; `QueryResultsNDJSON`
-has one line per collector; the plancache `QUERY_TEXT` and processlist `INFO`
-are redacted (null) in the fixture (no SQL text committed).
-
-**Expected Result:** Pass — CI validates the full catalog shape with no live DB.
+The full catalog shape + `engine=singlestore` assembly + redaction are now proven
+every CI run by the `integration-singlestore` job (the real `cmd/signals` daemon
+→ production exporter against the pinned Dev Image service container, EXTERNAL
+mode — `specifications/singlestore-live-qualification.md` SLQ-R006..R010 /
+TC-SLQ-06, TC-SLQ-08, TC-SLQ-11), which replays the *current* catalog rather than
+a frozen snapshot. The deterministic serialization leg (`singlestore_qual_test.go`,
+TC-SLQ-10) gives no-DB CI coverage of the verifier/export logic. This is strictly
+stronger than the retired fixture replay.

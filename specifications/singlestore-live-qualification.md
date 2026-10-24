@@ -35,10 +35,18 @@ as an attempt/row count.
 
 ## Coverage receipt — live vs fixture (explicit, per #584)
 
-- **Live producer evidence** is opt-in / local: the `//go:build singlestore_live`
-  test, driven by `scripts/singlestore-live-qual.sh` against the pinned Dev
-  Image. It is the ONLY source of producer evidence and does not run in the
-  default CI lane (the pinned multi-GB Dev Image is not a CI service).
+- **Live producer evidence** runs BOTH in CI and locally (#577/#555): the
+  `//go:build singlestore_live` test, driven by `scripts/singlestore-live-qual.sh`
+  against the pinned Dev Image. In CI it runs as the pinned `integration-singlestore`
+  job (the SingleStore Dev Image as a service container, EXTERNAL mode — the
+  harness only builds, drives the real daemon, and verifies); locally it brings
+  the Dev Image up/down itself. It is the ONLY source of producer evidence. The
+  Dev Image is multi-GB and amd64-only, so `integration-singlestore` is the
+  slowest engine lane; it is nonetheless a required dependency of the terminal
+  `ci-gate` like every other engine (SLQ-R010), so SingleStore cannot go green
+  without the PostgreSQL-mandatory gate. This supersedes the earlier stance that
+  the Dev Image was "not a CI service" and the hand-built golden fixture it stood
+  in for (`singlestore_collect_fixture.json`, retired with #577/#589).
 - **Deterministic CI coverage** is the verifier's logic and the export
   serialization: `singlestore_qual_test.go` (normal `go test`, no build tag)
   exercises every assertion — including that an injected non-success collector
@@ -122,6 +130,15 @@ as an attempt/row count.
   (null/absent) when high-sensitivity collectors are disabled. (#584)
 - **SLQ-R009** — Every ZIP member is listed in `manifest.json` with a non-empty
   SHA-256, and `manifest.json` lists no member absent from the ZIP. (#584)
+- **SLQ-R010** — The SingleStore live qualification runs in CI as a pinned
+  `integration-singlestore` job (the Dev Image as a service container) and is a
+  dependency of the terminal `ci-gate`, so SingleStore routes through the same
+  PostgreSQL-mandatory gate as every other engine. In CI the harness runs in
+  EXTERNAL mode (`SINGLESTORE_QUAL_EXTERNAL=1`): the service container is already
+  up and seeded, so the script only builds, drives the real daemon, and verifies
+  — it does not bring the Dev Image up or down. Locally (`SINGLESTORE_QUAL_EXTERNAL`
+  unset) the script brings the pinned Dev Image up via
+  `scripts/singlestore-dev-fixture.sh` and tears it down on exit. (#577/#555)
 
 ## Invariants
 
@@ -146,6 +163,11 @@ as an attempt/row count.
 - No cloud, AWS, or license; the Dev Image ships a built-in developer license.
 - The live test is `//go:build singlestore_live` and SKIPs unless the
   `SINGLESTORE_QUAL_*` environment is provided by the orchestrator.
+- In CI (`SINGLESTORE_QUAL_EXTERNAL=1`) the Dev Image is an already-running,
+  already-seeded service container; the harness neither starts nor stops it and
+  must not invoke `scripts/singlestore-dev-fixture.sh`. The multi-GB amd64 image
+  makes this the slowest engine lane; its service-container health check is
+  given a long start period and generous retries.
 
 ## NFR overrides
 
@@ -155,4 +177,4 @@ redaction by default).
 ## Traceability
 
 Acceptance: `specifications/singlestore-live-qualification.acceptance.md`.
-Matrix: `features/signals/traceability.md` (SLQ-R001..R009, INV-SLQ-01..03).
+Matrix: `features/signals/traceability.md` (SLQ-R001..R010, INV-SLQ-01..03).
