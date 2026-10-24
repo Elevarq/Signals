@@ -633,3 +633,25 @@ edits (identity already distinct in M5). Live qualification + CI job: follow-up 
 | INV-MDC-02 | mariadb_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | — |
 | INV-MDC-03 | No query-text column escapes the redaction contract | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | processlist is the only query-text collector. |
 | MDC-dispatch (engine=mariadb routed via wire session + CatalogFor) | Backend-driven dispatch routes a mariadb target through the shared wire session with the MariaDB catalog; identity validated as mariadb (distinct from mysql); one engine=mariadb snapshot persisted | TestCollectTarget_MariaDBProductionBoundary, TestCollectTarget_MariaDBIdentityMismatchFails, TestMariaDBExportSerializationReconciles | COVERED | BEHAVIORAL | No per-engine dispatch/session edit; export catalogFor delegates to the same registry. |
+
+## MariaDB collection (PR2: live qualification + CI integration job)
+
+Spec: `specifications/mariadb-live-qualification.md` (ACTIVE, MDLQ-R001..R005,
+INV-MDLQ-01..03). The normal cmd/signals daemon collects a real MariaDB (CI
+service container `integration-mariadb` + local Dev Image) and exports through
+the production exporter; success asserted as status='success' with reconciled
+evidence. Verifier shared with SingleStore/MySQL (engine-generic). Harness:
+`scripts/mariadb-dev-fixture.sh`, `scripts/mariadb-live-qual.sh`,
+`internal/collector/mariadb_live_test.go` (//go:build mariadb_live),
+`examples/mariadb-init.sql`, `examples/mariadb-daemon.yaml`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MDLQ-R001 | Producer is the normal cmd/signals daemon; never direct Collect/CatalogFor or a standalone ZIP writer | TestMariaDBLiveCadenceQualification, TestMariaDBLiveExportReconciliation | COVERED | INTEGRATION | `//go:build mariadb_live`; driven by scripts/mariadb-live-qual.sh against the pinned MariaDB (CI service + local Dev Image). |
+| MDLQ-R002 | Each MariaDB snapshot passes VerifyCadenceSnapshot (engine=mariadb, every collector status='success', reconciled evidence, ids unique, restart appends) | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | 12 snapshots, all success, local run; shared verifier. |
+| MDLQ-R003 | Legitimate empty results are successes, never failures | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | MariaDB catalog is all-green under SELECT,PROCESS. |
+| MDLQ-R004 | One exact snapshot passes VerifyExportReconciliation: metadata engine/version, no foreign PG collector, collected==persisted==exported, INFO redacted, manifest complete | TestMariaDBLiveExportReconciliation, TestMariaDBExportSerializationReconciles | COVERED | INTEGRATION | Live + deterministic serialization legs. |
+| MDLQ-R005 | The MariaDB live qualification runs in CI as integration-mariadb and is a dependency of ci-gate | TestCIGateRequiresPostgreSQL | COVERED | STRUCTURAL | M0 guard asserts every integration-* job is in ci-gate.needs. |
+| INV-MDLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (MDC-R001). |
+| INV-MDLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own MariaDB | TestMariaDBLiveExportReconciliation | COVERED | INTEGRATION | mariadb-dev-fixture fail-closed, refuses existing container (#588); EXTERNAL mode for CI. |
+| INV-MDLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status, not counts. |
