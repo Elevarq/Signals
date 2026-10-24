@@ -62,6 +62,18 @@ func TestValidateAcceptsMariaDBEngine(t *testing.T) {
 	}
 }
 
+// clickhouse is a supported collection engine; it must NOT trip the engine gate.
+func TestValidateAcceptsClickHouseEngine(t *testing.T) {
+	tgt := TargetConfig{
+		Name: "t", Host: "h", User: "u", Port: 9000,
+		SSLMode: "require", Enabled: true, Engine: EngineClickHouse,
+	}
+	_, err := ValidateStrict(baseValidConfig(tgt))
+	if err != nil && strings.Contains(err.Error(), "engine") {
+		t.Fatalf("engine=clickhouse must not trip the engine gate: %v", err)
+	}
+}
+
 // TC-EID-02 (negative control): engine=postgresql must NOT trip the engine
 // gate (it is in SupportedEngines).
 func TestValidateAcceptsPostgreSQLEngine(t *testing.T) {

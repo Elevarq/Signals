@@ -112,6 +112,13 @@ type Collector struct {
 	// orchestration/mapping/persistence/export to run for real above it.
 	ssConnect ssConnector
 
+	// chConnect opens the ClickHouse engine's DB/network surface for a target.
+	// Defaults to openClickHouse (a real native-protocol connection); a
+	// production-boundary test injects a fake via WithClickHouseConnectorForTest,
+	// leaving dispatch/session/identity/mapping/persistence/export to run for
+	// real above it.
+	chConnect chConnector
+
 	// circuit is the per-target state machine (R097). Always
 	// non-nil after New — defaults to a manager with the
 	// documented thresholds when no override is supplied.
@@ -216,6 +223,11 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 	if c.ssConnect == nil {
 		c.ssConnect = c.openSingleStore
 	}
+	// Default the ClickHouse connector to the production native opener unless a
+	// test injected one.
+	if c.chConnect == nil {
+		c.chConnect = c.openClickHouse
+	}
 
 	// Wire the circuit manager's onChange callback after options
 	// run so any custom manager passed via WithCircuitManager
@@ -304,6 +316,19 @@ func WithSingleStoreConnectorForTest(fn ssConnector) CollectorOption {
 	return func(c *Collector) {
 		if fn != nil {
 			c.ssConnect = fn
+		}
+	}
+}
+
+// WithClickHouseConnectorForTest overrides the ClickHouse DB/network connector.
+// A production-boundary test injects a fake that replaces ONLY the native query
+// execution (scalar identity probe + row runner); dispatch, session selection,
+// identity validation, collector orchestration, mapping, persistence, and export
+// all run for real above it. No such override on the production path.
+func WithClickHouseConnectorForTest(fn chConnector) CollectorOption {
+	return func(c *Collector) {
+		if fn != nil {
+			c.chConnect = fn
 		}
 	}
 }
@@ -1228,6 +1253,9 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	switch SelectBackend(tgt) {
 	case BackendMySQLWire:
 		snapID, runs, err = c.collectMySQLWire(ctx, tgt)
+		return err
+	case BackendClickHouse:
+		snapID, runs, err = c.collectClickHouse(ctx, tgt)
 		return err
 	case BackendPostgreSQL:
 		if tgt.EffectiveEngine() != config.EnginePostgreSQL {
