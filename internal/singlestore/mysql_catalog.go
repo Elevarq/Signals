@@ -77,5 +77,20 @@ func mysqlCatalog() []Collector {
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, SOURCE_UUID FROM performance_schema.replication_connection_status",
 		},
+		{
+			// #540: MySQL's query-workload signal — the Performance Schema
+			// statement-digest summary (the MySQL analogue of pg_stat_statements
+			// / SingleStore MV_PLANCACHE / ClickHouse query_log). DIGEST_TEXT is
+			// the normalized sample SQL → HighSensitivity + redacted. Bounded to
+			// the top statements by accumulated latency so a busy server does not
+			// produce an unbounded payload; the NULL-digest overflow row is
+			// included naturally. Empty when Performance Schema instrumentation
+			// is off (a legitimate empty result, not a failure).
+			ID:               "mysql_statement_digests_v1",
+			Category:         "workload",
+			SQL:              "SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_TIMER_WAIT, SUM_ROWS_EXAMINED, SUM_ROWS_SENT, SUM_ERRORS, SUM_CREATED_TMP_TABLES, SUM_SELECT_SCAN, SUM_NO_INDEX_USED, FIRST_SEEN, LAST_SEEN FROM performance_schema.events_statements_summary_by_digest ORDER BY SUM_TIMER_WAIT DESC LIMIT 200",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"DIGEST_TEXT"},
+		},
 	}
 }

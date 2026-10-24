@@ -29,7 +29,7 @@ and its registration in the per-engine `CatalogFor` registry.
 
 **When:** its collector ids are enumerated.
 
-**Then:** they are exactly the nine `mysql_*_v1` collectors in the spec, each
+**Then:** they are exactly the ten `mysql_*_v1` collectors in the spec, each
 with a non-empty category and SQL.
 
 **Expected Result:** Pass when the set matches.
