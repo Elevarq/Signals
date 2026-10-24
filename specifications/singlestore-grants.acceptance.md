@@ -7,7 +7,7 @@ SingleStore collector catalog.
 
 ## Test Cases
 
-### TC-SSG-01: Only cluster_status is elevated (invariant)
+### TC-SSG-01: Exactly the CLUSTER-elevated collectors are marked (invariant)
 
 **Rule:** SSG-R002, INV-SSG-01
 
@@ -15,10 +15,12 @@ SingleStore collector catalog.
 
 **When:** inspected.
 
-**Then:** `singlestore_cluster_status_v1` has `ElevatedPrivilege == "CLUSTER"`;
-every other collector has an empty `ElevatedPrivilege` (baseline SELECT+PROCESS).
+**Then:** `singlestore_cluster_status_v1` and `singlestore_mv_events_v1` each have
+`ElevatedPrivilege == "CLUSTER"`; every other collector has an empty
+`ElevatedPrivilege` (baseline SELECT+PROCESS).
 
-**Expected Result:** Pass when exactly the cluster view is marked elevated.
+**Expected Result:** Pass when exactly those two views are marked elevated, and no
+other collector is.
 
 ---
 

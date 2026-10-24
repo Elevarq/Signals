@@ -4,18 +4,31 @@ import "testing"
 
 // Tests derive from specifications/singlestore-grants.acceptance.md.
 
-func TestOnlyClusterStatusIsElevated(t *testing.T) {
-	// TC-SSG-01 / INV-SSG-01: exactly cluster_status requires CLUSTER; all
-	// others run under the baseline SELECT+PROCESS role.
+func TestClusterElevatedCollectors(t *testing.T) {
+	// TC-SSG-01 / INV-SSG-01 / SSG-R002: exactly cluster_status and mv_events
+	// require CLUSTER (confirmed live — MV_CLUSTER_STATUS + MV_EVENTS return
+	// ERROR 1227 under baseline SELECT+PROCESS); every other collector runs under
+	// the baseline role.
+	wantElevated := map[string]string{
+		"singlestore_cluster_status_v1": "CLUSTER",
+		"singlestore_mv_events_v1":      "CLUSTER",
+	}
+	seen := map[string]bool{}
 	for _, c := range Catalog() {
-		if c.ID == "singlestore_cluster_status_v1" {
-			if c.ElevatedPrivilege != "CLUSTER" {
-				t.Fatalf("cluster_status must require CLUSTER, got %q", c.ElevatedPrivilege)
+		if want, ok := wantElevated[c.ID]; ok {
+			if c.ElevatedPrivilege != want {
+				t.Fatalf("%s must require %q, got %q", c.ID, want, c.ElevatedPrivilege)
 			}
+			seen[c.ID] = true
 			continue
 		}
 		if c.ElevatedPrivilege != "" {
 			t.Fatalf("SSG: collector %s unexpectedly elevated (%q); baseline is SELECT+PROCESS", c.ID, c.ElevatedPrivilege)
+		}
+	}
+	for id := range wantElevated {
+		if !seen[id] {
+			t.Fatalf("expected elevated collector %s not found in catalog", id)
 		}
 	}
 }
