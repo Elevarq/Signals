@@ -591,3 +591,25 @@ integration job are a follow-up PR.
 | ECD-R002 (backend-driven dispatch) | collectTarget dispatches by SelectBackend; a BackendMySQLWire target (singlestore, mysql) is collected via the one shared wire session; adding a wire engine adds no branch | TestCollectTarget_MySQLProductionBoundary, TestCollectTarget_SingleStoreProductionBoundary, TestCollectTarget_UnsupportedEngineSkipped | COVERED | BEHAVIORAL | mysql persists engine=mysql; mariadb (unsupported) skipped, never pgx. |
 | ECD-R004 (identity vs configured engine) | The wire session requires the server to identify as the target's configured engine; a mismatch is a target-scoped failure, not a fallback | TestCollectTarget_MySQLIdentityMismatchFails | COVERED | BEHAVIORAL | mysql target + singlestore server → refusing to collect. |
 | ECD-R008 (CatalogFor seam) | The wire session selects the catalog by engine via CatalogFor; never a foreign catalog; a new engine is a CatalogFor + SupportedEngines entry only | TestCollectTarget_MySQLProductionBoundary, TestCatalogForRegistry, TestMySQLExportSerializationReconciles | COVERED | BEHAVIORAL | Reporting (export catalogFor) delegates to the same registry. |
+
+## MySQL collection (PR2: live qualification + CI integration job)
+
+Spec: `specifications/mysql-live-qualification.md` (ACTIVE, MLQ-R001..R005,
+INV-MLQ-01..03). The normal cmd/signals daemon collects a real MySQL (CI service
+container `integration-mysql` + local Dev Image) and exports through the
+production exporter; success asserted as status='success' with reconciled
+evidence. Verifier shared with SingleStore (engine-generic). Harness:
+`scripts/mysql-dev-fixture.sh`, `scripts/mysql-live-qual.sh`,
+`internal/collector/mysql_live_test.go` (//go:build mysql_live),
+`examples/mysql-init.sql`, `examples/mysql-daemon.yaml`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MLQ-R001 | Producer is the normal cmd/signals daemon; never direct Collect/CatalogFor or a standalone ZIP writer | TestMySQLLiveCadenceQualification, TestMySQLLiveExportReconciliation | COVERED | INTEGRATION | `//go:build mysql_live`; driven by scripts/mysql-live-qual.sh against the pinned MySQL (CI service + local Dev Image). |
+| MLQ-R002 | Each MySQL snapshot passes VerifyCadenceSnapshot (engine=mysql, every collector status='success', reconciled evidence, ids unique, restart appends) | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | 11 snapshots, all success, local run; same shared verifier as SingleStore. |
+| MLQ-R003 | A legitimate zero-row success (mysql_replication_status_v1 on a standalone server) passes, never a failure | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | replication returns 0 rows; reconciled as success. |
+| MLQ-R004 | One exact snapshot passes VerifyExportReconciliation: metadata engine/version, no foreign PG collector, collected==persisted==exported, INFO redacted, manifest complete | TestMySQLLiveExportReconciliation, TestMySQLExportSerializationReconciles | COVERED | INTEGRATION | Live leg + deterministic serialization leg. |
+| MLQ-R005 | The MySQL live qualification runs in CI as integration-mysql and is a dependency of ci-gate | TestCIGateRequiresPostgreSQL | COVERED | STRUCTURAL | M0 guard asserts every integration-* job is in ci-gate.needs. |
+| INV-MLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (MYC-R001). |
+| INV-MLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own MySQL | TestMySQLLiveExportReconciliation | COVERED | INTEGRATION | mysql-dev-fixture container name + mktemp stores; EXTERNAL mode for the CI service. |
+| INV-MLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestMySQLLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status, not counts. |

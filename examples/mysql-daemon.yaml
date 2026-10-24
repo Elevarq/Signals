@@ -1,0 +1,45 @@
+# Signals daemon config for a MySQL target (MySQL collection PR2).
+#
+# Either this YAML or the environment path points the normal Signals daemon at
+# MySQL. For the env path, set SIGNALS_TARGET_ENGINE=mysql and an explicit
+# SIGNALS_TARGET_PORT=3306 (see examples/singlestore-daemon.yaml for the full
+# env-config guidance — the same rules apply; omitting the engine defaults to
+# PostgreSQL).
+#
+# Ephemeral per-run values are overridden via SIGNALS_* env by the live
+# qualification harness (scripts/mysql-live-qual.sh):
+#   SIGNALS_DB_PATH, SIGNALS_POLL_INTERVAL, SIGNALS_MIN_SNAPSHOT_INTERVAL,
+#   SIGNALS_API_TOKEN, SIGNALS_LISTEN_ADDR, and SS_RO_PASSWORD (password_env).
+# sslmode=disable (loopback dev image) requires SIGNALS_ALLOW_INSECURE_PG_TLS=true.
+# For a TLS MySQL use sslmode=verify-full (or verify-ca) + sslrootcert_file (#585).
+
+env: dev
+
+signals:
+  poll_interval: 5m
+  min_snapshot_interval: 60s
+  retention_days: 7
+  log_level: info
+  max_concurrent_targets: 1
+  target_timeout: 90s
+  query_timeout: 20s
+  high_sensitivity_collectors_enabled: false
+
+targets:
+  - name: mysql-dev
+    engine: mysql
+    host: 127.0.0.1
+    port: 3306
+    dbname: signals_fixture
+    user: signals_ro
+    sslmode: disable
+    password_env: SS_RO_PASSWORD
+    enabled: true
+
+api:
+  listen_addr: 127.0.0.1:8081
+  token: overridden-by-SIGNALS_API_TOKEN-env-0000000000
+
+database:
+  path: /tmp/overridden-by-SIGNALS_DB_PATH.db
+  wal: true

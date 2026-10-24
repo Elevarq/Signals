@@ -184,6 +184,51 @@ jobs:
           -run TestIntegration_BudgetExhaustionMidQuery
           ./internal/collector/
 
+  # MySQL live qualification against a pinned MySQL service container
+  # (specifications/mysql-live-qualification.md, MLQ-R005). Drives the NORMAL
+  # cmd/signals daemon + signalsctl through the production exporter and verifies
+  # every MySQL collector persisted status='success' with reconciled evidence.
+  # MUST be in ci-gate.needs (#528 req #4) so it routes through the
+  # PostgreSQL-mandatory terminal gate and never adds a PostgreSQL-free green path.
+  integration-mysql:
+    runs-on: ubuntu-24.04
+    services:
+      mysql:
+        # Pinned by digest (mysql:8.4) — never a float tag.
+        image: mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
+        env:
+          MYSQL_ROOT_PASSWORD: dev-root-pw
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -pdev-root-pw --silent"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: "1.26.10"
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Install MySQL client
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
+
+      - name: Seed the deterministic read-only monitoring user + fixture
+        run: mysql -h 127.0.0.1 -P 3306 -uroot -pdev-root-pw < examples/mysql-init.sql
+
+      - name: Run the MySQL live qualification (normal daemon -> exporter)
+        # EXTERNAL mode: the service container is already up + seeded above, so
+        # the harness only builds, drives the real daemon, and verifies.
+        run: MYSQL_QUAL_EXTERNAL=1 bash scripts/mysql-live-qual.sh all
+
   # Post-build smoke against the BUILT container image (Release Protocol
   # Gate A step 4 / Elevarq/Signals#421, umbrella elevarq-website#529):
   # the `integration-pg` job above exercises source-built binaries, so a
@@ -374,7 +419,7 @@ jobs:
   # TestCIGateRequiresPostgreSQL (in the unit `test` job) fails if one is not,
   # so no engine can add a PostgreSQL-free green path.
   ci-gate:
-    needs: [test, integration-pg, built-image-smoke, security-scan]
+    needs: [test, integration-pg, integration-mysql, built-image-smoke, security-scan]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -382,15 +427,17 @@ jobs:
         env:
           RESULT_TEST: ${{ needs.test.result }}
           RESULT_PG: ${{ needs.integration-pg.result }}
+          RESULT_MYSQL: ${{ needs.integration-mysql.result }}
           RESULT_SMOKE: ${{ needs.built-image-smoke.result }}
           RESULT_SECURITY: ${{ needs.security-scan.result }}
         run: |
           set -euo pipefail
-          echo "test=$RESULT_TEST integration-pg=$RESULT_PG built-image-smoke=$RESULT_SMOKE security-scan=$RESULT_SECURITY"
+          echo "test=$RESULT_TEST integration-pg=$RESULT_PG integration-mysql=$RESULT_MYSQL built-image-smoke=$RESULT_SMOKE security-scan=$RESULT_SECURITY"
           fail=0
           for pair in \
             "test:$RESULT_TEST" \
             "integration-pg:$RESULT_PG" \
+            "integration-mysql:$RESULT_MYSQL" \
             "built-image-smoke:$RESULT_SMOKE" \
             "security-scan:$RESULT_SECURITY"; do
             name="${pair%%:*}"

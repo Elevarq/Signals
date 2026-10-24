@@ -26,7 +26,7 @@ func goodSnapshot(id string, expected []string) QualSnapshot {
 // TC-SLQ-01 (logic leg): a good full-grant snapshot passes.
 func TestVerifyCadenceSnapshot_GoodPasses(t *testing.T) {
 	exp := SingleStoreExpectedCollectors()
-	if err := VerifyCadenceSnapshot(goodSnapshot("snap-1", exp), exp, "9."); err != nil {
+	if err := VerifyCadenceSnapshot(goodSnapshot("snap-1", exp), exp, "singlestore", "9."); err != nil {
 		t.Fatalf("good snapshot should pass, got: %v", err)
 	}
 }
@@ -39,7 +39,7 @@ func TestVerifyCadenceSnapshot_InjectedNonSuccessFailsLoudly(t *testing.T) {
 		s := goodSnapshot("snap-1", exp)
 		s.Runs[3].Status = bad
 		s.Runs[3].Reason = "permission_denied"
-		err := VerifyCadenceSnapshot(s, exp, "9.")
+		err := VerifyCadenceSnapshot(s, exp, "singlestore", "9.")
 		if err == nil {
 			t.Fatalf("status=%q must fail the qualification, got pass", bad)
 		}
@@ -56,7 +56,7 @@ func TestVerifyCadenceSnapshot_ZeroRowSuccessPasses(t *testing.T) {
 	s.Runs[0].RowCount = 0
 	s.Runs[0].PersistedRows = 0
 	s.Runs[0].HasResult = true
-	if err := VerifyCadenceSnapshot(s, exp, "9."); err != nil {
+	if err := VerifyCadenceSnapshot(s, exp, "singlestore", "9."); err != nil {
 		t.Fatalf("legitimate zero-row success must pass, got: %v", err)
 	}
 }
@@ -68,14 +68,14 @@ func TestVerifyCadenceSnapshot_MissingOrMismatchedResultFails(t *testing.T) {
 
 	noResult := goodSnapshot("snap-1", exp)
 	noResult.Runs[2].HasResult = false
-	if err := VerifyCadenceSnapshot(noResult, exp, "9."); err == nil {
+	if err := VerifyCadenceSnapshot(noResult, exp, "singlestore", "9."); err == nil {
 		t.Error("a success run with no query_results row must fail")
 	}
 
 	mismatch := goodSnapshot("snap-1", exp)
 	mismatch.Runs[2].RowCount = 5
 	mismatch.Runs[2].PersistedRows = 4
-	if err := VerifyCadenceSnapshot(mismatch, exp, "9."); err == nil {
+	if err := VerifyCadenceSnapshot(mismatch, exp, "singlestore", "9."); err == nil {
 		t.Error("a row-count mismatch must fail")
 	}
 }
@@ -86,19 +86,19 @@ func TestVerifyCadenceSnapshot_IdentityViolationsFail(t *testing.T) {
 
 	wrongEngine := goodSnapshot("snap-1", exp)
 	wrongEngine.Engine = "postgresql"
-	if err := VerifyCadenceSnapshot(wrongEngine, exp, "9."); err == nil {
+	if err := VerifyCadenceSnapshot(wrongEngine, exp, "singlestore", "9."); err == nil {
 		t.Error("wrong engine must fail")
 	}
 
 	badSnapID := goodSnapshot("snap-1", exp)
 	badSnapID.Runs[1].SnapshotID = "other-snap"
-	if err := VerifyCadenceSnapshot(badSnapID, exp, "9."); err == nil {
+	if err := VerifyCadenceSnapshot(badSnapID, exp, "singlestore", "9."); err == nil {
 		t.Error("snapshot_id mismatch must fail")
 	}
 
 	missing := goodSnapshot("snap-1", exp)
 	missing.Runs = missing.Runs[:len(missing.Runs)-1] // drop one expected collector
-	if err := VerifyCadenceSnapshot(missing, exp, "9."); err == nil {
+	if err := VerifyCadenceSnapshot(missing, exp, "singlestore", "9."); err == nil {
 		t.Error("a missing expected collector must fail")
 	}
 }

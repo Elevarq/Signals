@@ -64,7 +64,7 @@ func TestSingleStoreLiveCadenceQualification(t *testing.T) {
 			t.Errorf("duplicate snapshot id %s (overwrite!)", s.ID)
 		}
 		seen[s.ID] = true
-		if err := VerifyCadenceSnapshot(s, expected, "9."); err != nil {
+		if err := VerifyCadenceSnapshot(s, expected, "singlestore", "9."); err != nil {
 			t.Errorf("snapshot %s failed cadence qualification: %v", s.ID, err)
 		}
 	}
@@ -121,7 +121,7 @@ func TestSingleStoreLiveExportReconciliation(t *testing.T) {
 		t.Fatalf("ReadQualExport: %v", err)
 	}
 	expected := SingleStoreExpectedCollectors()
-	if err := VerifyCadenceSnapshot(target, expected, "9."); err != nil {
+	if err := VerifyCadenceSnapshot(target, expected, "singlestore", "9."); err != nil {
 		t.Fatalf("exact snapshot %s failed status/evidence checks: %v", target.ID, err)
 	}
 	if err := VerifyExportReconciliation(target, z, expected, "9."); err != nil {
