@@ -36,17 +36,22 @@ func catalogFor(engine string) []reportCollector {
 			})
 		}
 		return out
-	case config.EngineSingleStore:
-		cat := singlestore.Catalog()
+	default:
+		// Every MySQL-wire engine (singlestore, mysql, …) goes through the SINGLE
+		// catalog registry, so the reporting seam stays in lockstep with the
+		// collection catalog and a new wire engine needs no edit here. An
+		// unrecognized engine yields nil (no PostgreSQL fallback). Wire
+		// collectors carry no cadence, so CadenceString stays empty and freshness
+		// enrichment is skipped.
+		cat := singlestore.CatalogFor(engine)
+		if cat == nil {
+			return nil
+		}
 		out := make([]reportCollector, 0, len(cat))
 		for _, c := range cat {
-			// SingleStore collectors carry no cadence; leave Cadence/CadenceString
-			// zero/empty so freshness enrichment is skipped (CadenceString == "").
 			out = append(out, reportCollector{ID: c.ID})
 		}
 		return out
-	default:
-		return nil
 	}
 }
 

@@ -107,7 +107,7 @@ func TestMapSingleStoreCollection_CanonicalReasons(t *testing.T) {
 		{CollectorID: "generic_v1", Category: "x", Err: "some other failure"},
 		{CollectorID: "cluster_v1", Category: "topology", Err: "Error 1142 (42000): command denied", ElevatedPrivilege: "CLUSTER"},
 	}
-	_, runs, _, err := mapSingleStoreCollection("snap", 1, "9.1.1", "2026-10-24T00:00:00Z", results)
+	_, runs, _, err := mapWireCollection("singlestore", "snap", 1, "9.1.1", "2026-10-24T00:00:00Z", results)
 	if err != nil {
 		t.Fatalf("mapSingleStoreCollection: %v", err)
 	}

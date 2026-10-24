@@ -14,7 +14,7 @@ func TestMapSingleStoreCollectionPropagatesDuration(t *testing.T) {
 	results := []singlestore.Result{
 		{CollectorID: "singlestore_identity_v1", Category: "server", Rows: []map[string]any{{"v": "9.1.1"}}, DurationMS: 42},
 	}
-	_, runs, _, err := mapSingleStoreCollection("snap", 1, "9.1.1", "2026-10-23T00:00:00Z", results)
+	_, runs, _, err := mapWireCollection("singlestore", "snap", 1, "9.1.1", "2026-10-23T00:00:00Z", results)
 	if err != nil {
 		t.Fatalf("mapSingleStoreCollection: %v", err)
 	}
@@ -35,7 +35,7 @@ func TestMapSingleStoreCollectionElevatedPermissionDeniedIsSkipped(t *testing.T)
 		{CollectorID: "singlestore_cluster_status_v1", Category: "topology", Err: permErr, ElevatedPrivilege: "CLUSTER"},
 		{CollectorID: "singlestore_leaves_v1", Category: "topology", Err: permErr},
 	}
-	_, runs, _, err := mapSingleStoreCollection("snap", 1, "9.1.1", "2026-10-23T00:00:00Z", results)
+	_, runs, _, err := mapWireCollection("singlestore", "snap", 1, "9.1.1", "2026-10-23T00:00:00Z", results)
 	if err != nil {
 		t.Fatalf("mapSingleStoreCollection: %v", err)
 	}

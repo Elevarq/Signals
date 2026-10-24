@@ -12,7 +12,6 @@ import (
 
 	"github.com/elevarq/signals/internal/config"
 	"github.com/elevarq/signals/internal/db"
-	"github.com/elevarq/signals/internal/engineid"
 	"github.com/elevarq/signals/internal/mysqlwire"
 	"github.com/elevarq/signals/internal/singlestore"
 )
@@ -127,12 +126,13 @@ func (c *Collector) openSingleStore(ctx context.Context, tgt config.TargetConfig
 	}, nil
 }
 
-// mapSingleStoreCollection maps engine-native collector results onto the
-// engine-neutral persistence records (ECD-R005): one snapshot (engine=
-// singlestore), one query_run per collector (query_id = collector id, failed
-// runs preserved as a partial outcome), one query_result per run (NDJSON of
-// rows via the common encoder). Pure; unit-testable without a DB or a server.
-func mapSingleStoreCollection(snapID string, targetID int64, version, collectedAt string, results []singlestore.Result) (db.Snapshot, []db.QueryRun, []db.QueryResult, error) {
+// mapWireCollection maps MySQL-wire collector results onto the engine-neutral
+// persistence records (ECD-R005): one snapshot (engine = the target's engine),
+// one query_run per collector (query_id = collector id, failed runs preserved as
+// a partial outcome), one query_result per run (NDJSON of rows via the common
+// encoder). Engine-generic (SingleStore, MySQL). Pure; unit-testable without a
+// DB or a server.
+func mapWireCollection(engine, snapID string, targetID int64, version, collectedAt string, results []singlestore.Result) (db.Snapshot, []db.QueryRun, []db.QueryResult, error) {
 	runs := make([]db.QueryRun, 0, len(results))
 	payloads := make([]db.QueryResult, 0, len(results))
 	for i, r := range results {
@@ -171,14 +171,14 @@ func mapSingleStoreCollection(snapID string, targetID int64, version, collectedA
 	// Minimal engine-neutral monolithic payload for the legacy snapshots.payload
 	// column; the exporter rebuilds query_results from the per-run NDJSON above.
 	mono, err := json.Marshal(map[string]any{
-		"engine": engineid.EngineSingleStore, "engine_version": version, "collectors": len(results),
+		"engine": engine, "engine_version": version, "collectors": len(results),
 	})
 	if err != nil {
 		return db.Snapshot{}, nil, nil, fmt.Errorf("marshal snapshot payload: %w", err)
 	}
 	snap := db.Snapshot{
 		ID: snapID, TargetID: targetID, CollectedAt: collectedAt,
-		PGVersion: version, Engine: engineid.EngineSingleStore,
+		PGVersion: version, Engine: engine,
 		Payload: mono, SizeBytes: len(mono),
 	}
 	return snap, runs, payloads, nil
@@ -221,12 +221,16 @@ func ssFailedCollectors(runs []db.QueryRun) []ssFailure {
 	return out
 }
 
-// collectSingleStore is the SingleStore engine session. It returns the snapshot
-// id and the per-collector runs so the caller's common deferred lifecycle
-// (outcome/metrics/circuit) reports SingleStore exactly as PostgreSQL. A
-// connection/identity failure is a target-scoped collection failure (non-nil
-// err), never a silent skip (INV-ECD-03).
-func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetConfig) (snapID string, runs []db.QueryRun, err error) {
+// collectMySQLWire is the shared MySQL-wire engine session, serving every wire
+// engine (SingleStore, MySQL) — selected by backend, never per engine
+// (ECD-R002). It returns the snapshot id and the per-collector runs so the
+// caller's common deferred lifecycle (outcome/metrics/circuit) reports the wire
+// engine exactly as PostgreSQL. A connection/identity failure is a target-scoped
+// collection failure (non-nil err), never a silent skip (INV-ECD-03). The
+// collector catalog is chosen by the target's engine via CatalogFor (ECD-R008);
+// no engine-specific branch lives here.
+func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfig) (snapID string, runs []db.QueryRun, err error) {
+	engine := tgt.EffectiveEngine()
 	now := time.Now().UTC()
 	collectedAt := now.Format(time.RFC3339)
 	snapID = ulid.MustNew(ulid.Timestamp(now), c.entropy).String()
@@ -241,26 +245,28 @@ func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetCon
 
 	conn, err := c.ssConnect(ctx, tgt)
 	if err != nil {
-		return snapID, nil, fmt.Errorf("singlestore connect %s: %w", tgt.Name, err)
+		return snapID, nil, fmt.Errorf("%s connect %s: %w", engine, tgt.Name, err)
 	}
 	defer func() { _ = conn.close() }()
 
-	// ECD-R004: the connection must be positively SingleStore before we collect;
-	// a non-SingleStore or unidentifiable server is a failure, not a fallback.
+	// ECD-R004: the connection must positively identify as the target's
+	// CONFIGURED engine before we collect; a mismatched or unidentifiable server
+	// is a failure, not a cross-engine fallback.
 	gotEngine, version, idErr := mysqlwire.Identify(ctx, conn.scalar)
 	if idErr != nil {
-		return snapID, nil, fmt.Errorf("singlestore identify %s: %w", tgt.Name, idErr)
+		return snapID, nil, fmt.Errorf("%s identify %s: %w", engine, tgt.Name, idErr)
 	}
-	if gotEngine != engineid.EngineSingleStore {
-		return snapID, nil, fmt.Errorf("target %s configured engine=singlestore but server identified as %q — refusing to collect (ECD-R004)", tgt.Name, gotEngine)
+	if gotEngine != engine {
+		return snapID, nil, fmt.Errorf("target %s configured engine=%s but server identified as %q — refusing to collect (ECD-R004)", tgt.Name, engine, gotEngine)
 	}
 
-	// Collector orchestration (real). Redaction mirrors the PostgreSQL
+	// Collector orchestration (real). The catalog is selected by engine via the
+	// single CatalogFor registry (ECD-R008). Redaction mirrors the PostgreSQL
 	// high-sensitivity posture: redact sensitive query text unless opted in.
 	// SCH-R004: bound each collector by the configured per-query timeout while
 	// the target context remains the outer bound of the cycle.
 	runner := boundedSingleStoreRunner(conn.runner, c.queryTimeout)
-	results := singlestore.Collect(ctx, runner, singlestore.Catalog(), !c.highSensitivityEnabled)
+	results := singlestore.Collect(ctx, runner, singlestore.CatalogFor(engine), !c.highSensitivityEnabled)
 
 	for _, r := range results {
 		if cerr := c.db.UpsertQueryCatalog(db.QueryCatalogRow{
@@ -271,7 +277,7 @@ func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetCon
 		}
 	}
 
-	snap, mappedRuns, payloads, mapErr := mapSingleStoreCollection(snapID, targetID, version, collectedAt, results)
+	snap, mappedRuns, payloads, mapErr := mapWireCollection(engine, snapID, targetID, version, collectedAt, results)
 	if mapErr != nil {
 		return snapID, nil, mapErr
 	}
@@ -283,17 +289,17 @@ func (c *Collector) collectSingleStore(ctx context.Context, tgt config.TargetCon
 	}
 	// MKR-R003: log each failed collector by identity, not just an aggregate.
 	for _, f := range ssFailedCollectors(runs) {
-		slog.Warn("singlestore collector failed", "target", tgt.Name,
+		slog.Warn("wire collector failed", "target", tgt.Name, "engine", engine,
 			"collector", f.ID, "reason", f.Reason, "error", f.Error)
 	}
 	// MKR-R004: report per-outcome counts, not a single len(results) total.
 	success, failed, skipped := ssOutcomeCounts(runs)
 	slog.Info("snapshot collected", "target", tgt.Name, "id", snapID,
-		"engine", engineid.EngineSingleStore, "engine_version", version,
+		"engine", engine, "engine_version", version,
 		"collectors_total", len(runs), "collectors_success", success,
 		"collectors_failed", failed, "collectors_skipped", skipped)
 	_ = c.db.InsertTargetEvent(targetID, "snapshot_collected",
-		fmt.Sprintf("target=%s id=%s engine=singlestore collectors=%d success=%d failed=%d skipped=%d",
-			tgt.Name, snapID, len(runs), success, failed, skipped))
+		fmt.Sprintf("target=%s id=%s engine=%s collectors=%d success=%d failed=%d skipped=%d",
+			tgt.Name, snapID, engine, len(runs), success, failed, skipped))
 	return snapID, runs, nil
 }
