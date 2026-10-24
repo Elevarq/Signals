@@ -302,13 +302,14 @@ jobs:
         run: go mod download
 
       - name: Seed the read-only monitoring user + flush logs
-        # One-shot clickhouse-client (same pinned image) over host networking to
-        # the service's native port; --entrypoint bypasses the server entrypoint.
+        # Seed INSIDE the service container (via its Actions container id) so
+        # clickhouse-client connects as the default user over the container's
+        # trusted localhost — the passwordless default user rejects a network
+        # connection from a sibling container. signals_ro is created WITH a
+        # password, so the daemon's later network connection authenticates fine.
         run: >-
-          docker run -i --rm --network host
-          --entrypoint clickhouse-client
-          clickhouse/clickhouse-server@sha256:1ffa82edee000a42c09313bd9f1293d94c570aee74babc1b3ca9983a35fa597b
-          --host 127.0.0.1 --port 9000 --multiquery < examples/clickhouse-init.sql
+          docker exec -i ${{ job.services.clickhouse.id }}
+          clickhouse-client --multiquery < examples/clickhouse-init.sql
 
       - name: Run the ClickHouse live qualification (normal daemon -> exporter)
         run: CH_QUAL_EXTERNAL=1 bash scripts/clickhouse-live-qual.sh all
