@@ -136,6 +136,7 @@ say "running the Go live verifier against the real producer artifacts"
   MARIADB_QUAL_EXPORT_DB="${EXPORT_DB}" \
   MARIADB_QUAL_EXPORT_ZIP="${EXPORT_ZIP}" \
   MARIADB_QUAL_EXPORT_SNAPSHOT="${EXPORT_ULID}" \
+  MARIADB_QUAL_VERSION_PREFIX="${MARIADB_QUAL_VERSION_PREFIX:-11.}" \
     go test -tags mariadb_live -count=1 -v -run 'TestMariaDBLive' ./internal/collector/ )
 
 say "LIVE QUALIFICATION OK — real daemon + real MariaDB + production exporter, verified status=success + reconciled evidence"

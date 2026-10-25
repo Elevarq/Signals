@@ -54,13 +54,29 @@ line.
   views introduced in 8.0; earlier lines lack them.
 
 ### MariaDB (rolling + LTS model; distinct from MySQL — never inferred from it)
-- **Qualified:** 11.4 (`mariadb@sha256:250e1609…`, 11.4.x) — live in
-  `integration-mariadb`, all 15 collectors `status=success`.
-- **Best-effort:** other maintained 10.x / 11.x lines. MariaDB's `information_schema`
-  (InnoDB views, GLOBAL_*), `performance_schema`-off-by-default behavior, and
-  Galera differ from MySQL, so MySQL qualification says **nothing** about MariaDB.
-- **Unsupported:** lines without the `information_schema.INNODB_*` views the
-  catalog reads.
+**Principle:** Signals qualifies the current maintained MariaDB **LTS** lines, each
+a separate pinned live leg. MariaDB is a distinct engine with MariaDB-native
+catalog SQL, so a MySQL qualification establishes **nothing** here, and one
+MariaDB LTS line qualified never implies another — each LTS generation is
+evaluated on its own pinned image.
+
+- **Qualified** (each a separate pinned live leg of `integration-mariadb`, all 15
+  collectors `status=success` through the real daemon → exporter; verified live
+  across all four with no version-specific SQL needed — including
+  `information_schema.INNODB_LOCKS` / `INNODB_LOCK_WAITS`, which MariaDB retains on
+  every supported generation and MySQL 8.0 removed):
+  - **10.11 LTS** (`mariadb@sha256:0d0945c5…`, 10.11.19) — upstream EOL 2028-02-16.
+  - **11.4 LTS** (`mariadb@sha256:250e1609…`, 11.4.13) — upstream EOL 2029-05-29.
+  - **11.8 LTS** (`mariadb@sha256:f16d7a34…`, 11.8.9) — upstream EOL 2028-06-04.
+  - **12.3 LTS** (`mariadb@sha256:99c125f1…`, 12.3.3) — upstream EOL 2029-06-12.
+  Each is evaluated independently; a green image on one line never established
+  another.
+- **Best-effort:** other maintained 10.x / 11.x / 12.x releases and non-pinned LTS
+  patch releases. MariaDB's `information_schema` (InnoDB views, `GLOBAL_*`),
+  `performance_schema`-off-by-default behavior, and Galera (wsrep) differ from
+  MySQL, so MySQL qualification says **nothing** about MariaDB.
+- **Unsupported:** 10.6 and earlier (10.6 reached upstream EOL 2026-07-06); any
+  line lacking the `information_schema.INNODB_*` views the catalog reads.
 
 ### SingleStore (SingleStoreDB versioning; MySQL-wire)
 - **Qualified:** 9.1.x (pinned Dev Image `@sha256:a1382fb7…`, `@@memsql_version`
@@ -86,6 +102,10 @@ line.
 - **VSP-R003** | Each engine's policy is independent: MariaDB is never inferred
   from MySQL; SingleStore and ClickHouse are stated from their own qualified
   release + upstream status, not stale assumptions.
+- **VSP-R006** | MariaDB **10.11, 11.4, 11.8, and 12.3 LTS are each qualified** as
+  separate pinned live legs of `integration-mariadb`; MariaDB qualification is
+  independent of MySQL (a MySQL 8.0/8.4/9.7 result establishes nothing for
+  MariaDB, and vice versa), and one MariaDB LTS line never implies another.
 - **VSP-R004** | Unknown / best-effort / older-than-qualified versions are
   collected **best-effort** — never rejected at runtime (no blanket version gate)
   — with `engine_version` recorded truthfully; a collector whose view is absent on
@@ -111,7 +131,9 @@ unsupported version) requires Analyzer coordination and is out of scope here.
 ## Traceability
 
 Acceptance: `specifications/version-support-policy.acceptance.md`. VSP-R002 is
-CI-gated by `TestMySQLVersionMatrixQualifies80And84` (parses `ci.yml`). The
-per-engine qualified rows are exercised by the `integration-*` live
-qualifications. The MySQL support page (`mysql-support.md`, #547) and the
-`integration-mysql` matrix cite this spec (VSP-R005).
+CI-gated by `TestMySQLVersionMatrixQualifies80And84` and VSP-R006 by
+`TestMariaDBVersionMatrixQualifiesLTS` (both parse `ci.yml`). The per-engine
+qualified rows are exercised by the `integration-*` live qualifications. The
+MySQL support page (`mysql-support.md`, #547), the MariaDB support page
+(`mariadb-support.md`, #638), and the `integration-mysql` / `integration-mariadb`
+matrices cite this spec (VSP-R005).
