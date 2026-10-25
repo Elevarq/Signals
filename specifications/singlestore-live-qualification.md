@@ -79,9 +79,11 @@ as an attempt/row count.
 ## Behaviors
 
 - **Given** the seeded live server and a full grant (`SELECT,PROCESS,CLUSTER`),
-  **when** the daemon runs a collection cycle, **then** all 10 SingleStore
-  collectors persist `status='success'`, each with a `query_results` row whose
-  decoded row count equals the `query_run.row_count`.
+  **when** the daemon runs a collection cycle, **then** all 15 SingleStore
+  collectors persist `status='success'` (the two CLUSTER-elevated collectors,
+  `cluster_status` and `mv_events`, succeed because the qualification grant
+  includes `CLUSTER`), each with a `query_results` row whose decoded row count
+  equals the `query_run.row_count`.
 - **Given** two or more scheduled cycles and a daemon restart against the same
   store, **when** snapshots are enumerated, **then** each is a distinct ULID
   (no overwrite), engine `singlestore`, version `9.1.x`, and the restart appends.
@@ -89,8 +91,9 @@ as an attempt/row count.
   exporter, **then** `metadata.json` identifies `engine=singlestore` +
   `engine_version`; `collector_status.json` / `query_catalog.json` contain only
   SingleStore collectors; per successful collector collected = persisted =
-  exported; `MV_PLANCACHE.QUERY_TEXT` and `MV_PROCESSLIST.INFO` are redacted;
-  every ZIP member is listed in `manifest.json` with a SHA-256.
+  exported; `MV_PLANCACHE.QUERY_TEXT`, `MV_PROCESSLIST.INFO`, and
+  `PIPELINES.CONFIG_JSON` are redacted; every ZIP member is listed in
+  `manifest.json` with a SHA-256.
 
 ## Rules
 
@@ -126,8 +129,9 @@ as an attempt/row count.
   Failed/skipped runs appear with their true status and are never emitted as a
   successful empty result. (#584)
 - **SLQ-R008** — Default redaction holds in the exported payloads: no
-  `QUERY_TEXT` (MV_PLANCACHE) or `INFO` (MV_PROCESSLIST) value is present
-  (null/absent) when high-sensitivity collectors are disabled. (#584)
+  `QUERY_TEXT` (MV_PLANCACHE), `INFO` (MV_PROCESSLIST), or `CONFIG_JSON`
+  (PIPELINES) value is present (null/absent) when high-sensitivity collectors
+  are disabled. (#584, #618)
 - **SLQ-R009** — Every ZIP member is listed in `manifest.json` with a non-empty
   SHA-256, and `manifest.json` lists no member absent from the ZIP. (#584)
 - **SLQ-R010** — The SingleStore live qualification runs in CI as a pinned

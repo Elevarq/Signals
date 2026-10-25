@@ -71,6 +71,53 @@ collector is correctly flagged.
 
 ---
 
+### TC-SSC-05: Pipeline config secret is redacted on opt-out (#618, failure/boundary)
+
+**Rule:** SSC-R005, INV-SSC-04
+
+**Given:** a fake `QueryRunner` returning a `singlestore_pipelines_v1` row with a
+non-nil `CONFIG_JSON` (connection string / credentials).
+
+**When:** `Collect(ctx, fake, cat, true)` runs with redaction enabled.
+
+**Then:** the pipelines result's `CONFIG_JSON` is nil in every row; operational
+columns (e.g. `PIPELINE_NAME`, `STATE`) survive.
+
+**Expected Result:** Pass when the secret-bearing config column is redacted.
+
+---
+
+### TC-SSC-06: no query-text or secret-config column escapes the contract (#618, invariant)
+
+**Rule:** INV-SSC-03, INV-SSC-04, SSC-R004, SSC-R005
+
+**Given:** every collector in `Catalog()`.
+
+**When:** each SQL is scanned for a query-text column (`QUERY_TEXT`, `INFO`) or a
+secret-config column (`CONFIG_JSON`).
+
+**Then:** any collector selecting one is `HighSensitivity` with that column in
+`SensitiveColumns`.
+
+**Expected Result:** Pass when the contract holds catalog-wide.
+
+---
+
+### TC-SSC-07: mv_events is CLUSTER-elevated (#618, structural)
+
+**Rule:** SSC-R006, SSG-R002
+
+**Given:** `Catalog()`.
+
+**When:** inspected.
+
+**Then:** `singlestore_mv_events_v1` has `ElevatedPrivilege == "CLUSTER"` (so a
+baseline-role permission denial degrades to a skip, not a fault).
+
+**Expected Result:** Pass when `mv_events` is marked elevated.
+
+---
+
 ### TC-SSC-LIVE: Live catalog validation (the `integration-singlestore` CI job)
 
 **Rule:** SSC-R001, SSC-R002

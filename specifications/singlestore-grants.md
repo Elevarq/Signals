@@ -14,32 +14,34 @@ workspace**, not guessed.
 
 ## Empirical findings (live S-00 workspace)
 
-Running the 10-collector catalog as a restricted `signals_ro` user under an
-escalating grant ladder:
+Running the catalog as a restricted `signals_ro` user under an escalating grant
+ladder (baseline-vs-elevated re-confirmed live for the #618 collectors against
+SingleStore 9.1.1):
 
 | Grant | Collectors that succeed |
 |-------|-------------------------|
-| `GRANT SELECT ON *.*` | identity, aggregators, leaves, table_statistics, global_variables, distributed_partitions (6) |
-| `+ GRANT PROCESS ON *.*` | the above **+ plancache, activities, processlist** (9) — `PROCESS` gates the live-workload `MV_*` views |
-| `+ GRANT CLUSTER ON *.*` | the above **+ cluster_status** (10) — `MV_CLUSTER_STATUS` needs `CLUSTER` |
+| `GRANT SELECT, PROCESS ON *.*` | the baseline set (13): identity, aggregators, leaves, table_statistics, global_variables, distributed_partitions, plancache, activities, processlist, **pipelines, sysinfo_memory, sysinfo_disk, nodes**. `PROCESS` gates the live-workload / sysinfo `MV_*` views. |
+| `+ GRANT CLUSTER ON *.*` | the above **+ cluster_status + mv_events** (15) — `MV_CLUSTER_STATUS` and `MV_EVENTS` both need `CLUSTER` (`MV_EVENTS` returns `ERROR 1227 … need … CLUSTER` under the baseline role). |
 
 ## Decision
 
 - **Baseline monitoring role = `GRANT SELECT, PROCESS ON *.*`** — read-only,
-  covers 9/10 collectors including all workload evidence. `PROCESS` is a
-  read-only monitoring privilege (no data mutation), appropriate for a
-  diagnostic collector.
-- **`CLUSTER` is elevated and optional.** `singlestore_cluster_status_v1` is the
-  only collector needing it; it is marked `ElevatedPrivilege: "CLUSTER"`.
-  Topology is already covered at the baseline by `aggregators` + `leaves`, so
-  cluster_status is supplementary — not required for the POC.
+  covers 13/15 collectors including all workload, ingest, and per-node resource
+  evidence. `PROCESS` is a read-only monitoring privilege (no data mutation),
+  appropriate for a diagnostic collector.
+- **`CLUSTER` is elevated and optional.** Exactly two collectors need it —
+  `singlestore_cluster_status_v1` and `singlestore_mv_events_v1` — each marked
+  `ElevatedPrivilege: "CLUSTER"`. Topology is already covered at the baseline by
+  `aggregators` + `leaves` + `nodes`, so the elevated pair is supplementary —
+  not required for the POC; it degrades to a per-collector skip under the
+  baseline role.
 
 ## Rules
 
 | ID | Rule |
 |----|------|
-| **SSG-R001** | The documented baseline role is `GRANT SELECT, PROCESS ON *.*` to a dedicated read-only user; no broader grant is required for 9/10 collectors. |
-| **SSG-R002** | A collector needing a privilege beyond the baseline MUST declare it in `Collector.ElevatedPrivilege` (currently only `cluster_status` → `CLUSTER`). |
+| **SSG-R001** | The documented baseline role is `GRANT SELECT, PROCESS ON *.*` to a dedicated read-only user; no broader grant is required for 13/15 collectors. |
+| **SSG-R002** | A collector needing a privilege beyond the baseline MUST declare it in `Collector.ElevatedPrivilege` (currently `cluster_status` and `mv_events` → `CLUSTER`). |
 | **SSG-R003** | A permission-denied error from an `ElevatedPrivilege` collector run under the baseline role is an EXPECTED degrade — captured as a per-collector skip (`Result.Err`), never a fatal failure (collection stays partial, not failed). |
 
 ## Invariants

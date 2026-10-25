@@ -113,6 +113,50 @@ func Catalog() []Collector {
 			Category: "resources",
 			SQL:      "SELECT DATABASE_NAME, ORDINAL, HOST, PORT, ROLE, STATE, NODE_ID, IS_OFFLINE FROM information_schema.DISTRIBUTED_PARTITIONS",
 		},
+		{
+			// #618: native streaming-ingest pipelines. CONFIG_JSON embeds the
+			// source connection (Kafka/S3) config, which can carry credentials ->
+			// HighSensitivity + redacted; operational fields (name/state/user/time)
+			// are preserved. Empty when no pipelines exist is a legitimate success.
+			// Baseline SELECT, PROCESS grant.
+			ID:               "singlestore_pipelines_v1",
+			Category:         "workload",
+			SQL:              "SELECT DATABASE_NAME, PIPELINE_ID, PIPELINE_NAME, CONFIG_JSON, STATE, SKIPPED_BATCH_PARTITIONS, CREATE_TIME, ALTER_TIME, CREATE_USER, ALTER_USER FROM information_schema.PIPELINES",
+			HighSensitivity:  true,
+			SensitiveColumns: []string{"CONFIG_JSON"},
+		},
+		{
+			// #618: per-node memory from the distributed sysinfo view (host /
+			// cgroup / memsql bytes). Baseline SELECT, PROCESS grant.
+			ID:       "singlestore_sysinfo_memory_v1",
+			Category: "resources",
+			SQL:      "SELECT NODE_ID, IP_ADDR, PORT, TYPE, HOST_TOTAL_B, HOST_USED_B, CGROUP_TOTAL_B, CGROUP_USED_B, MEMSQL_B, TIMESTAMP_NS FROM information_schema.MV_SYSINFO_MEM",
+		},
+		{
+			// #618: per-node disk usage + cumulative IO from the distributed
+			// sysinfo view. Baseline SELECT, PROCESS grant.
+			ID:       "singlestore_sysinfo_disk_v1",
+			Category: "resources",
+			SQL:      "SELECT NODE_ID, IP_ADDR, PORT, TYPE, MOUNT_POINT, MOUNT_TOTAL_B, MOUNT_USED_B, READ_CUMULATIVE_B, WRITE_CUMULATIVE_B, TIMESTAMP_NS FROM information_schema.MV_SYSINFO_DISK",
+		},
+		{
+			// #618: cluster lifecycle events (severity/type/details). DETAILS is
+			// event metadata (db name/status), not SQL or credentials, so it is kept
+			// as native evidence. Requires CLUSTER (confirmed live: baseline
+			// SELECT+PROCESS returns ERROR 1227) -> ElevatedPrivilege, degrades to a
+			// skip without it. Bounded, most-recent first.
+			ID:                "singlestore_mv_events_v1",
+			Category:          "activity",
+			SQL:               "SELECT ORIGIN_NODE_ID, EVENT_TIME, SEVERITY, EVENT_TYPE, DETAILS FROM information_schema.MV_EVENTS ORDER BY EVENT_TIME DESC LIMIT 200",
+			ElevatedPrivilege: "CLUSTER",
+		},
+		{
+			// #618: per-node capacity inventory (cpu/memory/disk/uptime/version) —
+			// richer than aggregators/leaves. Baseline SELECT, PROCESS grant.
+			ID:       "singlestore_nodes_v1",
+			Category: "topology",
+			SQL:      "SELECT ID, IP_ADDR, PORT, TYPE, STATE, AVAILABILITY_GROUP, NUM_CPUS, MAX_MEMORY_MB, MAX_TABLE_MEMORY_MB, MEMORY_USED_MB, TABLE_MEMORY_USED_MB, TOTAL_DATA_DISK_MB, AVAILABLE_DATA_DISK_MB, UPTIME, VERSION FROM information_schema.MV_NODES",
+		},
 	}
 }
 

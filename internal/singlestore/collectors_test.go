@@ -110,19 +110,25 @@ func TestCatalogShape(t *testing.T) {
 	}
 }
 
-func TestQueryTextCollectorsAreHighSensitivity(t *testing.T) {
-	// #554 query-text handling: any collector that selects a query-text column
-	// (QUERY_TEXT in MV_PLANCACHE, INFO in MV_PROCESSLIST) MUST be flagged
-	// HighSensitivity with that column in SensitiveColumns, so it is redacted
-	// on opt-out. This guards against a new collector leaking SQL text.
-	queryTextCols := []string{"QUERY_TEXT", "INFO"}
+func TestSensitiveColumnsAreHighSensitivity(t *testing.T) {
+	// TC-SSC-06 (#554 query-text + #618 secret-config handling): any collector
+	// that selects a query-text column (QUERY_TEXT in MV_PLANCACHE, INFO in
+	// MV_PROCESSLIST) or a secret-config column (CONFIG_JSON in PIPELINES, which
+	// can embed connection credentials) MUST be flagged HighSensitivity with that
+	// column in SensitiveColumns, so it is redacted on opt-out. This guards
+	// against a new collector leaking SQL text or credentials.
+	sensitiveCols := []string{"QUERY_TEXT", "INFO", "CONFIG_JSON"}
 	for _, c := range Catalog() {
-		for _, qt := range queryTextCols {
-			if !strings.Contains(c.SQL, qt) {
+		up := strings.ToUpper(c.SQL)
+		for _, qt := range sensitiveCols {
+			// Match as a select-list token (preceded by ", " or followed by " FROM"
+			// / ","), not a substring of another identifier — e.g. "INFO" must not
+			// match inside "MV_SYSINFO_MEM".
+			if !strings.Contains(up, ", "+qt) && !strings.Contains(up, " "+qt+" FROM") && !strings.Contains(up, " "+qt+",") {
 				continue
 			}
 			if !c.HighSensitivity {
-				t.Fatalf("collector %s selects query-text column %s but is not HighSensitivity", c.ID, qt)
+				t.Fatalf("collector %s selects sensitive column %s but is not HighSensitivity", c.ID, qt)
 			}
 			listed := false
 			for _, sc := range c.SensitiveColumns {
@@ -134,5 +140,50 @@ func TestQueryTextCollectorsAreHighSensitivity(t *testing.T) {
 				t.Fatalf("collector %s selects %s but it is not in SensitiveColumns %v", c.ID, qt, c.SensitiveColumns)
 			}
 		}
+	}
+}
+
+// TC-SSC-05 (#618): the pipelines collector carries CONFIG_JSON (connection
+// strings / credentials) and must be HighSensitivity with it redacted on opt-out,
+// while operational fields survive.
+func TestPipelinesConfigRedacted(t *testing.T) {
+	var p *Collector
+	for i := range Catalog() {
+		if Catalog()[i].ID == "singlestore_pipelines_v1" {
+			c := Catalog()[i]
+			p = &c
+		}
+	}
+	if p == nil {
+		t.Fatal("singlestore_pipelines_v1 missing")
+	}
+	if !p.HighSensitivity {
+		t.Error("singlestore_pipelines_v1 must be HighSensitivity (carries CONFIG_JSON)")
+	}
+	found := false
+	for _, col := range p.SensitiveColumns {
+		if col == "CONFIG_JSON" {
+			found = true
+		}
+	}
+	if !found {
+		t.Error("singlestore_pipelines_v1 must list CONFIG_JSON in SensitiveColumns")
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "PIPELINES") {
+			return []map[string]any{{"PIPELINE_NAME": "ingest_kafka", "STATE": "Running", "CONFIG_JSON": `{"connection_string":"kafka://user:secret@host"}`}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*p}, true)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	row := rs[0].Rows[0]
+	if row["CONFIG_JSON"] != nil {
+		t.Errorf("CONFIG_JSON must be redacted to nil, got %v", row["CONFIG_JSON"])
+	}
+	if row["PIPELINE_NAME"] != "ingest_kafka" || row["STATE"] != "Running" {
+		t.Errorf("operational pipeline fields must survive, got %+v", row)
 	}
 }

@@ -48,6 +48,11 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 | `singlestore_activities_v1` | resources | `information_schema.MV_ACTIVITIES` | CPU/elapsed/memory per activity |
 | `singlestore_processlist_v1` | activity | `information_schema.MV_PROCESSLIST` | **HighSensitivity**: `INFO` (live statement text) redacted on opt-out |
 | `singlestore_distributed_partitions_v1` | resources | `information_schema.DISTRIBUTED_PARTITIONS` | per-partition host/role/state |
+| `singlestore_pipelines_v1` | workload | `information_schema.PIPELINES` | #618; native streaming ingest. **HighSensitivity**: `CONFIG_JSON` redacted (carries connection strings / credentials — Kafka/S3). Empty when no pipelines = legitimate success. |
+| `singlestore_sysinfo_memory_v1` | resources | `information_schema.MV_SYSINFO_MEM` | #618; per-node host/cgroup/memsql memory bytes (distributed-native). Baseline grant. |
+| `singlestore_sysinfo_disk_v1` | resources | `information_schema.MV_SYSINFO_DISK` | #618; per-node mount usage + cumulative IO. Baseline grant. |
+| `singlestore_mv_events_v1` | activity | `information_schema.MV_EVENTS` | #618; cluster lifecycle events (severity/type/details). **Requires `CLUSTER`** → `ElevatedPrivilege: "CLUSTER"` (degrades to skip without it). DETAILS is event metadata (db name/status), not SQL or credentials. |
+| `singlestore_nodes_v1` | topology | `information_schema.MV_NODES` | #618; per-node capacity (cpu/memory/disk/uptime/version), richer than aggregators/leaves. Baseline grant. |
 
 ## Behaviors
 
@@ -57,6 +62,16 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 - **Given** high-sensitivity collection is disabled, **when** the plancache
   collector runs, **then** `QUERY_TEXT` is NULLed in every persisted row while
   other columns survive (redact path).
+- **Given** high-sensitivity collection is disabled, **when** the pipelines
+  collector runs, **then** `CONFIG_JSON` is NULLed in every persisted row while
+  pipeline name/state/user/time survive (#618 — no connection credentials leave
+  the instance).
+- **Given** a server with no pipelines and no cluster events, **when** the
+  pipelines / events collectors run, **then** each is a successful zero-row
+  result (not a failure).
+- **Given** the baseline `SELECT, PROCESS` role without `CLUSTER`, **when**
+  `singlestore_mv_events_v1` runs, **then** its permission error is captured as a
+  per-collector skip (ElevatedPrivilege degrade), not a fatal failure.
 
 ## Rules
 
@@ -66,6 +81,8 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 | **SSC-R002** | A collector whose statement errors records `Err` and does not abort the others (partial collection is captured, not fatal). |
 | **SSC-R003** | With `redactSensitive=true`, each `SensitiveColumns` value is set to nil in every row of that collector's result. |
 | **SSC-R004** | Any collector that selects a query-text column (`QUERY_TEXT`, `INFO`) MUST be `HighSensitivity` with that column in `SensitiveColumns` (query-text handling, #554). |
+| **SSC-R005** | Any collector that selects a secret-bearing config column — currently `CONFIG_JSON` (`PIPELINES`), which can embed connection strings / credentials — MUST be `HighSensitivity` with that column in `SensitiveColumns`. Operational fields (pipeline name/state/user/time) are preserved; only the secret payload is nilled under default collection (#618). |
+| **SSC-R006** | A collector needing a privilege beyond the baseline `SELECT, PROCESS` declares it in `ElevatedPrivilege`; `singlestore_mv_events_v1` needs `CLUSTER` (confirmed live) and so degrades to a per-collector skip, not a fault, under the baseline role (see `singlestore-grants.md` SSG-R002/R003). |
 
 ## Invariants
 
@@ -74,6 +91,7 @@ traceability note. Covers the POC slice of Elevarq/Signals #548 (identity),
 | **INV-SSC-01** | Collection never issues a non-`SELECT` statement. |
 | **INV-SSC-02** | `singlestore_plancache_v1` is marked HighSensitivity with `QUERY_TEXT` in SensitiveColumns (it carries application SQL text). |
 | **INV-SSC-03** | No collector selecting a query-text column escapes the HighSensitivity + redaction contract (SSC-R004) — guards new collectors against leaking SQL text. |
+| **INV-SSC-04** | No collector selecting a secret-bearing config column (`CONFIG_JSON`) escapes the HighSensitivity + redaction contract (SSC-R005) — guards against leaking pipeline connection credentials. |
 
 ## Failure conditions
 
