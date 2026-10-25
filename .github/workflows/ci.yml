@@ -192,10 +192,22 @@ jobs:
   # PostgreSQL-mandatory terminal gate and never adds a PostgreSQL-free green path.
   integration-mysql:
     runs-on: ubuntu-24.04
+    # #625/#547: qualify BOTH the commercially important MySQL 8.0 line and the
+    # 8.4 LTS line live (each a pinned digest). A green 8.4 image alone does not
+    # establish an 8.0 compatibility claim — both run the real daemon -> exporter
+    # qualification. See specifications/version-support-policy.md.
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mysql_version: "8.0"
+            image: mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+          - mysql_version: "8.4"
+            image: mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
     services:
       mysql:
-        # Pinned by digest (mysql:8.4) — never a float tag.
-        image: mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
+        # Pinned by digest (mysql:8.0 / mysql:8.4) — never a float tag.
+        image: ${{ matrix.image }}
         env:
           MYSQL_ROOT_PASSWORD: dev-root-pw
         ports:
