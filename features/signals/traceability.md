@@ -796,3 +796,21 @@ DIGEST_TEXT redacted end-to-end).
 |---------|-------------|------------|-----------------|---------------|-------|
 | MYC-R004 (digest) | mysql_statement_digests_v1 is HighSensitivity with DIGEST_TEXT redacted (normalized sample SQL) | TestMySQLStatementDigestsRedaction, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #540. Deterministic redaction + live reconciliation (redaction held). |
 | MYC-540-01 | The digest collector is a read-only SELECT, bounded (top-200 by latency), empty when Performance Schema is off, NULL-digest overflow row included | TestMySQLCatalogReadOnly, TestMySQLCatalogExpectedSet, TestMySQLLiveCadenceQualification | COVERED | BEHAVIORAL | 10-collector catalog; live 12-snapshot cadence all status=success. A digest id is never equated with a PostgreSQL queryid (engine-native evidence). |
+
+## #558 — ClickHouse connection hardening (TLS)
+
+Spec: `specifications/clickhouse-connection-hardening.md` (ACTIVE, CCH-R001..R005,
+INV-CCH-01..03). The configured sslmode + CA now reach the native driver (the F1
+bug); verify crypto is the shared `internal/dbtls` (hermetic TLS tests). Mirrors
+SCH-R001/R002/R003; PostgreSQL + MySQL-wire TLS unchanged.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CCH-R001 | verify-full verifies chain + hostname against the configured CA | TestResolveTLS_VerifyFullSetsServerName, TestBuildVerified_VerifyFullTrustedCASucceeds, TestBuildVerified_VerifyFullRejectsUntrustedAndHostname | COVERED | BEHAVIORAL | #558. dbtls hermetic TLS listener proves accept/reject. |
+| CCH-R002 | verify-ca verifies chain, not hostname | TestResolveTLS_VerifyCAChainNotHostname, TestBuildVerified_VerifyCAIgnoresHostnameButChecksChain | COVERED | BEHAVIORAL | #558. Wrong host accepted under trusted CA; untrusted CA rejected. |
+| CCH-R003 | TLS-required mode never plaintext; verify mode fails closed on bad CA; unknown sslmode errors | TestResolveTLS_RequireEncryptsNoVerify, TestOpen_VerifyModeBadCAFailsClosed, TestResolveTLS_UnknownModeErrors, TestBuildVerified_FailsClosedOnBadCA | COVERED | BEHAVIORAL | #558. Open resolves TLS before dialing. |
+| CCH-R004 | disable/empty sslmode = plaintext (explicit opt-out) | TestResolveTLS_DisablePlaintext | COVERED | BEHAVIORAL | #558. nil tls.Config only for disable/empty. |
+| CCH-R005 | Session passes target sslmode + root CA into the native connector | TestClickHouseConnConfigCarriesTLS | COVERED | BEHAVIORAL | #558. clickHouseConnConfig maps SSLMode/SSLRootCertFile (the F1 fix). |
+| INV-CCH-01 | A configured verify mode never silently downgrades to plaintext/unverified | TestOpen_VerifyModeBadCAFailsClosed, TestResolveTLS_DisablePlaintext | COVERED | BEHAVIORAL | #558. |
+| INV-CCH-02 | PostgreSQL/MySQL-wire TLS behavior unchanged | — | COVERED | DOC | #558 adds a ClickHouse-only TLS path; mysqlwire + pgx untouched. |
+| INV-CCH-03 | No credential/CA-private material logged or persisted | — | COVERED | DOC | CA file path is non-secret; password used only to dial. |

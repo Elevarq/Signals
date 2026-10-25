@@ -2,13 +2,16 @@ package clickhouse
 
 import (
 	"context"
+	"crypto/tls"
 	"database/sql"
 	"fmt"
 	"net"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/ClickHouse/clickhouse-go/v2"
+	"github.com/elevarq/signals/internal/dbtls"
 )
 
 const (
@@ -17,9 +20,7 @@ const (
 	defaultQueryTimeout   = 10 * time.Second
 )
 
-// ConnConfig describes a ClickHouse target. Self-contained for the backend
-// foundation; a full TLS/CA path (mirroring the MySQL-wire #585 work) is a later
-// increment.
+// ConnConfig describes a ClickHouse target.
 type ConnConfig struct {
 	Host           string
 	Port           int
@@ -28,8 +29,36 @@ type ConnConfig struct {
 	DBName         string
 	ConnectTimeout time.Duration
 	QueryTimeout   time.Duration
-	// TLS (native 9440 / CA material, mirroring the MySQL-wire #585 work) is a
-	// later increment; CH-1 is plaintext against the loopback dev image.
+	// TLSMode is the PostgreSQL-style sslmode for the native connection (#558):
+	// "" / "disable" → plaintext; "require" → encrypt without verification;
+	// "verify-ca" → verify the chain against TLSRootCAFile (not the hostname);
+	// "verify-full" → verify the chain AND the hostname. TLSRootCAFile is the PEM
+	// CA bundle used by the verify modes. See specifications/clickhouse-connection-hardening.md.
+	TLSMode       string
+	TLSRootCAFile string
+}
+
+// resolveTLS maps the PostgreSQL-style TLSMode to the native driver's
+// *tls.Config (#558, CCH-R001..R004). It returns (nil, nil) for plaintext
+// (disable/empty), a non-nil config for every TLS-required mode, and fails
+// closed (error) for a verify mode whose CA cannot be loaded or for an unknown
+// sslmode — never a silent plaintext/unverified downgrade (INV-CCH-01).
+func (c ConnConfig) resolveTLS() (*tls.Config, error) {
+	switch strings.ToLower(strings.TrimSpace(c.TLSMode)) {
+	case "", "disable", "disabled":
+		return nil, nil
+	case "require", "required":
+		// Encryption only, certificate not verified (PostgreSQL `require`
+		// semantics). TLS IS applied — never plaintext. verify-ca/verify-full are
+		// the verifying modes.
+		return &tls.Config{MinVersion: tls.VersionTLS12, InsecureSkipVerify: true}, nil // nosemgrep
+	case "verify-ca":
+		return dbtls.BuildVerifiedTLSConfig(c.TLSRootCAFile, c.Host, false)
+	case "verify-full":
+		return dbtls.BuildVerifiedTLSConfig(c.TLSRootCAFile, c.Host, true)
+	default:
+		return nil, fmt.Errorf("unknown sslmode %q for ClickHouse target (want disable/require/verify-ca/verify-full)", c.TLSMode)
+	}
 }
 
 // ScalarQuery runs a query returning a single string cell. The seam that makes
@@ -54,6 +83,13 @@ func Open(ctx context.Context, c ConnConfig) (*sql.DB, error) {
 	if qt == 0 {
 		qt = defaultQueryTimeout
 	}
+	// #558: resolve + apply the configured TLS BEFORE dialing. A verify mode with
+	// unusable CA material fails closed here — the connection is never attempted
+	// in plaintext (INV-CCH-01).
+	tlsCfg, err := c.resolveTLS()
+	if err != nil {
+		return nil, fmt.Errorf("resolve TLS: %w", err)
+	}
 	opts := &clickhouse.Options{
 		Addr: []string{net.JoinHostPort(c.Host, strconv.Itoa(port))},
 		Auth: clickhouse.Auth{
@@ -63,6 +99,7 @@ func Open(ctx context.Context, c ConnConfig) (*sql.DB, error) {
 		},
 		DialTimeout: ct,
 		ReadTimeout: qt,
+		TLS:         tlsCfg,
 	}
 	db := clickhouse.OpenDB(opts)
 	db.SetMaxOpenConns(2)

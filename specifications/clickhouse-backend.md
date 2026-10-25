@@ -95,7 +95,9 @@ by CH-2 (`specifications/clickhouse-collectors.md`); fixtures + live qualificati
 
 - Read-only; monitoring role is `GRANT SELECT ON system.*` (validated live: reads
   the diagnostic surface; writes are `ACCESS_DENIED`). Native-protocol TLS + CA
-  (mirroring the MySQL-wire #585 work) is a later increment.
+  (verify-ca / verify-full, fail-closed) is implemented in #558 —
+  `specifications/clickhouse-connection-hardening.md` (CCH-R001..R005), sharing
+  the `internal/dbtls` verify crypto with the MySQL-wire path.
 - New module dependency `ClickHouse/clickhouse-go/v2` (pinned); it passes
   govulncheck (0 affecting vulnerabilities) and must clear the Security-Scan gate.
 

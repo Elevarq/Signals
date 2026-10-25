@@ -47,14 +47,7 @@ func (c *Collector) openClickHouse(ctx context.Context, tgt config.TargetConfig)
 	if err != nil {
 		return chConn{}, fmt.Errorf("resolve credential: %w", err)
 	}
-	database, err := clickhouse.Open(ctx, clickhouse.ConnConfig{
-		Host:         tgt.Host,
-		Port:         tgt.Port,
-		User:         tgt.User,
-		Password:     cred.Password,
-		DBName:       tgt.DBName,
-		QueryTimeout: c.queryTimeout,
-	})
+	database, err := clickhouse.Open(ctx, clickHouseConnConfig(tgt, cred.Password, c.queryTimeout))
 	if err != nil {
 		return chConn{}, err
 	}
@@ -63,6 +56,24 @@ func (c *Collector) openClickHouse(ctx context.Context, tgt config.TargetConfig)
 		runner: clickhouse.NewRunner(database),
 		close:  database.Close,
 	}, nil
+}
+
+// clickHouseConnConfig builds the native connector config from a target (#558,
+// CCH-R005). The target's sslmode + root CA are carried through to the driver so
+// a verify-ca/verify-full ClickHouse target is actually verified — previously
+// these were dropped, silently downgrading to plaintext. Pure + no I/O so the
+// wiring is directly testable.
+func clickHouseConnConfig(tgt config.TargetConfig, password string, queryTimeout time.Duration) clickhouse.ConnConfig {
+	return clickhouse.ConnConfig{
+		Host:          tgt.Host,
+		Port:          tgt.Port,
+		User:          tgt.User,
+		Password:      password,
+		DBName:        tgt.DBName,
+		QueryTimeout:  queryTimeout,
+		TLSMode:       tgt.SSLMode,
+		TLSRootCAFile: tgt.SSLRootCertFile,
+	}
 }
 
 // boundedClickHouseRunner bounds each collector by min(queryTimeout, remaining
