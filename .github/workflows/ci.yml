@@ -200,10 +200,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          # 8.0 (legacy installed base), 8.4 LTS, and 9.7 LTS — each a pinned
+          # digest, each running the full live qualification (#625/#547). The
+          # version_prefix is the engine_version the verifier asserts per line.
           - mysql_version: "8.0"
             image: mysql@sha256:7dcddc01f13bab2f15cde676d44d01f61fc9f99fe7785e86196dfc07d358ae2b
+            version_prefix: "8."
           - mysql_version: "8.4"
             image: mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69
+            version_prefix: "8."
+          - mysql_version: "9.7"
+            image: mysql@sha256:8fb11c38b3551e22d50adbb688f027f8ff4ea2d2445aa277c1cc97b4af85ec54
+            version_prefix: "9."
     services:
       mysql:
         # Pinned by digest (mysql:8.0 / mysql:8.4) — never a float tag.
@@ -238,7 +246,10 @@ jobs:
 
       - name: Run the MySQL live qualification (normal daemon -> exporter)
         # EXTERNAL mode: the service container is already up + seeded above, so
-        # the harness only builds, drives the real daemon, and verifies.
+        # the harness only builds, drives the real daemon, and verifies. The
+        # version prefix is the matrix leg's (8. for 8.0/8.4, 9. for 9.7 LTS).
+        env:
+          MYSQL_QUAL_VERSION_PREFIX: ${{ matrix.version_prefix }}
         run: MYSQL_QUAL_EXTERNAL=1 bash scripts/mysql-live-qual.sh all
 
   # MariaDB live qualification against a pinned MariaDB service container

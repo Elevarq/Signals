@@ -3,7 +3,7 @@
 ## Feature
 
 `specifications/version-support-policy.md` — the cross-engine version support
-tiers (#625) and the MySQL 8.0 + 8.4 live qualification.
+tiers (#625) and the MySQL 8.0 + 8.4 + 9.7 live qualification.
 
 ## Test Cases
 
@@ -12,10 +12,10 @@ tiers (#625) and the MySQL 8.0 + 8.4 live qualification.
 **Rule:** VSP-R001, VSP-R002, INV-VSP-01
 
 **Given:** `.github/workflows/ci.yml`. **When:** the `integration-mysql` job's
-matrix is parsed. **Then:** it has ≥2 legs covering both `8.0` and `8.4`, each a
-pinned image digest. **Expected Result:** Pass —
-`TestMySQLVersionMatrixQualifies80And84`. Guards against silently dropping the
-8.0 leg (which would leave an 8.0 support claim without evidence).
+matrix is parsed. **Then:** it has ≥3 legs covering `8.0`, `8.4`, and `9.7`, each
+a pinned image digest. **Expected Result:** Pass —
+`TestMySQLVersionMatrixQualifies80And84`. Guards against silently dropping any
+qualified leg (which would leave a support claim without evidence).
 
 ---
 
@@ -26,7 +26,7 @@ pinned image digest. **Expected Result:** Pass —
 **Given:** the pinned per-engine CI images. **When:** the `integration-*` live
 qualifications run. **Then:** every collector persists `status=success` through
 the real daemon → exporter for each qualified image (PostgreSQL 14–18, MySQL
-8.0+8.4, MariaDB 11.4, SingleStore 9.1.x, ClickHouse 24.8). **Expected Result:**
+8.0 + 8.4 + 9.7, MariaDB 11.4, SingleStore 9.1.x, ClickHouse 24.8). **Expected Result:**
 Confirmed by the `integration-*` jobs (each engine's `*LiveCadenceQualification`).
 
 ---

@@ -9,9 +9,10 @@ import (
 )
 
 // TC-VSP-01 (version-support-policy.md VSP-R002): the integration-mysql CI job
-// must qualify BOTH the MySQL 8.0 and 8.4 lines as separate pinned live legs.
-// This parses the real workflow, so it cannot drift from what CI runs: drop the
-// 8.0 leg (leaving an 8.0 support claim with no evidence) and this goes red.
+// must qualify the MySQL 8.0 legacy line and the 8.4 + 9.7 LTS lines as separate
+// pinned live legs. This parses the real workflow, so it cannot drift from what
+// CI runs: drop any of these legs (leaving a support claim with no evidence) and
+// this goes red.
 func TestMySQLVersionMatrixQualifies80And84(t *testing.T) {
 	b, err := os.ReadFile("../.github/workflows/ci.yml")
 	if err != nil {
@@ -36,10 +37,10 @@ func TestMySQLVersionMatrixQualifies80And84(t *testing.T) {
 	}
 
 	legs := wf.Jobs.IntegrationMySQL.Strategy.Matrix.Include
-	if len(legs) < 2 {
-		t.Fatalf("integration-mysql must qualify >=2 MySQL versions (8.0 + 8.4); got %d legs (VSP-R002)", len(legs))
+	if len(legs) < 3 {
+		t.Fatalf("integration-mysql must qualify >=3 MySQL versions (8.0 + 8.4 LTS + 9.7 LTS); got %d legs (VSP-R002)", len(legs))
 	}
-	want := map[string]bool{"8.0": false, "8.4": false}
+	want := map[string]bool{"8.0": false, "8.4": false, "9.7": false}
 	for _, leg := range legs {
 		if _, ok := want[leg.MySQLVersion]; ok {
 			want[leg.MySQLVersion] = true

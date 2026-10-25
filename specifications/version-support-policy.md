@@ -31,12 +31,24 @@ established support matrix is unchanged and referenced, not expanded.
   this policy.
 
 ### MySQL (LTS + Innovation model; driver: go-sql-driver/mysql)
-- **Qualified:** **8.0** (`mysql@sha256:7dcddc01…`, 8.0.46) **and 8.4 LTS**
-  (`mysql@sha256:76f03588…`, 8.4.x) — both live in the `integration-mysql` CI
-  matrix, all 16 collectors `status=success`. 8.0 is evaluated and qualified
-  explicitly; a green 8.4 image alone never established 8.0.
-- **Best-effort:** current forward/Innovation releases (8.x > 8.4) — the catalog
-  SQL is version-stable, but not pinned in CI.
+**Principle:** Signals qualifies the relevant MySQL **LTS** releases and may
+additionally qualify selected widely deployed **legacy** releases. **Innovation**
+releases are best-effort unless explicitly qualified. There is no unbounded
+"MySQL ≥ 8.0 qualified" claim, and qualifying an LTS never implies the Innovation
+line.
+
+- **Qualified** (each a separate pinned live leg of `integration-mysql`, all 16
+  collectors `status=success` through the real daemon → exporter):
+  - **8.0** (`mysql@sha256:7dcddc01…`, 8.0.46) — widely deployed legacy line.
+  - **8.4 LTS** (`mysql@sha256:76f03588…`, 8.4.x).
+  - **9.7 LTS** (`mysql@sha256:8fb11c38…`, 9.7.4) — GA 2026-04-21; verified live,
+    all 16 collectors success with no version-specific SQL change needed.
+  Each is evaluated independently; a green image on one line never established
+  another.
+- **Best-effort:** the **Innovation** track — since MySQL 26.7.0 this is
+  calendar-versioned (`YY.M.P`, e.g. 26.7, 26.10) — plus non-pinned LTS patch
+  releases. The catalog SQL is version-stable but these are not pinned in CI.
+  9.7 qualification does **not** imply 26.x support.
 - **Unsupported:** < 8.0 — the activity/lock collectors rely on
   `performance_schema.data_locks` / `data_lock_waits` and the digest/replication
   views introduced in 8.0; earlier lines lack them.
@@ -68,8 +80,9 @@ established support matrix is unchanged and referenced, not expanded.
   with every collector `status=success`; the matrix links each qualified range to
   its CI image + result. No version is claimed qualified without that evidence
   (INV-VSP-01).
-- **VSP-R002** | MySQL **8.0 and 8.4 are both qualified** as separate pinned live
-  legs of `integration-mysql`; neither image qualifies the rest of the 8.x line.
+- **VSP-R002** | MySQL **8.0, 8.4 LTS, and 9.7 LTS are each qualified** as separate
+  pinned live legs of `integration-mysql`; no single image qualifies the rest of
+  its line, and an LTS qualification never implies the Innovation (26.x) track.
 - **VSP-R003** | Each engine's policy is independent: MariaDB is never inferred
   from MySQL; SingleStore and ClickHouse are stated from their own qualified
   release + upstream status, not stale assumptions.

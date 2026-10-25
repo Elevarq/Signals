@@ -30,6 +30,17 @@ func openMySQLStore(t *testing.T, path string) *db.DB {
 	return store
 }
 
+// mysqlQualVersionPrefix is the expected engine_version prefix for the live
+// qualification, so the one harness qualifies every pinned MySQL line (#625/#547):
+// "8." for 8.0/8.4, "9." for 9.7 LTS. Set via MYSQL_QUAL_VERSION_PREFIX per CI
+// matrix leg; defaults to "8." for backward compatibility.
+func mysqlQualVersionPrefix() string {
+	if p := os.Getenv("MYSQL_QUAL_VERSION_PREFIX"); p != "" {
+		return p
+	}
+	return "8."
+}
+
 // TestMySQLLiveCadenceQualification (MLQ-R002/R003): over the cadence store
 // written by the real daemon across cycles + a restart, every snapshot passes
 // VerifyCadenceSnapshot (engine=mysql, every collector status='success' with
@@ -63,7 +74,7 @@ func TestMySQLLiveCadenceQualification(t *testing.T) {
 			t.Errorf("duplicate snapshot id %s (overwrite!)", s.ID)
 		}
 		seen[s.ID] = true
-		if err := VerifyCadenceSnapshot(s, expected, "mysql", "8."); err != nil {
+		if err := VerifyCadenceSnapshot(s, expected, "mysql", mysqlQualVersionPrefix()); err != nil {
 			t.Errorf("snapshot %s failed cadence qualification: %v", s.ID, err)
 		}
 	}
@@ -115,10 +126,10 @@ func TestMySQLLiveExportReconciliation(t *testing.T) {
 		t.Fatalf("ReadQualExport: %v", err)
 	}
 	expected := ExpectedCollectorsFor("mysql")
-	if err := VerifyCadenceSnapshot(target, expected, "mysql", "8."); err != nil {
+	if err := VerifyCadenceSnapshot(target, expected, "mysql", mysqlQualVersionPrefix()); err != nil {
 		t.Fatalf("exact snapshot %s failed status/evidence checks: %v", target.ID, err)
 	}
-	if err := VerifyExportReconciliation(target, z, expected, "8."); err != nil {
+	if err := VerifyExportReconciliation(target, z, expected, mysqlQualVersionPrefix()); err != nil {
 		t.Fatalf("export reconciliation for %s failed: %v", target.ID, err)
 	}
 	t.Logf("export reconciliation OK for snapshot %s: collected==persisted==exported, redaction held, manifest complete", target.ID)
