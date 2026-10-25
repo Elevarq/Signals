@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/elevarq/signals/internal/collector"
+	"github.com/elevarq/signals/internal/config"
 	"github.com/elevarq/signals/internal/db"
 	"github.com/elevarq/signals/internal/safety"
 	"github.com/elevarq/signals/snapshot"
@@ -31,6 +32,14 @@ var ErrSnapshotNotFound = errors.New("snapshot not found")
 // selectors that name disjoint scopes — currently `All` and
 // `SnapshotID` together. Translated to HTTP 400 by the API layer.
 var ErrConflictingSelectors = errors.New("conflicting export selectors: --all and --snapshot-id are mutually exclusive")
+
+// ErrHeterogeneousScope is returned when an unscoped export's resolved scope
+// spans more than one database engine (#622, MERC-R009/INV-MERC-04). A report
+// must truthfully represent ONE engine, so a mixed scope is rejected rather
+// than emitted under a single (false) engine identity. The caller must scope
+// the export to one target (`--target-id`) or one snapshot (`--snapshot-id`).
+// Translated to HTTP 400 by the API layer.
+var ErrHeterogeneousScope = errors.New("heterogeneous export scope: snapshots span multiple engines; scope the export to one target (--target-id) or one snapshot (--snapshot-id)")
 
 // Collection-status markers embedded in metadata.json (SIGNALS-R125 /
 // INV-SIGNALS-25). They let a consumer machine-detect emptiness or
@@ -450,6 +459,17 @@ func (b *Builder) resolveScope(opts Options) (*exportScope, error) {
 		scope.snapshotIDs[s.ID] = true
 	}
 
+	// #622 (MERC-R009/INV-MERC-04): a report must truthfully represent ONE
+	// engine. Explicit TargetID/SnapshotID scopes are inherently single-target
+	// (one engine), but an unscoped default/--all scope can aggregate snapshots
+	// from multiple targets. If the resolved scope spans >1 engine, reject it —
+	// metadata/catalog identity is derived from the first snapshot (engineOf),
+	// so emitting a mixed scope would make a false single-engine claim. A
+	// homogeneous scope (incl legacy PostgreSQL / single-target) passes.
+	if err := scope.assertSingleEngine(); err != nil {
+		return nil, err
+	}
+
 	// Selector scopes draw their run set from the resolved snapshots;
 	// the default scope already set runSet at the run level above.
 	if scope.runScope == "snapshot" {
@@ -464,6 +484,32 @@ func (b *Builder) resolveScope(opts Options) (*exportScope, error) {
 		scope.runSet = runs
 	}
 	return scope, nil
+}
+
+// assertSingleEngine enforces #622 (MERC-R009/INV-MERC-04): the resolved scope's
+// snapshots must all belong to ONE engine. An empty/legacy snapshot engine
+// normalizes to PostgreSQL (the same rule engineOf uses), so a homogeneous
+// PostgreSQL store mixing "" and "postgresql" tags is still one engine. A scope
+// spanning >1 distinct engine is rejected with ErrHeterogeneousScope naming the
+// engines, so a mixed export can never claim a single (false) engine identity.
+func (scope *exportScope) assertSingleEngine() error {
+	engines := map[string]bool{}
+	for i := range scope.snapshots {
+		e := scope.snapshots[i].Engine
+		if e == "" {
+			e = config.EnginePostgreSQL
+		}
+		engines[e] = true
+	}
+	if len(engines) <= 1 {
+		return nil
+	}
+	names := make([]string, 0, len(engines))
+	for e := range engines {
+		names = append(names, e)
+	}
+	sort.Strings(names)
+	return fmt.Errorf("%w (found: %v)", ErrHeterogeneousScope, names)
 }
 
 func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope) error {

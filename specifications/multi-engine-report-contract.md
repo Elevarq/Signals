@@ -22,7 +22,8 @@ changes historical PostgreSQL report semantics.
 ## Scope
 
 - **Producer obligations (verifiable here, CI-gated):** the shape every engine's
-  `export.Builder` output satisfies — §"The contract" + rules MERC-R001..R007.
+  `export.Builder` output satisfies — §"The contract" + rules MERC-R001..R007,
+  plus the single-engine-scope invariant MERC-R009 (#622).
   Asserted by the cross-engine conformance test over the real `WriteTo` path.
 - **Consumer obligations (owned by Analyzer, the OPEN acceptance):** how a
   consumer treats a new `engine` value, additive fields, and the
@@ -92,6 +93,16 @@ success).
   `query`), locked-key data (`LOCK_DATA`/`lock_data`), and secret config
   (`CONFIG_JSON`) are redacted per each engine's collector spec.
 
+- **MERC-R009** (#622) | A report must truthfully represent ONE engine. An
+  export whose resolved scope spans more than one engine is **rejected** with a
+  clear, actionable error (`ErrHeterogeneousScope`) that names the engines and
+  the required scope — it never emits one archive mixing engines under a single
+  engine identity. Explicit `TargetID` / `SnapshotID` scopes are inherently
+  single-target (one engine) and always pass; a homogeneous unscoped scope
+  (including a legacy PostgreSQL-only / single-target install) passes unchanged.
+  This Signals-side invariant is enforced independently of the Analyzer sign-off
+  (a report cannot lie about its engine identity regardless of consumer state).
+
 ## Rules (consumer — Analyzer, OPEN sign-off)
 
 - **MERC-R008** | Because `schema_version` is unchanged and the engine fields are
@@ -108,6 +119,9 @@ success).
 - **INV-MERC-02** | No export leaks a collector from another engine's catalog.
 - **INV-MERC-03** | No default export contains raw credentials, secret config, or
   query/sample text.
+- **INV-MERC-04** | No exported archive contains snapshots/runs/results from more
+  than one engine — the archive's declared `engine` describes ALL included
+  evidence (#622).
 
 ## Failure conditions
 
@@ -117,6 +131,7 @@ success).
 | A non-PostgreSQL snapshot missing `engine`/`engine_version`, or a PostgreSQL snapshot carrying them | Contract violation. |
 | A collector from a foreign engine in `collector_status`/`query_catalog` | Contract violation (cross-engine leak). |
 | A secret-bearing column present in a default export | Contract violation (redaction breach). |
+| An unscoped export whose scope spans >1 engine | Rejected with `ErrHeterogeneousScope` naming the engines + required scope (#622); never a mixed artifact. |
 
 ## Consumer obligations (owned by Analyzer — the OPEN acceptance of #530)
 
@@ -138,7 +153,7 @@ verify its ingest path against the real shape:
 ## Traceability
 
 Acceptance: `specifications/multi-engine-report-contract.acceptance.md`.
-Producer rules MERC-R001..R007 + INV-MERC-01..03 are CI-gated by the cross-engine
+Producer rules MERC-R001..R007 + R009 + INV-MERC-01..04 are CI-gated by the cross-engine
 conformance test (`internal/export/report_contract_test.go`). MERC-R008 + the
 consumer obligations are the open Analyzer sign-off. Builds on
 `engine-keyed-reporting.md` (MKR) and each engine's collector spec (redaction).

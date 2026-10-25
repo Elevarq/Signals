@@ -82,6 +82,19 @@ manifest and members agree for every engine.
 
 ---
 
+### TC-MERC-08: unscoped heterogeneous export is rejected, never mixed (#622, failure)
+
+**Rule:** MERC-R009, INV-MERC-04
+
+**Given:** a store (populated through the real persistence API `InsertCollectionAtomic`) holding two targets of different engines (e.g. PostgreSQL + SingleStore). **When:** an export is requested. **Then:**
+- an **unscoped** export (no `TargetID`/`SnapshotID`, default or `--all`) is rejected with `ErrHeterogeneousScope`, naming the engines — it never emits a mixed archive;
+- an **explicit `TargetID`** export emits only that target's engine (single engine identity, its catalog/runs/results only);
+- an unscoped export over a **homogeneous** store (one engine, one or more targets, including legacy PostgreSQL) still succeeds.
+
+**Expected Result:** Pass when mixed evidence can never be emitted under one engine identity, and homogeneous/scoped exports are unaffected.
+
+---
+
 ### TC-MERC-07: consumer forward-compatibility sign-off (OPEN — Analyzer)
 
 **Rule:** MERC-R008
