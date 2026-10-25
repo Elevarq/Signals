@@ -40,3 +40,21 @@ TC-SLQ-06, TC-SLQ-08, TC-SLQ-11), which replays the *current* catalog rather tha
 a frozen snapshot. The deterministic serialization leg (`singlestore_qual_test.go`,
 TC-SLQ-10) gives no-DB CI coverage of the verifier/export logic. This is strictly
 stronger than the retired fixture replay.
+
+---
+
+### TC-SSG-03: cross-user SQL is redacted; current-user-only without PROCESS (#554)
+
+**Rule:** SSG-R004, INV-SSG-02
+
+**Given:** `Catalog()`. **When:** each collector that selects a cross-user SQL
+column (`QUERY_TEXT` in `MV_PLANCACHE`, `INFO` in `MV_PROCESSLIST`) or connection
+credentials (`CONFIG_JSON` in `PIPELINES`) is inspected. **Then:** it is
+`HighSensitivity` with that column in `SensitiveColumns` (redacted by default).
+Without `PROCESS` the live-workload views are current-user-only (a documented
+state, not a denial); the `CLUSTER`-elevated collectors degrade to skipped
+(TC-SSG-01).
+
+**Expected Result:** Pass — `TestSensitiveColumnsAreHighSensitivity` enforces the
+redaction surface catalog-wide (QUERY_TEXT/INFO/CONFIG_JSON). Redaction is defense
+in depth; the `PROCESS`/`CLUSTER` grants are the primary boundary.
