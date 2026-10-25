@@ -844,3 +844,17 @@ Grant model exercised by the integration-mysql live qualification.
 | MYG-R002 | PROCESS is the only privilege beyond SELECT; broadens PROCESSLIST/INNODB_TRX to all sessions | — | COVERED | DOC | #545. Documented MySQL privilege semantics; empirically observed. |
 | MYG-R003 | Cross-user SQL / locked data (INFO/trx_query/DIGEST_TEXT/LOCK_DATA) is HighSensitivity + redacted by default | TestMySQLCatalogNoUnredactedSensitiveColumn, TestMySQLInnodbTransactionsRedaction, TestMySQLDataLocksRedaction | COVERED | BEHAVIORAL | #545. Reuses MYC-R004/R008 catalog redaction guard. |
 | MYG-R004 | No elevated/optional grant; replication/GR absence is legitimate empty | TestMySQLCatalogExpectedSet, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #545. Standalone returns empty, not failed. |
+
+## #626 — MariaDB least-privilege grants + cross-user exposure
+
+Spec: `specifications/mariadb-grants.md` (ACTIVE, MDG-R001..R004). MariaDB-distinct
+(perf_schema off by default; Galera not Group Replication; InnoDB views in
+information_schema). SELECT+PROCESS baseline; cross-user SQL / locked data redacted
+by default. Grant model exercised by the integration-mariadb live qualification.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MDG-R001 | Baseline SELECT+PROCESS covers all 15 collectors; no write/admin ever required | TestMariaDBLiveCadenceQualification, TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | #626. 15/15 status=success live; catalog is SELECT-only. |
+| MDG-R002 | PROCESS is the only privilege beyond SELECT; broadens PROCESSLIST/INNODB_TRX/INNODB_LOCKS to all sessions | — | COVERED | DOC | #626. Documented MariaDB privilege semantics; empirically observed. |
+| MDG-R003 | Cross-user SQL / locked data (INFO/trx_query/lock_data/DIGEST_TEXT) is HighSensitivity + redacted by default | TestMariaDBCatalogNoUnredactedSensitiveColumn, TestMariaDBInnodbTransactionsRedaction, TestMariaDBInnodbLocksRedaction | COVERED | BEHAVIORAL | #626. Reuses MDC-R004/R008 catalog redaction guard. |
+| MDG-R004 | No elevated grant; perf_schema-off / standalone / Galera-not-connected are legitimate empty | TestMariaDBCatalogExpectedSet, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #626. Empty, not failed. |
