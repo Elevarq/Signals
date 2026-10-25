@@ -133,3 +133,26 @@ from a collector error (unavailable) or a permission denial.
 
 **Expected Result:** Pass — the live qualification (`integration-mysql`) exercises
 this against the pinned idle MySQL 8.4 service container.
+
+---
+
+### TC-MYC-09: Replay Tier-1 evidence survives collection → export with semantics intact (live)
+
+**Rule:** MYC-R009
+
+**Given:** the seeded `signals_fixture.replay_fixture` table (nullable + NOT NULL
+columns, a primary key, an ordinary index, a UNIQUE index, and a composite index
+`idx_tenant_created (tenant_id, created_at)` with deliberately observable order)
+collected by the normal daemon and exported through the production exporter.
+
+**When:** `VerifyReplayTier1Evidence(export, "mysql")` runs over the exported ZIP.
+
+**Then:** `mysql_columns_v1` preserves column order (ORDINAL_POSITION 1..N),
+per-column `IS_NULLABLE` (note=YES, others=NO) and DDL-faithful engine-native
+`COLUMN_TYPE` (MySQL `bigint`/`int`); `mysql_index_inventory_v1` carries PRIMARY
+(NON_UNIQUE=0, id), uq_email (NON_UNIQUE=0), idx_status (NON_UNIQUE=1), and
+idx_tenant_created with columns in the exact order [tenant_id, created_at].
+
+**Expected Result:** Pass — `TestMySQLLiveReplayTier1Evidence` across every pinned
+`integration-mysql` leg (8.0, 8.4, 9.7); the deterministic verifier logic is
+covered by `TestVerifyReplayTier1Evidence_*`.

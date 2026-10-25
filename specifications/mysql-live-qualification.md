@@ -55,7 +55,7 @@ runnable locally.
 ## Behaviors
 
 - **Given** the seeded live MySQL and a `SELECT, PROCESS` role, **when** the
-  daemon runs a cycle, **then** all nine MySQL collectors persist
+  daemon runs a cycle, **then** all 18 MySQL collectors persist
   `status='success'` — `mysql_replication_status_v1` is a legitimate zero-row
   success on a standalone server — each reconciled to a `query_results` row whose
   decoded row count equals `query_runs.row_count`.

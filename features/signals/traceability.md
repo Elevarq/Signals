@@ -632,7 +632,7 @@ and the dbname-required rule. POC blocker F4.
 
 ## MySQL collection (PR1: seam generalization + catalog)
 
-Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R008, INV-MYC-01..03),
+Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R009, INV-MYC-01..03),
 `specifications/mysql-grants.md` (ACTIVE, DOC), and the backend-driven dispatch +
 `CatalogFor` generalization in `specifications/engine-collection-dispatch.md`
 (ECD-R002/R004/R006/R008). The MySQL-wire session, dispatch, identity, and
@@ -646,10 +646,11 @@ reporting are engine-generic; MySQL is added as a catalog + registry entry +
 | MYC-R002 | A collector error does not abort the others (partial capture) | TestCollectPartialFailureDoesNotAbort | COVERED | BEHAVIORAL | Shared Collect runtime (singlestore pkg), engine-agnostic. |
 | MYC-R003 | redactSensitive nils each SensitiveColumns value | TestMySQLProcesslistRedaction | COVERED | BEHAVIORAL | INFO redacted to nil. |
 | MYC-R004 | A query-text column collector (INFO/DIGEST_TEXT/trx_query) is HighSensitivity with it in SensitiveColumns (exact result-row case) | TestMySQLProcesslistRedaction, TestMySQLInnodbTransactionsRedaction, TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | processlist INFO, digests DIGEST_TEXT, trx_query (#543). |
-| MYC-R005 | CatalogFor routes by engine (mysql/singlestore), nil otherwise; no cross-engine leak, no PostgreSQL fallback | TestCatalogForRegistry, TestMySQLCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 16 collectors. |
+| MYC-R005 | CatalogFor routes by engine (mysql/singlestore), nil otherwise; no cross-engine leak, no PostgreSQL fallback | TestCatalogForRegistry, TestMySQLCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 18 collectors (#538 added columns + index_inventory). |
 | MYC-R006 | Activity collectors (transactions/locks/waits/MDL) are bounded point-in-time session evidence; idle = legitimate zero-row success | TestMySQLCatalogExpectedSet, TestMySQLInnodbTransactionsRedaction, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #543; LIMIT 200/500, oldest/WAITING/PENDING first; live leg exercises idle empty-success. |
 | MYC-R007 | Replication collectors return legitimate zero-row success when standalone / replication-disabled / GR-not-enabled (distinct from error/denial); native fields preserved | TestMySQLCatalogExpectedSet, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #543; replication_status + replica_applier_status + group_replication_members; live leg runs standalone (zero-row). |
 | MYC-R008 | Locked-key data (LOCK_DATA) is redacted like query text; native lock descriptors preserved | TestMySQLDataLocksRedaction, TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | #543; data_locks HighSensitivity, LOCK_DATA nil, object/mode/status kept. |
+| MYC-R009 | mysql_columns_v1 + mysql_index_inventory_v1 provide Replay Tier-1 evidence (columns name/type/nullability/ordinal; index name/ordered-columns/uniqueness; PRIMARY=PK identity); ordinal + composite ordering preserved; COLUMN_TYPE engine-native; not HighSensitivity | TestMySQLCatalogExpectedSet, TestMySQLLiveReplayTier1Evidence, TestVerifyReplayTier1Evidence_Pass, TestVerifyReplayTier1Evidence_CompositeOrderEnforced | COVERED | INTEGRATION | #538; live semantic qual across 8.0/8.4/9.7 legs + deterministic verifier tests; serves Analyzer replay-evidence-contract.md. |
 | INV-MYC-01 | Collection never issues a non-SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (16). |
 | INV-MYC-02 | mysql_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMySQLProcesslistRedaction | COVERED | BEHAVIORAL | — |
 | INV-MYC-03 | No query-text column (INFO/DIGEST_TEXT/trx_query) or locked-key data (LOCK_DATA) escapes the redaction contract | TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |
@@ -681,23 +682,25 @@ evidence. Verifier shared with SingleStore (engine-generic). Harness:
 
 ## MariaDB collection (PR1: catalog + seam wire-up)
 
-Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R008,
+Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R009,
 INV-MDC-01..03) + `specifications/mariadb-grants.md` (ACTIVE, DOC). MariaDB added
 as a catalog + `CatalogFor` registry entry + `SupportedEngines` membership +
 `SelectBackend` wire mapping — no per-engine dispatch/session/identity/reporting
 edits (identity already distinct in M5). Live qualification runs in CI
-(`integration-mariadb`). #616 brought the catalog to MySQL parity (15 collectors).
+(`integration-mariadb`). #616 brought the catalog to MySQL parity; #538 added the
+Replay Tier-1 columns + index-inventory collectors (17 collectors).
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
-| MDC-R001 | Every MariaDB catalog statement is a read-only SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 15 collectors. |
+| MDC-R001 | Every MariaDB catalog statement is a read-only SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite false for all 17 collectors. |
 | MDC-R002 | A collector error does not abort the others | TestCollectPartialFailureDoesNotAbort | COVERED | BEHAVIORAL | Shared Collect runtime, engine-agnostic. |
 | MDC-R003 | redactSensitive nils each SensitiveColumns value | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | INFO redacted to nil. |
 | MDC-R004 | A query-text column collector (INFO/trx_query/DIGEST_TEXT) is HighSensitivity with it in SensitiveColumns (exact result-row case) | TestMariaDBProcesslistRedaction, TestMariaDBInnodbTransactionsRedaction, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | processlist INFO, trx_query, digests DIGEST_TEXT (#616). |
-| MDC-R005 | CatalogFor(mariadb) returns the MariaDB catalog; no cross-engine leak, no PG fallback | TestCatalogForMariaDB, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 15 collectors. |
+| MDC-R005 | CatalogFor(mariadb) returns the MariaDB catalog; no cross-engine leak, no PG fallback | TestCatalogForMariaDB, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | Registry is the single per-engine seam; expected set is 17 collectors (#538 added columns + index_inventory). |
 | MDC-R006 | Activity collectors (transactions/locks/waits/MDL) are bounded point-in-time session evidence; idle = legitimate zero-row success | TestMariaDBCatalogExpectedSet, TestMariaDBInnodbTransactionsRedaction, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #616; LIMIT 200/500; live leg exercises idle empty-success. |
 | MDC-R007 | Topology / perf_schema-gated collectors return legitimate zero-row success when standalone / Galera-not-connected / perf_schema-off (distinct from error/denial); native fields preserved | TestMariaDBCatalogExpectedSet, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #616; replication_status (GTID), galera_status (wsrep), metadata_locks + digests perf_schema-gated; live leg runs standalone/perf_schema-off. |
 | MDC-R008 | Locked-key data (lock_data) is redacted like query text; native lock descriptors preserved | TestMariaDBInnodbLocksRedaction, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | #616; INNODB_LOCKS HighSensitivity, lock_data nil, mode/table kept. |
+| MDC-R009 | mariadb_columns_v1 + mariadb_index_inventory_v1 provide Replay Tier-1 evidence (columns name/type/nullability/ordinal; index name/ordered-columns/uniqueness; PRIMARY=PK identity); ordinal + composite ordering preserved; COLUMN_TYPE engine-native (bigint(20)); identical SQL to MySQL but distinct identity; not HighSensitivity | TestMariaDBCatalogExpectedSet, TestMariaDBLiveReplayTier1Evidence, TestVerifyReplayTier1Evidence_MariaDBNativeType, TestVerifyReplayTier1Evidence_CompositeOrderEnforced | COVERED | INTEGRATION | #538; live semantic qual across 10.11/11.4/11.8/12.3 legs + deterministic verifier tests; serves Analyzer replay-evidence-contract.md. |
 | INV-MDC-01 | Collection never issues a non-SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (15). |
 | INV-MDC-02 | mariadb_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | — |
 | INV-MDC-03 | No query-text column (INFO/trx_query/DIGEST_TEXT) or locked-key data (lock_data) escapes the redaction contract | TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |

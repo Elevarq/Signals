@@ -107,3 +107,26 @@ rows. **Then:** each is a successful empty result (`Err == ""`), distinct from a
 collector error or a permission denial. **Expected:** Pass — the
 `integration-mariadb` live qualification exercises this against the pinned idle
 MariaDB 11.4 service container (perf_schema off, standalone, no Galera).
+
+---
+
+### TC-MDC-10: Replay Tier-1 evidence survives collection → export with semantics intact (live)
+
+**Rule:** MDC-R009
+
+**Given:** the seeded `signals_fixture.replay_fixture` table (nullable + NOT NULL
+columns, a primary key, an ordinary index, a UNIQUE index, and a composite index
+`idx_tenant_created (tenant_id, created_at)` with deliberately observable order)
+collected by the normal daemon and exported through the production exporter.
+
+**When:** `VerifyReplayTier1Evidence(export, "mariadb")` runs over the exported ZIP.
+
+**Then:** `mariadb_columns_v1` preserves column order, per-column `IS_NULLABLE`,
+and DDL-faithful **engine-native** `COLUMN_TYPE` (MariaDB `bigint(20)`/`int(11)`,
+never normalized to MySQL); `mariadb_index_inventory_v1` carries PRIMARY
+(NON_UNIQUE=0, id), uq_email (NON_UNIQUE=0), idx_status (NON_UNIQUE=1), and
+idx_tenant_created with columns in the exact order [tenant_id, created_at].
+
+**Expected Result:** Pass — `TestMariaDBLiveReplayTier1Evidence` across every
+pinned `integration-mariadb` LTS leg (10.11, 11.4, 11.8, 12.3); the deterministic
+verifier logic is covered by `TestVerifyReplayTier1Evidence_*`.

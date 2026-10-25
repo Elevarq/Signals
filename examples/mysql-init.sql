@@ -38,6 +38,35 @@ CREATE TABLE IF NOT EXISTS ledger (
   KEY account_idx (account_id)
 ) ENGINE=InnoDB;
 
+-- #538 Replay Tier-1 evidence fixture: a representative table that exercises the
+-- full columns + index-inventory contract so the semantic qualification can
+-- assert the evidence survives collection -> persistence -> export:
+--   * a nullable column (note) and NOT NULL columns (id, tenant_id, created_at,
+--     email, status);
+--   * a primary key (id);
+--   * an ordinary single-column index (idx_status);
+--   * a UNIQUE index (uq_email);
+--   * a composite index with DELIBERATELY observable column ordering
+--     (idx_tenant_created = tenant_id, created_at) — the exported evidence MUST
+--     preserve that exact (tenant_id, created_at) order.
+CREATE TABLE IF NOT EXISTS replay_fixture (
+  id BIGINT NOT NULL,
+  tenant_id BIGINT NOT NULL,
+  created_at DATETIME NOT NULL,
+  email VARCHAR(255) NOT NULL,
+  note VARCHAR(255) NULL,
+  status INT NOT NULL,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_email (email),
+  KEY idx_status (status),
+  KEY idx_tenant_created (tenant_id, created_at)
+) ENGINE=InnoDB;
+
+INSERT IGNORE INTO replay_fixture (id, tenant_id, created_at, email, note, status) VALUES
+ (1,100,NOW(),'a@example.com','n1',1),(2,100,NOW(),'b@example.com',NULL,0),
+ (3,200,NOW(),'c@example.com','n3',1),(4,200,NOW(),'d@example.com',NULL,0),
+ (5,300,NOW(),'e@example.com','n5',1);
+
 INSERT IGNORE INTO accounts (id, region, balance, updated_at) VALUES
  (1,'eu',100.00,NOW()),(2,'us',200.00,NOW()),(3,'eu',300.00,NOW()),(4,'ap',400.00,NOW()),
  (5,'us',500.00,NOW()),(6,'eu',600.00,NOW()),(7,'ap',700.00,NOW()),(8,'us',800.00,NOW()),

@@ -134,3 +134,23 @@ func TestMySQLLiveExportReconciliation(t *testing.T) {
 	}
 	t.Logf("export reconciliation OK for snapshot %s: collected==persisted==exported, redaction held, manifest complete", target.ID)
 }
+
+// TestMySQLLiveReplayTier1Evidence (#538, MYC-R009): the columns +
+// index-inventory evidence for the seeded signals_fixture.replay_fixture table
+// survives collection -> persistence -> production export with its semantics
+// intact — column order/type/nullability and index identity/uniqueness/composite
+// ordering — so Analyzer Replay can reconstruct the table without inventing it.
+func TestMySQLLiveReplayTier1Evidence(t *testing.T) {
+	zipPath := os.Getenv("MYSQL_QUAL_EXPORT_ZIP")
+	if zipPath == "" {
+		t.Skip("MYSQL_QUAL_EXPORT_ZIP not set — run via scripts/mysql-live-qual.sh")
+	}
+	z, err := ReadQualExport(zipPath)
+	if err != nil {
+		t.Fatalf("ReadQualExport: %v", err)
+	}
+	if err := VerifyReplayTier1Evidence(z, "mysql"); err != nil {
+		t.Fatalf("replay Tier-1 evidence qualification failed: %v", err)
+	}
+	t.Log("replay Tier-1 evidence OK: columns + index inventory semantics survived collection->persistence->export")
+}

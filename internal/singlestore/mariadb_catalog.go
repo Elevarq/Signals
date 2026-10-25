@@ -64,6 +64,32 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA",
 		},
 		{
+			// #538 (Replay Tier-1 evidence): per-column inventory so Analyzer
+			// Replay reconstructs valid DDL without inventing columns, types, or
+			// nullability. Identical acquisition SQL to MySQL (empirically verified
+			// equivalent across MySQL 8.0/8.4/9.7 + MariaDB 10.11/11.4/11.8/12.3),
+			// but a DISTINCT MariaDB collector identity. COLUMN_TYPE is emitted
+			// engine-native: MariaDB retains the integer display width
+			// (`bigint(20)`/`int(11)`) MySQL 8.0 dropped — correct DDL for MariaDB,
+			// never normalized to MySQL. ORDINAL_POSITION preserves column order.
+			// Schema metadata only -> not HighSensitivity.
+			ID:       "mariadb_columns_v1",
+			Category: "schema",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_TYPE, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION",
+		},
+		{
+			// #538 (Replay Tier-1 evidence): per-index inventory. INDEX_NAME='PRIMARY'
+			// carries primary-key identity losslessly (no separate PK collector);
+			// NON_UNIQUE=0 marks unique/PK vs ordinary; SEQ_IN_INDEX preserves
+			// composite-index ordering exactly. Per-index CARDINALITY is Tier-2 and
+			// NOT collected. Identical acquisition SQL to MySQL, verified equivalent
+			// live across all four MariaDB LTS lines; distinct MariaDB identity.
+			// Schema metadata only -> not HighSensitivity.
+			ID:       "mariadb_index_inventory_v1",
+			Category: "schema",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
+		},
+		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
 			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
 			// STATUS='enabled').

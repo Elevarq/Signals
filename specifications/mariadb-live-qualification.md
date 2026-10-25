@@ -66,7 +66,7 @@ MariaDB retains across every supported generation and MySQL 8.0 removed).
 ## Behaviors
 
 - **Given** the seeded live MariaDB and a `SELECT, PROCESS` role, **when** the
-  daemon runs a cycle, **then** all 15 MariaDB collectors persist
+  daemon runs a cycle, **then** all 17 MariaDB collectors persist
   `status='success'` — `mariadb_replication_status_v1` / `mariadb_galera_status_v1`
   are legitimate standalone successes, and the `performance_schema`-gated
   collectors are legitimate empty successes when it is off — each reconciled to a
