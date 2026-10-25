@@ -830,3 +830,17 @@ degrade to skipped without it. Grant ladder confirmed live (ClickHouse 24.8).
 | CHG-R004 | No write/admin/SYSTEM grant ever required; SELECT-only | — | COVERED | DOC | #565. Confirmed live: CREATE/INSERT denied under SELECT-only. |
 | INV-CHG-01 | Collection never requires more than SELECT on system.* tables | — | COVERED | DOC | #565. |
 | INV-CHG-02 | Broad cross-user query-log visibility is opt-in, never conferred by the baseline | TestOptionalGrantSurfaceIsQueryLogsOnly | COVERED | BEHAVIORAL | #565. Baseline excludes query logs; surface guarded against catalog drift. |
+
+## #545 — MySQL least-privilege grants + cross-user exposure
+
+Spec: `specifications/mysql-grants.md` (ACTIVE, MYG-R001..R004). Configuration
+decision: SELECT+PROCESS baseline; PROCESS broadens PROCESSLIST/INNODB_TRX to all
+sessions; cross-user SQL / locked data redacted by default (defense in depth).
+Grant model exercised by the integration-mysql live qualification.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MYG-R001 | Baseline SELECT+PROCESS covers all 16 collectors; no write/admin ever required | TestMySQLLiveCadenceQualification, TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | #545. 16/16 status=success live; catalog is SELECT-only. |
+| MYG-R002 | PROCESS is the only privilege beyond SELECT; broadens PROCESSLIST/INNODB_TRX to all sessions | — | COVERED | DOC | #545. Documented MySQL privilege semantics; empirically observed. |
+| MYG-R003 | Cross-user SQL / locked data (INFO/trx_query/DIGEST_TEXT/LOCK_DATA) is HighSensitivity + redacted by default | TestMySQLCatalogNoUnredactedSensitiveColumn, TestMySQLInnodbTransactionsRedaction, TestMySQLDataLocksRedaction | COVERED | BEHAVIORAL | #545. Reuses MYC-R004/R008 catalog redaction guard. |
+| MYG-R004 | No elevated/optional grant; replication/GR absence is legitimate empty | TestMySQLCatalogExpectedSet, TestMySQLLiveExportReconciliation | COVERED | BEHAVIORAL | #545. Standalone returns empty, not failed. |
