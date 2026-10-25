@@ -814,3 +814,19 @@ SCH-R001/R002/R003; PostgreSQL + MySQL-wire TLS unchanged.
 | INV-CCH-01 | A configured verify mode never silently downgrades to plaintext/unverified | TestOpen_VerifyModeBadCAFailsClosed, TestResolveTLS_DisablePlaintext | COVERED | BEHAVIORAL | #558. |
 | INV-CCH-02 | PostgreSQL/MySQL-wire TLS behavior unchanged | — | COVERED | DOC | #558 adds a ClickHouse-only TLS path; mysqlwire + pgx untouched. |
 | INV-CCH-03 | No credential/CA-private material logged or persisted | — | COVERED | DOC | CA file path is non-secret; password used only to dial. |
+
+## #565 — ClickHouse least-privilege grants
+
+Spec: `specifications/clickhouse-grants.md` (ACTIVE, CHG-R001..R004, INV-CHG-01..02).
+Source-permission-first: baseline = SELECT on the 11 metadata system.* tables (no
+cross-user query visibility); the query-log collectors need an OPTIONAL grant and
+degrade to skipped without it. Grant ladder confirmed live (ClickHouse 24.8).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CHG-R001 | Baseline = SELECT on the 11 metadata system.* tables; read-only; collects 12/14, no cross-user query visibility | TestOptionalGrantSurfaceIsQueryLogsOnly | COVERED | BEHAVIORAL | #565. Confirmed live: 11 metadata OK, writes ACCESS_DENIED. |
+| CHG-R002 | query_log/query_thread_log collectors need the optional grant; degrade to skipped (497) without it, never failed | TestOptionalGrantSurfaceIsQueryLogsOnly | COVERED | BEHAVIORAL | #565. Reuses CHB-R004 degrade; confirmed live (ACCESS_DENIED on baseline role). |
+| CHG-R003 | Optional query-log grant exposes cross-user query text and is separately approved; Signals redacts query (defense in depth) | TestQueryLogCollectorRedactsQuery | COVERED | BEHAVIORAL | #565. query redacted; normalized_query_hash identity retained. |
+| CHG-R004 | No write/admin/SYSTEM grant ever required; SELECT-only | — | COVERED | DOC | #565. Confirmed live: CREATE/INSERT denied under SELECT-only. |
+| INV-CHG-01 | Collection never requires more than SELECT on system.* tables | — | COVERED | DOC | #565. |
+| INV-CHG-02 | Broad cross-user query-log visibility is opt-in, never conferred by the baseline | TestOptionalGrantSurfaceIsQueryLogsOnly | COVERED | BEHAVIORAL | #565. Baseline excludes query logs; surface guarded against catalog drift. |
