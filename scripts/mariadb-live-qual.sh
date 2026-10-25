@@ -42,6 +42,36 @@ DAEMON_PID=""
 say() { printf '>> %s\n' "$*"; }
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
 
+# #530 conformance corpus: when SIGNALS_CORPUS_OUT is set, publish the exact
+# live-qualified export ZIP (the one that just passed the Go verifier) as the
+# producer conformance artifact Analyzer #3890 consumes, with reproducible
+# provenance. No behaviour change when unset. Never hand-edited — verbatim
+# production-exporter output.
+emit_conformance_artifact() {
+  local engine="$1" zip="$2" out="${SIGNALS_CORPUS_OUT}"
+  mkdir -p "${out}"
+  local dest="${out}/${engine}-signals.zip"
+  cp "${zip}" "${dest}"
+  local sha="" commit="" ever=""
+  if command -v sha256sum >/dev/null 2>&1; then sha="$(sha256sum "${dest}" | awk '{print $1}')";
+  else sha="$(shasum -a 256 "${dest}" | awk '{print $1}')"; fi
+  commit="$(git -C "${REPO_ROOT}" rev-parse HEAD 2>/dev/null || echo unknown)"
+  ever="$(unzip -p "${dest}" metadata.json 2>/dev/null | python3 -c 'import sys,json; print(json.load(sys.stdin).get("engine_version",""))' 2>/dev/null || true)"
+  cat > "${out}/${engine}-signals.provenance.json" <<EOF
+{
+  "engine": "${engine}",
+  "engine_version": "${ever}",
+  "signals_commit": "${commit}",
+  "artifact": "${engine}-signals.zip",
+  "artifact_sha256": "${sha}",
+  "generation_mechanism": "scripts/${engine}-live-qual.sh — real cmd/signals daemon -> production exporter (signalsctl export), captured after the live Go verifier passed; never hand-edited",
+  "fixture": "examples/${engine}-init.sql + examples/${engine}-daemon.yaml",
+  "source_image": "${SIGNALS_CORPUS_IMAGE:-pinned ${engine} dev fixture (see scripts/${engine}-dev-fixture.sh)}"
+}
+EOF
+  say "CONFORMANCE ARTIFACT emitted: ${dest} (engine_version=${ever}, sha256=${sha})"
+}
+
 cleanup() {
   [ -n "${DAEMON_PID}" ] && kill -TERM "${DAEMON_PID}" >/dev/null 2>&1 || true
   [ -z "${EXTERNAL}" ] && bash "${FIXTURE}" down >/dev/null 2>&1 || true
@@ -138,5 +168,7 @@ say "running the Go live verifier against the real producer artifacts"
   MARIADB_QUAL_EXPORT_SNAPSHOT="${EXPORT_ULID}" \
   MARIADB_QUAL_VERSION_PREFIX="${MARIADB_QUAL_VERSION_PREFIX:-11.}" \
     go test -tags mariadb_live -count=1 -v -run 'TestMariaDBLive' ./internal/collector/ )
+
+[ -n "${SIGNALS_CORPUS_OUT:-}" ] && emit_conformance_artifact "mariadb" "${EXPORT_ZIP}"
 
 say "LIVE QUALIFICATION OK — real daemon + real MariaDB + production exporter, verified status=success + reconciled evidence"

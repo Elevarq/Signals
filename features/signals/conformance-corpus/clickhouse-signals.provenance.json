@@ -1,0 +1,10 @@
+{
+  "engine": "clickhouse",
+  "engine_version": "24.8.14.39",
+  "signals_commit": "f40e2fa9ffc572ea764fc7399f240c59fa5cc2dd",
+  "artifact": "clickhouse-signals.zip",
+  "artifact_sha256": "88a23594251bd9ebff630958b91674507ae446f7ec56a608a7f13dfc9549151a",
+  "generation_mechanism": "scripts/clickhouse-live-qual.sh — real cmd/signals daemon -> production exporter (signalsctl export), captured after the live Go verifier passed; never hand-edited",
+  "fixture": "examples/clickhouse-init.sql + examples/clickhouse-daemon.yaml",
+  "source_image": "pinned clickhouse dev fixture (see scripts/clickhouse-dev-fixture.sh)"
+}

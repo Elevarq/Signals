@@ -1,0 +1,10 @@
+{
+  "engine": "mysql",
+  "engine_version": "8.4.13",
+  "signals_commit": "f40e2fa9ffc572ea764fc7399f240c59fa5cc2dd",
+  "artifact": "mysql-signals.zip",
+  "artifact_sha256": "88c0f40c8e1eddd540484293d0cd02e2b9f1ac28dc1e1492fb59385c48c7ccbb",
+  "generation_mechanism": "scripts/mysql-live-qual.sh — real cmd/signals daemon -> production exporter (signalsctl export), captured after the live Go verifier passed; never hand-edited",
+  "fixture": "examples/mysql-init.sql + examples/mysql-daemon.yaml",
+  "source_image": "pinned mysql dev fixture (see scripts/mysql-dev-fixture.sh)"
+}
