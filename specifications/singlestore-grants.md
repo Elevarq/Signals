@@ -36,6 +36,25 @@ SingleStore 9.1.1):
   not required for the POC; it degrades to a per-collector skip under the
   baseline role.
 
+## Cross-user / sensitive exposure (what each grant makes visible)
+
+Source-permission-first: the database grant is the primary boundary; Signals-side
+redaction is defense in depth. `PROCESS` broadens the live-workload `MV_*` views
+from the current user's own rows to **every** session/query on the cluster; the
+collectors that then carry cross-user SQL text are redacted by default:
+
+| Collector | Sensitive field | What it exposes | Default handling |
+|-----------|-----------------|-----------------|------------------|
+| `singlestore_plancache_v1` | `QUERY_TEXT` | the plan-cache SQL text across all accounts | **HighSensitivity → redacted** |
+| `singlestore_processlist_v1` | `INFO` | the live SQL text of every session | **HighSensitivity → redacted** |
+
+Without `PROCESS`, `MV_PLANCACHE` / `MV_PROCESSLIST` return the current user's own
+rows only (a current-user-only state, not a denial). The `CLUSTER`-elevated
+collectors (`cluster_status`, `mv_events`) degrade to a per-collector skip under
+the baseline role (SSG-R003). Non-SQL evidence (topology, schema sizing, resource
+counters, node capacity, pipeline names) is native evidence; pipeline
+`CONFIG_JSON` (connection credentials) is also HighSensitivity-redacted (#618).
+
 ## Rules
 
 | ID | Rule |
@@ -43,6 +62,7 @@ SingleStore 9.1.1):
 | **SSG-R001** | The documented baseline role is `GRANT SELECT, PROCESS ON *.*` to a dedicated read-only user; no broader grant is required for 13/15 collectors. |
 | **SSG-R002** | A collector needing a privilege beyond the baseline MUST declare it in `Collector.ElevatedPrivilege` (currently `cluster_status` and `mv_events` → `CLUSTER`). |
 | **SSG-R003** | A permission-denied error from an `ElevatedPrivilege` collector run under the baseline role is an EXPECTED degrade — captured as a per-collector skip (`Result.Err`), never a fatal failure (collection stays partial, not failed). |
+| **SSG-R004** | Every collector that can surface cross-user SQL (`QUERY_TEXT`, `INFO`) or connection credentials (`CONFIG_JSON`) is `HighSensitivity` and redacted by default (defense in depth); the DB grant (`PROCESS` for cross-session visibility) is the primary boundary. Without `PROCESS`, the live-workload views are current-user-only, not denied. |
 
 ## Invariants
 
