@@ -91,9 +91,11 @@ PostgreSQL TLS and timeout behavior are unchanged (both non-goals of #585/#586).
   the connection without leaking it or blocking shutdown. (#586)
 - **SCH-R006** — The environment config path reads `SIGNALS_TARGET_ENGINE` and
   sets the environment target's engine; an omitted value defaults to PostgreSQL
-  (backward compatible), never an implicit SingleStore detection. The default
-  port is engine-aware when `SIGNALS_TARGET_PORT` is unset (SingleStore → 3306,
-  PostgreSQL → 5432). (#587)
+  (backward compatible), never an implicit SingleStore detection. The engine-aware
+  default port and database behavior is owned by `engine-connection-defaults.md`
+  (ECONN-R001..R004, #623), which generalizes it to all five engines (MySQL /
+  MariaDB / SingleStore → 3306, ClickHouse → 9000, PostgreSQL → 5432) and stops
+  the non-PostgreSQL `postgres`-database leak. (#587, generalized by #623)
 - **SCH-R007** — A failed SingleStore collector's persisted `reason` is the
   canonical classification of its error (`classifyRunError`): `timeout`,
   `permission_denied`, `object_missing`, or `execution_error` — never empty. The
