@@ -517,6 +517,29 @@ byte-identical. Tests: `internal/export/engine_keyed_reporting_test.go`,
 | INV-MKR-02 | PostgreSQL export output is byte-identical to pre-change for the same store state | TestPostgreSQLExportCollectorStatusUnchanged, TestPostgreSQLExportQueryCatalogRetained, TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | Plus the M0 PostgreSQL CI matrix (integration-pg 14-18). |
 | INV-MKR-03 | catalogFor is total: unknown engine yields empty catalog, never a PostgreSQL fallback | TestCatalogForIsTotal | COVERED | BEHAVIORAL | postgresql/"" -> pgqueries; singlestore -> SingleStore; mysql/unknown -> empty. |
 
+## #530 — Multi-engine report contract (producer side)
+
+Spec: `specifications/multi-engine-report-contract.md` (ACTIVE). Acceptance:
+`specifications/multi-engine-report-contract.acceptance.md`. The umbrella
+producer contract over `signals-snapshot.v1` across all five engines; producer
+rules are CI-gated by a deterministic cross-engine conformance test over the real
+`export.Builder.WriteTo` path. MERC-R008 + the consumer obligations are the OPEN
+Analyzer sign-off (issue stays open; implementation != verification).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| MERC-R001 | Every engine's export ZIP contains all seven members | TestMultiEngineReportContract | COVERED | BEHAVIORAL | metadata/collector_status/snapshots/query_catalog/query_runs/query_results/manifest, all 5 engines. |
+| MERC-R002 | schema_version == signals-snapshot.v1 for every engine (additive only) | TestMultiEngineReportContract | COVERED | BEHAVIORAL | Unchanged across engines. |
+| MERC-R003 | engine always present + engine-correct; engine_version non-PostgreSQL-only; PostgreSQL byte-compat | TestMultiEngineReportContract, TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | empty/legacy -> postgresql (EID-R004); PG gains no engine_version. |
+| MERC-R004 | collector_status + query_catalog contain only the engine's catalog (no cross-engine leak) | TestMultiEngineReportContract, TestSingleStoreExportCollectorStatusHasNoPostgreSQLLeak | COVERED | BEHAVIORAL | Reuses the MKR reporting seam; asserted per engine. |
+| MERC-R005 | query_runs status within {success,failed,skipped}; success carries row_count + joinable payload | TestMultiEngineReportContract | COVERED | BEHAVIORAL | Status enum + success->query_results join. |
+| MERC-R006 | manifest.json (algorithm sha256) covers every member with a non-empty sha; no absent member | TestMultiEngineReportContract | COVERED | BEHAVIORAL | Member<->manifest cross-check per engine. |
+| MERC-R007 | Default exports carry no secret payload (query text / locked-key data / secret config redacted) | TestSensitiveColumnsAreHighSensitivity, TestMySQLCatalogNoUnredactedSensitiveColumn, TestMariaDBCatalogNoUnredactedSensitiveColumn, TestVerifyExportReconciliation_RedactionBreachFails | COVERED | BEHAVIORAL | Per-engine redaction contracts (collector specs) + live-qual redaction legs. |
+| MERC-R008 | Consumer forward-ignores unknown engine/field; historical PostgreSQL ingests identically | — | PLANNED | DOC | OPEN Analyzer sign-off (#530 acceptance); conformance corpus provided. Not closable on the Signals side. |
+| INV-MERC-01 | schema_version stable; PostgreSQL export gains no new metadata field; pg_version stays its carrier | TestMultiEngineReportContract, TestMetadataEngineVersionOnlyForNonPostgreSQL | COVERED | BEHAVIORAL | Byte-compat for PostgreSQL. |
+| INV-MERC-02 | No export leaks a foreign-engine collector | TestMultiEngineReportContract, TestSingleStoreExportQueryCatalogExcludesPostgreSQL | COVERED | BEHAVIORAL | Catalog-pure per engine. |
+| INV-MERC-03 | No default export contains raw credentials, secret config, or query/sample text | TestPipelinesConfigRedacted, TestMySQLCatalogNoUnredactedSensitiveColumn, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | CONFIG_JSON / query-text / locked-key redaction. |
+
 ## #583/#584 — SingleStore live qualification (M4)
 
 Spec: `specifications/singlestore-live-qualification.md` (ACTIVE). Acceptance:
