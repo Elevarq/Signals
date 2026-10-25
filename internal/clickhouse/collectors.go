@@ -114,9 +114,15 @@ func Catalog() []Collector {
 			SQL:      "SELECT name, value, changed FROM system.settings WHERE name IN ('max_threads', 'max_memory_usage', 'max_concurrent_queries', 'max_server_memory_usage', 'background_pool_size', 'readonly')",
 		},
 		{
+			// #533: normalized_query_hash is ClickHouse's stable query identity
+			// (a UInt64 hash of the query with literals stripped — the ClickHouse
+			// analogue of a digest/queryid). It is NOT sensitive (a hash, not SQL
+			// text), so it is selected as the typed workload identity while the raw
+			// `query` stays HighSensitivity + redacted. Confirmed live against
+			// ClickHouse 24.8 under GRANT SELECT ON system.*.
 			ID:               "clickhouse_query_log_v1",
 			Category:         "workload",
-			SQL:              "SELECT type, query_duration_ms, read_rows, result_rows, memory_usage, query FROM system.query_log WHERE type = 'QueryFinish' AND event_time > now() - INTERVAL 1 HOUR ORDER BY event_time DESC LIMIT 200",
+			SQL:              "SELECT type, query_duration_ms, read_rows, result_rows, memory_usage, normalized_query_hash, query FROM system.query_log WHERE type = 'QueryFinish' AND event_time > now() - INTERVAL 1 HOUR ORDER BY event_time DESC LIMIT 200",
 			HighSensitivity:  true,
 			SensitiveColumns: []string{"query"},
 		},

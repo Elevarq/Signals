@@ -37,7 +37,7 @@ qualification + the `integration-clickhouse` CI job (CH-3).
 | `clickhouse_events_v1` | resources | `system.events` | #564 |
 | `clickhouse_asynchronous_metrics_v1` | resources | `system.asynchronous_metrics` | #564 |
 | `clickhouse_settings_v1` | config | `system.settings` (IN-list) | #564 |
-| `clickhouse_query_log_v1` | workload | `system.query_log` (recent) | #561 |
+| `clickhouse_query_log_v1` | workload | `system.query_log` (recent) | #561; #533 adds `normalized_query_hash` as the typed workload identity (non-sensitive UInt64); `query` stays **HighSensitivity**-redacted |
 | `clickhouse_query_thread_log_v1` | workload | `system.query_thread_log` (recent) | #561 |
 
 ## Behaviors

@@ -540,6 +540,25 @@ Analyzer sign-off (issue stays open; implementation != verification).
 | INV-MERC-02 | No export leaks a foreign-engine collector | TestMultiEngineReportContract, TestSingleStoreExportQueryCatalogExcludesPostgreSQL | COVERED | BEHAVIORAL | Catalog-pure per engine. |
 | INV-MERC-03 | No default export contains raw credentials, secret config, or query/sample text | TestPipelinesConfigRedacted, TestMySQLCatalogNoUnredactedSensitiveColumn, TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | CONFIG_JSON / query-text / locked-key redaction. |
 
+## #533 — Workload measurement & provenance model
+
+Spec: `specifications/workload-measurement-model.md` (ACTIVE). Acceptance:
+`specifications/workload-measurement-model.acceptance.md`. Enforced producer layer
+(typed identity + sample-SQL redaction) is CI-gated; the normalized envelope
+(WMM-R004) + consumer never-equate (WMM-R002) are model/consumer items tracked
+with #530 (issue stays open). #533 added ClickHouse `normalized_query_hash` as its
+typed identity.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| WMM-R001 | Every engine's workload collector carries its native typed identity (queryid / DIGEST / DIGEST / PLAN_ID / normalized_query_hash) | TestWorkloadIdentityAndRedaction, TestWorkloadIdentityPostgreSQL | COVERED | BEHAVIORAL | PG via s.* + ORDER BY queryid; wire + CH via select-list token. |
+| WMM-R002 | Identity is {kind,value,scope}; never equated across engines (same kind MySQL/MariaDB distinguished by scope) | TestWorkloadIdentityScopedPerEngine | COVERED | BEHAVIORAL | Producer: per-engine catalog purity; consumer never-equate is the Analyzer obligation (#530). |
+| WMM-R003 | Sample/normalized SQL redacted by default; non-sensitive identity retained | TestWorkloadIdentityAndRedaction, TestMySQLStatementDigestsRedaction, TestPipelinesConfigRedacted | COVERED | BEHAVIORAL | DIGEST_TEXT / QUERY_TEXT / ClickHouse query redacted; identity (hash/id) kept. PG via RedactStatementSecrets (REDACT-R002/R003). |
+| WMM-R004 | Additive normalized envelope (source/units/scope/observed window/reset markers) accompanies native payload without loss | — | PLANNED | DOC | Deferred; gated on the #530 Analyzer contract. Native evidence carried today. |
+| INV-WMM-01 | A workload identity value is never equatable across engines (distinct scope) | TestWorkloadIdentityScopedPerEngine | COVERED | BEHAVIORAL | Per-engine scoped identity. |
+| INV-WMM-02 | No raw/sample SQL leaves the instance by default; only the non-sensitive identity is retained | TestWorkloadIdentityAndRedaction | COVERED | BEHAVIORAL | Redaction + identity-survives assertion. |
+| INV-WMM-03 | Native engine payload always accompanies (never replaced by) any normalized representation | — | PLANNED | DOC | Envelope deferred; native-only today. |
+
 ## #583/#584 — SingleStore live qualification (M4)
 
 Spec: `specifications/singlestore-live-qualification.md` (ACTIVE). Acceptance:
