@@ -605,12 +605,29 @@ INV-SCH-01..03) and the MariaDB-distinct extension of
 | SCH-R003 | TLS fails closed on bad CA; a verified connection never falls back to plaintext | TestBuildTLSConfig_BadCAFailsClosed, TestResolveTLS_FailsClosedOnBadCA | COVERED | BEHAVIORAL | Non-existent + unparseable CA both error; Open resolves TLS before dialing. |
 | SCH-R004 | Each collector bounded by min(query_timeout, remaining target budget); timed-out collector fails with reason timeout; later collectors run | TestBoundedSingleStoreRunner_CancelsAtQueryTimeout, TestBoundedSingleStoreRunner_LaterCollectorsRun, TestBoundedSingleStoreRunner_DeadlineErrorType | COVERED | BEHAVIORAL | #586. Deterministic via a blocking fake runner + a 10ms bound. |
 | SCH-R005 | The per-target timeout remains the outer bound; query timeout never silently replaces it | TestBoundedSingleStoreRunner_LaterCollectorsRun | COVERED | BEHAVIORAL | min() logic derives from the ctx deadline; cycle not aborted by one timeout. |
-| SCH-R006 | Env SIGNALS_TARGET_ENGINE sets the engine; omission defaults to PostgreSQL; engine-aware default port | TestEnvTargetEngineParity | COVERED | BEHAVIORAL | #587. singlestore→3306, omitted→postgresql/5432, explicit port wins. |
+| SCH-R006 | Env SIGNALS_TARGET_ENGINE sets the engine; omission defaults to PostgreSQL; engine-aware default port | TestEnvTargetEngineParity | COVERED | BEHAVIORAL | #587. Engine-aware port now generalized to all engines by engine-connection-defaults.md (ECONN, #623). |
 | SCH-R007 | A failed SingleStore run carries a canonical reason (timeout/permission_denied/object_missing/execution_error), never empty; elevated degrade stays skipped | TestMapSingleStoreCollection_CanonicalReasons | COVERED | BEHAVIORAL | Reuses classifyRunError; MKR-R007 elevated degrade preserved. |
 | INV-SCH-01 | No credential/private key/certificate private material logged or persisted | — | COVERED | DOC | Redacted DSN blanks the password (INV-WIRE-02); the CA file path is non-secret. |
 | INV-SCH-02 | PostgreSQL TLS + query-timeout behavior unchanged | — | COVERED | DOC | Changes are MySQL-wire-only + the previously-PostgreSQL-only env engine field; existing PostgreSQL timeout/TLS tests remain green. |
 | INV-SCH-03 | Collection stays read-only; no engine is written | — | COVERED | DOC | Collectors are SELECT-only (SSC-R001 / INV-WIRE-01); no new statements added. |
 | SS-ID-R003 (mariadb distinct) | A MariaDB server resolves to the distinct `mariadb` engine, never folding into `mysql` | TestResolve | COVERED | BEHAVIORAL | TC-SSID-07; engineid_test.go. Checked before the mysql branch. |
+
+## #623 — Engine-aware connection defaults
+
+Spec: `specifications/engine-connection-defaults.md` (ACTIVE). Acceptance:
+`specifications/engine-connection-defaults.acceptance.md`. Generalizes SCH-R006's
+SingleStore-only default port to all five engines + fixes the env database leak
+and the dbname-required rule. POC blocker F4.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| ECONN-R001 | Unset port defaults to DefaultPortForEngine (PG 5432, MySQL/MariaDB/SingleStore 3306, ClickHouse 9000); explicit port wins; applied to env + YAML | TestEnvDefaultPortAllEngines, TestYAMLEnvPortParity, TestEnvExplicitPortAndDBWin, TestEnvTargetEngineParity | COVERED | BEHAVIORAL | #623. Resolved target carries the truthful port. |
+| ECONN-R002 | Env database defaults to `postgres` only for PostgreSQL; non-PostgreSQL never silently receives it | TestEnvDatabaseDefaultOnlyPostgreSQL | COVERED | BEHAVIORAL | #623. Non-PG resolves empty dbname (server-wide monitoring). |
+| ECONN-R003 | dbname required (hard error) only for PostgreSQL; non-PostgreSQL may omit it; explicit always honored | TestDBNameRequiredOnlyForPostgreSQL, TestEnvExplicitPortAndDBWin | COVERED | BEHAVIORAL | #623. ValidateStrict made engine-aware. |
+| ECONN-R004 | Engine never inferred from port/host/db; unsupported explicit engine rejected, never downgraded | TestUnsupportedEngineRejected | COVERED | BEHAVIORAL | #623. Reuses EID-R002 fail-closed. |
+| INV-ECONN-01 | A non-PostgreSQL target never silently receives port 5432 or database `postgres` | TestEnvDefaultPortAllEngines, TestEnvDatabaseDefaultOnlyPostgreSQL | COVERED | BEHAVIORAL | #623. |
+| INV-ECONN-02 | Explicit user config (port/database/engine) always overrides a default | TestEnvExplicitPortAndDBWin | COVERED | BEHAVIORAL | #623. |
+| INV-ECONN-03 | Omitted engine resolves to PostgreSQL / 5432 / `postgres` (legacy backward compat) | TestEnvDefaultPortAllEngines, TestEnvDatabaseDefaultOnlyPostgreSQL | COVERED | BEHAVIORAL | #623. |
 | SS-ID-R005 (mysql only) | A MySQL (non-MariaDB) server resolves to `mysql` | TestResolve | COVERED | BEHAVIORAL | TC-SSID-02; renumbered from the old combined mysql/mariadb rule. |
 
 ## MySQL collection (PR1: seam generalization + catalog)

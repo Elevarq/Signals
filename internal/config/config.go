@@ -455,6 +455,22 @@ func (t TargetConfig) EffectiveEngine() string {
 	return t.Engine
 }
 
+// DefaultPortForEngine returns the protocol default port for an engine when a
+// target leaves the port unset (#623, ECONN-R001). MySQL-wire engines (MySQL,
+// MariaDB, SingleStore) share 3306; ClickHouse uses its native-protocol 9000;
+// PostgreSQL (and empty/legacy) stays 5432. An explicitly configured port always
+// wins over this default. Engine is never inferred the other way (ECONN-R004).
+func DefaultPortForEngine(engine string) int {
+	switch engine {
+	case EngineMySQL, EngineMariaDB, EngineSingleStore:
+		return 3306
+	case EngineClickHouse:
+		return 9000
+	default: // postgresql or empty/legacy
+		return 5432
+	}
+}
+
 type APIConfig struct {
 	ListenAddr    string        `yaml:"listen_addr"`
 	ReadTimeout   time.Duration `yaml:"-"`
@@ -555,6 +571,16 @@ func Load(path string) (Config, error) {
 
 	if err := applyEnvOverrides(&cfg); err != nil {
 		return cfg, err
+	}
+
+	// ECONN-R001: fill an unset port with the engine-aware default for EVERY
+	// target (YAML and env), so the resolved target carries a truthful port and
+	// YAML/env produce equivalent connection settings for equivalent values. An
+	// explicitly configured port (non-zero) is left untouched.
+	for i := range cfg.Targets {
+		if cfg.Targets[i].Port == 0 {
+			cfg.Targets[i].Port = DefaultPortForEngine(cfg.Targets[i].EffectiveEngine())
+		}
 	}
 
 	if err := parseDurations(&cfg); err != nil {
@@ -788,19 +814,21 @@ func applyEnvOverrides(cfg *Config) error {
 		// engine. An omitted value defaults to PostgreSQL via EffectiveEngine
 		// (backward compatible) — never an implicit SingleStore detection.
 		engine := os.Getenv("SIGNALS_TARGET_ENGINE")
-		// Engine-aware default port when SIGNALS_TARGET_PORT is unset:
-		// SingleStore speaks the MySQL wire (3306); PostgreSQL stays 5432.
-		port := 5432
-		if engine == EngineSingleStore {
-			port = 3306
-		}
+		// ECONN-R001: engine-aware default port when SIGNALS_TARGET_PORT is unset
+		// (MySQL-wire 3306, ClickHouse 9000, PostgreSQL 5432). Explicit port wins.
+		port := DefaultPortForEngine(engine)
 		if n, ok, err := parseEnvInt("SIGNALS_TARGET_PORT"); err != nil {
 			return err
 		} else if ok {
 			port = n
 		}
+		// ECONN-R002: default the database to `postgres` ONLY for PostgreSQL
+		// (engine empty/omitted or postgresql). A non-PostgreSQL engine connects
+		// server-wide for monitoring (fully-qualified system catalogs) and must
+		// never silently borrow the PostgreSQL `postgres` database. An explicit
+		// SIGNALS_TARGET_DBNAME is always honored (INV-ECONN-02).
 		dbname := os.Getenv("SIGNALS_TARGET_DBNAME")
-		if dbname == "" {
+		if dbname == "" && (engine == "" || engine == EnginePostgreSQL) {
 			dbname = "postgres"
 		}
 		tgt := TargetConfig{
@@ -986,8 +1014,12 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 		if t.User == "" {
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): user is required", i, t.Name))
 		}
-		if t.DBName == "" {
-			hard = append(hard, fmt.Sprintf("target[%d] (%s): dbname is required", i, t.Name))
+		// ECONN-R003: dbname is required only for PostgreSQL (which needs a
+		// database to connect). Non-PostgreSQL engines connect server-wide for
+		// monitoring (fully-qualified system catalogs), so an empty dbname is
+		// valid — never borrow the PostgreSQL `postgres` default to satisfy this.
+		if t.DBName == "" && t.EffectiveEngine() == EnginePostgreSQL {
+			hard = append(hard, fmt.Sprintf("target[%d] (%s): dbname is required for PostgreSQL", i, t.Name))
 		}
 		secretCount := 0
 		if t.PasswordFile != "" {
