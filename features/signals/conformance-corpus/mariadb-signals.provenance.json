@@ -1,0 +1,10 @@
+{
+  "engine": "mariadb",
+  "engine_version": "11.4.13-MariaDB-ubu2404",
+  "signals_commit": "f40e2fa9ffc572ea764fc7399f240c59fa5cc2dd",
+  "artifact": "mariadb-signals.zip",
+  "artifact_sha256": "9e78b6e269bf5c39d9732bb0232f56df19b5cde857b57c704b854bbca4e115b6",
+  "generation_mechanism": "scripts/mariadb-live-qual.sh — real cmd/signals daemon -> production exporter (signalsctl export), captured after the live Go verifier passed; never hand-edited",
+  "fixture": "examples/mariadb-init.sql + examples/mariadb-daemon.yaml",
+  "source_image": "pinned mariadb dev fixture (see scripts/mariadb-dev-fixture.sh)"
+}

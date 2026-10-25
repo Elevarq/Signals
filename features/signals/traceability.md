@@ -888,3 +888,22 @@ the integration-mariadb matrix (#638). No large per-engine matrix added.
 | VSP-R006 | MariaDB 10.11 + 11.4 + 11.8 + 12.3 LTS each qualified as separate pinned live legs; independent of MySQL; one LTS line never implies another | TestMariaDBVersionMatrixQualifiesLTS | COVERED | STRUCTURAL | #638. Parses ci.yml integration-mariadb matrix; red if any leg dropped. All four verified live (15/15 collectors success, no version-specific SQL; INNODB_LOCKS/LOCK_WAITS present on all four). |
 | MDS-R001 | MariaDB support page carries no independent claim; agrees with the cited specs | TestMariaDBVersionMatrixQualifiesLTS | COVERED | DOC | #638. Index cites VSP/MDG/MDC/ECONN/WMM. |
 | MDS-R002 | MariaDB support distinguishes qualified (10.11+11.4+11.8+12.3 LTS) / best-effort / unsupported; MySQL qualification never implies MariaDB | TestMariaDBVersionMatrixQualifiesLTS | COVERED | BEHAVIORAL | #638. One image never qualifies another LTS line. |
+
+## #530 — producer conformance corpus
+
+Spec: `specifications/conformance-corpus.md` (ACTIVE, CC-R001..R005, INV-CC-01/02).
+Real Signals production-exporter artifacts for MySQL/MariaDB/ClickHouse, generated
+via `scripts/gen-conformance-corpus.sh` (the `SIGNALS_CORPUS_OUT` hook in the three
+`*-live-qual.sh` scripts), with provenance under
+`features/signals/conformance-corpus/*.provenance.json`. Consumer-side proof lives
+in Analyzer #3890 (`engine_conformance_producer_test.go` through `RunWithConfig`).
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CC-R001 | Artifacts are real daemon→exporter output, captured verbatim after the live verifier passes; never hand-edited | TestMySQLLive*, TestMariaDBLive*, TestClickHouseLive* (producer) + Analyzer engine_conformance_producer_test | COVERED | INTEGRATION | #530. emit_conformance_artifact runs only after `go test -tags *_live` passes. |
+| CC-R002 | Provenance records commit/engine/version/fixture/mechanism/sha256 | — | COVERED | DOC | #530. features/signals/conformance-corpus/*.provenance.json + Analyzer PROVENANCE.md. |
+| CC-R003 | Corpus reproducible from the recorded commit via gen-conformance-corpus.sh | — | COVERED | DOC | #530. Pinned dev fixtures; deterministic seed. |
+| CC-R004 | Artifacts carry representative evidence (identity/version/status/table-stats/digests; MySQL/MariaDB Tier-1 columns+index) | Analyzer engine_conformance_producer_test | COVERED | INTEGRATION | #530. MySQL 18 / MariaDB 17 / ClickHouse 14 collectors, status=success. |
+| CC-R005 | Loop proven against the real Analyzer consumer; validation never weakened; disagreement attributed to the violating side | Analyzer engine_conformance_producer_test (ingest→dispatch→normalize) | COVERED | INTEGRATION | #530/#3890. 3 engines PASS; SingleStore stays green; PG regression control. run_scope=snapshot tolerated (forward-compat), flagged for Analyzer enum reconciliation. |
+| INV-CC-01 | No writes to the target beyond the one-time seed | TestMySQLLive*, TestMariaDBLive*, TestClickHouseLive* | COVERED | INTEGRATION | #530. Inherits live-qual read-only invariant. |
+| INV-CC-02 | SIGNALS_CORPUS_OUT hook inert when unset (CI unaffected) | — | COVERED | DOC | #530. Gated `[ -n "${SIGNALS_CORPUS_OUT:-}" ]`. |
