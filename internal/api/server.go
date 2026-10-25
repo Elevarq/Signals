@@ -774,6 +774,21 @@ func handleExport(deps *Deps) http.HandlerFunc {
 				deps.Metrics.RecordExportFailure("conflicting_selectors")
 				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 				return
+			case errors.Is(err, export.ErrHeterogeneousScope):
+				// #622 (MERC-R009): an unscoped export spanning multiple engines
+				// is a caller scoping error, not a server fault → 400 with the
+				// actionable message (scope to one target/snapshot).
+				safety.AuditLog("export_completed",
+					"actor", actor,
+					"status", "failed",
+					"duration_ms", time.Since(start).Milliseconds(),
+					"size_bytes", 0,
+					"error_category", "heterogeneous_scope",
+				)
+				deps.Metrics.RecordExport("failed", time.Since(start).Seconds())
+				deps.Metrics.RecordExportFailure("heterogeneous_scope")
+				writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+				return
 			case errors.Is(err, export.ErrSnapshotNotFound):
 				safety.AuditLog("export_completed",
 					"actor", actor,
