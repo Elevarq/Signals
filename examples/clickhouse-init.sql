@@ -4,9 +4,14 @@
 -- ClickHouse image, as the default (admin) user. Everything is
 -- version-controlled and deterministic.
 --
--- Read-only monitoring user + the minimum grant per
--- specifications/clickhouse-grants (CH-2 #565): GRANT SELECT ON system.* — reads
--- the whole diagnostic catalog; writes are ACCESS_DENIED. No elevated grant.
+-- Read-only monitoring user. Per specifications/clickhouse-grants.md (#565) the
+-- least-privilege BASELINE is SELECT on the 11 metadata system.* tables (no
+-- cross-user query visibility); the query-workload collectors
+-- (query_log/query_thread_log) need an OPTIONAL, separately-approved grant and
+-- otherwise degrade to skipped. This fixture grants SELECT ON system.* — the
+-- baseline PLUS the optional grant — so the live qualification exercises the full
+-- 14-collector catalog (the "optional approved" scenario). Writes are
+-- ACCESS_DENIED (SELECT-only). No write/admin/SYSTEM grant is ever required.
 --
 -- A tiny workload + SYSTEM FLUSH LOGS so system.query_log exists and carries
 -- rows for clickhouse_query_log_v1 (the log table is lazily created on first

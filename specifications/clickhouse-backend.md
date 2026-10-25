@@ -93,8 +93,12 @@ by CH-2 (`specifications/clickhouse-collectors.md`); fixtures + live qualificati
 
 ## Constraints / NFR
 
-- Read-only; monitoring role is `GRANT SELECT ON system.*` (validated live: reads
-  the diagnostic surface; writes are `ACCESS_DENIED`). Native-protocol TLS + CA
+- Read-only; the least-privilege grant model is owned by
+  `specifications/clickhouse-grants.md` (#565): a baseline `SELECT` on the 11
+  metadata `system.*` tables (no cross-user query visibility) plus an OPTIONAL,
+  separately-approved `SELECT` on `system.query_log`/`query_thread_log` for the
+  two query-workload collectors (which otherwise degrade to skipped). Writes are
+  `ACCESS_DENIED`; no write/admin grant is ever required. Native-protocol TLS + CA
   (verify-ca / verify-full, fail-closed) is implemented in #558 —
   `specifications/clickhouse-connection-hardening.md` (CCH-R001..R005), sharing
   the `internal/dbtls` verify crypto with the MySQL-wire path.
