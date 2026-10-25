@@ -705,11 +705,12 @@ edits (identity already distinct in M5). Live qualification runs in CI
 
 ## MariaDB collection (PR2: live qualification + CI integration job)
 
-Spec: `specifications/mariadb-live-qualification.md` (ACTIVE, MDLQ-R001..R005,
+Spec: `specifications/mariadb-live-qualification.md` (ACTIVE, MDLQ-R001..R006,
 INV-MDLQ-01..03). The normal cmd/signals daemon collects a real MariaDB (CI
-service container `integration-mariadb` + local Dev Image) and exports through
-the production exporter; success asserted as status='success' with reconciled
-evidence. Verifier shared with SingleStore/MySQL (engine-generic). Harness:
+service container `integration-mariadb`, a four-leg LTS matrix, + local Dev
+Image) and exports through the production exporter; success asserted as
+status='success' with reconciled evidence. Verifier shared with
+SingleStore/MySQL (engine-generic). Harness:
 `scripts/mariadb-dev-fixture.sh`, `scripts/mariadb-live-qual.sh`,
 `internal/collector/mariadb_live_test.go` (//go:build mariadb_live),
 `examples/mariadb-init.sql`, `examples/mariadb-daemon.yaml`.
@@ -717,10 +718,11 @@ evidence. Verifier shared with SingleStore/MySQL (engine-generic). Harness:
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
 | MDLQ-R001 | Producer is the normal cmd/signals daemon; never direct Collect/CatalogFor or a standalone ZIP writer | TestMariaDBLiveCadenceQualification, TestMariaDBLiveExportReconciliation | COVERED | INTEGRATION | `//go:build mariadb_live`; driven by scripts/mariadb-live-qual.sh against the pinned MariaDB (CI service + local Dev Image). |
-| MDLQ-R002 | Each MariaDB snapshot passes VerifyCadenceSnapshot (engine=mariadb, every collector status='success', reconciled evidence, ids unique, restart appends) | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | 12 snapshots, all success, local run; shared verifier. |
-| MDLQ-R003 | Legitimate empty results are successes, never failures | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | MariaDB catalog is all-green under SELECT,PROCESS. |
+| MDLQ-R002 | Each MariaDB snapshot passes VerifyCadenceSnapshot (engine=mariadb, every collector status='success', reconciled evidence, ids unique, restart appends) | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | #638. All 15 collectors success on all four LTS lines (10.11/11.4/11.8/12.3), local runs; per-leg version prefix via MARIADB_QUAL_VERSION_PREFIX. |
+| MDLQ-R003 | Legitimate empty results are successes, never failures | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | MariaDB catalog is all-green under SELECT,PROCESS across all four LTS lines (perf_schema-gated + replication/Galera standalone = legitimate empties). |
 | MDLQ-R004 | One exact snapshot passes VerifyExportReconciliation: metadata engine/version, no foreign PG collector, collected==persisted==exported, INFO redacted, manifest complete | TestMariaDBLiveExportReconciliation, TestMariaDBExportSerializationReconciles | COVERED | INTEGRATION | Live + deterministic serialization legs. |
 | MDLQ-R005 | The MariaDB live qualification runs in CI as integration-mariadb and is a dependency of ci-gate | TestCIGateRequiresPostgreSQL | COVERED | STRUCTURAL | M0 guard asserts every integration-* job is in ci-gate.needs. |
+| MDLQ-R006 | integration-mariadb is a four-leg LTS matrix (10.11/11.4/11.8/12.3), each pinned by digest with its own version prefix; dropping a required leg goes red | TestMariaDBVersionMatrixQualifiesLTS | COVERED | STRUCTURAL | #638. Parses ci.yml integration-mariadb matrix; mirrors the MySQL matrix guard. |
 | INV-MDLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Collectors are SELECT-only (MDC-R001). |
 | INV-MDLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own MariaDB | TestMariaDBLiveExportReconciliation | COVERED | INTEGRATION | mariadb-dev-fixture fail-closed, refuses existing container (#588); EXTERNAL mode for CI. |
 | INV-MDLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestMariaDBLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status, not counts. |
@@ -861,20 +863,25 @@ by default. Grant model exercised by the integration-mariadb live qualification.
 
 ## #625/#547 — version support policy + MySQL 8.0 qualification
 
-Specs: `specifications/version-support-policy.md` (ACTIVE, VSP-R001..R005,
-INV-VSP-01/02) + `specifications/mysql-support.md` (ACTIVE, MYS-R001/R002).
+Specs: `specifications/version-support-policy.md` (ACTIVE, VSP-R001..R006,
+INV-VSP-01/02) + `specifications/mysql-support.md` (ACTIVE, MYS-R001/R002) +
+`specifications/mariadb-support.md` (ACTIVE, MDS-R001/R002, #638).
 Tiered qualified/best-effort/unsupported/unknown per engine (honest per-vendor
-release models); MySQL 8.0 + 8.4 LTS + 9.7 LTS live-qualified in the integration-mysql
-matrix. No large per-engine matrix added.
+release models); MySQL 8.0 + 8.4 LTS + 9.7 LTS live-qualified in the
+integration-mysql matrix; MariaDB 10.11 + 11.4 + 11.8 + 12.3 LTS live-qualified in
+the integration-mariadb matrix (#638). No large per-engine matrix added.
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
 | VSP-R001 | "Qualified" = live CI against a pinned image, all collectors status=success; no claim without evidence | TestMySQLVersionMatrixQualifies80And84, TestMySQLLiveCadenceQualification | COVERED | BEHAVIORAL | #625. Pinned digests + green live quals. |
 | VSP-R002 | MySQL 8.0 + 8.4 LTS + 9.7 LTS each qualified as separate pinned live legs; LTS never implies Innovation (26.x) | TestMySQLVersionMatrixQualifies80And84 | COVERED | STRUCTURAL | #625/#547. Parses ci.yml integration-mysql matrix; red if any leg dropped. 8.0.46 + 9.7.4 verified live (16/16, no version-specific SQL needed). |
-| VSP-R003 | Each engine policy independent; MariaDB never inferred from MySQL | — | COVERED | DOC | #625. Per-engine matrix stated from own qualified release. |
+| VSP-R003 | Each engine policy independent; MariaDB never inferred from MySQL | TestMariaDBVersionMatrixQualifiesLTS, TestMySQLVersionMatrixQualifies80And84 | COVERED | STRUCTURAL | #625/#638. Independent MySQL + MariaDB matrix guards; a green MySQL matrix establishes nothing for MariaDB. |
 | VSP-R004 | Unknown/best-effort versions collected best-effort (no runtime rejection); real engine_version recorded; missing view degrades to empty/skipped | — | COVERED | DOC | #625. No blanket version gate; degrade via CHB-R004/MYC-R006/R007. |
 | VSP-R005 | Support docs, config validation, and CI matrix agree (this spec is the source) | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #625. mysql-support.md + matrix cite the policy. |
 | INV-VSP-01 | No qualification claim without a pinned live-CI image + green result | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #625. |
 | INV-VSP-02 | No silent evidence downgrade; a missing view is an explicit empty/skipped | — | COVERED | DOC | #625. Reuses the per-engine degrade model. |
 | MYS-R001 | MySQL support page carries no independent claim; agrees with the cited specs | TestMySQLVersionMatrixQualifies80And84 | COVERED | DOC | #547. Index cites VSP/MYG/MYC/ECONN/WMM. |
 | MYS-R002 | MySQL support distinguishes qualified (8.0+8.4+9.7) / best-effort / unsupported | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #547. One image never qualifies the whole 8.x line. |
+| VSP-R006 | MariaDB 10.11 + 11.4 + 11.8 + 12.3 LTS each qualified as separate pinned live legs; independent of MySQL; one LTS line never implies another | TestMariaDBVersionMatrixQualifiesLTS | COVERED | STRUCTURAL | #638. Parses ci.yml integration-mariadb matrix; red if any leg dropped. All four verified live (15/15 collectors success, no version-specific SQL; INNODB_LOCKS/LOCK_WAITS present on all four). |
+| MDS-R001 | MariaDB support page carries no independent claim; agrees with the cited specs | TestMariaDBVersionMatrixQualifiesLTS | COVERED | DOC | #638. Index cites VSP/MDG/MDC/ECONN/WMM. |
+| MDS-R002 | MariaDB support distinguishes qualified (10.11+11.4+11.8+12.3 LTS) / best-effort / unsupported; MySQL qualification never implies MariaDB | TestMariaDBVersionMatrixQualifiesLTS | COVERED | BEHAVIORAL | #638. One image never qualifies another LTS line. |

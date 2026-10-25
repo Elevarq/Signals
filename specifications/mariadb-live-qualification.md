@@ -21,6 +21,15 @@ so the MariaDB live qualification runs as a pinned CI job (`integration-mariadb`
 wired into the PostgreSQL-mandatory terminal gate (`ci-gate.needs`), and is also
 runnable locally.
 
+Per `version-support-policy.md` (VSP-R006), `integration-mariadb` is a **matrix of
+the four supported MariaDB LTS lines** — 10.11, 11.4, 11.8, 12.3 — each a pinned
+digest driving the full qualification independently. The verifier's version prefix
+is the matrix leg's exact LTS prefix (`10.11.` / `11.4.` / `11.8.` / `12.3.`),
+passed as `MARIADB_QUAL_VERSION_PREFIX`. MariaDB qualification is independent of
+MySQL's, and all four lines were verified live to need no version-specific catalog
+SQL (including `information_schema.INNODB_LOCKS` / `INNODB_LOCK_WAITS`, which
+MariaDB retains across every supported generation and MySQL 8.0 removed).
+
 ## Coverage receipt — live vs fixture (explicit)
 
 - **Live producer evidence** runs BOTH in CI (`integration-mariadb`, a pinned MariaDB
@@ -36,12 +45,14 @@ runnable locally.
 
 ## Interfaces
 
-- **Environment** — `scripts/mariadb-dev-fixture.sh {up|down}`: the pinned MariaDB
-  Dev Image (`mariadb@sha256:250e1609e93c0e6aecf64bfbab2d84d5e89d2481540fe77447ff6c855c3b1873…`, `VERSION()` 11.4.x) seeded by
-  `examples/mariadb-init.sql` (read-only `signals_ro` with `SELECT, PROCESS` +
-  deterministic schema/workload). A dedicated container name so a developer's own
-  MariaDB container is never touched. In CI the MariaDB is a service container seeded
-  by a job step; the fixture script is the local path.
+- **Environment** — `scripts/mariadb-dev-fixture.sh {up|down}`: a pinned MariaDB
+  Dev Image seeded by `examples/mariadb-init.sql` (read-only `signals_ro` with
+  `SELECT, PROCESS` + deterministic schema/workload). Defaults to 11.4.13
+  (`mariadb@sha256:250e1609…`); `MARIADB_IMAGE` + `EXPECTED_VERSION_PREFIX`
+  override it so any qualified LTS line (10.11 / 11.8 / 12.3) can be driven
+  locally. A dedicated container name so a developer's own MariaDB container is
+  never touched. In CI the MariaDB is a per-leg service container seeded by a job
+  step; the fixture script is the local path.
 - **Producer** — `cmd/signals` + `cmd/signalsctl` (`collect now --force`,
   `export`), configured by `examples/mariadb-daemon.yaml`.
 - **Verifier** — the shared `internal/collector/singlestore_qual.go`
@@ -55,13 +66,15 @@ runnable locally.
 ## Behaviors
 
 - **Given** the seeded live MariaDB and a `SELECT, PROCESS` role, **when** the
-  daemon runs a cycle, **then** all nine MariaDB collectors persist
-  `status='success'` — `mariadb_replication_status_v1` is a legitimate zero-row
-  success on a standalone server — each reconciled to a `query_results` row whose
-  decoded row count equals `query_runs.row_count`.
+  daemon runs a cycle, **then** all 15 MariaDB collectors persist
+  `status='success'` — `mariadb_replication_status_v1` / `mariadb_galera_status_v1`
+  are legitimate standalone successes, and the `performance_schema`-gated
+  collectors are legitimate empty successes when it is off — each reconciled to a
+  `query_results` row whose decoded row count equals `query_runs.row_count`.
 - **Given** two cycles + a daemon restart, **when** snapshots are enumerated,
   **then** each is a distinct ULID (no overwrite), `engine=mariadb`, version
-  `8.x`, and the restart appends.
+  matching the matrix leg's LTS prefix (`10.11.` / `11.4.` / `11.8.` / `12.3.`),
+  and the restart appends.
 - **Given** one exact snapshot exported through the production exporter, **then**
   `metadata.json` declares `engine=mariadb` + `engine_version`;
   `collector_status.json` / `query_catalog.json` contain only MariaDB collectors;
@@ -74,9 +87,11 @@ runnable locally.
   never calls `singlestore.Collect`/`CatalogFor` directly as a producer nor a
   standalone ZIP writer. (mirrors SLQ-R001)
 - **MDLQ-R002** — Each enumerated MariaDB snapshot passes `VerifyCadenceSnapshot`
-  with `engine="mariadb"`, `expected=ExpectedCollectorsFor("mariadb")`,
-  `versionPrefix="11."`: engine/version, exactly the expected collector set, every
-  collector `status='success'`, reconciled result evidence, snapshot_id match.
+  with `engine="mariadb"`, `expected=ExpectedCollectorsFor("mariadb")`, and the
+  running leg's `versionPrefix` (`MARIADB_QUAL_VERSION_PREFIX`, one of `10.11.` /
+  `11.4.` / `11.8.` / `12.3.`; default `11.`): engine/version, exactly the expected
+  collector set, every collector `status='success'`, reconciled result evidence,
+  snapshot_id match.
 - **MDLQ-R003** — A legitimate zero-row success (`mariadb_replication_status_v1` on a
   standalone server) passes; it is never a failure.
 - **MDLQ-R004** — One exact snapshot passes `VerifyExportReconciliation`:
@@ -85,6 +100,10 @@ runnable locally.
 - **MDLQ-R005** — The MariaDB live qualification runs in CI as a pinned
   `integration-mariadb` job and is a dependency of the terminal `ci-gate` (so it
   routes through the same PostgreSQL-mandatory gate, #528 req #4).
+- **MDLQ-R006** — `integration-mariadb` is a matrix of the four supported MariaDB
+  LTS lines (10.11, 11.4, 11.8, 12.3), each a pinned digest running the full
+  qualification independently with its own `MARIADB_QUAL_VERSION_PREFIX`; dropping
+  a required LTS leg is caught by `TestMariaDBVersionMatrixQualifiesLTS` (VSP-R006).
 
 ## Invariants
 
@@ -104,11 +123,12 @@ runnable locally.
 
 ## Constraints
 
-- Pinned MariaDB image by digest; version-prefix guard (`11.`). No cloud/AWS.
+- Pinned MariaDB images by digest (one per LTS leg); per-leg version-prefix guard
+  (`10.11.` / `11.4.` / `11.8.` / `12.3.`). No cloud/AWS.
 - The live test is `//go:build mariadb_live` and SKIPs unless `MARIADB_QUAL_*` is set
   by the orchestrator.
 
 ## Traceability
 
 Acceptance: `specifications/mariadb-live-qualification.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDLQ-R001..R005, INV-MDLQ-01..03).
+Matrix: `features/signals/traceability.md` (MDLQ-R001..R006, INV-MDLQ-01..03).

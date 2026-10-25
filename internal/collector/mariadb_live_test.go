@@ -30,6 +30,18 @@ func openMariaDBStore(t *testing.T, path string) *db.DB {
 	return store
 }
 
+// mariadbQualVersionPrefix is the expected engine_version prefix for the live
+// qualification, so the one harness qualifies every pinned MariaDB LTS line
+// (#638): "10.11." / "11.4." / "11.8." / "12.3.". Set via
+// MARIADB_QUAL_VERSION_PREFIX per CI matrix leg; defaults to "11." for backward
+// compatibility (the original single 11.4 leg).
+func mariadbQualVersionPrefix() string {
+	if p := os.Getenv("MARIADB_QUAL_VERSION_PREFIX"); p != "" {
+		return p
+	}
+	return "11."
+}
+
 // TestMariaDBLiveCadenceQualification (MLQ-R002/R003): over the cadence store
 // written by the real daemon across cycles + a restart, every snapshot passes
 // VerifyCadenceSnapshot (engine=mariadb, every collector status='success' with
@@ -63,7 +75,7 @@ func TestMariaDBLiveCadenceQualification(t *testing.T) {
 			t.Errorf("duplicate snapshot id %s (overwrite!)", s.ID)
 		}
 		seen[s.ID] = true
-		if err := VerifyCadenceSnapshot(s, expected, "mariadb", "11."); err != nil {
+		if err := VerifyCadenceSnapshot(s, expected, "mariadb", mariadbQualVersionPrefix()); err != nil {
 			t.Errorf("snapshot %s failed cadence qualification: %v", s.ID, err)
 		}
 	}
@@ -115,10 +127,11 @@ func TestMariaDBLiveExportReconciliation(t *testing.T) {
 		t.Fatalf("ReadQualExport: %v", err)
 	}
 	expected := ExpectedCollectorsFor("mariadb")
-	if err := VerifyCadenceSnapshot(target, expected, "mariadb", "11."); err != nil {
+	prefix := mariadbQualVersionPrefix()
+	if err := VerifyCadenceSnapshot(target, expected, "mariadb", prefix); err != nil {
 		t.Fatalf("exact snapshot %s failed status/evidence checks: %v", target.ID, err)
 	}
-	if err := VerifyExportReconciliation(target, z, expected, "11."); err != nil {
+	if err := VerifyExportReconciliation(target, z, expected, prefix); err != nil {
 		t.Fatalf("export reconciliation for %s failed: %v", target.ID, err)
 	}
 	t.Logf("export reconciliation OK for snapshot %s: collected==persisted==exported, redaction held, manifest complete", target.ID)

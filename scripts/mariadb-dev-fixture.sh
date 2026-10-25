@@ -19,9 +19,12 @@
 set -euo pipefail
 
 # --- Pinned Dev Image (NEVER float a tag) ------------------------------------
-# mariadb:11.4; pinned by digest so a clean machine pulls the exact same bytes.
-MARIADB_IMAGE="mariadb@sha256:250e1609e93c0e6aecf64bfbab2d84d5e89d2481540fe77447ff6c855c3b1873"
-EXPECTED_VERSION_PREFIX="11."
+# Defaults to mariadb:11.4.13; pinned by digest so a clean machine pulls the exact
+# same bytes. #638: MARIADB_IMAGE + EXPECTED_VERSION_PREFIX may be overridden to
+# drive any other qualified MariaDB LTS line locally (10.11 / 11.8 / 12.3) — the
+# same four pinned digests the integration-mariadb CI matrix qualifies.
+MARIADB_IMAGE="${MARIADB_IMAGE:-mariadb@sha256:250e1609e93c0e6aecf64bfbab2d84d5e89d2481540fe77447ff6c855c3b1873}"
+EXPECTED_VERSION_PREFIX="${EXPECTED_VERSION_PREFIX:-11.}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SQL="${REPO_ROOT}/examples/mariadb-init.sql"
@@ -44,16 +47,19 @@ cmd_up() {
   docker run -d --name "${CONTAINER}" -e MARIADB_ROOT_PASSWORD="${ROOT_PW}" \
     -p "${HOST_PORT}:3306" "${MARIADB_IMAGE}" >/dev/null
   say "waiting for MariaDB to accept connections"
-  local ok=""
-  for _ in $(seq 1 60); do
-    if docker exec "${CONTAINER}" mariadb-admin ping -uroot -p"${ROOT_PW}" --silent >/dev/null 2>&1; then
-      ok=1; break
-    fi
+  # #638: wait for REAL query readiness (a non-empty SELECT VERSION()), not just
+  # `mariadb-admin ping`. During first-boot init MariaDB answers ping ("mysqld is
+  # alive") seconds before it will answer a real query, so a ping-then-VERSION
+  # readiness check races: VERSION() comes back empty and, under set -euo pipefail,
+  # the failed command substitution silently kills the fixture. Polling VERSION()
+  # itself removes the race (the `|| true` guards the transient failure).
+  local ok="" ver=""
+  for _ in $(seq 1 90); do
+    ver="$(docker exec "${CONTAINER}" mariadb -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')" || true
+    if [ -n "${ver}" ]; then ok=1; break; fi
     sleep 2
   done
   [ -n "${ok}" ] || { docker logs "${CONTAINER}" 2>&1 | tail -30; die "MariaDB did not become ready"; }
-  local ver
-  ver="$(docker exec "${CONTAINER}" mariadb -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')"
   case "${ver}" in
     ${EXPECTED_VERSION_PREFIX}*) say "MariaDB ready: VERSION()=${ver}" ;;
     *) die "unexpected MariaDB version '${ver}' (want ${EXPECTED_VERSION_PREFIX}x from the pinned image)" ;;

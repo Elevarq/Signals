@@ -258,10 +258,34 @@ jobs:
   # PostgreSQL-mandatory terminal gate.
   integration-mariadb:
     runs-on: ubuntu-24.04
+    # #638: qualify the four supported MariaDB LTS lines live (each a pinned
+    # digest). MariaDB qualification is independent of MySQL's, and one LTS line
+    # qualified never implies another — each runs the full daemon -> exporter
+    # qualification. See specifications/version-support-policy.md (VSP-R006).
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # 10.11, 11.4, 11.8, 12.3 LTS — each a pinned digest (Q3 2026 patch),
+          # each running the full live qualification (#638). The version_prefix is
+          # the exact LTS engine_version the verifier asserts per line. Verified
+          # live to need no version-specific catalog SQL across all four.
+          - mariadb_version: "10.11"
+            image: mariadb@sha256:0d0945c57f75b3a3b9ebe71aedaaad005fa5305054e8fca3d2e42a8c92b43b5e
+            version_prefix: "10.11."
+          - mariadb_version: "11.4"
+            image: mariadb@sha256:250e1609e93c0e6aecf64bfbab2d84d5e89d2481540fe77447ff6c855c3b1873
+            version_prefix: "11.4."
+          - mariadb_version: "11.8"
+            image: mariadb@sha256:f16d7a344413e519dff518f27bdb221388f84b0d274c97c4fb5f2cb0dc1b34fa
+            version_prefix: "11.8."
+          - mariadb_version: "12.3"
+            image: mariadb@sha256:99c125f103f5d081ebbc9ffe064e63daf7f688ac33a5f7f29af2d7260a96debf
+            version_prefix: "12.3."
     services:
       mariadb:
-        # Pinned by digest (mariadb:11.4) — never a float tag.
-        image: mariadb@sha256:250e1609e93c0e6aecf64bfbab2d84d5e89d2481540fe77447ff6c855c3b1873
+        # Pinned by digest per matrix leg — never a float tag.
+        image: ${{ matrix.image }}
         env:
           MARIADB_ROOT_PASSWORD: dev-root-pw
         ports:
@@ -291,6 +315,11 @@ jobs:
         run: mariadb -h 127.0.0.1 -P 3306 -uroot -pdev-root-pw < examples/mariadb-init.sql
 
       - name: Run the MariaDB live qualification (normal daemon -> exporter)
+        # EXTERNAL mode: the service container is already up + seeded above, so
+        # the harness only builds, drives the real daemon, and verifies. The
+        # version prefix is the matrix leg's exact LTS line.
+        env:
+          MARIADB_QUAL_VERSION_PREFIX: ${{ matrix.version_prefix }}
         run: MARIADB_QUAL_EXTERNAL=1 bash scripts/mariadb-live-qual.sh all
 
   # ClickHouse live qualification against a pinned ClickHouse service container

@@ -13,18 +13,20 @@ locally.
 
 **Rule:** MDLQ-R002, MDLQ-R003, INV-MDLQ-03
 
-**Given:** a live seeded MariaDB (`SELECT, PROCESS`) and a snapshot collected by the
-normal daemon.
+**Given:** a live seeded MariaDB (`SELECT, PROCESS`) on any qualified LTS line and a
+snapshot collected by the normal daemon.
 
-**When:** `VerifyCadenceSnapshot(s, ExpectedCollectorsFor("mariadb"), "mariadb", "11.")`
-runs over the persisted snapshot.
+**When:** `VerifyCadenceSnapshot(s, ExpectedCollectorsFor("mariadb"), "mariadb", prefix)`
+runs over the persisted snapshot, where `prefix` is the running leg's
+`MARIADB_QUAL_VERSION_PREFIX` (`10.11.` / `11.4.` / `11.8.` / `12.3.`).
 
-**Then:** engine is `mariadb`, version matches `8.`, the run set equals exactly the
-nine MariaDB collectors, every collector is `status='success'` (replication a
-legitimate zero-row success), and each success reconciles to a `query_results`
-row whose decoded row count equals `row_count`.
+**Then:** engine is `mariadb`, version matches the leg's prefix, the run set equals
+exactly the 15 MariaDB collectors, every collector is `status='success'`
+(replication/Galera legitimate standalone successes, `performance_schema`-gated
+collectors legitimate empty successes when it is off), and each success reconciles
+to a `query_results` row whose decoded row count equals `row_count`.
 
-**Expected Result:** Pass only when all nine collectors succeeded with reconciled
+**Expected Result:** Pass only when all 15 collectors succeeded with reconciled
 evidence.
 
 ---
@@ -76,3 +78,20 @@ routes through the same terminal gate as PostgreSQL and cannot add a
 PostgreSQL-free green path).
 
 **Expected Result:** Pass when `integration-mariadb` is wired into the gate.
+
+---
+
+### TC-MLQ-05: four MariaDB LTS legs are pinned in CI (structural)
+
+**Rule:** MDLQ-R006, VSP-R006
+
+**Given:** `.github/workflows/ci.yml`.
+
+**When:** the `integration-mariadb` job's matrix is parsed
+(`TestMariaDBVersionMatrixQualifiesLTS`).
+
+**Then:** the matrix has four legs covering `10.11`, `11.4`, `11.8`, and `12.3`,
+each pinned by image digest, each carrying its own `version_prefix`.
+
+**Expected Result:** Pass when all four qualified LTS legs are present and pinned;
+red when any is dropped or unpinned.
