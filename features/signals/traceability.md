@@ -858,3 +858,23 @@ by default. Grant model exercised by the integration-mariadb live qualification.
 | MDG-R002 | PROCESS is the only privilege beyond SELECT; broadens PROCESSLIST/INNODB_TRX/INNODB_LOCKS to all sessions | — | COVERED | DOC | #626. Documented MariaDB privilege semantics; empirically observed. |
 | MDG-R003 | Cross-user SQL / locked data (INFO/trx_query/lock_data/DIGEST_TEXT) is HighSensitivity + redacted by default | TestMariaDBCatalogNoUnredactedSensitiveColumn, TestMariaDBInnodbTransactionsRedaction, TestMariaDBInnodbLocksRedaction | COVERED | BEHAVIORAL | #626. Reuses MDC-R004/R008 catalog redaction guard. |
 | MDG-R004 | No elevated grant; perf_schema-off / standalone / Galera-not-connected are legitimate empty | TestMariaDBCatalogExpectedSet, TestMariaDBLiveExportReconciliation | COVERED | BEHAVIORAL | #626. Empty, not failed. |
+
+## #625/#547 — version support policy + MySQL 8.0 qualification
+
+Specs: `specifications/version-support-policy.md` (ACTIVE, VSP-R001..R005,
+INV-VSP-01/02) + `specifications/mysql-support.md` (ACTIVE, MYS-R001/R002).
+Tiered qualified/best-effort/unsupported/unknown per engine (honest per-vendor
+release models); MySQL 8.0 + 8.4 both live-qualified in the integration-mysql
+matrix. No large per-engine matrix added.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| VSP-R001 | "Qualified" = live CI against a pinned image, all collectors status=success; no claim without evidence | TestMySQLVersionMatrixQualifies80And84, TestMySQLLiveCadenceQualification | COVERED | BEHAVIORAL | #625. Pinned digests + green live quals. |
+| VSP-R002 | MySQL 8.0 AND 8.4 both qualified as separate pinned live legs | TestMySQLVersionMatrixQualifies80And84 | COVERED | STRUCTURAL | #625/#547. Parses ci.yml integration-mysql matrix; red if 8.0 dropped. 8.0.46 verified live (16/16). |
+| VSP-R003 | Each engine policy independent; MariaDB never inferred from MySQL | — | COVERED | DOC | #625. Per-engine matrix stated from own qualified release. |
+| VSP-R004 | Unknown/best-effort versions collected best-effort (no runtime rejection); real engine_version recorded; missing view degrades to empty/skipped | — | COVERED | DOC | #625. No blanket version gate; degrade via CHB-R004/MYC-R006/R007. |
+| VSP-R005 | Support docs, config validation, and CI matrix agree (this spec is the source) | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #625. mysql-support.md + matrix cite the policy. |
+| INV-VSP-01 | No qualification claim without a pinned live-CI image + green result | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #625. |
+| INV-VSP-02 | No silent evidence downgrade; a missing view is an explicit empty/skipped | — | COVERED | DOC | #625. Reuses the per-engine degrade model. |
+| MYS-R001 | MySQL support page carries no independent claim; agrees with the cited specs | TestMySQLVersionMatrixQualifies80And84 | COVERED | DOC | #547. Index cites VSP/MYG/MYC/ECONN/WMM. |
+| MYS-R002 | MySQL support distinguishes qualified (8.0+8.4) / best-effort / unsupported | TestMySQLVersionMatrixQualifies80And84 | COVERED | BEHAVIORAL | #547. One image never qualifies the whole 8.x line. |
