@@ -13,10 +13,10 @@ agrees with them (umbrella-owns-decisions).
 **Rule:** MYS-R001, MYS-R002
 
 **Given:** the MySQL version policy. **When:** `version-support-policy.md` and
-`mysql-support.md` are compared. **Then:** both state MySQL 8.0 + 8.4 as the
+`mysql-support.md` are compared. **Then:** both state MySQL 8.0 + 8.4 + 9.7 as the
 qualified (live CI) lines, forward releases best-effort, <8.0 unsupported — no
 independent or conflicting claim. **Expected Result:** The shared matrix is the
-single source; the `integration-mysql` matrix covering 8.0 + 8.4 is enforced by
+single source; the `integration-mysql` matrix covering 8.0 + 8.4 + 9.7 is enforced by
 `TestMySQLVersionMatrixQualifies80And84` (TC-VSP-01). Agreement is by citation.
 
 ---

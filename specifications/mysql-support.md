@@ -24,11 +24,16 @@ real server version as `engine_version`.
 
 ## Version policy
 
-Owned by `specifications/version-support-policy.md`. For MySQL:
+Owned by `specifications/version-support-policy.md`. Principle: Signals qualifies
+the relevant MySQL **LTS** releases and may additionally qualify selected widely
+deployed **legacy** releases; **Innovation** releases are best-effort unless
+explicitly qualified. For MySQL:
 
-- **Qualified (live CI):** MySQL **8.0** (8.0.46) and **8.4 LTS** — both pinned
-  digests in the `integration-mysql` matrix, all 16 collectors `status=success`.
-- **Best-effort:** current forward / Innovation releases (8.x > 8.4).
+- **Qualified (live CI):** MySQL **8.0** (8.0.46, legacy), **8.4 LTS**, and
+  **9.7 LTS** (9.7.4) — each a pinned digest in the `integration-mysql` matrix,
+  all 16 collectors `status=success`.
+- **Best-effort:** the Innovation track (calendar-versioned since 26.7, e.g.
+  26.x) and non-pinned LTS patch releases. 9.7 qualification does not imply 26.x.
 - **Unsupported:** < 8.0 (the activity/lock/digest/replication collectors require
   `performance_schema` views introduced in 8.0).
 - **Unknown versions** are collected best-effort with the real `engine_version`
@@ -76,7 +81,7 @@ equated with a PostgreSQL `queryid` or another engine's identity.
 | ID | Rule |
 |----|------|
 | **MYS-R001** | This support page carries no independent support claim: the version matrix, grants, defaults, collectors, and identity are owned by the cited specs and this page agrees with them (VSP-R005). |
-| **MYS-R002** | MySQL support claims distinguish qualified (live CI: 8.0 + 8.4) from best-effort and unsupported, per `version-support-policy.md`; one image never qualifies the whole 8.x line. |
+| **MYS-R002** | MySQL support claims distinguish qualified (live CI: 8.0 + 8.4 + 9.7) from best-effort and unsupported, per `version-support-policy.md`; one image never qualifies the whole 8.x line. |
 
 ## Traceability
 

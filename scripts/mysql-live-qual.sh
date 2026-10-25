@@ -136,6 +136,7 @@ say "running the Go live verifier against the real producer artifacts"
   MYSQL_QUAL_EXPORT_DB="${EXPORT_DB}" \
   MYSQL_QUAL_EXPORT_ZIP="${EXPORT_ZIP}" \
   MYSQL_QUAL_EXPORT_SNAPSHOT="${EXPORT_ULID}" \
+  MYSQL_QUAL_VERSION_PREFIX="${MYSQL_QUAL_VERSION_PREFIX:-8.}" \
     go test -tags mysql_live -count=1 -v -run 'TestMySQLLive' ./internal/collector/ )
 
 say "LIVE QUALIFICATION OK — real daemon + real MySQL + production exporter, verified status=success + reconciled evidence"
