@@ -21,7 +21,7 @@ runs over the persisted snapshot, where `prefix` is the running leg's
 `MARIADB_QUAL_VERSION_PREFIX` (`10.11.` / `11.4.` / `11.8.` / `12.3.`).
 
 **Then:** engine is `mariadb`, version matches the leg's prefix, the run set equals
-exactly the 15 MariaDB collectors, every collector is `status='success'`
+exactly the 17 MariaDB collectors, every collector is `status='success'`
 (replication/Galera legitimate standalone successes, `performance_schema`-gated
 collectors legitimate empty successes when it is off), and each success reconciles
 to a `query_results` row whose decoded row count equals `row_count`.

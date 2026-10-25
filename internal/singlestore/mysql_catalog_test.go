@@ -24,6 +24,7 @@ func TestMySQLCatalogReadOnly(t *testing.T) {
 // TC-MYC-02 (MYC-R005): expected MySQL collector set.
 func TestMySQLCatalogExpectedSet(t *testing.T) {
 	want := []string{
+		"mysql_columns_v1",
 		"mysql_data_lock_waits_v1",
 		"mysql_data_locks_v1",
 		"mysql_engines_v1",
@@ -31,6 +32,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_global_variables_v1",
 		"mysql_group_replication_members_v1",
 		"mysql_identity_v1",
+		"mysql_index_inventory_v1",
 		"mysql_innodb_metrics_v1",
 		"mysql_innodb_transactions_v1",
 		"mysql_metadata_locks_v1",

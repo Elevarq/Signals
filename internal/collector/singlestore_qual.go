@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/elevarq/signals/internal/clickhouse"
@@ -56,6 +57,11 @@ type QualExport struct {
 	ProcessInfoPresent bool           // MV_PROCESSLIST INFO leaked (redaction breach)
 	ManifestNames      map[string]string
 	MemberNames        []string
+	// PayloadByQuery is the exact exported payload rows per collector id, read
+	// from query_results.ndjson as a downstream consumer would. Used by the
+	// Replay Tier-1 semantic qualification (#538) to assert the columns/index
+	// evidence values — not just row counts — survive the full export.
+	PayloadByQuery map[string][]map[string]any
 }
 
 // ExpectedCollectorsFor returns the expected collector id set for an engine,
@@ -220,6 +226,168 @@ func VerifyExportReconciliation(s QualSnapshot, z QualExport, expected []string,
 	return nil
 }
 
+// cell reads a string value out of an exported payload row (the wire runner
+// stringifies every cell, so information_schema values arrive as strings).
+func cell(row map[string]any, key string) string {
+	if v, ok := row[key]; ok && v != nil {
+		if s, ok := v.(string); ok {
+			return s
+		}
+		return fmt.Sprintf("%v", v)
+	}
+	return ""
+}
+
+// VerifyReplayTier1Evidence asserts the #538 Analyzer-Replay Tier-1 evidence —
+// the per-column inventory (<engine>_columns_v1) and per-index inventory
+// (<engine>_index_inventory_v1) — survived collection -> persistence -> export
+// with its SEMANTICS intact, not merely that the collectors succeeded. It checks
+// the deterministic `signals_fixture.replay_fixture` table seeded by the live
+// fixtures: column order/type/nullability and index identity/uniqueness/column
+// ordering (incl. the deliberately observable composite index). engine is the
+// collector-id prefix ("mysql" or "mariadb"); the acquisition SQL is identical
+// for both, but COLUMN_TYPE is asserted engine-native (MySQL `bigint`, MariaDB
+// `bigint(20)`) via a prefix check so neither is normalized to the other.
+func VerifyReplayTier1Evidence(z QualExport, engine string) error {
+	var errs []string
+	const schema, table = "signals_fixture", "replay_fixture"
+
+	// --- columns inventory -------------------------------------------------
+	colRows := fixtureRows(z.PayloadByQuery[engine+"_columns_v1"], schema, table)
+	if len(colRows) == 0 {
+		errs = append(errs, fmt.Sprintf("%s_columns_v1: no rows for %s.%s in the export", engine, schema, table))
+	} else {
+		// Order by ORDINAL_POSITION and assert the declared column order.
+		sort.SliceStable(colRows, func(i, j int) bool {
+			return atoiSafe(cell(colRows[i], "ORDINAL_POSITION")) < atoiSafe(cell(colRows[j], "ORDINAL_POSITION"))
+		})
+		wantOrder := []string{"id", "tenant_id", "created_at", "email", "note", "status"}
+		var gotOrder []string
+		for _, r := range colRows {
+			gotOrder = append(gotOrder, cell(r, "COLUMN_NAME"))
+		}
+		if strings.Join(gotOrder, ",") != strings.Join(wantOrder, ",") {
+			errs = append(errs, fmt.Sprintf("%s_columns_v1: column order=%v, want %v (ORDINAL_POSITION must be preserved)", engine, gotOrder, wantOrder))
+		}
+		// Ordinal positions must be the contiguous 1..N sequence.
+		for i, r := range colRows {
+			if got := cell(r, "ORDINAL_POSITION"); got != strconv.Itoa(i+1) {
+				errs = append(errs, fmt.Sprintf("%s_columns_v1: column %q ORDINAL_POSITION=%q, want %d", engine, cell(r, "COLUMN_NAME"), got, i+1))
+			}
+		}
+		byName := map[string]map[string]any{}
+		for _, r := range colRows {
+			byName[cell(r, "COLUMN_NAME")] = r
+		}
+		// Nullability: note NULL; the rest NOT NULL.
+		wantNullable := map[string]string{
+			"id": "NO", "tenant_id": "NO", "created_at": "NO",
+			"email": "NO", "note": "YES", "status": "NO",
+		}
+		for col, want := range wantNullable {
+			r, ok := byName[col]
+			if !ok {
+				errs = append(errs, fmt.Sprintf("%s_columns_v1: column %q missing", engine, col))
+				continue
+			}
+			if got := cell(r, "IS_NULLABLE"); got != want {
+				errs = append(errs, fmt.Sprintf("%s_columns_v1: column %q IS_NULLABLE=%q, want %q", engine, col, got, want))
+			}
+		}
+		// DDL-faithful type, asserted engine-native via prefix so MySQL `bigint`
+		// and MariaDB `bigint(20)` both pass without normalizing either.
+		typePrefix := map[string]string{"id": "bigint", "status": "int", "email": "varchar(255)"}
+		for col, pfx := range typePrefix {
+			r, ok := byName[col]
+			if !ok {
+				continue // missing already reported above
+			}
+			if ct := cell(r, "COLUMN_TYPE"); !strings.HasPrefix(ct, pfx) {
+				errs = append(errs, fmt.Sprintf("%s_columns_v1: column %q COLUMN_TYPE=%q, want prefix %q (DDL-faithful, engine-native)", engine, col, ct, pfx))
+			}
+		}
+	}
+
+	// --- index inventory ---------------------------------------------------
+	idxRows := fixtureRows(z.PayloadByQuery[engine+"_index_inventory_v1"], schema, table)
+	if len(idxRows) == 0 {
+		errs = append(errs, fmt.Sprintf("%s_index_inventory_v1: no rows for %s.%s in the export", engine, schema, table))
+	} else {
+		// Group columns per index in SEQ_IN_INDEX order; capture NON_UNIQUE.
+		type idxInfo struct {
+			nonUnique string
+			cols      []string
+		}
+		grouped := map[string]*idxInfo{}
+		// Stable order by (INDEX_NAME, SEQ_IN_INDEX) for deterministic column lists.
+		sort.SliceStable(idxRows, func(i, j int) bool {
+			ni, nj := cell(idxRows[i], "INDEX_NAME"), cell(idxRows[j], "INDEX_NAME")
+			if ni != nj {
+				return ni < nj
+			}
+			return atoiSafe(cell(idxRows[i], "SEQ_IN_INDEX")) < atoiSafe(cell(idxRows[j], "SEQ_IN_INDEX"))
+		})
+		for _, r := range idxRows {
+			name := cell(r, "INDEX_NAME")
+			if grouped[name] == nil {
+				grouped[name] = &idxInfo{nonUnique: cell(r, "NON_UNIQUE")}
+			}
+			grouped[name].cols = append(grouped[name].cols, cell(r, "COLUMN_NAME"))
+		}
+		// want: index -> (NON_UNIQUE, ordered columns). PRIMARY carries PK
+		// identity losslessly; the composite ordering is the key assertion.
+		type wantIdx struct {
+			nonUnique string
+			cols      []string
+		}
+		wantIdxs := map[string]wantIdx{
+			"PRIMARY":            {"0", []string{"id"}},
+			"uq_email":           {"0", []string{"email"}},
+			"idx_status":         {"1", []string{"status"}},
+			"idx_tenant_created": {"1", []string{"tenant_id", "created_at"}},
+		}
+		for name, want := range wantIdxs {
+			got, ok := grouped[name]
+			if !ok {
+				errs = append(errs, fmt.Sprintf("%s_index_inventory_v1: index %q missing", engine, name))
+				continue
+			}
+			if got.nonUnique != want.nonUnique {
+				errs = append(errs, fmt.Sprintf("%s_index_inventory_v1: index %q NON_UNIQUE=%q, want %q", engine, name, got.nonUnique, want.nonUnique))
+			}
+			if strings.Join(got.cols, ",") != strings.Join(want.cols, ",") {
+				errs = append(errs, fmt.Sprintf("%s_index_inventory_v1: index %q columns=%v, want %v (composite ordering must be preserved)", engine, name, got.cols, want.cols))
+			}
+		}
+	}
+
+	if len(errs) > 0 {
+		return fmt.Errorf("replay Tier-1 evidence qualification failed for %s: %s", engine, strings.Join(errs, "; "))
+	}
+	return nil
+}
+
+// fixtureRows filters exported payload rows to one schema.table.
+func fixtureRows(rows []map[string]any, schema, table string) []map[string]any {
+	var out []map[string]any
+	for _, r := range rows {
+		if cell(r, "TABLE_SCHEMA") == schema && cell(r, "TABLE_NAME") == table {
+			out = append(out, r)
+		}
+	}
+	return out
+}
+
+// atoiSafe parses an integer, returning a large sentinel on failure so unparsable
+// ordinals sort last rather than silently colliding at 0.
+func atoiSafe(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 1 << 30
+	}
+	return n
+}
+
 // ReadQualSnapshots projects every persisted snapshot + its runs + reconciled
 // result evidence out of a Signals store (the real one the daemon wrote). It
 // uses the production db accessors, never a hand-built row.
@@ -268,7 +436,7 @@ func ReadQualExport(zipPath string) (QualExport, error) {
 	}
 	defer func() { _ = zr.Close() }()
 
-	z := QualExport{ExportedRows: map[string]int{}, ManifestNames: map[string]string{}}
+	z := QualExport{ExportedRows: map[string]int{}, ManifestNames: map[string]string{}, PayloadByQuery: map[string][]map[string]any{}}
 	runToQuery := map[string]string{}
 
 	read := func(name string) ([]byte, bool, error) {
@@ -397,6 +565,7 @@ func ReadQualExport(zipPath string) (QualExport, error) {
 			}
 			if qid, ok := runToQuery[row.RunID]; ok {
 				z.ExportedRows[qid] = len(row.Payload)
+				z.PayloadByQuery[qid] = row.Payload
 			}
 			for _, r := range row.Payload {
 				if v, ok := r["QUERY_TEXT"]; ok && v != nil && v != "" {

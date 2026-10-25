@@ -136,3 +136,24 @@ func TestMariaDBLiveExportReconciliation(t *testing.T) {
 	}
 	t.Logf("export reconciliation OK for snapshot %s: collected==persisted==exported, redaction held, manifest complete", target.ID)
 }
+
+// TestMariaDBLiveReplayTier1Evidence (#538, MDC-R009): the columns +
+// index-inventory evidence for the seeded signals_fixture.replay_fixture table
+// survives collection -> persistence -> production export with its semantics
+// intact — column order/type/nullability (COLUMN_TYPE asserted engine-native,
+// e.g. MariaDB bigint(20)) and index identity/uniqueness/composite ordering — so
+// Analyzer Replay can reconstruct the table without inventing it.
+func TestMariaDBLiveReplayTier1Evidence(t *testing.T) {
+	zipPath := os.Getenv("MARIADB_QUAL_EXPORT_ZIP")
+	if zipPath == "" {
+		t.Skip("MARIADB_QUAL_EXPORT_ZIP not set — run via scripts/mariadb-live-qual.sh")
+	}
+	z, err := ReadQualExport(zipPath)
+	if err != nil {
+		t.Fatalf("ReadQualExport: %v", err)
+	}
+	if err := VerifyReplayTier1Evidence(z, "mariadb"); err != nil {
+		t.Fatalf("replay Tier-1 evidence qualification failed: %v", err)
+	}
+	t.Log("replay Tier-1 evidence OK: columns + index inventory semantics survived collection->persistence->export")
+}

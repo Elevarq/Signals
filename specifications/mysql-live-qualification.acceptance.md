@@ -19,12 +19,12 @@ normal daemon.
 **When:** `VerifyCadenceSnapshot(s, ExpectedCollectorsFor("mysql"), "mysql", "8.")`
 runs over the persisted snapshot.
 
-**Then:** engine is `mysql`, version matches `8.`, the run set equals exactly the
-nine MySQL collectors, every collector is `status='success'` (replication a
-legitimate zero-row success), and each success reconciles to a `query_results`
-row whose decoded row count equals `row_count`.
+**Then:** engine is `mysql`, version matches the running leg's prefix, the run set
+equals exactly the 18 MySQL collectors, every collector is `status='success'`
+(replication a legitimate zero-row success), and each success reconciles to a
+`query_results` row whose decoded row count equals `row_count`.
 
-**Expected Result:** Pass only when all nine collectors succeeded with reconciled
+**Expected Result:** Pass only when all 18 collectors succeeded with reconciled
 evidence.
 
 ---

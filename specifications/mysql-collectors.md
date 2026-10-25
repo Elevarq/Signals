@@ -48,6 +48,8 @@ wire session, identity resolution, and persistence/export.
 | `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing |
 | `mysql_engines_v1` | server | `information_schema.ENGINES` | storage engine support |
 | `mysql_schemata_v1` | schema | `information_schema.SCHEMATA` | databases + charset/collation |
+| `mysql_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) | #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native), `DATA_TYPE`, `IS_NULLABLE`, ordinal, `COLUMN_KEY`, default, extra. Schema metadata only — not HighSensitivity. |
+| `mysql_index_inventory_v1` | schema | `information_schema.STATISTICS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`) | #538 Replay Tier-1 evidence; per-index name, ordered columns (`SEQ_IN_INDEX`), uniqueness (`NON_UNIQUE`), type. `INDEX_NAME='PRIMARY'` carries PK identity losslessly. Per-index `CARDINALITY` is Tier-2 and NOT collected. Not HighSensitivity. |
 | `mysql_replication_status_v1` | topology | `performance_schema.replication_connection_status` | legitimate zero-row on a standalone server |
 | `mysql_statement_digests_v1` | workload | `performance_schema.events_statements_summary_by_digest` (top-200 by latency) | #540; **HighSensitivity**, `DIGEST_TEXT` redacted; empty when Performance Schema is off; NULL-digest overflow row included naturally. The MySQL query-workload signal (analogue of pg_stat_statements). A digest id is never equated with a PostgreSQL queryid. |
 | `mysql_innodb_transactions_v1` | activity | `information_schema.INNODB_TRX` (oldest-first, LIMIT 200) | #543; active/session point-in-time evidence. **HighSensitivity**, `trx_query` redacted (carries live SQL text; result key is lowercase `trx_query`). `trx_state` distinguishes `RUNNING` vs `LOCK WAIT`. Legitimate zero-row on an idle server. |
@@ -111,6 +113,16 @@ wire session, identity resolution, and persistence/export.
   locked index-key value — row data) in `SensitiveColumns`. Native lock
   descriptors (engine, object, index, mode, status) are preserved; only the key
   value is nilled under default collection.
+- **MYC-R009** | `mysql_columns_v1` + `mysql_index_inventory_v1` provide the
+  Analyzer-Replay Tier-1 evidence (`replay-evidence-contract.md`): per-column
+  name/type/nullability/ordinal and per-index name/ordered-columns/uniqueness,
+  with `INDEX_NAME='PRIMARY'` carrying primary-key identity (no separate PK
+  collector). Ordinal position and composite-index column ordering are preserved
+  (never flattened to an unordered set). `COLUMN_TYPE` is emitted engine-native —
+  MySQL's own type spelling (`bigint`, `int`), never normalized — so the DDL
+  reconstructs correctly on MySQL. Per-column / per-index selectivity and
+  cardinality are Tier-2 and out of scope. These two collectors are schema
+  metadata (no query text, no row data) and are not `HighSensitivity`.
 
 ## Invariants
 
@@ -152,4 +164,8 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R008, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R009, INV-MYC-01..03).
+The Tier-1 evidence contract this serves is Analyzer's
+`replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
+that the evidence survives collection → persistence → export is
+`TestMySQLLiveReplayTier1Evidence` + `VerifyReplayTier1Evidence`.

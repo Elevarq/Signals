@@ -61,6 +61,8 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) |
 | `mariadb_engines_v1` | server | `information_schema.ENGINES` |
 | `mariadb_schemata_v1` | schema | `information_schema.SCHEMATA` |
+| `mariadb_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) — #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native: MariaDB retains `bigint(20)`/`int(11)`), `IS_NULLABLE`, ordinal, key, default, extra. Not HighSensitivity. |
+| `mariadb_index_inventory_v1` | schema | `information_schema.STATISTICS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`) — #538 Replay Tier-1 evidence; per-index name, ordered columns (`SEQ_IN_INDEX`), uniqueness (`NON_UNIQUE`). `INDEX_NAME='PRIMARY'` carries PK identity. `CARDINALITY` (Tier-2) NOT collected. Not HighSensitivity. |
 | `mariadb_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE ENABLED=1` |
 | `mariadb_innodb_transactions_v1` | activity | `information_schema.INNODB_TRX` (oldest-first, LIMIT 200) — **HighSensitivity**, `trx_query` redacted (lowercase result key) |
 | `mariadb_innodb_locks_v1` | activity | `information_schema.INNODB_LOCKS` (LIMIT 500) — **HighSensitivity**, `lock_data` redacted (locked key value, lowercase result key) |
@@ -97,6 +99,19 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   mechanism: `mariadb_innodb_locks_v1` is `HighSensitivity` with `lock_data` (the
   locked index-key value — row data, lowercase result key) in `SensitiveColumns`.
   Native lock descriptors (mode, type, table, index) are preserved.
+- **MDC-R009** | `mariadb_columns_v1` + `mariadb_index_inventory_v1` provide the
+  Analyzer-Replay Tier-1 evidence (`replay-evidence-contract.md`): per-column
+  name/type/nullability/ordinal and per-index name/ordered-columns/uniqueness,
+  with `INDEX_NAME='PRIMARY'` carrying primary-key identity (no separate PK
+  collector). Ordinal position and composite-index column ordering are preserved
+  (never flattened to an unordered set). The acquisition SQL is identical to
+  MySQL's (empirically verified equivalent across MySQL 8.0/8.4/9.7 and MariaDB
+  10.11/11.4/11.8/12.3), but the collector identity is MariaDB's and `COLUMN_TYPE`
+  is emitted engine-native — MariaDB keeps the integer display width
+  (`bigint(20)`, `int(11)`) MySQL 8.0 dropped, never normalized to MySQL — so the
+  DDL reconstructs correctly on MariaDB. Per-column / per-index selectivity and
+  cardinality are Tier-2 and out of scope. Both collectors are schema metadata and
+  are not `HighSensitivity`.
 
 ## Invariants
 
@@ -135,4 +150,8 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R008, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R009, INV-MDC-01..03).
+The Tier-1 evidence contract this serves is Analyzer's
+`replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
+that the evidence survives collection → persistence → export is
+`TestMariaDBLiveReplayTier1Evidence` + `VerifyReplayTier1Evidence`.
