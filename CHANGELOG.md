@@ -6,17 +6,23 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.2] - 2026-10-26
+
 ### Added
 
 - Opt-in, secure-default-OFF **structural query text** capability (#647): the
-  server-normalized `DIGEST_TEXT` for the MySQL-wire family (MySQL / MariaDB /
-  SingleStore) can now be retained as bounded (4096-byte) structural evidence
-  via `collect_normalized_query_text` / `WithStructuralQueryText`, independent of
-  the generic high-sensitivity switch. Literals are never collected (the server
-  normalizes them to `?` before Signals reads the column); a machine-visible
-  `digest_text_truncated` flag marks any capped value so a consumer never treats
-  a truncated statement as complete. Default behaviour is byte-identical to
-  2.0.0-poc.1 (`DIGEST_TEXT` stays null). Spec:
+  server-normalized `DIGEST_TEXT` for **MySQL and MariaDB** can now be retained
+  as bounded (4096-byte) structural evidence via `collect_normalized_query_text`
+  / `WithStructuralQueryText`, independent of the generic high-sensitivity
+  switch. Literals are never collected (the server normalizes them to `?` before
+  Signals reads the column); a machine-visible `digest_text_truncated` flag
+  marks any capped value so a consumer never treats a truncated statement as
+  complete. Default behaviour is byte-identical to 2.0.0-poc.1 (`DIGEST_TEXT`
+  stays null). Qualified live against MySQL 8.0/8.4/9.7 + MariaDB
+  10.11/11.4/11.8/12.3 (INV-SQT-01: no runtime literal leakage, per version).
+  **SingleStore is explicitly excluded** — its `MV_PLANCACHE.QUERY_TEXT` has
+  unestablished normalization and is never auto-enabled via the MySQL-wire path
+  (protocol compatibility is not security equivalence). Spec:
   `specifications/structural-query-text.md`. Unblocks Analyzer #15.
 
 ## [2.0.0-poc.1] - 2026-10-25
