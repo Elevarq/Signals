@@ -19,8 +19,10 @@ set -euo pipefail
 
 # --- Pinned Dev Image (NEVER float a tag) ------------------------------------
 # mysql:8.4; pinned by digest so a clean machine pulls the exact same bytes.
-MYSQL_IMAGE="mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69"
-EXPECTED_VERSION_PREFIX="8."
+# #647: MYSQL_IMAGE + EXPECTED_VERSION_PREFIX may be overridden so the CI matrix
+# can drive this fixture per pinned MySQL line (mirrors the MariaDB fixture).
+MYSQL_IMAGE="${MYSQL_IMAGE:-mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69}"
+EXPECTED_VERSION_PREFIX="${EXPECTED_VERSION_PREFIX:-8.}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SQL="${REPO_ROOT}/examples/mysql-init.sql"
@@ -42,19 +44,29 @@ cmd_up() {
     die "container ${CONTAINER} already exists — run '$0 down' first (refusing to remove a container this script did not create)"
   fi
   say "starting pinned MySQL Dev Image"
+  # #647: raise the server digest-length caps above Signals' 4096-byte cap so the
+  # long adversarial statement produces a DIGEST_TEXT that actually exceeds the
+  # cap, exercising Signals' truncation live (the server otherwise caps DIGEST_TEXT
+  # at performance_schema_max_digest_length, default 1024).
   docker run -d --name "${CONTAINER}" -e MYSQL_ROOT_PASSWORD="${ROOT_PW}" \
-    -p "${HOST_PORT}:3306" "${MYSQL_IMAGE}" >/dev/null
+    -p "${HOST_PORT}:3306" "${MYSQL_IMAGE}" \
+    --max-digest-length=8192 --performance-schema-max-digest-length=8192 >/dev/null
   say "waiting for MySQL to accept connections"
-  local ok=""
-  for _ in $(seq 1 60); do
-    if docker exec "${CONTAINER}" mysqladmin ping -uroot -p"${ROOT_PW}" --silent >/dev/null 2>&1; then
-      ok=1; break
-    fi
+  # Wait for REAL query readiness (a non-empty SELECT VERSION()), not just
+  # `mysqladmin ping`. During first-boot init the entrypoint runs a temporary
+  # server that answers ping seconds before it will answer a real query (and it
+  # restarts once init finishes), so a ping-then-VERSION readiness check races:
+  # VERSION() comes back empty and the version check dies "unexpected version ''"
+  # — observed in CI once this fixture drove the live matrix. Polling VERSION()
+  # itself removes the race (the `|| true` guards the transient failure). Mirrors
+  # the MariaDB fixture hardening (#638).
+  local ok="" ver=""
+  for _ in $(seq 1 90); do
+    ver="$(docker exec "${CONTAINER}" mysql -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')" || true
+    if [ -n "${ver}" ]; then ok=1; break; fi
     sleep 2
   done
   [ -n "${ok}" ] || { docker logs "${CONTAINER}" 2>&1 | tail -30; die "MySQL did not become ready"; }
-  local ver
-  ver="$(docker exec "${CONTAINER}" mysql -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')"
   case "${ver}" in
     ${EXPECTED_VERSION_PREFIX}*) say "MySQL ready: VERSION()=${ver}" ;;
     *) die "unexpected MySQL version '${ver}' (want ${EXPECTED_VERSION_PREFIX}x from the pinned image)" ;;

@@ -33,6 +33,10 @@ WORK="$(mktemp -d)"
 CADENCE_DB="${WORK}/cadence.db"
 EXPORT_DB="${WORK}/export.db"
 EXPORT_ZIP="${WORK}/snapshot.zip"
+# #647 structural-query qualification: a second export with the opt-in ON.
+# The EXPORT_ZIP above (opt-in OFF) doubles as the control.
+STRUCTURAL_DB="${WORK}/structural.db"
+STRUCTURAL_ZIP="${WORK}/structural.zip"
 BIN="${WORK}/signals"
 CTL="${WORK}/signalsctl"
 TOKEN="mariadb-live-qual-token-aaaaaaaaaaaaaaaaaaaa"
@@ -157,6 +161,39 @@ wait "${DAEMON_PID}" 2>/dev/null || true
 DAEMON_PID=""
 [ -s "${EXPORT_ZIP}" ] || die "export did not produce a ZIP"
 
+# --- #647 structural export: a FRESH store, opt-in ON, production export ------
+# The adversarial workload (examples/mariadb-init.sql) has already populated the
+# digest table (performance_schema + the statements-digest consumer must be on),
+# so the normalized DIGEST_TEXT is present to retain.
+say "structural: fresh store, SIGNALS_COLLECT_NORMALIZED_QUERY_TEXT=1, production export"
+SS_RO_PASSWORD='signals_ro_pw' \
+SIGNALS_DB_PATH="${STRUCTURAL_DB}" \
+SIGNALS_POLL_INTERVAL="5m" \
+SIGNALS_MIN_SNAPSHOT_INTERVAL="1s" \
+SIGNALS_API_TOKEN="${TOKEN}" \
+SIGNALS_LISTEN_ADDR="${ADDR}" \
+SIGNALS_ALLOW_INSECURE_PG_TLS='true' \
+SIGNALS_COLLECT_NORMALIZED_QUERY_TEXT='1' \
+  "${BIN}" --config "${CONFIG}" > "${WORK}/daemon.log" 2>&1 &
+DAEMON_PID=$!
+wait_health
+STRUCTURAL_ULID=""
+for _ in $(seq 1 30); do
+  n="$(sqlite_count "${STRUCTURAL_DB}")"
+  if [ "${n}" -ge 1 ]; then
+    STRUCTURAL_ULID="$(sqlite3 "${STRUCTURAL_DB}" "SELECT id FROM snapshots ORDER BY collected_at, id LIMIT 1;")"
+    break
+  fi
+  kill -0 "${DAEMON_PID}" 2>/dev/null || { cat "${WORK}/daemon.log"; die "daemon exited before structural baseline"; }
+  sleep 1
+done
+[ -n "${STRUCTURAL_ULID}" ] || die "no structural snapshot landed"
+SIGNALS_API_TOKEN="${TOKEN}" "${CTL}" --api-addr "http://${ADDR}" export --snapshot-id "${STRUCTURAL_ULID}" --output "${STRUCTURAL_ZIP}"
+kill -TERM "${DAEMON_PID}" 2>/dev/null || true
+wait "${DAEMON_PID}" 2>/dev/null || true
+DAEMON_PID=""
+[ -s "${STRUCTURAL_ZIP}" ] || die "structural export did not produce a ZIP"
+
 # --- verify producer artifacts with the Go verifier (//go:build mariadb_live) --
 say "running the Go live verifier against the real producer artifacts"
 ( cd "${REPO_ROOT}" &&
@@ -169,6 +206,14 @@ say "running the Go live verifier against the real producer artifacts"
   MARIADB_QUAL_VERSION_PREFIX="${MARIADB_QUAL_VERSION_PREFIX:-11.}" \
     go test -tags mariadb_live -count=1 -v -run 'TestMariaDBLive' ./internal/collector/ )
 
+# --- #647 structural-query safety qualification (INV-SQT-01, per engine line) -
+say "running the structural-query qualification (opt-in ON vs control)"
+( cd "${REPO_ROOT}" &&
+  STRUCTURAL_QUAL_ENGINE="mariadb" \
+  STRUCTURAL_QUAL_STRUCTURAL_ZIP="${STRUCTURAL_ZIP}" \
+  STRUCTURAL_QUAL_CONTROL_ZIP="${EXPORT_ZIP}" \
+    go test -tags mariadb_live -count=1 -v -run 'TestLiveStructuralQueryText' ./internal/collector/ )
+
 [ -n "${SIGNALS_CORPUS_OUT:-}" ] && emit_conformance_artifact "mariadb" "${EXPORT_ZIP}"
 
-say "LIVE QUALIFICATION OK — real daemon + real MariaDB + production exporter, verified status=success + reconciled evidence"
+say "LIVE QUALIFICATION OK — real daemon + real MariaDB + production exporter, verified status=success + reconciled evidence + structural-query INV-SQT-01"

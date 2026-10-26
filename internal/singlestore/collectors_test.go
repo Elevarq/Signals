@@ -40,7 +40,7 @@ func resultByID(rs []Result, id string) *Result {
 
 func TestCollectRunsCatalog(t *testing.T) {
 	// TC-SSC-01
-	rs := Collect(context.Background(), stubRunner(""), Catalog(), false)
+	rs := Collect(context.Background(), stubRunner(""), Catalog(), false, false)
 	if len(rs) != len(Catalog()) {
 		t.Fatalf("want a result per collector (%d), got %d", len(Catalog()), len(rs))
 	}
@@ -56,7 +56,7 @@ func TestCollectRunsCatalog(t *testing.T) {
 
 func TestCollectPartialFailureDoesNotAbort(t *testing.T) {
 	// TC-SSC-02: fail the aggregators collector; others must still run.
-	rs := Collect(context.Background(), stubRunner("AGGREGATORS"), Catalog(), false)
+	rs := Collect(context.Background(), stubRunner("AGGREGATORS"), Catalog(), false, false)
 	agg := resultByID(rs, "singlestore_aggregators_v1")
 	if agg == nil || agg.Err == "" {
 		t.Fatalf("aggregators should have captured an error: %+v", agg)
@@ -68,7 +68,7 @@ func TestCollectPartialFailureDoesNotAbort(t *testing.T) {
 
 func TestCollectRedactsSensitive(t *testing.T) {
 	// TC-SSC-03
-	rs := Collect(context.Background(), stubRunner(""), Catalog(), true)
+	rs := Collect(context.Background(), stubRunner(""), Catalog(), true, false)
 	pc := resultByID(rs, "singlestore_plancache_v1")
 	if pc == nil || len(pc.Rows) != 1 {
 		t.Fatalf("plancache result missing: %+v", pc)
@@ -175,7 +175,7 @@ func TestPipelinesConfigRedacted(t *testing.T) {
 		}
 		return []map[string]any{}, nil
 	}
-	rs := Collect(context.Background(), runner, []Collector{*p}, true)
+	rs := Collect(context.Background(), runner, []Collector{*p}, true, false)
 	if len(rs) != 1 || len(rs[0].Rows) != 1 {
 		t.Fatalf("unexpected result: %+v", rs)
 	}

@@ -57,6 +57,10 @@ type QualExport struct {
 	ProcessInfoPresent bool           // MV_PROCESSLIST INFO leaked (redaction breach)
 	ManifestNames      map[string]string
 	MemberNames        []string
+	// StructuralQueryTextEnabled mirrors metadata.json
+	// collect_normalized_query_text (#647) — the capability-state signal a
+	// consumer reads to tell a redacted (disabled) snapshot from an enabled one.
+	StructuralQueryTextEnabled bool
 	// PayloadByQuery is the exact exported payload rows per collector id, read
 	// from query_results.ndjson as a downstream consumer would. Used by the
 	// Replay Tier-1 semantic qualification (#538) to assert the columns/index
@@ -468,6 +472,7 @@ func ReadQualExport(zipPath string) (QualExport, error) {
 		}
 		z.Engine, _ = m["engine"].(string)
 		z.EngineVersion, _ = m["engine_version"].(string)
+		z.StructuralQueryTextEnabled, _ = m["collect_normalized_query_text"].(bool)
 	}
 
 	// collector_status.json

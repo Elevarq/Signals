@@ -62,9 +62,17 @@ type SignalsConfig struct {
 	// histogram collector but NOT the per-element array / range
 	// data set this to false while leaving the daemon-wide flag
 	// true. Env: SIGNALS_COLLECT_ARRAY_RANGE_HISTOGRAMS.
-	CollectArrayRangeHistograms bool   `yaml:"collect_array_range_histograms"`
-	MetricsEnabled              bool   `yaml:"metrics_enabled"`
-	MetricsPath                 string `yaml:"metrics_path"`
+	CollectArrayRangeHistograms bool `yaml:"collect_array_range_histograms"`
+	// CollectNormalizedQueryText (#647) is the dedicated, INDEPENDENT
+	// opt-in for bounded server-normalized DIGEST_TEXT structural query
+	// evidence (MySQL-wire family). NOT layered on
+	// HighSensitivityCollectorsEnabled — it is the sole gate for that one
+	// column; enabling either flag never implicitly enables the other.
+	// Secure default false (DIGEST_TEXT stays null, poc.1-compatible).
+	// Env: SIGNALS_COLLECT_NORMALIZED_QUERY_TEXT.
+	CollectNormalizedQueryText bool   `yaml:"collect_normalized_query_text"`
+	MetricsEnabled             bool   `yaml:"metrics_enabled"`
+	MetricsPath                string `yaml:"metrics_path"`
 	// R091: minimum interval between completed snapshots for the
 	// same logical target. Default 60s. Env override
 	// SIGNALS_MIN_SNAPSHOT_INTERVAL accepts the same time-string
@@ -732,6 +740,11 @@ func applyEnvOverrides(cfg *Config) error {
 		return err
 	} else if ok {
 		cfg.Signals.CollectArrayRangeHistograms = b
+	}
+	if b, ok, err := parseEnvBool("SIGNALS_COLLECT_NORMALIZED_QUERY_TEXT"); err != nil {
+		return err
+	} else if ok {
+		cfg.Signals.CollectNormalizedQueryText = b
 	}
 	if b, ok, err := parseEnvBool("SIGNALS_METRICS_ENABLED"); err != nil {
 		return err

@@ -22,7 +22,7 @@ func TestCollectMeasuresDuration(t *testing.T) {
 		return t
 	}
 
-	rs := CollectWithClock(context.Background(), stubRunner(""), Catalog(), false, clock)
+	rs := CollectWithClock(context.Background(), stubRunner(""), Catalog(), false, false, clock)
 	if len(rs) != len(Catalog()) {
 		t.Fatalf("want a result per collector (%d), got %d", len(Catalog()), len(rs))
 	}
@@ -39,7 +39,7 @@ func TestCollectMeasuresDuration(t *testing.T) {
 // TC-MKR-08 companion: the production Collect wrapper populates a measured,
 // non-negative duration (real wall clock) for each result.
 func TestCollectPopulatesDuration(t *testing.T) {
-	rs := Collect(context.Background(), stubRunner(""), Catalog(), false)
+	rs := Collect(context.Background(), stubRunner(""), Catalog(), false, false)
 	for _, r := range rs {
 		if r.DurationMS < 0 {
 			t.Errorf("collector %q DurationMS = %d, want >= 0", r.CollectorID, r.DurationMS)
@@ -51,7 +51,7 @@ func TestCollectPopulatesDuration(t *testing.T) {
 // Result so the persistence layer can classify an elevated permission-denied
 // as skipped (MKR-R007).
 func TestCollectCarriesElevatedPrivilege(t *testing.T) {
-	rs := Collect(context.Background(), stubRunner(""), Catalog(), false)
+	rs := Collect(context.Background(), stubRunner(""), Catalog(), false, false)
 	got := resultByID(rs, "singlestore_cluster_status_v1")
 	if got == nil {
 		t.Fatal("cluster_status result missing")
