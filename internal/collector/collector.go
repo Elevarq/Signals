@@ -77,14 +77,19 @@ type Collector struct {
 	// #128: per-collector opt-in for pg_stats_array_range_v1.
 	// Layered on top of highSensitivityEnabled.
 	collectArrayRangeHistograms bool // set-at-construction.
-	metrics                     *metrics.Registry
-	bypassedChecks              []string
-	bypassedChecksMu            sync.Mutex
-	pools                       map[string]*pgxpool.Pool
-	poolsMu                     sync.Mutex
-	collectNowCh                chan CollectRequest
-	entropy                     io.Reader
-	running                     sync.Mutex
+	// #647: dedicated, independent opt-in for bounded normalized
+	// DIGEST_TEXT structural query evidence. NOT layered on
+	// highSensitivityEnabled — it is the sole gate for that one column
+	// (structural-query-text.md SQT-R001/R002). Secure default OFF.
+	collectNormalizedQueryText bool // set-at-construction.
+	metrics                    *metrics.Registry
+	bypassedChecks             []string
+	bypassedChecksMu           sync.Mutex
+	pools                      map[string]*pgxpool.Pool
+	poolsMu                    sync.Mutex
+	collectNowCh               chan CollectRequest
+	entropy                    io.Reader
+	running                    sync.Mutex
 	// sched, when non-nil, anchors collection to a cron schedule (#491):
 	// Run waits for each cron match instead of ticking from process start,
 	// and performs no start-time baseline. Nil = interval mode (the ticker).
@@ -384,6 +389,17 @@ func WithHighSensitivityCollectors(enabled bool) CollectorOption {
 func WithCollectArrayRangeHistograms(enabled bool) CollectorOption {
 	return func(c *Collector) {
 		c.collectArrayRangeHistograms = enabled
+	}
+}
+
+// WithStructuralQueryText enables the bounded normalized DIGEST_TEXT
+// structural-query capability (#647). INDEPENDENT of
+// WithHighSensitivityCollectors — enabling one never implicitly enables
+// the other; this is the sole gate that lets the normalized DIGEST_TEXT
+// survive redaction. Off by default (secure default, SQT-R001/INV-SQT-02).
+func WithStructuralQueryText(enabled bool) CollectorOption {
+	return func(c *Collector) {
+		c.collectNormalizedQueryText = enabled
 	}
 }
 
@@ -1606,7 +1622,12 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// survive. No-op when high-sensitivity is enabled (the default)
 		// or when the collector has no SensitiveColumns (skip-path
 		// collectors are already excluded by Filter).
-		redactHighSensitivityColumnsIfNeeded(q, rows, c.highSensitivityEnabled)
+		redactHighSensitivityColumnsIfNeeded(q, rows, c.highSensitivityEnabled, c.collectNormalizedQueryText)
+
+		// #647: when the structural opt-in is on, bound the surviving
+		// DIGEST_TEXT to the fixed cap and stamp the machine-visible
+		// digest_text_truncated flag (SQT-R003/R007). No-op otherwise.
+		applyStructuralQueryTextBound(q, rows, c.collectNormalizedQueryText)
 
 		// Encode result as NDJSON.
 		payload, compressed, sizeBytes, encErr := db.EncodeNDJSON(rows)

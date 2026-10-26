@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- Opt-in, secure-default-OFF **structural query text** capability (#647): the
+  server-normalized `DIGEST_TEXT` for the MySQL-wire family (MySQL / MariaDB /
+  SingleStore) can now be retained as bounded (4096-byte) structural evidence
+  via `collect_normalized_query_text` / `WithStructuralQueryText`, independent of
+  the generic high-sensitivity switch. Literals are never collected (the server
+  normalizes them to `?` before Signals reads the column); a machine-visible
+  `digest_text_truncated` flag marks any capped value so a consumer never treats
+  a truncated statement as complete. Default behaviour is byte-identical to
+  2.0.0-poc.1 (`DIGEST_TEXT` stays null). Spec:
+  `specifications/structural-query-text.md`. Unblocks Analyzer #15.
+
 ## [2.0.0-poc.1] - 2026-10-25
 
 **Multi-engine POC producer boundary — pre-release, NOT production-ready.**

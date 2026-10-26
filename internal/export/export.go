@@ -161,6 +161,7 @@ type Builder struct {
 	unsafeReasonsFunc                func() []string
 	collectorStatus                  *collector.CollectorStatusFile
 	highSensitivityCollectorsEnabled bool
+	collectNormalizedQueryText       bool // #647 structural-query opt-in state
 	perCollectorFiles                bool
 }
 
@@ -208,6 +209,14 @@ func (b *Builder) SetUnsafeMode(reasonsFunc func() []string) {
 // present in the export without parsing the body.
 func (b *Builder) SetHighSensitivityCollectorsEnabled(enabled bool) {
 	b.highSensitivityCollectorsEnabled = enabled
+}
+
+// SetStructuralQueryTextEnabled records the #647 structural-query opt-in
+// state in export metadata so a consumer can distinguish a redacted
+// (disabled) snapshot from an enabled one, and does not collapse the
+// capability states into a plain empty success (SQT-R006 / INV-SQT-05).
+func (b *Builder) SetStructuralQueryTextEnabled(enabled bool) {
+	b.collectNormalizedQueryText = enabled
 }
 
 // SetExportPerCollectorFiles enables R080's per-collector view. When on,
@@ -547,6 +556,7 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 		"collected_at":                        now, // legacy alias
 		"unsafe_mode":                         b.unsafeMode,
 		"high_sensitivity_collectors_enabled": b.highSensitivityCollectorsEnabled,
+		"collect_normalized_query_text":       b.collectNormalizedQueryText,
 		// R086 — explicit scope intent for downstream consumers.
 		// `snapshot_count` is the number of snapshots packaged in
 		// this ZIP (0 on an empty store, 1 for --snapshot-id and

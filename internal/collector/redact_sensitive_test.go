@@ -21,7 +21,7 @@ func TestRedactHighSensitivityColumnsIfNeeded(t *testing.T) {
 	}
 
 	// Opted out: sensitive column is nulled; non-sensitive columns survive.
-	redactHighSensitivityColumnsIfNeeded(q, rows, false)
+	redactHighSensitivityColumnsIfNeeded(q, rows, false, false)
 	for i, row := range rows {
 		if row["query_snippet"] != nil {
 			t.Errorf("row[%d].query_snippet not redacted: %v", i, row["query_snippet"])
@@ -42,7 +42,7 @@ func TestRedactHighSensitivityColumnsNoOpWhenEnabled(t *testing.T) {
 		SensitiveColumns: []string{"query_snippet"},
 	}
 	rows := []map[string]any{{"query_snippet": "SELECT 1"}}
-	redactHighSensitivityColumnsIfNeeded(q, rows, true)
+	redactHighSensitivityColumnsIfNeeded(q, rows, true, false)
 	if rows[0]["query_snippet"] != "SELECT 1" {
 		t.Errorf("with HighSensitivityEnabled=true the column must not be redacted; got %v", rows[0]["query_snippet"])
 	}
@@ -57,7 +57,7 @@ func TestRedactHighSensitivityColumnsNoOpWhenSkipCollector(t *testing.T) {
 		HighSensitivity: true,
 	}
 	rows := []map[string]any{{"definition": "CREATE VIEW v AS SELECT 1"}}
-	redactHighSensitivityColumnsIfNeeded(q, rows, false)
+	redactHighSensitivityColumnsIfNeeded(q, rows, false, false)
 	if rows[0]["definition"] != "CREATE VIEW v AS SELECT 1" {
 		t.Errorf("collector without SensitiveColumns must not be touched by the redact function; got %v", rows[0]["definition"])
 	}

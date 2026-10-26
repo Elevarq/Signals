@@ -215,6 +215,7 @@ func run() error {
 		collector.WithAllowUnsafeRole(cfg.AllowUnsafeRole),
 		collector.WithHighSensitivityCollectors(cfg.Signals.HighSensitivityCollectorsEnabled),
 		collector.WithCollectArrayRangeHistograms(cfg.Signals.CollectArrayRangeHistograms),
+		collector.WithStructuralQueryText(cfg.Signals.CollectNormalizedQueryText),
 		collector.WithMetrics(metricsReg),
 		collector.WithCircuitManager(circuitMgr),
 		collector.WithRetention(cfg.Signals.Retention),
@@ -242,6 +243,7 @@ func run() error {
 	// Initialize exporter (no license gating).
 	exporter := export.NewBuilder(store, instanceID)
 	exporter.SetHighSensitivityCollectorsEnabled(cfg.Signals.HighSensitivityCollectorsEnabled)
+	exporter.SetStructuralQueryTextEnabled(cfg.Signals.CollectNormalizedQueryText)
 	exporter.SetExportPerCollectorFiles(cfg.Signals.ExportPerCollectorFiles)
 	if cfg.AllowUnsafeRole {
 		// Pass a function that returns the actual bypassed checks at export time,
