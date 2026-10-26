@@ -22,7 +22,7 @@ set -euo pipefail
 # #647: MYSQL_IMAGE + EXPECTED_VERSION_PREFIX may be overridden so the CI matrix
 # can drive this fixture per pinned MySQL line (mirrors the MariaDB fixture).
 MYSQL_IMAGE="${MYSQL_IMAGE:-mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69}"
-EXPECTED_VERSION_PREFIX="8."
+EXPECTED_VERSION_PREFIX="${EXPECTED_VERSION_PREFIX:-8.}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SQL="${REPO_ROOT}/examples/mysql-init.sql"
