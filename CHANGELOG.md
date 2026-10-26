@@ -6,6 +6,45 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.1] - 2026-10-25
+
+**Multi-engine POC producer boundary — pre-release, NOT production-ready.**
+
+This is a pinned, reproducible pre-release of the completed multi-engine POC so
+the rest of the Elevarq multi-engine POC (Analyzer, integration environments,
+demo stacks) can pin a stable Signals build instead of tracking `poc/singlestore`
+HEAD. It is **not** a claim that Signals 2.0 is production-ready. Built from
+source baseline `971e361` (+ this release metadata only).
+
+### Multi-engine producer (proven in this POC)
+
+- **Five engines** collect → persist → export → reconcile through the one
+  backend-dispatch seam, each version-qualified live in CI:
+  - **PostgreSQL** 14–18 (mature baseline; regression control).
+  - **SingleStore** 9.1.x.
+  - **MySQL** 8.0 / 8.4 LTS / 9.7 LTS.
+  - **MariaDB** 10.11 / 11.4 / 11.8 / 12.3 LTS.
+  - **ClickHouse** 24.8.
+- **Export contract `signals-snapshot.v1`** with engine-keyed reporting;
+  heterogeneous unscoped exports are rejected; engine-aware connection defaults.
+- **Tier-1 Replay evidence** for MySQL/MariaDB (per-column inventory + index
+  inventory with PK identity), semantically asserted across all seven qualified
+  MySQL/MariaDB versions.
+- **Producer conformance corpus** (#530): real production-exporter artifacts for
+  MySQL/MariaDB/ClickHouse consumed through Analyzer's real ingest → dispatch →
+  normalization path (Analyzer #3899); SingleStore real-producer conformance and
+  the PostgreSQL path remain green.
+- TLS verify-ca/verify-full (fail-closed), documented least-privilege grants, and
+  default redaction of query text / locked-key data across engines.
+
+### Known POC limitations (NOT blockers for this artifact)
+
+Deferred production-hardening / fidelity work, explicitly out of scope here:
+#568 (heterogeneous concurrency/reload isolation), #624 (residual semantic
+assertions beyond Tier-1), #562 (deeper/bounded ClickHouse parts evidence),
+#566 (replicated ClickHouse fixture), #531 (internal `pg_version`-column
+cleanup), #640 (Tier-2/Tier-3 Replay fidelity).
+
 ## [1.6.0] - 2026-10-13
 
 ### Added
