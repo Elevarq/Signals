@@ -52,16 +52,21 @@ cmd_up() {
     -p "${HOST_PORT}:3306" "${MYSQL_IMAGE}" \
     --max-digest-length=8192 --performance-schema-max-digest-length=8192 >/dev/null
   say "waiting for MySQL to accept connections"
-  local ok=""
-  for _ in $(seq 1 60); do
-    if docker exec "${CONTAINER}" mysqladmin ping -uroot -p"${ROOT_PW}" --silent >/dev/null 2>&1; then
-      ok=1; break
-    fi
+  # Wait for REAL query readiness (a non-empty SELECT VERSION()), not just
+  # `mysqladmin ping`. During first-boot init the entrypoint runs a temporary
+  # server that answers ping seconds before it will answer a real query (and it
+  # restarts once init finishes), so a ping-then-VERSION readiness check races:
+  # VERSION() comes back empty and the version check dies "unexpected version ''"
+  # — observed in CI once this fixture drove the live matrix. Polling VERSION()
+  # itself removes the race (the `|| true` guards the transient failure). Mirrors
+  # the MariaDB fixture hardening (#638).
+  local ok="" ver=""
+  for _ in $(seq 1 90); do
+    ver="$(docker exec "${CONTAINER}" mysql -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')" || true
+    if [ -n "${ver}" ]; then ok=1; break; fi
     sleep 2
   done
   [ -n "${ok}" ] || { docker logs "${CONTAINER}" 2>&1 | tail -30; die "MySQL did not become ready"; }
-  local ver
-  ver="$(docker exec "${CONTAINER}" mysql -uroot -p"${ROOT_PW}" -N -B -e "SELECT VERSION()" 2>/dev/null | tr -d '[:space:]')"
   case "${ver}" in
     ${EXPECTED_VERSION_PREFIX}*) say "MySQL ready: VERSION()=${ver}" ;;
     *) die "unexpected MySQL version '${ver}' (want ${EXPECTED_VERSION_PREFIX}x from the pinned image)" ;;
