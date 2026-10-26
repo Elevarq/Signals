@@ -116,6 +116,7 @@ func mysqlCatalog() []Collector {
 			SQL:              "SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_TIMER_WAIT, SUM_ROWS_EXAMINED, SUM_ROWS_SENT, SUM_ERRORS, SUM_CREATED_TMP_TABLES, SUM_SELECT_SCAN, SUM_NO_INDEX_USED, FIRST_SEEN, LAST_SEEN FROM performance_schema.events_statements_summary_by_digest ORDER BY SUM_TIMER_WAIT DESC LIMIT 200",
 			HighSensitivity:  true,
 			SensitiveColumns: []string{"DIGEST_TEXT"},
+			StructuralColumn: "DIGEST_TEXT", // #647 structural-query opt-in column
 		},
 		{
 			// #543: active InnoDB transactions (point-in-time session evidence,

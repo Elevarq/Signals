@@ -212,19 +212,6 @@ jobs:
           - mysql_version: "9.7"
             image: mysql@sha256:8fb11c38b3551e22d50adbb688f027f8ff4ea2d2445aa277c1cc97b4af85ec54
             version_prefix: "9."
-    services:
-      mysql:
-        # Pinned by digest (mysql:8.0 / mysql:8.4) — never a float tag.
-        image: ${{ matrix.image }}
-        env:
-          MYSQL_ROOT_PASSWORD: dev-root-pw
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mysqladmin ping -h localhost -uroot -pdev-root-pw --silent"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -238,19 +225,19 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Install MySQL client
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
-
-      - name: Seed the deterministic read-only monitoring user + fixture
-        run: mysql -h 127.0.0.1 -P 3306 -uroot -pdev-root-pw < examples/mysql-init.sql
-
-      - name: Run the MySQL live qualification (normal daemon -> exporter)
-        # EXTERNAL mode: the service container is already up + seeded above, so
-        # the harness only builds, drives the real daemon, and verifies. The
-        # version prefix is the matrix leg's (8. for 8.0/8.4, 9. for 9.7 LTS).
+      - name: "Run the MySQL live qualification (fixture: normal daemon -> exporter + #647 structural)"
+        # LOCAL mode (#647): the fixture brings up the pinned matrix image with the
+        # server flags the structural-query qualification needs (raised
+        # max_digest_length so the long adversarial statement exceeds Signals'
+        # 4096-byte cap) — flags a GH service container cannot pass — and seeds
+        # examples/mysql-init.sql (incl. the adversarial workload). The driver's
+        # `all` runs the normal daemon->exporter qualification AND the
+        # structural-query INV-SQT-01 qualification for this engine/version.
         env:
+          MYSQL_IMAGE: ${{ matrix.image }}
+          EXPECTED_VERSION_PREFIX: ${{ matrix.version_prefix }}
           MYSQL_QUAL_VERSION_PREFIX: ${{ matrix.version_prefix }}
-        run: MYSQL_QUAL_EXTERNAL=1 bash scripts/mysql-live-qual.sh all
+        run: bash scripts/mysql-live-qual.sh all
 
   # MariaDB live qualification against a pinned MariaDB service container
   # (specifications/mariadb-live-qualification.md). Same shape as integration-mysql.
@@ -282,19 +269,6 @@ jobs:
           - mariadb_version: "12.3"
             image: mariadb@sha256:99c125f103f5d081ebbc9ffe064e63daf7f688ac33a5f7f29af2d7260a96debf
             version_prefix: "12.3."
-    services:
-      mariadb:
-        # Pinned by digest per matrix leg — never a float tag.
-        image: ${{ matrix.image }}
-        env:
-          MARIADB_ROOT_PASSWORD: dev-root-pw
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd "mariadb-admin ping -h localhost -uroot -pdev-root-pw --silent"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 12
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
@@ -308,19 +282,19 @@ jobs:
       - name: Download modules
         run: go mod download
 
-      - name: Install MariaDB client
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mariadb-client
-
-      - name: Seed the deterministic read-only monitoring user + fixture
-        run: mariadb -h 127.0.0.1 -P 3306 -uroot -pdev-root-pw < examples/mariadb-init.sql
-
-      - name: Run the MariaDB live qualification (normal daemon -> exporter)
-        # EXTERNAL mode: the service container is already up + seeded above, so
-        # the harness only builds, drives the real daemon, and verifies. The
-        # version prefix is the matrix leg's exact LTS line.
+      - name: "Run the MariaDB live qualification (fixture: normal daemon -> exporter + #647 structural)"
+        # LOCAL mode (#647): MariaDB ships performance_schema OFF by default and a
+        # GH service container cannot pass the server flags to turn it on, so the
+        # fixture brings up the pinned matrix image with --performance-schema=ON and
+        # raised max_digest_length, and seeds examples/mariadb-init.sql (which
+        # enables the statements-digest consumer + runs the adversarial workload).
+        # The driver's `all` runs the normal daemon->exporter qualification AND the
+        # structural-query INV-SQT-01 qualification for this engine/version.
         env:
+          MARIADB_IMAGE: ${{ matrix.image }}
+          EXPECTED_VERSION_PREFIX: ${{ matrix.version_prefix }}
           MARIADB_QUAL_VERSION_PREFIX: ${{ matrix.version_prefix }}
-        run: MARIADB_QUAL_EXTERNAL=1 bash scripts/mariadb-live-qual.sh all
+        run: bash scripts/mariadb-live-qual.sh all
 
   # ClickHouse live qualification against a pinned ClickHouse service container
   # (specifications/clickhouse-live-qualification.md). ClickHouse is a third

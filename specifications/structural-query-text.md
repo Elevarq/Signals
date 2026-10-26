@@ -13,16 +13,16 @@ the mechanism ahead of that qualification changes no existing output.
 ## Purpose
 
 Let an operator **opt in** to collecting the **server-normalized** statement
-digest text (`DIGEST_TEXT`) for the MySQL-wire family (MySQL, MariaDB,
-SingleStore) as a bounded, high-sensitivity **structural-query** signal, so a
+digest text (`DIGEST_TEXT`) for the MySQL-wire family (MySQL and
+MariaDB; SingleStore explicitly excluded — SQT-R010) as a bounded, high-sensitivity **structural-query** signal, so a
 downstream consumer (Elevarq Analyzer, #15) has the per-digest query *shape*
 needed to derive safe column-level index candidates and an EXPLAIN workload —
 the analogue of PostgreSQL's normalized `pg_stat_statements.query`.
 
 This spec owns only the **gating, bounding, truncation-signalling, capability
 state, and redaction interaction** for the `DIGEST_TEXT` column of the existing
-digest collectors (`mysql_statement_digests_v1` and the SingleStore
-equivalent). It adds **no new collector and no new SQL**: the digest collectors,
+digest collectors (`mysql_statement_digests_v1`,
+`mariadb_statement_digests_v1`). It adds **no new collector and no new SQL**: the digest collectors,
 their SQL, and the engine-neutral persistence/export are unchanged. It changes
 only *whether and how* one already-collected, already-redacted column survives
 to disk and export, plus the structured state that lets a consumer interpret it
@@ -74,9 +74,17 @@ essentially free; it does not today, so it stays a constant.
 
 ### Affected collectors
 
-`mysql_statement_digests_v1` (MySQL, MariaDB) and the SingleStore digest
-collector — the only collectors whose `SensitiveColumns` includes the
-server-normalized `DIGEST_TEXT`.
+`mysql_statement_digests_v1` (MySQL) and `mariadb_statement_digests_v1`
+(MariaDB) — the collectors whose `SensitiveColumns` is the server-normalized
+`DIGEST_TEXT` from `performance_schema.events_statements_summary_by_digest`.
+
+**SingleStore is explicitly out of scope** (SQT-R010). It has no digest
+collector; its workload text comes from `information_schema.MV_PLANCACHE.QUERY_TEXT`
+(collector `singlestore_plancache_v1`), whose normalization and
+no-literal-leakage semantics are **not** established. MySQL-wire protocol
+compatibility does not imply security equivalence, so SingleStore structural
+query evidence stays unsupported/disabled until it is independently qualified on
+its own safe evidence path.
 
 ### Outputs (per digest row)
 
@@ -154,12 +162,19 @@ genuinely idle workload MUST NOT all look like the same empty success:
   guess. (Producer obligation here: emit the flag faithfully; the consumer
   obligation is recorded for #15.)
 - **SQT-R008** | MySQL and MariaDB remain **distinct engine/collector
-  contracts** (separate identities, separate qualification legs). No separate
+  contracts** (separate collector IDs, separate qualification legs). No separate
   MariaDB/EITS structural-query *path* is introduced merely because MariaDB is a
-  distinct engine: where live qualification proves identical Performance Schema
-  `DIGEST_TEXT` semantics, the same implementation is reused. MariaDB-specific
+  distinct engine: both digest collectors read the same server-normalized
+  `DIGEST_TEXT` source and reuse the one retention implementation. MariaDB-specific
   behaviour is introduced **only** when the live supported-version matrix proves
   it is required.
+- **SQT-R010** | SingleStore is **not** enabled by this capability. Its
+  `singlestore_plancache_v1` / `QUERY_TEXT` evidence is never in the structural
+  registry and stays governed by the generic high-sensitivity switch. Enabling
+  structural query evidence for SingleStore requires an independent SingleStore
+  qualification of normalization + no-literal-leakage on its own evidence path
+  (MySQL-wire compatibility is not evidence of security equivalence). Guarded by
+  `TestSQT_SingleStoreNotAutoEnabled`.
 - **SQT-R009** | The capability is shipped per engine/version **only** after
   that line passes INV-SQT-01 qualification. A line that fails is left in the
   **unsupported** state (SQT state 4/5), not shipped with a weakened check.

@@ -50,7 +50,7 @@ func TestBoundedSingleStoreRunner_LaterCollectorsRun(t *testing.T) {
 		{ID: "slow_v1", Category: "x", SQL: "SLOW"},
 		{ID: "fast_v1", Category: "x", SQL: "FAST"},
 	}
-	results := singlestore.Collect(context.Background(), runner, cat, false)
+	results := singlestore.Collect(context.Background(), runner, cat, false, false)
 	if len(results) != 2 {
 		t.Fatalf("want 2 results, got %d", len(results))
 	}

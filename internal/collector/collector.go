@@ -1622,12 +1622,7 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// survive. No-op when high-sensitivity is enabled (the default)
 		// or when the collector has no SensitiveColumns (skip-path
 		// collectors are already excluded by Filter).
-		redactHighSensitivityColumnsIfNeeded(q, rows, c.highSensitivityEnabled, c.collectNormalizedQueryText)
-
-		// #647: when the structural opt-in is on, bound the surviving
-		// DIGEST_TEXT to the fixed cap and stamp the machine-visible
-		// digest_text_truncated flag (SQT-R003/R007). No-op otherwise.
-		applyStructuralQueryTextBound(q, rows, c.collectNormalizedQueryText)
+		redactHighSensitivityColumnsIfNeeded(q, rows, c.highSensitivityEnabled)
 
 		// Encode result as NDJSON.
 		payload, compressed, sizeBytes, encErr := db.EncodeNDJSON(rows)

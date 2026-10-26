@@ -44,8 +44,14 @@ cmd_up() {
     die "container ${CONTAINER} already exists — run '$0 down' first (refusing to remove a container this script did not create)"
   fi
   say "starting pinned MariaDB Dev Image"
+  # #647: MariaDB ships performance_schema OFF by default — turn it on (and the
+  # statements-digest consumer, enabled in mariadb-init.sql) so the digest
+  # collector has evidence, and raise the digest-length caps above Signals' 4096
+  # cap so the long adversarial statement exercises truncation live.
   docker run -d --name "${CONTAINER}" -e MARIADB_ROOT_PASSWORD="${ROOT_PW}" \
-    -p "${HOST_PORT}:3306" "${MARIADB_IMAGE}" >/dev/null
+    -p "${HOST_PORT}:3306" "${MARIADB_IMAGE}" \
+    --performance-schema=ON \
+    --max-digest-length=8192 --performance-schema-max-digest-length=8192 >/dev/null
   say "waiting for MariaDB to accept connections"
   # #638: wait for REAL query readiness (a non-empty SELECT VERSION()), not just
   # `mariadb-admin ping`. During first-boot init MariaDB answers ping ("mysqld is

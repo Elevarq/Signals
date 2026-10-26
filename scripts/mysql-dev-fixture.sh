@@ -19,7 +19,9 @@ set -euo pipefail
 
 # --- Pinned Dev Image (NEVER float a tag) ------------------------------------
 # mysql:8.4; pinned by digest so a clean machine pulls the exact same bytes.
-MYSQL_IMAGE="mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69"
+# #647: MYSQL_IMAGE + EXPECTED_VERSION_PREFIX may be overridden so the CI matrix
+# can drive this fixture per pinned MySQL line (mirrors the MariaDB fixture).
+MYSQL_IMAGE="${MYSQL_IMAGE:-mysql@sha256:76f0358884cb92d9a086d24e5671c38048d3fef40f2588703d73eb55392d6b69}"
 EXPECTED_VERSION_PREFIX="8."
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -42,8 +44,13 @@ cmd_up() {
     die "container ${CONTAINER} already exists — run '$0 down' first (refusing to remove a container this script did not create)"
   fi
   say "starting pinned MySQL Dev Image"
+  # #647: raise the server digest-length caps above Signals' 4096-byte cap so the
+  # long adversarial statement produces a DIGEST_TEXT that actually exceeds the
+  # cap, exercising Signals' truncation live (the server otherwise caps DIGEST_TEXT
+  # at performance_schema_max_digest_length, default 1024).
   docker run -d --name "${CONTAINER}" -e MYSQL_ROOT_PASSWORD="${ROOT_PW}" \
-    -p "${HOST_PORT}:3306" "${MYSQL_IMAGE}" >/dev/null
+    -p "${HOST_PORT}:3306" "${MYSQL_IMAGE}" \
+    --max-digest-length=8192 --performance-schema-max-digest-length=8192 >/dev/null
   say "waiting for MySQL to accept connections"
   local ok=""
   for _ in $(seq 1 60); do

@@ -3,8 +3,9 @@
 ## Feature
 
 `specifications/structural-query-text.md` — the opt-in, bounded, secure-default-
-OFF retention of the server-normalized `DIGEST_TEXT` for the MySQL-wire family,
-with machine-visible truncation and non-collapsing capability state.
+OFF retention of the server-normalized `DIGEST_TEXT` for MySQL and MariaDB
+(SingleStore excluded — SQT-R010), with machine-visible truncation and
+non-collapsing capability state.
 
 ## Test Cases
 
@@ -164,3 +165,22 @@ structural path exists absent a matrix-proven need.
 
 **Expected Result:** Pass when MariaDB exercises the shared implementation and no
 divergent path was introduced without justification.
+
+---
+
+### TC-SQT-10: SingleStore is not auto-enabled by the shared path (boundary / security)
+
+**Rule:** SQT-R010
+
+**Given:** the SingleStore plancache collector `singlestore_plancache_v1`
+(`QUERY_TEXT` from `MV_PLANCACHE`) and `collect_normalized_query_text=true`.
+
+**When:** redaction and bounding run.
+
+**Then:** `QUERY_TEXT` is NOT in the structural registry, stays governed by the
+generic high-sensitivity switch (redacted to `null` when it is off), and no
+`digest_text_truncated` flag is stamped. MySQL-wire compatibility does not
+enable SingleStore; that requires independent SingleStore qualification.
+
+**Expected Result:** Pass when SingleStore structural evidence is not surfaced
+via the MySQL/MariaDB opt-in.

@@ -22,6 +22,13 @@ type Collector struct {
 	SQL              string
 	HighSensitivity  bool
 	SensitiveColumns []string
+	// StructuralColumn (#647) names the single server-normalized column this
+	// collector may surface under the dedicated structural-query opt-in,
+	// independent of the generic high-sensitivity switch. Empty = the collector
+	// has no structural column and this capability never surfaces any of its
+	// SensitiveColumns (SQT-R010). Set only on the MySQL/MariaDB digest
+	// collectors (= "DIGEST_TEXT").
+	StructuralColumn string
 	// ElevatedPrivilege, when non-empty, names a SingleStore privilege beyond
 	// the baseline monitoring grant (SELECT + PROCESS) that this collector
 	// requires — e.g. "CLUSTER" for MV_CLUSTER_STATUS. A permission-denied
@@ -164,14 +171,14 @@ func Catalog() []Collector {
 // error per collector (SSC-R002). When redactSensitive is true, each
 // SensitiveColumns value is nilled in every row (SSC-R003). Each collector's
 // wall-clock duration is measured (MKR-R006).
-func Collect(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive bool) []Result {
-	return CollectWithClock(ctx, run, cat, redactSensitive, time.Now)
+func Collect(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive, structuralQueryText bool) []Result {
+	return CollectWithClock(ctx, run, cat, redactSensitive, structuralQueryText, time.Now)
 }
 
 // CollectWithClock is Collect with an injectable clock so the per-collector
 // duration measurement (MKR-R006) is deterministically testable. Production
 // passes time.Now; a test passes a step clock and asserts the measured delta.
-func CollectWithClock(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive bool, now func() time.Time) []Result {
+func CollectWithClock(ctx context.Context, run QueryRunner, cat []Collector, redactSensitive, structuralQueryText bool, now func() time.Time) []Result {
 	results := make([]Result, 0, len(cat))
 	for _, c := range cat {
 		res := Result{CollectorID: c.ID, Category: c.Category, ElevatedPrivilege: c.ElevatedPrivilege}
@@ -183,15 +190,7 @@ func CollectWithClock(ctx context.Context, run QueryRunner, cat []Collector, red
 			results = append(results, res)
 			continue
 		}
-		if redactSensitive && len(c.SensitiveColumns) > 0 {
-			for _, row := range rows {
-				for _, col := range c.SensitiveColumns {
-					if _, ok := row[col]; ok {
-						row[col] = nil
-					}
-				}
-			}
-		}
+		applyWireRedaction(c, rows, redactSensitive, structuralQueryText)
 		res.Rows = rows
 		results = append(results, res)
 	}

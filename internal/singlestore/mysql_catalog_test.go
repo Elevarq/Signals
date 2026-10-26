@@ -84,7 +84,7 @@ func TestMySQLProcesslistRedaction(t *testing.T) {
 		}
 		return []map[string]any{}, nil
 	}
-	rs := Collect(context.Background(), runner, []Collector{*pl}, true)
+	rs := Collect(context.Background(), runner, []Collector{*pl}, true, false)
 	if len(rs) != 1 || len(rs[0].Rows) != 1 {
 		t.Fatalf("unexpected result: %+v", rs)
 	}
@@ -151,7 +151,7 @@ func TestMySQLStatementDigestsRedaction(t *testing.T) {
 		}
 		return []map[string]any{}, nil
 	}
-	rs := Collect(context.Background(), runner, []Collector{*sd}, true)
+	rs := Collect(context.Background(), runner, []Collector{*sd}, true, false)
 	if len(rs) != 1 || len(rs[0].Rows) != 1 {
 		t.Fatalf("unexpected result: %+v", rs)
 	}
@@ -226,7 +226,7 @@ func TestMySQLInnodbTransactionsRedaction(t *testing.T) {
 		}
 		return []map[string]any{}, nil
 	}
-	rs := Collect(context.Background(), runner, []Collector{*trx}, true)
+	rs := Collect(context.Background(), runner, []Collector{*trx}, true, false)
 	if len(rs) != 1 || len(rs[0].Rows) != 1 {
 		t.Fatalf("unexpected result: %+v", rs)
 	}
@@ -266,7 +266,7 @@ func TestMySQLDataLocksRedaction(t *testing.T) {
 		}
 		return []map[string]any{}, nil
 	}
-	rs := Collect(context.Background(), runner, []Collector{*dl}, true)
+	rs := Collect(context.Background(), runner, []Collector{*dl}, true, false)
 	if len(rs) != 1 || len(rs[0].Rows) != 1 {
 		t.Fatalf("unexpected result: %+v", rs)
 	}

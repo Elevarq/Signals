@@ -266,7 +266,7 @@ func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfi
 	// SCH-R004: bound each collector by the configured per-query timeout while
 	// the target context remains the outer bound of the cycle.
 	runner := boundedSingleStoreRunner(conn.runner, c.queryTimeout)
-	results := singlestore.Collect(ctx, runner, singlestore.CatalogFor(engine), !c.highSensitivityEnabled)
+	results := singlestore.Collect(ctx, runner, singlestore.CatalogFor(engine), !c.highSensitivityEnabled, c.collectNormalizedQueryText)
 
 	for _, r := range results {
 		if cerr := c.db.UpsertQueryCatalog(db.QueryCatalogRow{
