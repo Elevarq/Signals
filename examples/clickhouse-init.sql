@@ -21,6 +21,26 @@
 CREATE USER IF NOT EXISTS signals_ro IDENTIFIED BY 'signals_ro_pw';
 GRANT SELECT ON system.* TO signals_ro;
 
+-- #562 (CHC-R006): seed a deliberately multi-partition MergeTree so the live
+-- qualification exercises clickhouse_parts_v1 against a non-trivial parts
+-- inventory (many partitions, multiple active parts per partition) and proves
+-- the aggregated/bounded shape reconciles. PARTITION BY the key + two separate
+-- INSERTs force distinct partitions and 2 active parts per partition (no merge
+-- in between).
+CREATE DATABASE IF NOT EXISTS signals_demo;
+CREATE TABLE IF NOT EXISTS signals_demo.parts_fixture
+(
+    p   UInt16,
+    k   UInt32,
+    v   String
+)
+ENGINE = MergeTree
+PARTITION BY p
+ORDER BY k;
+
+INSERT INTO signals_demo.parts_fixture SELECT number % 24 AS p, number AS k, 'a' FROM numbers(240);
+INSERT INTO signals_demo.parts_fixture SELECT number % 24 AS p, number + 1000 AS k, 'b' FROM numbers(240);
+
 -- Deterministic workload (read-only) so the query log has rows after a flush.
 SELECT count() FROM system.tables;
 SELECT name FROM system.databases ORDER BY name;

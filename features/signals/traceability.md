@@ -752,8 +752,8 @@ are CH-3. Package `internal/clickhouse`; session `internal/collector/clickhouse_
 
 ## ClickHouse collectors (CH-2, #559-#565)
 
-Spec: `specifications/clickhouse-collectors.md` (ACTIVE, CHC-R001..R005,
-INV-CHC-01..02). The full ClickHouse system.* diagnostic catalog (14 collectors)
+Spec: `specifications/clickhouse-collectors.md` (ACTIVE, CHC-R001..R006,
+INV-CHC-01..03). The full ClickHouse system.* diagnostic catalog (14 collectors)
 replacing the CH-1 identity-only foundation; validated live against ClickHouse
 24.8 (14/14 clean under GRANT SELECT ON system.*, query redacted).
 
@@ -764,8 +764,10 @@ replacing the CH-1 identity-only foundation; validated live against ClickHouse
 | CHC-R003 | Empty system.* result (idle/single-node) is a successful zero-row collection, not a failure | TestCatalogExpectedSet | COVERED | BEHAVIORAL | Live-validated: replicas/merges/mutations/query_thread_log 0-row success on single node. |
 | CHC-R004 | query_log + query_thread_log are HighSensitivity with query redacted | TestQueryLogRedaction | COVERED | BEHAVIORAL | query nilled under redactSensitive. |
 | CHC-R005 | Catalog() is the 14-collector set, identity first; query-log bounded (recent + LIMIT) | TestCatalogExpectedSet | COVERED | BEHAVIORAL | — |
+| CHC-R006 | clickhouse_parts_v1 bounded+aggregated per (db,table,partition): count()/sum(), GROUP BY, ORDER BY parts DESC, LIMIT; no per-part part_type | TestPartsCollectorBoundedAggregated | COVERED | BEHAVIORAL | #562. Payload-shape change → Analyzer consumer coordination (companion issue). Live boundary: multi-partition fixture. |
 | INV-CHC-01 | Collection never issues a non-SELECT | TestCatalogReadOnly | COVERED | BEHAVIORAL | — |
 | INV-CHC-02 | No query-text column escapes the redaction contract | TestQueryLogRedaction | COVERED | BEHAVIORAL | query_log + query_thread_log. |
+| INV-CHC-03 | clickhouse_parts_v1 output cardinality ≤ 10000 regardless of part count | TestPartsCollectorBoundedAggregated | COVERED | BEHAVIORAL | Structural: GROUP BY partition + LIMIT 10000. |
 
 ## ClickHouse live qualification (CH-3, #566/#567)
 

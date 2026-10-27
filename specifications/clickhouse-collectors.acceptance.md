@@ -40,3 +40,21 @@ rows (legitimate empty), none is a failure.
 
 **Expected Result:** Pass — validated live against ClickHouse 24.8 (14/14
 collectors clean, query redacted). The CH-3 live qualification locks this in CI.
+
+---
+
+### TC-CHC-04: parts collector is bounded and aggregated (normal + boundary)
+
+**Rule:** CHC-R006, INV-CHC-03
+
+**Given:** `clickhouse_parts_v1` from `clickhouse.Catalog()`. **When:** its SQL is
+inspected. **Then:** it aggregates `system.parts` per `(database, table,
+partition_id)` — `count()`/`sum(rows)`/`sum(bytes_on_disk)` with `GROUP BY …
+partition_id`, `ORDER BY parts DESC` and a `LIMIT` — is read-only, keeps the
+`active` + system-schema exclusion, and does **not** select the per-part
+`part_type` column. So a MergeTree with millions of active parts cannot produce
+an unbounded per-part payload; output cardinality is `≤ 10000`. **Expected:**
+Pass (`TestPartsCollectorBoundedAggregated`). Live boundary: the CH-3
+qualification seeds a deliberately multi-partition MergeTree table
+(`examples/clickhouse-init.sql`) so the collector runs against a non-trivial
+parts inventory and still reconciles collected == persisted == exported.

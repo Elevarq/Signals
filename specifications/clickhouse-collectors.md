@@ -29,7 +29,7 @@ qualification + the `integration-clickhouse` CI job (CH-3).
 | `clickhouse_clusters_v1` | topology | `system.clusters` | #559 |
 | `clickhouse_databases_v1` | schema | `system.databases` | #560 |
 | `clickhouse_tables_v1` | schema | `system.tables` (excl. system schemas) | #560 |
-| `clickhouse_parts_v1` | storage | `system.parts` (active) | #562 |
+| `clickhouse_parts_v1` | storage | `system.parts` (active, aggregated per partition, bounded — CHC-R006) | #562 |
 | `clickhouse_replicas_v1` | topology | `system.replicas` | #563 |
 | `clickhouse_merges_v1` | resources | `system.merges` | #563 |
 | `clickhouse_mutations_v1` | resources | `system.mutations` (not done) | #563 |
@@ -64,12 +64,29 @@ qualification + the `integration-clickhouse` CI job (CH-3).
 - **CHC-R005** — `Catalog()` is the 14-collector set above, identity first; the
   query-log collectors bound their result to a recent window + `LIMIT` so a busy
   server does not produce an unbounded payload.
+- **CHC-R006** — `clickhouse_parts_v1` is **bounded and aggregated** (#562): it
+  emits one row per `(database, table, partition_id)` —
+  `count() AS parts, sum(rows) AS rows, sum(bytes_on_disk) AS bytes_on_disk`,
+  `WHERE active AND database NOT IN (system schemas)`,
+  `GROUP BY database, table, partition_id ORDER BY parts DESC LIMIT 10000` — never
+  one row per active part. A busy MergeTree can hold millions of active parts, so
+  the per-part shape was unbounded in rows/memory/payload. Aggregation bounds
+  cardinality to the schema (≈ number of partitions, hard-capped at 10000) and
+  the parts-per-partition count is the diagnostic signal (merge pressure). The
+  `ORDER BY parts DESC` keeps the worst-offending partitions if the cap is hit.
+  **Producer-contract change:** the emitted columns change from
+  `{part_type, rows, bytes_on_disk}` per part to `{partition_id, parts, rows,
+  bytes_on_disk}` per partition; Analyzer consumer coordination tracked in the
+  companion Analyzer issue (filed from #562).
 
 ## Invariants
 
 - **INV-CHC-01** — Collection never issues a non-`SELECT` statement.
 - **INV-CHC-02** — No collector selecting a query-text column escapes the
   HighSensitivity + redaction contract (CHC-R004).
+- **INV-CHC-03** — No storage collector emits unbounded per-part rows:
+  `clickhouse_parts_v1` output cardinality is `≤ 10000` regardless of the number
+  of parts on the server (CHC-R006).
 
 ## Failure conditions
 
@@ -88,4 +105,4 @@ qualification + the `integration-clickhouse` CI job (CH-3).
 ## Traceability
 
 Acceptance: `specifications/clickhouse-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (CHC-R001..R005, INV-CHC-01..02).
+Matrix: `features/signals/traceability.md` (CHC-R001..R006, INV-CHC-01..03).

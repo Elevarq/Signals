@@ -74,9 +74,18 @@ func Catalog() []Collector {
 			SQL:      "SELECT database, name, engine, total_rows, total_bytes FROM system.tables WHERE database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')",
 		},
 		{
+			// #562 (CHC-R006): aggregate system.parts to one row per
+			// (database, table, partition_id) instead of one row per active part.
+			// A busy MergeTree can hold millions of active parts, so the raw
+			// per-part SELECT was unbounded in rows/memory/payload. The
+			// parts-per-partition count IS the diagnostic signal (merge pressure /
+			// too-many-parts), so aggregation preserves — sharpens — the evidence
+			// while bounding cardinality to the schema (≈#partitions), independent
+			// of part churn. ORDER BY parts DESC + a documented LIMIT keeps the
+			// worst-offending partitions if the cap is ever reached.
 			ID:       "clickhouse_parts_v1",
 			Category: "storage",
-			SQL:      "SELECT database, table, part_type, rows, bytes_on_disk FROM system.parts WHERE active AND database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA')",
+			SQL:      "SELECT database, table, partition_id, count() AS parts, sum(rows) AS rows, sum(bytes_on_disk) AS bytes_on_disk FROM system.parts WHERE active AND database NOT IN ('system', 'information_schema', 'INFORMATION_SCHEMA') GROUP BY database, table, partition_id ORDER BY parts DESC LIMIT 10000",
 		},
 		{
 			ID:       "clickhouse_replicas_v1",
