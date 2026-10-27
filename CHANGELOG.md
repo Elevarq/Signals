@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Changed
+
+- **ClickHouse `clickhouse_parts_v1` is now bounded and aggregated** (#562,
+  CHC-R006): the storage collector emits one row per `(database, table,
+  partition_id)` — `count() AS parts, sum(rows), sum(bytes_on_disk)` — instead of
+  one row per active part. A busy MergeTree can hold millions of active parts, so
+  the previous per-part `SELECT` was unbounded in rows/memory/payload; output
+  cardinality is now bounded to the schema (`≤ 10000`, `ORDER BY parts DESC`) and
+  the parts-per-partition count is the diagnostic merge-pressure signal.
+  **Producer-contract change** for the ClickHouse parts evidence (columns change
+  from `{part_type, rows, bytes_on_disk}` per part to `{partition_id, parts,
+  rows, bytes_on_disk}` per partition); Analyzer consumer coordination tracked in
+  the companion Analyzer issue.
+
 ## [2.0.0-poc.2] - 2026-10-26
 
 ### Added

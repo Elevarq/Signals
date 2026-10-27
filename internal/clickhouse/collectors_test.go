@@ -134,6 +134,41 @@ func TestQueryLogRedaction(t *testing.T) {
 	}
 }
 
+// TC-CHC-04 (CHC-R006, INV-CHC-03): clickhouse_parts_v1 must be bounded and
+// aggregated — one row per (database, table, partition_id) via count()/sum(),
+// ORDER BY parts DESC + LIMIT — so a busy MergeTree with millions of parts
+// cannot produce an unbounded per-part payload (#562). It must NOT be a raw
+// per-part SELECT (no part_type row-per-part).
+func TestPartsCollectorBoundedAggregated(t *testing.T) {
+	var parts Collector
+	for _, c := range Catalog() {
+		if c.ID == "clickhouse_parts_v1" {
+			parts = c
+		}
+	}
+	if parts.ID == "" {
+		t.Fatal("clickhouse_parts_v1 not in catalog")
+	}
+	sql := strings.ToLower(parts.SQL)
+	for _, must := range []string{"group by", "partition_id", "count()", "order by", "desc", "limit"} {
+		if !strings.Contains(sql, must) {
+			t.Errorf("clickhouse_parts_v1 must be bounded+aggregated: missing %q in %q", must, parts.SQL)
+		}
+	}
+	// Aggregation drops the per-part part_type column; its presence means the
+	// collector is still emitting one row per part (the unbounded shape).
+	if strings.Contains(sql, "part_type") {
+		t.Errorf("clickhouse_parts_v1 still selects per-part part_type — not aggregated: %q", parts.SQL)
+	}
+	// Still read-only and still scoped away from system schemas.
+	if HasWrite(parts.SQL) {
+		t.Errorf("clickhouse_parts_v1 must stay read-only: %q", parts.SQL)
+	}
+	if !strings.Contains(sql, "where active") || !strings.Contains(sql, "not in") {
+		t.Errorf("clickhouse_parts_v1 must keep active-only + system-schema exclusion: %q", parts.SQL)
+	}
+}
+
 // TC-CHB-04: Identify returns the version from a ClickHouse server.
 func TestIdentify(t *testing.T) {
 	v, err := Identify(context.Background(), func(_ context.Context, _ string) (string, error) {
