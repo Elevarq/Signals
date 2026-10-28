@@ -75,3 +75,24 @@ func engineOf(scope *exportScope) string {
 	}
 	return config.EnginePostgreSQL
 }
+
+// setExportVersionFields writes the server-version identity onto an export
+// row (snapshots.ndjson / query_runs.ndjson / query_results.ndjson) per
+// MKR-R008 (#531). The version is stored in the legacy `PGVersion` column for
+// every engine, but it must NOT be serialized as `pg_version` for a
+// non-PostgreSQL engine — a real SingleStore export was emitting
+// engine_version 9.1.1 as `pg_version` (the 2026-10-23 forensic defect).
+//
+//   - PostgreSQL (incl. the empty/legacy sentinel): keep `pg_version` as the
+//     carrier so historical PostgreSQL archives/consumers stay byte-identical
+//     (INV-MKR-02). No engine_version field is added.
+//   - Any other engine: drop `pg_version` entirely and carry the truthful
+//     identity as explicit `engine` + `engine_version`.
+func setExportVersionFields(row map[string]any, engine, version string) {
+	if engine == "" || engine == config.EnginePostgreSQL {
+		row["pg_version"] = version
+		return
+	}
+	row["engine"] = engine
+	row["engine_version"] = version
+}

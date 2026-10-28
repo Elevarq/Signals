@@ -829,7 +829,6 @@ func (b *Builder) writeQueryRuns(zw zipCreator, scope *exportScope) error {
 			"snapshot_id":  r.SnapshotID,
 			"query_id":     r.QueryID,
 			"collected_at": r.CollectedAt,
-			"pg_version":   r.PGVersion,
 			"duration_ms":  r.DurationMS,
 			"row_count":    r.RowCount,
 			"error":        r.Error,
@@ -840,6 +839,7 @@ func (b *Builder) writeQueryRuns(zw zipCreator, scope *exportScope) error {
 			"status": r.Status,
 			"reason": r.Reason,
 		}
+		setExportVersionFields(row, engineOf(scope), r.PGVersion)
 		if err := enc.Encode(row); err != nil {
 			return err
 		}
@@ -921,9 +921,9 @@ func (b *Builder) writeSnapshots(zw zipCreator, opts Options, scope *exportScope
 			"id":           s.ID,
 			"target_id":    s.TargetID,
 			"collected_at": s.CollectedAt,
-			"pg_version":   s.PGVersion,
 			"payload":      json.RawMessage(s.Payload),
 		}
+		setExportVersionFields(row, engineOf(scope), s.PGVersion)
 		// R094: per-snapshot target_identity for multi-target exports
 		// (and consistent in single-target exports too — additive). The
 		// metadata.json top-level block is still authoritative for
@@ -1019,10 +1019,10 @@ func (b *Builder) writePerCollectorFiles(zw zipCreator, opts Options, scope *exp
 			"target_id":    r.TargetID,
 			"query_id":     r.QueryID,
 			"collected_at": r.CollectedAt,
-			"pg_version":   r.PGVersion,
 			"duration_ms":  r.DurationMS,
 			"row_count":    r.RowCount,
 		}
+		setExportVersionFields(entry, engineOf(scope), r.PGVersion)
 
 		// Status: explicit if recorded; fall back to error-derived for
 		// pre-migration rows. Mirrors collector.BuildStatusFromRuns.
