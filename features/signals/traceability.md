@@ -909,3 +909,30 @@ in Analyzer #3890 (`engine_conformance_producer_test.go` through `RunWithConfig`
 | CC-R005 | Loop proven against the real Analyzer consumer; validation never weakened; disagreement attributed to the violating side | Analyzer engine_conformance_producer_test (ingest→dispatch→normalize) | COVERED | INTEGRATION | #530/#3890. 3 engines PASS; SingleStore stays green; PG regression control. run_scope=snapshot tolerated (forward-compat), flagged for Analyzer enum reconciliation. |
 | INV-CC-01 | No writes to the target beyond the one-time seed | TestMySQLLive*, TestMariaDBLive*, TestClickHouseLive* | COVERED | INTEGRATION | #530. Inherits live-qual read-only invariant. |
 | INV-CC-02 | SIGNALS_CORPUS_OUT hook inert when unset (CI unaffected) | — | COVERED | DOC | #530. Gated `[ -n "${SIGNALS_CORPUS_OUT:-}" ]`. |
+
+## #624 — Semantic collector qualification (lifecycle gate)
+
+Spec: `specifications/semantic-collector-qualification.md` (ACTIVE). Acceptance:
+`specifications/semantic-collector-qualification.acceptance.md`. A semantic-value
+assertion is a REQUIRED step in the collector-qualification lifecycle:
+`status='success'` and row-count reconciliation are never sufficient for
+`semantically_qualified`. Registry + verifier:
+`internal/collector/semantic_qual.go`; deterministic no-Docker gate:
+`internal/collector/semantic_qual_test.go`; live legs reuse the registry in
+`singlestore_live_test.go` / `clickhouse_live_test.go` and the Replay Tier-1
+verifier in `mysql_live_test.go` / `mariadb_live_test.go`. POC-minimum: one
+representative semantically-qualified collector per engine; exhaustive
+per-collector coverage is the 2.0 scope.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| SCQ-R001 | Checked-in registry maps each engine to its qualified collectors with critical fields, kinds, units, and zero-row legitimacy | TestSemanticQual_RepresentativeProofPerEngine, TestSemanticQual_LevelsAreDistinctAndHonest | COVERED | BEHAVIORAL | SemanticQualRegistry() + SemanticContract; representative per engine (POC). |
+| SCQ-R002 | Verifier asserts emitted VALUES (required present/non-empty, numeric parses, identifier clean), never status/row-count | TestSemanticQual_ExecutionWithoutValuesIsNotQualification, TestSemanticQual_ZeroRowLegitimacy | COVERED | BEHAVIORAL | A status-success row with a wrong value is rejected. |
+| SCQ-R003 | A semantically_qualified contract must have a non-empty field set or a dedicated verifier (teeth) | TestSemanticQual_SemanticallyQualifiedHasTeeth | COVERED | BEHAVIORAL | EffectiveVerifier() nil ⇒ lifecycle violation; no status-only semantic claim. |
+| SCQ-R004 | Every engine in SupportedEngines has >=1 semantically_qualified representative whose verifier passes a controlled fixture | TestSemanticQual_RepresentativeProofPerEngine | COVERED | BEHAVIORAL | PG/SS/MySQL/MariaDB/ClickHouse all covered deterministically. |
+| SCQ-R005 | A deliberately altered field value makes the verifier fail deterministically | TestSemanticQual_TamperedValueFails | COVERED | BEHAVIORAL | Per-engine tamper (non-numeric, blanked identifier, broken ordinal). |
+| SCQ-R006 | PostgreSQL output stays covered; representative contract here + full producer regression in the PG fixtures | TestSemanticQual_RepresentativeProofPerEngine | COVERED | BEHAVIORAL | bloat_estimate_v1 representative; PG regression unchanged. |
+| SCQ-R007 | Registry declares only the real level reached; executed/structurally_validated never reported as semantically qualified | TestSemanticQual_LevelsAreDistinctAndHonest | COVERED | BEHAVIORAL | Levels are distinct strings; honesty asserted. |
+| SCQ-INV-1 | status='success' + reconciliation are necessary but NOT sufficient for semantic qualification | TestSemanticQual_ExecutionWithoutValuesIsNotQualification | COVERED | BEHAVIORAL | The governing invariant: collector success != qualification. |
+| SCQ-INV-2 | Additive: existing cadence/reconciliation/Tier-1 verifiers and PostgreSQL behaviour unchanged | — | COVERED | DOC | New file only; MySQL/MariaDB Tier-1 reused verbatim. |
+| SCQ-INV-3 | Deterministic pass/fail and violation ordering for identical input | TestSemanticQual_TamperedValueFails | COVERED | BEHAVIORAL | Row-then-field ordering; pure function of payload. |

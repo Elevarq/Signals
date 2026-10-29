@@ -128,4 +128,16 @@ func TestSingleStoreLiveExportReconciliation(t *testing.T) {
 		t.Fatalf("export reconciliation for %s failed: %v", target.ID, err)
 	}
 	t.Logf("export reconciliation OK for snapshot %s: collected==persisted==exported, redaction held, manifest complete", target.ID)
+
+	// Semantic qualification (specifications/semantic-collector-qualification.md):
+	// a value assertion against the REAL production export is a required lifecycle
+	// step — status + shape reconciliation are not sufficient (SCQ-INV-1).
+	for _, c := range SemanticQualRegistry()["singlestore"] {
+		if v := c.EffectiveVerifier(); v != nil {
+			if err := v(z); err != nil {
+				t.Fatalf("semantic qualification failed for %s: %v", c.CollectorID, err)
+			}
+			t.Logf("semantic contract validated for %s (%s): emitted values are faithful", c.CollectorID, c.Level)
+		}
+	}
 }
