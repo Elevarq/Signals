@@ -229,17 +229,19 @@ func SemanticQualRegistry() map[string][]SemanticContract {
 			Verifier:     func(z QualExport) error { return VerifyReplayTier1Evidence(z, config.EngineMariaDB) },
 		}},
 		config.EngineClickHouse: {{
-			CollectorID: "clickhouse_parts_v1",
+			// Representative = server identity (version + uptime): exactly one row
+			// on any running server, so it is reliably non-empty against the live
+			// fixture. The richer statistics collectors (clickhouse_parts_v1 /
+			// clickhouse_tables_v1) become semantically qualified in the 2.0 scope
+			// once the ClickHouse fixture seeds MergeTree data (#658).
+			CollectorID: "clickhouse_identity_v1",
 			Engine:      config.EngineClickHouse,
 			Level:       QualSemanticallyQualified,
 			Fields: []FieldContract{
-				{Name: "database", Kind: KindIdentifier, Required: true},
-				{Name: "table", Kind: KindIdentifier, Required: true},
-				{Name: "parts", Kind: KindNumeric, Unit: "count", Required: true},
-				{Name: "rows", Kind: KindNumeric, Unit: "rows", Required: true},
-				{Name: "bytes_on_disk", Kind: KindNumeric, Unit: "bytes", Required: true},
+				{Name: "version", Kind: KindText, Required: true},
+				{Name: "uptime_s", Kind: KindNumeric, Unit: "seconds", Required: true},
 			},
-			EvidenceNote: "seeded MergeTree table with a known part/row count (system.parts aggregate, #562)",
+			EvidenceNote: "server identity (version + uptime_s); always exactly one row",
 		}},
 	}
 }

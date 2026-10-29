@@ -25,12 +25,11 @@ func ssGoodTableStats() QualExport {
 	}}
 }
 
-// chGoodParts mirrors a faithful ClickHouse parts aggregate export (#562).
-func chGoodParts() QualExport {
+// chGoodIdentity mirrors a faithful ClickHouse identity export (version + uptime).
+func chGoodIdentity() QualExport {
 	return QualExport{PayloadByQuery: map[string][]map[string]any{
-		"clickhouse_parts_v1": {
-			{"database": "app", "table": "events", "partition_id": "202603", "parts": "7", "rows": "500000", "bytes_on_disk": "10485760"},
-			{"database": "app", "table": "events", "partition_id": "202602", "parts": "3", "rows": "250000", "bytes_on_disk": "5242880"},
+		"clickhouse_identity_v1": {
+			{"version": "24.8.4.13", "uptime_s": "123456"},
 		},
 	}}
 }
@@ -78,7 +77,7 @@ func goodFixtureFor(engine string) QualExport {
 	case config.EngineSingleStore:
 		return ssGoodTableStats()
 	case config.EngineClickHouse:
-		return chGoodParts()
+		return chGoodIdentity()
 	case config.EnginePostgreSQL:
 		return pgGoodBloat()
 	default:
@@ -132,7 +131,7 @@ func TestSemanticQual_TamperedValueFails(t *testing.T) {
 		config.EngineMySQL:       func(z QualExport) { z.PayloadByQuery["mysql_columns_v1"][0]["ORDINAL_POSITION"] = "9" },
 		config.EngineMariaDB:     func(z QualExport) { z.PayloadByQuery["mariadb_columns_v1"][0]["ORDINAL_POSITION"] = "9" },
 		config.EngineSingleStore: func(z QualExport) { z.PayloadByQuery["singlestore_table_statistics_v1"][0]["ROWS"] = "not-a-number" },
-		config.EngineClickHouse:  func(z QualExport) { z.PayloadByQuery["clickhouse_parts_v1"][0]["parts"] = "" },
+		config.EngineClickHouse:  func(z QualExport) { z.PayloadByQuery["clickhouse_identity_v1"][0]["uptime_s"] = "not-a-number" },
 		config.EnginePostgreSQL:  func(z QualExport) { z.PayloadByQuery["bloat_estimate_v1"][0]["n_live_tup"] = "lots" },
 	}
 	for _, engine := range config.SupportedEngines {
