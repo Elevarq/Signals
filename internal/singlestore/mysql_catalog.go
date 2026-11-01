@@ -38,7 +38,7 @@ func mysqlCatalog() []Collector {
 		{
 			ID:       "mysql_global_variables_v1",
 			Category: "config",
-			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME IN ('max_connections', 'innodb_buffer_pool_size', 'max_allowed_packet', 'wait_timeout', 'version', 'log_bin', 'read_only', 'innodb_flush_log_at_trx_commit')",
+			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME IN ('max_connections', 'innodb_buffer_pool_size', 'max_allowed_packet', 'wait_timeout', 'version', 'log_bin', 'read_only', 'innodb_flush_log_at_trx_commit', 'tmp_table_size', 'max_heap_table_size', 'innodb_log_file_size', 'innodb_log_files_in_group', 'innodb_redo_log_capacity', 'sort_buffer_size', 'join_buffer_size', 'table_open_cache', 'table_definition_cache', 'thread_cache_size', 'innodb_io_capacity', 'innodb_io_capacity_max', 'innodb_flush_method', 'innodb_buffer_pool_instances', 'binlog_format', 'sync_binlog', 'skip_name_resolve')",
 		},
 		{
 			ID:       "mysql_global_status_v1",
