@@ -55,7 +55,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | ID | Category | Source |
 |----|----------|--------|
 | `mariadb_identity_v1` | server | `SELECT VERSION(), @@version_comment` |
-| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) |
+| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
 | `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
 | `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) |

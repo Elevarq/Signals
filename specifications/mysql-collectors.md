@@ -41,7 +41,7 @@ wire session, identity resolution, and persistence/export.
 | ID | Category | Source | Notes |
 |----|----------|--------|-------|
 | `mysql_identity_v1` | server | `SELECT VERSION(), @@version_comment, @@version_compile_os` | server identity |
-| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | key tunables |
+| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
 | `mysql_global_status_v1` | resources | `performance_schema.global_status` (IN-list) | live counters |
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
