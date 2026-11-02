@@ -6,8 +6,27 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.3] - 2026-11-01
+
+### Added
+
+- **MySQL/MariaDB config-sizing variables collected** (#660): the
+  `mysql_global_variables_v1` / `mariadb_global_variables_v1` IN-lists now carry
+  the server-tuning variables the Analyzer config-sizing advisor family needs —
+  buffer pool, redo log, temp/sort/join buffers, table/thread caches,
+  `innodb_io_capacity`, `binlog_format`, `sync_binlog`, `skip_name_resolve`.
+  Version-tolerant (absent variables return no row), read-only, curated allowlist.
+
 ### Changed
 
+- **Per-engine version is truthful in export rows** (#531): non-PostgreSQL
+  engines never report a `pg_version`; each engine stamps its own server version.
+- **Semantic collector qualification enforces a value-assertion lifecycle gate**
+  (#624): a collector reaches qualified status only after its required
+  value-assertions pass, closing the "ran but asserted nothing" gap.
+- **ClickHouse semantic-qual representative is `clickhouse_identity_v1`** (#658):
+  the per-engine semantic-qualification representative collector is pinned to the
+  identity collector.
 - **ClickHouse `clickhouse_parts_v1` is now bounded and aggregated** (#562,
   CHC-R006): the storage collector emits one row per `(database, table,
   partition_id)` — `count() AS parts, sum(rows), sum(bytes_on_disk)` — instead of
