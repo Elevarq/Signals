@@ -380,8 +380,8 @@ api:
 
 The per-target fields for the non-`password` methods (`region`,
 `azure_client_id`, `gcp_impersonate_service_account`, `secret_ref`,
-`secret_json_key`, `max_cache_ttl`, `sslcert`, `sslkey`,
-`sslkey_passphrase_file`) are documented with each method in
+`secret_json_key`, `max_cache_ttl`, `sslcert`, `sslkey`) are documented
+with each method in
 [docs/database-connections.md](database-connections.md).
 
 ---

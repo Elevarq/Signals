@@ -38,12 +38,10 @@ resolution, and the operator-guidance text.
 - **`sslcert`** (new, required) — filesystem path to the PEM client
   certificate presented to the server.
 - **`sslkey`** (new, required) — filesystem path to the PEM private key for
-  `sslcert`. Absent `sslcert`/`sslkey` → FC-MTLS-001.
-- **`sslkey_passphrase_file`** (new, optional) — path to a file containing the
-  passphrase for an encrypted `sslkey`. When the key is encrypted and no
-  passphrase source is given, resolution fails (FC-MTLS-003). The passphrase
-  is read from a file only — never an inline config value (consistent with the
-  never-store-secrets posture).
+  `sslcert`. Absent `sslcert`/`sslkey` → FC-MTLS-001. The key MUST be
+  **unencrypted**: encrypted private keys are unsupported (#654) and are
+  rejected with a clear message at connect time (FC-MTLS-003). Protect the key
+  with the secret store or filesystem permissions, not legacy PEM encryption.
 - **`user`** (existing field) — the PostgreSQL role the certificate maps to
   (the cert Common Name / mapping is server-side, via `pg_ident.conf`).
 - **`host`, `port`, `dbname`, `sslmode`, `sslrootcert_file`** — existing
@@ -80,8 +78,8 @@ mtlsProvider implements CredentialProvider:
 - Loading the cert + key from disk is behind a **seam interface** (a
   `certLoader` the provider depends on) so unit tests inject fixtures and no
   test reads operator key material. The production implementation reads the
-  PEM files, decrypts the key with the passphrase when present, and validates
-  the cert/key pair.
+  PEM files, rejects an encrypted private key (unsupported, #654), and
+  validates the cert/key pair.
 
 ### Integration mapping — TLS
 
@@ -131,10 +129,15 @@ mtlsProvider implements CredentialProvider:
   matching pair → **connect-time, target-scoped** failure with a **redacted**,
   actionable error (which file + the failure class, never the key bytes). Other
   targets keep collecting. (Keystone FC003.)
-- **FC-MTLS-003 (key passphrase failure)**: `sslkey` is encrypted and no
-  `sslkey_passphrase_file` is given, or the passphrase is wrong → target-scoped
-  connect-time failure; the passphrase and key are never echoed. (Keystone
-  FC003.)
+- **FC-MTLS-003 (encrypted key unsupported)**: `sslkey` is an encrypted
+  private key (legacy RFC-1423 `Proc-Type`/`DEK-Info`, or a PKCS#8 `ENCRYPTED
+  PRIVATE KEY` block) → target-scoped connect-time failure with a clear,
+  redacted message stating encrypted keys are unsupported and to supply an
+  unencrypted key protected by the secret store or filesystem permissions.
+  Detected from the PEM headers without any decrypt attempt; the key is never
+  echoed. (Supersedes the original passphrase-decrypt behavior, removed in
+  #654: legacy PEM encryption is insecure/deprecated and there is no
+  stdlib-only authenticated replacement under NFR001.) (Keystone FC003.)
 - **FC-MTLS-004 (TLS too weak)**: `mtls` on a target whose effective `sslmode`
   is not `verify-full` → **hard config error at startup**, regardless of `env`,
   naming the target and the required mode. (Keystone FC006 / INV-MTLS-004.)
@@ -161,9 +164,11 @@ mtlsProvider implements CredentialProvider:
 - **AC-MTLS-001 (normal)**: a target with `mtls`, `verify-full`, and a valid
   `sslcert`/`sslkey` pair connects with **no password in config**; the cert is
   applied to the TLS config and the connection authenticates.
-- **AC-MTLS-002 (boundary — encrypted key)**: an encrypted `sslkey` with a
-  correct `sslkey_passphrase_file` loads; a wrong/missing passphrase fails per
-  FC-MTLS-003 without echoing the passphrase or key.
+- **AC-MTLS-002 (boundary — encrypted key rejected)**: an encrypted `sslkey`
+  (legacy RFC-1423 or PKCS#8 `ENCRYPTED PRIVATE KEY`) is rejected with a clear,
+  redaction-safe "encrypted keys are unsupported" message per FC-MTLS-003,
+  detected from the PEM headers without a decrypt attempt and without echoing
+  the key (#654).
 - **AC-MTLS-003 (boundary — rotation)**: replacing the cert/key files and
   forcing a reconnect picks up the new material without a daemon restart
   (INV-MTLS-003).
@@ -195,7 +200,7 @@ mtlsProvider implements CredentialProvider:
 | Test | Maps to | Kind |
 |---|---|---|
 | cert+key loaded, applied to tls.Config, ExpiresAt = NotAfter | AC-MTLS-001 | unit (fixture loader) |
-| encrypted key + passphrase loads; wrong/missing passphrase fails redacted | AC-MTLS-002 | unit |
+| encrypted key (RFC-1423 + PKCS#8) rejected with clear message, no decrypt, no key leak | AC-MTLS-002 | unit |
 | rotation: new files on reconnect are picked up | AC-MTLS-003 | unit (loader + clock) |
 | startup rejects mtls without sslcert/sslkey | AC-MTLS-004 | unit (config validation) |
 | startup rejects mtls + non-verify-full sslmode | AC-MTLS-005 | unit (config validation) |
@@ -221,13 +226,19 @@ implementation; the spec reaches `ACTIVE` (and acceptance cases are added to
 
 _(Confirmed at promotion to `ACTIVE`.)_
 
-1. **Passphrase source — file-only.** `sslkey_passphrase_file` only; no inline
-   or env variant, matching the never-store-inline posture. An encrypted
-   `sslkey` with no passphrase file fails per FC-MTLS-003.
+1. **Encrypted keys unsupported (revised 2026-11-02, #654).** Originally the
+   provider accepted an encrypted `sslkey` with a file-only
+   `sslkey_passphrase_file`. That path depended on the deprecated stdlib
+   legacy-PEM encryption API (`x509.IsEncryptedPEMBlock`/`DecryptPEMBlock`,
+   SA1019) — RFC-1423 PEM encryption is insecure by design, and there is no
+   stdlib-only authenticated replacement under NFR001. The `sslkey_passphrase_file`
+   input and the decrypt path were therefore **removed**; an encrypted key is
+   now rejected at connect time (FC-MTLS-003). Protect the key with the secret
+   store or filesystem permissions instead.
 2. **`ExpiresAt` semantics — surface, advisory only.** The client cert's
    `NotAfter` is surfaced as `ExpiresAt` for observability (a near-expiry cert
    is worth logging) but drives no re-minting — there is nothing to re-mint;
    rotation is file-content-on-reconnect (INV-MTLS-003).
 3. **Field names — `sslcert` / `sslkey`.** Mirror libpq's names for operator
-   familiarity (over `client_cert_file` / `client_key_file`). The optional
-   passphrase source is `sslkey_passphrase_file`.
+   familiarity (over `client_cert_file` / `client_key_file`). There is no
+   passphrase field — encrypted keys are unsupported (decision 1, #654).

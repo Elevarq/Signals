@@ -28,8 +28,7 @@
         "secretRef": { "type": "string" },
         "sslRootCertFile": { "type": "string" },
         "sslCertFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client certificate (never its contents). Mount the cert via extraVolumes/extraVolumeMounts and point this at the mount path. Required for mtls." },
-        "sslKeyFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client private key (never its contents). Mount the key via extraVolumes/extraVolumeMounts and point this at the mount path. Required for mtls." },
-        "sslKeyPassphraseFile": { "type": "string", "description": "mtls: optional filesystem PATH to a file holding the passphrase for an encrypted client key (never the passphrase itself). Mount via extraVolumes/extraVolumeMounts." },
+        "sslKeyFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client private key (never its contents). Must be unencrypted — encrypted keys are unsupported (#654). Mount the key via extraVolumes/extraVolumeMounts and point this at the mount path. Required for mtls." },
         "passwordSecretName": { "type": "string" },
         "passwordSecretKey": { "type": "string" }
       },
@@ -70,8 +69,7 @@
           "secretRef": { "type": "string" },
           "sslRootCertFile": { "type": "string" },
           "sslCertFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client certificate (never its contents)." },
-          "sslKeyFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client private key (never its contents)." },
-          "sslKeyPassphraseFile": { "type": "string", "description": "mtls: optional filesystem PATH to the encrypted-key passphrase file (never the passphrase itself)." },
+          "sslKeyFile": { "type": "string", "description": "mtls: filesystem PATH to the PEM client private key (never its contents). Must be unencrypted — encrypted keys are unsupported (#654)." },
           "passwordFile": { "type": "string", "description": "Password method: filesystem PATH to a mounted password file (never the password itself)." },
           "passwordEnv": { "type": "string", "description": "Password method: name of an environment variable holding the password (supply it via extraEnv)." }
         },

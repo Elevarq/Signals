@@ -16,15 +16,15 @@ import (
 // mtls provider (SIGNALS-AUTH-MTLS-, #98). It is a seam so unit tests
 // inject in-memory fixtures and read no operator key material (NFR003).
 type certLoader interface {
-	Load(certFile, keyFile, passphraseFile string) (*tls.Certificate, error)
+	Load(certFile, keyFile string) (*tls.Certificate, error)
 }
 
-// fileCertLoader is the production loader: it reads PEM cert/key from the
-// filesystem and, when a passphrase file is given, decrypts a legacy
-// PEM-encrypted key (stdlib only, NFR001).
+// fileCertLoader is the production loader: it reads an unencrypted PEM
+// cert/key from the filesystem (stdlib only, NFR001). Encrypted private keys
+// are not supported (#654) — see isEncryptedKeyPEM.
 type fileCertLoader struct{}
 
-func (fileCertLoader) Load(certFile, keyFile, passphraseFile string) (*tls.Certificate, error) {
+func (fileCertLoader) Load(certFile, keyFile string) (*tls.Certificate, error) {
 	certPEM, err := os.ReadFile(certFile)
 	if err != nil {
 		// Redacted: names the field + failure class, never file contents.
@@ -34,17 +34,20 @@ func (fileCertLoader) Load(certFile, keyFile, passphraseFile string) (*tls.Certi
 	if err != nil {
 		return nil, fmt.Errorf("read sslkey: %w", err)
 	}
-	if passphraseFile != "" {
-		keyPEM, err = decryptKeyPEM(keyPEM, passphraseFile)
-		if err != nil {
-			return nil, err
-		}
+	// Encrypted private keys are not supported (#654, FC-MTLS-003): legacy
+	// RFC-1423 PEM encryption is insecure by design and deprecated, and there
+	// is no stdlib-only authenticated replacement (NFR001). Reject with a
+	// clear, redaction-safe message — detected from the PEM headers, never by
+	// attempting a decrypt. Supply an unencrypted key protected by the secret
+	// store or filesystem permissions.
+	if isEncryptedKeyPEM(keyPEM) {
+		return nil, fmt.Errorf("sslkey is an encrypted private key, which is not supported; provide an unencrypted key protected by the secret store or filesystem permissions")
 	}
 	cert, err := tls.X509KeyPair(certPEM, keyPEM)
 	if err != nil {
-		// Covers a non-PEM file, a mismatched cert/key pair, or an encrypted
-		// key with no passphrase. The error never includes key bytes.
-		return nil, fmt.Errorf("load client cert/key (invalid pair, bad PEM, or encrypted key without sslkey_passphrase_file): %w", err)
+		// Covers a non-PEM file or a mismatched cert/key pair. The error never
+		// includes key bytes.
+		return nil, fmt.Errorf("load client cert/key (invalid pair or bad PEM): %w", err)
 	}
 	// Parse the leaf for the NotAfter metadata (advisory ExpiresAt, #98).
 	if cert.Leaf == nil && len(cert.Certificate) > 0 {
@@ -55,31 +58,24 @@ func (fileCertLoader) Load(certFile, keyFile, passphraseFile string) (*tls.Certi
 	return &cert, nil
 }
 
-// decryptKeyPEM decrypts a legacy PEM-encrypted private key with the
-// passphrase in passphraseFile and returns an unencrypted PEM that
-// tls.X509KeyPair accepts. An unencrypted key is returned unchanged.
-func decryptKeyPEM(keyPEM []byte, passphraseFile string) ([]byte, error) {
-	pass, err := os.ReadFile(passphraseFile)
-	if err != nil {
-		return nil, fmt.Errorf("read sslkey_passphrase_file: %w", err)
-	}
-	pass = []byte(strings.TrimRight(string(pass), "\r\n"))
+// isEncryptedKeyPEM reports whether keyPEM is an encrypted private key,
+// detected purely from the PEM structure (no decrypt attempt, no deprecated
+// x509 encrypted-PEM API): legacy RFC-1423 blocks carry a `Proc-Type: ...
+// ENCRYPTED` / `DEK-Info` header, and PKCS#8 encrypted keys use the
+// `ENCRYPTED PRIVATE KEY` block type. Both are unsupported (#654).
+func isEncryptedKeyPEM(keyPEM []byte) bool {
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
-		return nil, fmt.Errorf("sslkey is not valid PEM")
+		return false // not PEM at all → let tls.X509KeyPair produce the error
 	}
-	//nolint:staticcheck // x509.IsEncryptedPEMBlock/DecryptPEMBlock are the only
-	// stdlib path for legacy PEM-encrypted keys (NFR001: stdlib-only, no dep).
-	if !x509.IsEncryptedPEMBlock(block) {
-		return keyPEM, nil // not encrypted; passphrase not needed
+	if block.Type == "ENCRYPTED PRIVATE KEY" {
+		return true
 	}
-	//nolint:staticcheck // see note above
-	der, err := x509.DecryptPEMBlock(block, pass)
-	if err != nil {
-		// Never echo the passphrase or key material.
-		return nil, fmt.Errorf("decrypt sslkey: wrong passphrase or unsupported key encryption")
+	if strings.Contains(block.Headers["Proc-Type"], "ENCRYPTED") {
+		return true
 	}
-	return pem.EncodeToMemory(&pem.Block{Type: block.Type, Bytes: der}), nil
+	_, hasDEK := block.Headers["DEK-Info"]
+	return hasDEK
 }
 
 // resolveMTLS loads the client cert/key for an mtls target (#98). The
@@ -89,7 +85,7 @@ func decryptKeyPEM(keyPEM []byte, passphraseFile string) ([]byte, error) {
 // the Credential and applied to the TLS config by the caller — never logged
 // (INV-MTLS-001).
 func (r *credentialResolver) resolveMTLS(_ context.Context, tgt config.TargetConfig) (Credential, error) {
-	cert, err := r.certLoader.Load(tgt.SSLCert, tgt.SSLKey, tgt.SSLKeyPassphraseFile)
+	cert, err := r.certLoader.Load(tgt.SSLCert, tgt.SSLKey)
 	if err != nil {
 		return Credential{}, redactError(err)
 	}

@@ -66,7 +66,7 @@ func TestFileCertLoaderLoadsValidPair(t *testing.T) {
 	certPEM, keyPEM := genCertKeyPEM(t, notAfter)
 	certFile, keyFile := writePair(t, dir, certPEM, keyPEM)
 
-	cert, err := (fileCertLoader{}).Load(certFile, keyFile, "")
+	cert, err := (fileCertLoader{}).Load(certFile, keyFile)
 	if err != nil {
 		t.Fatalf("Load: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestFileCertLoaderMismatchedPair(t *testing.T) {
 	_, otherKeyPEM := genCertKeyPEM(t, time.Now().Add(time.Hour))
 	certFile, keyFile := writePair(t, dir, certPEM, otherKeyPEM)
 
-	_, err := (fileCertLoader{}).Load(certFile, keyFile, "")
+	_, err := (fileCertLoader{}).Load(certFile, keyFile)
 	if err == nil {
 		t.Fatal("expected error for mismatched cert/key pair")
 	}
@@ -130,49 +130,57 @@ func TestFileCertLoaderNonPEMKey(t *testing.T) {
 	certPEM, _ := genCertKeyPEM(t, time.Now().Add(time.Hour))
 	certFile, keyFile := writePair(t, dir, certPEM, []byte("not a pem key"))
 
-	if _, err := (fileCertLoader{}).Load(certFile, keyFile, ""); err == nil {
+	if _, err := (fileCertLoader{}).Load(certFile, keyFile); err == nil {
 		t.Fatal("expected error for non-PEM key")
 	}
 }
 
-// AC-MTLS-002 — an encrypted key loads with the right passphrase and fails with
-// the wrong one (never echoing the passphrase or key).
-func TestFileCertLoaderEncryptedKey(t *testing.T) {
+// AC-MTLS-002 (#654, FC-MTLS-003) — an encrypted private key is rejected with a
+// clear, redaction-safe message, detected from the PEM headers without any
+// decrypt attempt. Covers both the legacy RFC-1423 form (Proc-Type/DEK-Info)
+// and the PKCS#8 ENCRYPTED PRIVATE KEY block type. No deprecated x509
+// encrypted-PEM API is used (that is exactly what #654 removes).
+func TestFileCertLoaderEncryptedKeyRejected(t *testing.T) {
 	dir := t.TempDir()
-	notAfter := time.Now().Add(time.Hour)
-	certPEM, keyPEM := genCertKeyPEM(t, notAfter)
-
+	certPEM, keyPEM := genCertKeyPEM(t, time.Now().Add(time.Hour))
 	block, _ := pem.Decode(keyPEM)
 	if block == nil {
 		t.Fatal("decode key pem")
 	}
-	//nolint:staticcheck // legacy PEM encryption is the stdlib path under test (NFR001)
-	encBlock, err := x509.EncryptPEMBlock(rand.Reader, block.Type, block.Bytes, []byte("s3cret"), x509.PEMCipherAES256)
-	if err != nil {
-		t.Fatalf("encrypt key: %v", err)
-	}
-	encKeyPEM := pem.EncodeToMemory(encBlock)
-	certFile, keyFile := writePair(t, dir, certPEM, encKeyPEM)
-	passFile := filepath.Join(dir, "pass")
 
-	// correct passphrase
-	if err := os.WriteFile(passFile, []byte("s3cret\n"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := (fileCertLoader{}).Load(certFile, keyFile, passFile); err != nil {
-		t.Fatalf("encrypted key with correct passphrase should load: %v", err)
+	cases := map[string][]byte{
+		// Legacy RFC-1423 encrypted PEM — reconstructed from headers only
+		// (never encrypted via the deprecated API).
+		"legacy-rfc1423": pem.EncodeToMemory(&pem.Block{
+			Type: block.Type,
+			Headers: map[string]string{
+				"Proc-Type": "4,ENCRYPTED",
+				"DEK-Info":  "AES-256-CBC,0123456789ABCDEF0123456789ABCDEF",
+			},
+			Bytes: block.Bytes,
+		}),
+		// PKCS#8 encrypted key — distinguished by its block type.
+		"pkcs8-encrypted": pem.EncodeToMemory(&pem.Block{
+			Type:  "ENCRYPTED PRIVATE KEY",
+			Bytes: block.Bytes,
+		}),
 	}
 
-	// wrong passphrase
-	if err := os.WriteFile(passFile, []byte("wrong"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-	_, err = (fileCertLoader{}).Load(certFile, keyFile, passFile)
-	if err == nil {
-		t.Fatal("expected error for wrong passphrase")
-	}
-	if strings.Contains(err.Error(), "wrong") && strings.Contains(err.Error(), "s3cret") {
-		t.Errorf("error must not echo the passphrase: %v", err)
+	for name, encKeyPEM := range cases {
+		t.Run(name, func(t *testing.T) {
+			certFile, keyFile := writePair(t, dir, certPEM, encKeyPEM)
+			_, err := (fileCertLoader{}).Load(certFile, keyFile)
+			if err == nil {
+				t.Fatal("expected error for an encrypted private key")
+			}
+			if !strings.Contains(err.Error(), "encrypted private key") || !strings.Contains(err.Error(), "not supported") {
+				t.Errorf("error must clearly state encrypted keys are unsupported, got: %v", err)
+			}
+			// Must never leak the (pseudo) key bytes.
+			if strings.Contains(err.Error(), string(block.Bytes)) {
+				t.Errorf("error leaks key material: %v", err)
+			}
+		})
 	}
 }
 
@@ -184,7 +192,7 @@ func TestFileCertLoaderRotation(t *testing.T) {
 	certA, keyA := genCertKeyPEM(t, a)
 	certFile, keyFile := writePair(t, dir, certA, keyA)
 
-	c1, err := (fileCertLoader{}).Load(certFile, keyFile, "")
+	c1, err := (fileCertLoader{}).Load(certFile, keyFile)
 	if err != nil {
 		t.Fatalf("load A: %v", err)
 	}
@@ -198,7 +206,7 @@ func TestFileCertLoaderRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	c2, err := (fileCertLoader{}).Load(certFile, keyFile, "")
+	c2, err := (fileCertLoader{}).Load(certFile, keyFile)
 	if err != nil {
 		t.Fatalf("load B: %v", err)
 	}
@@ -208,14 +216,14 @@ func TestFileCertLoaderRotation(t *testing.T) {
 }
 
 // AC-MTLS-009 (diagnostic facet) — BuildSafeDSN presents the client cert for
-// doctor/conntest via libpq sslcert/sslkey params, and never leaks the
-// passphrase (INV-MTLS-001).
+// doctor/conntest via libpq sslcert/sslkey params, and never emits an
+// sslpassword field (INV-MTLS-001; encrypted keys are unsupported, #654).
 func TestBuildSafeDSNMTLSIncludesCertNotPassphrase(t *testing.T) {
 	tgt := config.TargetConfig{
 		Name: "t", Host: "h", Port: 5432, DBName: "db", User: "u",
 		SSLMode: "verify-full", SSLRootCertFile: "/ca.pem",
 		AuthMethod: config.AuthMethodMTLS,
-		SSLCert:    "/c.crt", SSLKey: "/c.key", SSLKeyPassphraseFile: "/k.pass",
+		SSLCert:    "/c.crt", SSLKey: "/c.key",
 	}
 	dsn, err := BuildSafeDSN(tgt)
 	if err != nil {
@@ -226,7 +234,7 @@ func TestBuildSafeDSNMTLSIncludesCertNotPassphrase(t *testing.T) {
 			t.Errorf("DSN missing %q: %s", want, dsn)
 		}
 	}
-	if strings.Contains(dsn, "/k.pass") || strings.Contains(dsn, "sslpassword") {
-		t.Errorf("passphrase must not appear in the DSN: %s", dsn)
+	if strings.Contains(dsn, "sslpassword") {
+		t.Errorf("no key passphrase field must appear in the DSN: %s", dsn)
 	}
 }

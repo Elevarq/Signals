@@ -6,6 +6,19 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Removed
+
+- **Encrypted mTLS client-key support dropped (#654).** The
+  `sslkey_passphrase_file` target field and the encrypted-PEM decrypt path
+  are removed. They relied on the deprecated stdlib legacy-PEM encryption API
+  (`x509.IsEncryptedPEMBlock` / `DecryptPEMBlock`, SA1019) — RFC-1423 PEM
+  encryption is insecure by design, and there is no stdlib-only authenticated
+  replacement (NFR001). An encrypted `sslkey` (legacy RFC-1423 or PKCS#8
+  `ENCRYPTED PRIVATE KEY`) is now rejected at connect time with a clear,
+  redaction-safe message (FC-MTLS-003). **Migration:** supply an unencrypted
+  client key protected by the secret store and filesystem permissions. The
+  Helm `target.sslKeyPassphraseFile` value is removed.
+
 ## [1.6.0] - 2026-10-13
 
 ### Added
