@@ -350,8 +350,7 @@ from `signals`, then `GRANT pg_monitor TO signals;`.
     user: signals
     auth_method: mtls
     sslcert: /etc/signals/client.crt        # PEM client certificate
-    sslkey: /etc/signals/client.key         # PEM private key
-    sslkey_passphrase_file: /etc/signals/key.pass  # optional; for an encrypted key
+    sslkey: /etc/signals/client.key         # PEM private key (unencrypted; encrypted keys unsupported)
     sslmode: verify-full                # required
     sslrootcert_file: /etc/signals/ca.pem   # verifies the server
 ```
@@ -361,9 +360,9 @@ a rotated cert/key is picked up on the next reconnect. `verify-full` is
 required — a client certificate is only presented to a verified server.
 
 **On Kubernetes (Helm):** the chart exposes `target.authMethod: mtls`
-with `target.sslCertFile` / `target.sslKeyFile` /
-`target.sslKeyPassphraseFile` — these are **paths only**, never the PEM
-contents. Mount the client cert + key from a Kubernetes Secret with
+with `target.sslCertFile` / `target.sslKeyFile` — these are **paths
+only**, never the PEM contents (the key must be unencrypted; encrypted
+keys are unsupported, #654). Mount the client cert + key from a Kubernetes Secret with
 `extraVolumes` / `extraVolumeMounts` and point the path values at the
 mount. The full snippet is in
 [`deploy/helm/signals/README.md`](../deploy/helm/signals/README.md#mtls--client-certificate-auth-self-managed--on-prem).

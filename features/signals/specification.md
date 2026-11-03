@@ -2014,8 +2014,8 @@ The exhaustive set of pool-affecting `TargetConfig` fields is:
 
 - **Dialing**: `Host`, `Port`, `DBName`, `User`, `SSLMode`.
 - **TLS**: `SSLRootCertFile` (CA / server verification),
-  `SSLCert`, `SSLKey`, `SSLKeyPassphraseFile` (mTLS client
-  material).
+  `SSLCert`, `SSLKey` (mTLS client material; encrypted keys
+  unsupported, #654).
 - **Credential selection**: `AuthMethod`, `Region`,
   `AzureClientID`, `GCPImpersonateServiceAccount`, `SecretRef`,
   `SecretJSONKey`.

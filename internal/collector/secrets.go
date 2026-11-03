@@ -196,10 +196,8 @@ func BuildSafeDSN(tgt config.TargetConfig) (string, error) {
 	}
 	// mtls (#98): present the client certificate in the diagnostic
 	// connection too (doctor/conntest). sslcert/sslkey are file paths, not
-	// secrets, so they are safe in the DSN. The optional key passphrase is
-	// deliberately NOT placed in the DSN (disclosure risk, INV-MTLS-001); an
-	// encrypted key is exercised on the live collection path, which loads it
-	// in-process. libpq loads sslcert/sslkey at connect time.
+	// secrets, so they are safe in the DSN. Encrypted keys are unsupported
+	// (#654); libpq loads sslcert/sslkey at connect time.
 	if tgt.EffectiveAuthMethod() == config.AuthMethodMTLS {
 		if tgt.SSLCert != "" {
 			parts = append(parts, "sslcert="+quoteDSNValue(tgt.SSLCert))

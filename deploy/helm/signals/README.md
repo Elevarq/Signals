@@ -273,15 +273,15 @@ For self-managed PostgreSQL that mandates mutual TLS, the collector
 presents a client X.509 certificate instead of a password or token
 (`pg_hba.conf` `cert clientcert=verify-full`). The chart takes only the
 **paths** of the PEM files — never their contents. Mount the client
-certificate and private key (and, for an encrypted key, the passphrase
-file) from a Kubernetes Secret via `extraVolumes` / `extraVolumeMounts`,
-then point `sslCertFile` / `sslKeyFile` / `sslKeyPassphraseFile` at the
+certificate and private key from a Kubernetes Secret via `extraVolumes`
+/ `extraVolumeMounts`, then point `sslCertFile` / `sslKeyFile` at the
 mount paths.
 
 `mtls` requires **both** `sslCertFile` and `sslKeyFile`, and
 `sslmode: verify-full` in every environment — a client certificate is
-only presented to a fully verified server. `sslKeyPassphraseFile` is
-optional (encrypted keys only).
+only presented to a fully verified server. The private key must be
+**unencrypted** — encrypted keys are unsupported (#654); protect it with
+the Secret and filesystem permissions.
 
 ```yaml
 target:
@@ -291,8 +291,7 @@ target:
   authMethod: mtls
   sslmode: verify-full
   sslCertFile: /etc/signals/mtls/client.crt   # PATH only — mounted below
-  sslKeyFile: /etc/signals/mtls/client.key    # PATH only — mounted below
-  # sslKeyPassphraseFile: /etc/signals/mtls/key.pass  # optional; encrypted key only
+  sslKeyFile: /etc/signals/mtls/client.key    # PATH only — unencrypted, mounted below
   sslRootCertFile: /etc/ssl/db/ca.pem         # verifies the server
 
 extraVolumes:

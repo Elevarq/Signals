@@ -33,16 +33,15 @@ target:
 
   # Client-certificate auth (authMethod: mtls, #98/#330). For on-prem /
   # self-managed PostgreSQL that mandates mutual TLS. These are
-  # filesystem PATHS to PEM files — never the certificate/key/passphrase
-  # CONTENTS. Mount the client cert + key (and any passphrase file) from
-  # a Kubernetes Secret via extraVolumes / extraVolumeMounts (below) and
-  # point these at the mount paths. mtls requires BOTH sslCertFile and
-  # sslKeyFile and sslmode: verify-full (config.go FC-MTLS-001/004);
-  # sslKeyPassphraseFile is optional (encrypted keys only). See
-  # deploy/helm/signals/README.md for the full mount snippet.
+  # filesystem PATHS to PEM files — never the certificate/key CONTENTS.
+  # Mount the client cert + key from a Kubernetes Secret via extraVolumes
+  # / extraVolumeMounts (below) and point these at the mount paths. mtls
+  # requires BOTH sslCertFile and sslKeyFile and sslmode: verify-full
+  # (config.go FC-MTLS-001/004). The key must be UNENCRYPTED — encrypted
+  # keys are unsupported (#654); protect it with the Secret + file perms.
+  # See deploy/helm/signals/README.md for the full mount snippet.
   sslCertFile: ""           # PATH to the PEM client certificate
-  sslKeyFile: ""            # PATH to the PEM client private key
-  sslKeyPassphraseFile: ""  # optional PATH to a file holding the key passphrase
+  sslKeyFile: ""            # PATH to the PEM (unencrypted) client private key
 
   # verify-full needs a CA bundle. Mount it via extraVolumes /
   # extraVolumeMounts (below) and point this at the mounted path. In

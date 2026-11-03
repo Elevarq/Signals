@@ -217,12 +217,12 @@ Spec: `features/signals/credential-provider-secret-store.md` (ACTIVE), deriving 
 
 ## Credential providers — `mtls` (#98)
 
-Spec: `features/signals/credential-provider-mtls.md` (ACTIVE), deriving from `credential-providers.md` (keystone, #93). The only certificate-kind credential: `Credential.ClientCert` applied to `cfg.TLSConfig.Certificates` in the `BeforeConnect` hook (`internal/collector/collector.go`). Provider + cert loader in `internal/collector/credprovider_mtls.go`; `sslcert`/`sslkey`/`sslkey_passphrase_file` config + validation in `internal/config/config.go`. Unit tests `internal/collector/credprovider_mtls_test.go` + `internal/config/authmethod_mtls_test.go`.
+Spec: `features/signals/credential-provider-mtls.md` (ACTIVE), deriving from `credential-providers.md` (keystone, #93). The only certificate-kind credential: `Credential.ClientCert` applied to `cfg.TLSConfig.Certificates` in the `BeforeConnect` hook (`internal/collector/collector.go`). Provider + cert loader in `internal/collector/credprovider_mtls.go`; `sslcert`/`sslkey` config + validation in `internal/config/config.go` (encrypted keys unsupported, #654). Unit tests `internal/collector/credprovider_mtls_test.go` + `internal/config/authmethod_mtls_test.go`.
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
 |---------|-------------|------------|-----------------|---------------|-------|
 | SIGNALS-AUTH-MTLS-AC-001 | Valid cert/key pair loads, applied as certificate kind, `ExpiresAt` = cert `NotAfter`; no password | `TestFileCertLoaderLoadsValidPair`, `TestResolveMTLSCertKindAndExpiry` | COVERED | BEHAVIORAL | In-test self-signed cert; no operator material (NFR003). |
-| SIGNALS-AUTH-MTLS-AC-002 | Encrypted key + correct passphrase loads; wrong passphrase fails without echoing passphrase/key | `TestFileCertLoaderEncryptedKey` | COVERED | BEHAVIORAL | FC-MTLS-003; stdlib legacy-PEM decryption (NFR001). |
+| SIGNALS-AUTH-MTLS-AC-002 | Encrypted key (legacy RFC-1423 + PKCS#8) rejected with a clear "unsupported" message, detected from PEM headers (no decrypt), no key leak | `TestFileCertLoaderEncryptedKeyRejected` | COVERED | BEHAVIORAL | FC-MTLS-003; encrypted keys unsupported (#654) — deprecated stdlib legacy-PEM API removed (SA1019). |
 | SIGNALS-AUTH-MTLS-AC-003 | Loader re-reads files each call; rotated cert/key picked up without restart (no cache) | `TestFileCertLoaderRotation` | COVERED | BEHAVIORAL | INV-MTLS-003. |
 | SIGNALS-AUTH-MTLS-AC-004 | `mtls` without `sslcert`/`sslkey` → hard startup error naming both fields | `TestValidateRejectsMTLSWithoutCertOrKey` | COVERED | BEHAVIORAL | FC-MTLS-001. |
 | SIGNALS-AUTH-MTLS-AC-005 | `mtls` requires `verify-full` in every env; rejects weaker; accepts verify-full | `TestValidateRejectsMTLSWithoutVerifyFull`, `TestValidateAcceptsMTLS` | COVERED | BEHAVIORAL | FC-MTLS-004 / INV-MTLS-004. |

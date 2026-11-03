@@ -86,8 +86,8 @@ conform to the interface, invariants, and failure taxonomy defined here.
     bounds how long a fetched secret may be cached when the vault
     supplies no TTL/lease of its own (see INV004).
   - `mtls` — `sslcert` (client cert path) and `sslkey` (client key
-    path); optional key-passphrase source. (Field wiring specified in
-    #98.)
+    path; unencrypted — encrypted keys unsupported, #654). (Field
+    wiring specified in #98.)
 - **Ambient cloud identity** — instance profile / IRSA / Pod Identity
   (AWS), Managed Identity (Azure), Workload Identity / ADC (GCP). Read
   from the environment by the provider; never configured as a secret in
