@@ -36,7 +36,30 @@ type Collector struct {
 	// EXPECTED degrade (skip), not a fault (#554, least-privilege). Empirically
 	// determined against a live workspace.
 	ElevatedPrivilege string
+	// PerfSchemaGated (#665) marks a collector whose source table is populated
+	// only when the server's performance_schema is ON — the MySQL/MariaDB
+	// statement-digest collectors read
+	// performance_schema.events_statements_summary_by_digest, which is EMPTY
+	// when performance_schema is OFF (the MariaDB default). A bare 0-row result
+	// is ambiguous ("perf_schema ON, no statements" vs "perf_schema OFF,
+	// unavailable"), so on a 0-row no-error result Collect fires the read-only
+	// probe perfSchemaProbeSQL; if it reports OFF, the run is recorded as a
+	// DEGRADED / NOT_ASSESSED skip (ReasonPerfSchemaDisabled), not a silent
+	// success (MDC-R010). A collector that returned rows is never probed.
+	PerfSchemaGated bool
 }
+
+// ReasonPerfSchemaDisabled is the canonical skip reason recorded when a
+// PerfSchemaGated collector returns 0 rows and the server's performance_schema
+// is OFF — a DEGRADED / NOT_ASSESSED outcome, distinct from an empty success or
+// a collector error (#665, MDC-R011). Pinned to metrics.CollectorSkippedReasons
+// by a drift test in the collector package.
+const ReasonPerfSchemaDisabled = "perf_schema_disabled"
+
+// perfSchemaProbeSQL is the cheap read-only probe fired at most once, only on a
+// PerfSchemaGated collector's 0-row no-error result, to tell perf_schema OFF
+// from "enabled but empty". SELECT-only, so INV-SSC-01 / INV-MDC-01 hold.
+const perfSchemaProbeSQL = "SELECT @@performance_schema AS performance_schema"
 
 // Result is the outcome of running one Collector.
 type Result struct {
@@ -54,6 +77,16 @@ type Result struct {
 	// (skipped), not a fault (MKR-R007). Carried onto the Result so the
 	// persistence layer can classify without re-consulting the catalog.
 	ElevatedPrivilege string
+	// Status / Reason carry a runtime-determined outcome that the collector
+	// could not know from its SQL alone (#665). When Collect detects a
+	// PerfSchemaGated collector returned 0 rows with perf_schema OFF, it sets
+	// Status="skipped" and Reason=ReasonPerfSchemaDisabled — a DEGRADED /
+	// NOT_ASSESSED signal the persistence layer records verbatim, distinct from
+	// a plain empty success (both empty) or an Err failure. Empty for every
+	// ordinary collector outcome; the persistence layer treats empty Status as
+	// "classify from Err/rows as before".
+	Status string
+	Reason string
 }
 
 // QueryRunner runs a single read-only statement and returns its rows as maps.
@@ -192,9 +225,65 @@ func CollectWithClock(ctx context.Context, run QueryRunner, cat []Collector, red
 		}
 		applyWireRedaction(c, rows, redactSensitive, structuralQueryText)
 		res.Rows = rows
+		// #665 (MDC-R010): a PerfSchemaGated collector that returned 0 rows with
+		// no error is ambiguous. Probe @@performance_schema (read-only, at most
+		// once, only on this 0-row path) to tell "perf_schema OFF -> unavailable"
+		// from "perf_schema ON -> no statements". OFF -> DEGRADED / NOT_ASSESSED
+		// skip; ON (or a probe that errors, MDC-R011) -> leave the empty success
+		// intact. A collector that returned rows is never probed.
+		if c.PerfSchemaGated && len(rows) == 0 {
+			if off, ok := perfSchemaIsOff(ctx, run); ok && off {
+				res.Status = "skipped"
+				res.Reason = ReasonPerfSchemaDisabled
+			}
+		}
 		results = append(results, res)
 	}
 	return results
+}
+
+// perfSchemaIsOff runs the read-only @@performance_schema probe and reports
+// (off, ok): ok is false when the probe errored or returned no usable value (in
+// which case the caller leaves the pre-probe outcome untouched, MDC-R011); when
+// ok is true, off reports whether performance_schema is OFF. Accepts the several
+// shapes MySQL-wire drivers return the boolean system variable as: "0"/"1",
+// "OFF"/"ON", []byte of those, or a numeric/bool.
+func perfSchemaIsOff(ctx context.Context, run QueryRunner) (off, ok bool) {
+	rows, err := run(ctx, perfSchemaProbeSQL)
+	if err != nil || len(rows) == 0 {
+		return false, false
+	}
+	v, present := rows[0]["performance_schema"]
+	if !present {
+		return false, false
+	}
+	switch t := v.(type) {
+	case string:
+		return perfSchemaStringIsOff(t), true
+	case []byte:
+		return perfSchemaStringIsOff(string(t)), true
+	case bool:
+		return !t, true
+	case int:
+		return t == 0, true
+	case int64:
+		return t == 0, true
+	case float64:
+		return t == 0, true
+	default:
+		return false, false
+	}
+}
+
+// perfSchemaStringIsOff reports whether a textual @@performance_schema value
+// denotes OFF. MySQL/MariaDB report the variable as "0"/"1" or "OFF"/"ON".
+func perfSchemaStringIsOff(s string) bool {
+	switch strings.ToUpper(strings.TrimSpace(s)) {
+	case "0", "OFF", "FALSE", "NO":
+		return true
+	default:
+		return false
+	}
 }
 
 // IsPermissionDenied reports whether a MySQL-wire error string denotes a

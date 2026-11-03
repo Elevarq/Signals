@@ -2,6 +2,7 @@ package singlestore
 
 import (
 	"context"
+	"errors"
 	"sort"
 	"strings"
 	"testing"
@@ -216,4 +217,125 @@ func TestMariaDBCatalogNoUnredactedSensitiveColumn(t *testing.T) {
 			}
 		}
 	}
+}
+
+// perfSchemaRunner dispatches the digest collector SQL to digestRows/digestErr
+// and the @@performance_schema probe to probeVal/probeErr, recording whether the
+// probe was ever issued. The digest SQL is identified by its table name; the
+// probe by "@@performance_schema".
+func perfSchemaRunner(digestRows []map[string]any, digestErr error, probeVal any, probeErr error, probed *bool) QueryRunner {
+	return func(_ context.Context, sql string) ([]map[string]any, error) {
+		switch {
+		case strings.Contains(sql, "@@performance_schema"):
+			*probed = true
+			if probeErr != nil {
+				return nil, probeErr
+			}
+			return []map[string]any{{"performance_schema": probeVal}}, nil
+		case strings.Contains(sql, "events_statements_summary_by_digest"):
+			return digestRows, digestErr
+		default:
+			// Every other collector in the catalog returns an empty success so
+			// Collect runs the whole catalog without incident.
+			return []map[string]any{}, nil
+		}
+	}
+}
+
+// TC-MDC-11 (MDC-R010/R011): perf_schema OFF -> statement-digest collector is a
+// DEGRADED / NOT_ASSESSED result (skipped + perf_schema_disabled), never a silent
+// success or a failure.
+func TestMariaDBStatementDigestsPerfSchemaOffDegrades(t *testing.T) {
+	probed := false
+	run := perfSchemaRunner(nil, nil, "0", nil, &probed)
+	rs := Collect(context.Background(), run, mariadbCatalog(), false, false)
+	d := resultByID(rs, "mariadb_statement_digests_v1")
+	if d == nil {
+		t.Fatal("digest collector result missing")
+	}
+	if !probed {
+		t.Error("expected the @@performance_schema probe to fire on a 0-row result")
+	}
+	if d.Err != "" {
+		t.Errorf("perf_schema-off degrade must not be a failure, got Err=%q", d.Err)
+	}
+	if d.Status != "skipped" || d.Reason != ReasonPerfSchemaDisabled {
+		t.Errorf("want status=skipped reason=%q, got status=%q reason=%q", ReasonPerfSchemaDisabled, d.Status, d.Reason)
+	}
+}
+
+// TC-MDC-12 (MDC-R010): perf_schema ON with 0 rows stays a legitimate empty
+// success ("no slow queries"), not a degrade.
+func TestMariaDBStatementDigestsPerfSchemaOnEmptyIsSuccess(t *testing.T) {
+	probed := false
+	run := perfSchemaRunner(nil, nil, "1", nil, &probed)
+	rs := Collect(context.Background(), run, mariadbCatalog(), false, false)
+	d := resultByID(rs, "mariadb_statement_digests_v1")
+	if d == nil {
+		t.Fatal("digest collector result missing")
+	}
+	if !probed {
+		t.Error("expected the probe to fire on a 0-row result to disambiguate")
+	}
+	if d.Err != "" || d.Status != "" || d.Reason != "" {
+		t.Errorf("perf_schema ON + 0 rows must be a plain success, got Err=%q status=%q reason=%q", d.Err, d.Status, d.Reason)
+	}
+}
+
+// TC-MDC-13 (MDC-R010): a collector that returned rows is never probed and never
+// degraded.
+func TestMariaDBStatementDigestsRowsPresentNotProbed(t *testing.T) {
+	probed := false
+	rows := []map[string]any{{"DIGEST": "abc", "COUNT_STAR": "5"}}
+	run := perfSchemaRunner(rows, nil, "0", nil, &probed)
+	rs := Collect(context.Background(), run, mariadbCatalog(), false, false)
+	d := resultByID(rs, "mariadb_statement_digests_v1")
+	if d == nil {
+		t.Fatal("digest collector result missing")
+	}
+	if probed {
+		t.Error("a non-empty digest result must NOT be probed")
+	}
+	if d.Status != "" || d.Reason != "" || len(d.Rows) != 1 {
+		t.Errorf("rows-present result must be untouched, got status=%q reason=%q rows=%d", d.Status, d.Reason, len(d.Rows))
+	}
+}
+
+// TC-MDC-14 (MDC-R011): a probe that errors never downgrades the legitimate 0-row
+// success to a failure or skip.
+func TestMariaDBStatementDigestsProbeErrorStaysSuccess(t *testing.T) {
+	probed := false
+	run := perfSchemaRunner(nil, nil, nil, errors.New("probe boom"), &probed)
+	rs := Collect(context.Background(), run, mariadbCatalog(), false, false)
+	d := resultByID(rs, "mariadb_statement_digests_v1")
+	if d == nil {
+		t.Fatal("digest collector result missing")
+	}
+	if !probed {
+		t.Error("expected the probe to be attempted")
+	}
+	if d.Err != "" || d.Status != "" || d.Reason != "" {
+		t.Errorf("a probe error must leave the 0-row success intact, got Err=%q status=%q reason=%q", d.Err, d.Status, d.Reason)
+	}
+}
+
+// MDC-R010: the digest collector declares the perf_schema gate so the runtime
+// knows to probe it.
+func TestMariaDBStatementDigestsIsPerfSchemaGated(t *testing.T) {
+	d := collectorByID(mariadbCatalog(), "mariadb_statement_digests_v1")
+	if d == nil {
+		t.Fatal("digest collector missing from catalog")
+	}
+	if !d.PerfSchemaGated {
+		t.Error("mariadb_statement_digests_v1 must be PerfSchemaGated (MDC-R010)")
+	}
+}
+
+func collectorByID(cat []Collector, id string) *Collector {
+	for i := range cat {
+		if cat[i].ID == id {
+			return &cat[i]
+		}
+	}
+	return nil
 }

@@ -110,13 +110,19 @@ func mysqlCatalog() []Collector {
 			// the top statements by accumulated latency so a busy server does not
 			// produce an unbounded payload; the NULL-digest overflow row is
 			// included naturally. Empty when Performance Schema instrumentation
-			// is off (a legitimate empty result, not a failure).
+			// is off. #665: a 0-row result is probed (@@performance_schema) and,
+			// when OFF, recorded as a DEGRADED / NOT_ASSESSED skip
+			// (perf_schema_disabled) rather than a silent empty success, so a
+			// consumer can tell "unavailable" from "no slow queries". (MySQL 8
+			// ships perf_schema ON by default, but it can be disabled, and the
+			// MariaDB sibling collector defaults OFF — the gate is engine-shared.)
 			ID:               "mysql_statement_digests_v1",
 			Category:         "workload",
 			SQL:              "SELECT SCHEMA_NAME, DIGEST, DIGEST_TEXT, COUNT_STAR, SUM_TIMER_WAIT, SUM_ROWS_EXAMINED, SUM_ROWS_SENT, SUM_ERRORS, SUM_CREATED_TMP_TABLES, SUM_SELECT_SCAN, SUM_NO_INDEX_USED, FIRST_SEEN, LAST_SEEN FROM performance_schema.events_statements_summary_by_digest ORDER BY SUM_TIMER_WAIT DESC LIMIT 200",
 			HighSensitivity:  true,
 			SensitiveColumns: []string{"DIGEST_TEXT"},
 			StructuralColumn: "DIGEST_TEXT", // #647 structural-query opt-in column
+			PerfSchemaGated:  true,          // #665 (MDC-R010): empty when perf_schema OFF
 		},
 		{
 			// #543: active InnoDB transactions (point-in-time session evidence,

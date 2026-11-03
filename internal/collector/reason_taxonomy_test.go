@@ -5,6 +5,7 @@ import (
 
 	"github.com/elevarq/signals/internal/metrics"
 	"github.com/elevarq/signals/internal/pgqueries"
+	"github.com/elevarq/signals/internal/singlestore"
 )
 
 func inSet(s []string, v string) bool {
@@ -52,6 +53,19 @@ func TestSkipReasonConstsAreCanonical(t *testing.T) {
 		if !inSet(metrics.CollectorSkippedReasons, r) {
 			t.Errorf("skip reason const %q is not in metrics.CollectorSkippedReasons", r)
 		}
+	}
+}
+
+// TestPerfSchemaDisabledReasonIsCanonical (#665, MDC-R011) pins the MySQL-wire
+// perf_schema-off degrade reason (owned by the singlestore package, emitted on
+// the wire collection path) to metrics.CollectorSkippedReasons so the metric
+// label enum and the degrade code cannot drift apart.
+func TestPerfSchemaDisabledReasonIsCanonical(t *testing.T) {
+	if singlestore.ReasonPerfSchemaDisabled != "perf_schema_disabled" {
+		t.Errorf("ReasonPerfSchemaDisabled = %q, want %q", singlestore.ReasonPerfSchemaDisabled, "perf_schema_disabled")
+	}
+	if !inSet(metrics.CollectorSkippedReasons, singlestore.ReasonPerfSchemaDisabled) {
+		t.Errorf("perf_schema degrade reason %q is not in metrics.CollectorSkippedReasons", singlestore.ReasonPerfSchemaDisabled)
 	}
 }
 

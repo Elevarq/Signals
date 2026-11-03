@@ -101,12 +101,13 @@ or locked-key data (`lock_data`). **Then:** any collector selecting one is
 
 **Rule:** MDC-R006, MDC-R007
 
-**Given:** the activity / replication / perf_schema-gated collectors against an
-idle, standalone, perf_schema-off server. **When:** each runs and returns zero
-rows. **Then:** each is a successful empty result (`Err == ""`), distinct from a
-collector error or a permission denial. **Expected:** Pass — the
-`integration-mariadb` live qualification exercises this against the pinned idle
-MariaDB 11.4 service container (perf_schema off, standalone, no Galera).
+**Given:** the activity / replication collectors and `mariadb_metadata_locks_v1`
+against an idle, standalone, perf_schema-off server. **When:** each runs and
+returns zero rows. **Then:** each is a successful empty result (`Err == ""`),
+distinct from a collector error or a permission denial. (`mariadb_statement_digests_v1`
+is the exception — it emits a DEGRADED signal instead; see TC-MDC-11.) **Expected:**
+Pass — the `integration-mariadb` live qualification exercises this against the
+pinned idle MariaDB 11.4 service container (perf_schema off, standalone, no Galera).
 
 ---
 
@@ -130,3 +131,69 @@ idx_tenant_created with columns in the exact order [tenant_id, created_at].
 **Expected Result:** Pass — `TestMariaDBLiveReplayTier1Evidence` across every
 pinned `integration-mariadb` LTS leg (10.11, 11.4, 11.8, 12.3); the deterministic
 verifier logic is covered by `TestVerifyReplayTier1Evidence_*`.
+
+---
+
+### TC-MDC-11: perf_schema OFF → statement-digest collector is DEGRADED / NOT_ASSESSED (failure)
+
+**Rule:** MDC-R010, MDC-R011
+
+**Given:** `mariadb_statement_digests_v1` run by `Collect` with a fake runner
+that returns **0 rows, no error** for the digest SQL and **`performance_schema=0`**
+for the `SELECT @@performance_schema` probe.
+
+**When:** `Collect` runs the catalog and `mapWireCollection` classifies the
+result.
+
+**Then:** the collector's `Result` carries `Status="skipped"`,
+`Reason="perf_schema_disabled"` and the mapped `QueryRun` is `status=skipped`,
+`reason=perf_schema_disabled` (a DEGRADED / NOT_ASSESSED outcome), **not** a
+silent `success` and **not** a `failed`. `perf_schema_disabled` is a member of
+`metrics.CollectorSkippedReasons`.
+
+**Expected:** Pass when the degrade is recorded distinctly.
+
+---
+
+### TC-MDC-12: perf_schema ON, 0 rows → legitimate empty success (normal)
+
+**Rule:** MDC-R010
+
+**Given:** `mariadb_statement_digests_v1` run with a fake runner returning **0
+rows, no error** for the digest SQL and **`performance_schema=1`** for the probe.
+
+**When:** `Collect` runs and the result is classified.
+
+**Then:** the run stays `status=success`, `reason=""` ("no slow queries") — the
+probe shows perf_schema ON so there is no degrade. **Expected:** Pass when the
+empty-but-enabled result remains a success.
+
+---
+
+### TC-MDC-13: rows present → no probe, no degrade (boundary)
+
+**Rule:** MDC-R010
+
+**Given:** `mariadb_statement_digests_v1` run with a fake runner returning **≥1
+row** for the digest SQL. The probe runner records whether it was invoked.
+
+**When:** `Collect` runs.
+
+**Then:** the `@@performance_schema` probe is **never issued** (a collector that
+returned rows is never probed) and the run is `status=success`. **Expected:**
+Pass when a non-empty result is left untouched and unprobed.
+
+---
+
+### TC-MDC-14: probe error does not turn a 0-row success into a failure (invalid)
+
+**Rule:** MDC-R011
+
+**Given:** `mariadb_statement_digests_v1` run with a fake runner returning **0
+rows, no error** for the digest SQL and an **error** for the probe query.
+
+**When:** `Collect` runs.
+
+**Then:** the probe failure is swallowed — the run keeps its pre-probe outcome
+(`status=success`, 0 rows), never `failed`, never `skipped`. **Expected:** Pass
+when the diagnostic probe cannot downgrade a legitimate outcome.

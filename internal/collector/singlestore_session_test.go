@@ -224,3 +224,36 @@ func TestCollectTarget_UnsupportedEngineSkipped(t *testing.T) {
 		t.Errorf("unsupported engine must not persist a snapshot, got %d", n)
 	}
 }
+
+// TC-MDC-11 (MDC-R010): a Result carrying the perf_schema-off degrade
+// (Status=skipped / Reason=perf_schema_disabled, set by singlestore.Collect)
+// maps to a skipped QueryRun with that reason — a NOT_ASSESSED outcome, not a
+// success and not a failure.
+func TestMapWireCollectionPerfSchemaDegradeSkipped(t *testing.T) {
+	results := []singlestore.Result{
+		{CollectorID: "mariadb_identity_v1", Category: "server", Rows: []map[string]any{{"version": "11.4"}}},
+		{
+			CollectorID: "mariadb_statement_digests_v1", Category: "workload",
+			Status: "skipped", Reason: "perf_schema_disabled",
+		},
+	}
+	_, runs, _, err := mapWireCollection("mariadb", "snap-1", 7, "11.4", "2026-10-31T00:00:00Z", results)
+	if err != nil {
+		t.Fatalf("mapWireCollection: %v", err)
+	}
+	var digest *db.QueryRun
+	for i := range runs {
+		if runs[i].QueryID == "mariadb_statement_digests_v1" {
+			digest = &runs[i]
+		}
+	}
+	if digest == nil {
+		t.Fatal("digest run missing")
+	}
+	if digest.Status != "skipped" || digest.Reason != "perf_schema_disabled" {
+		t.Errorf("want skipped/perf_schema_disabled, got status=%q reason=%q", digest.Status, digest.Reason)
+	}
+	if digest.Error != "" {
+		t.Errorf("a perf_schema degrade is not an error, got Error=%q", digest.Error)
+	}
+}
