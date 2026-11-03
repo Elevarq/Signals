@@ -197,3 +197,39 @@ rows, no error** for the digest SQL and an **error** for the probe query.
 **Then:** the probe failure is swallowed — the run keeps its pre-probe outcome
 (`status=success`, 0 rows), never `failed`, never `skipped`. **Expected:** Pass
 when the diagnostic probe cannot downgrade a legitimate outcome.
+
+---
+
+### TC-MDC-15: global_status carries the InnoDB buffer-pool read counters (normal)
+
+**Rule:** MDC-R012
+
+**Given:** `mariadb_global_status_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains both `Innodb_buffer_pool_reads` and
+`Innodb_buffer_pool_read_requests` (the cumulative counters for Analyzer's
+buffer-pool-read-pressure rate rule), alongside the existing live counters.
+
+**Expected Result:** Pass when both counters are in the IN-list.
+
+---
+
+### TC-MDC-16: deadlock counter is collected unconditionally with its enabled-state (boundary)
+
+**Rule:** MDC-R013
+
+**Given:** `mariadb_innodb_deadlocks_v1`.
+
+**When:** its SQL is inspected and run.
+
+**Then:** it selects the single `lock_deadlocks` row from
+`information_schema.INNODB_METRICS` by `NAME` (returning `NAME`, `COUNT`,
+`ENABLED`) with **no** `ENABLED=1` filter, is a read-only `SELECT`, and is not
+`HighSensitivity`. The row is present regardless of the lock-module default so
+the consumer can read `COUNT` when `ENABLED=1` or treat it as NOT_ASSESSED
+otherwise.
+
+**Expected Result:** Pass when the deadlock row is collected unconditionally with
+its `ENABLED` flag surfaced.

@@ -6,6 +6,20 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+
+- **MySQL/MariaDB buffer-pool read counters + unconditional deadlock counter**
+  (#656): `mysql_global_status_v1` / `mariadb_global_status_v1` now carry
+  `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests`, and a new
+  `mysql_innodb_deadlocks_v1` / `mariadb_innodb_deadlocks_v1` collector reads the
+  `lock_deadlocks` InnoDB metric **unconditionally** (no `STATUS='enabled'` /
+  `ENABLED=1` filter) so the row is always present with its enabled-state. These
+  unblock the remaining two Analyzer MySQL/MariaDB rate rules (#3918):
+  `memory.buffer_pool_read_pressure` and `innodb.deadlock_rate`. All counters are
+  cumulative (no producer-side delta — the Analyzer owns the interval), read-only,
+  and carry no sensitive payload. Verified live across MySQL 8.0/8.4/9.7 and
+  MariaDB 10.11/11.4/12.3.
+
 ## [2.0.0-poc.3] - 2026-11-01
 
 ### Added

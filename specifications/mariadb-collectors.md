@@ -64,7 +64,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 |----|----------|--------|
 | `mariadb_identity_v1` | server | `SELECT VERSION(), @@version_comment` |
 | `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
-| `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) |
+| `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) — carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918). MariaDB returns `GLOBAL_STATUS` names uppercased; the IN-list matches case-insensitively. |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
 | `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) |
 | `mariadb_engines_v1` | server | `information_schema.ENGINES` |
@@ -72,6 +72,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | `mariadb_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) — #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native: MariaDB retains `bigint(20)`/`int(11)`), `IS_NULLABLE`, ordinal, key, default, extra. Not HighSensitivity. |
 | `mariadb_index_inventory_v1` | schema | `information_schema.STATISTICS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`) — #538 Replay Tier-1 evidence; per-index name, ordered columns (`SEQ_IN_INDEX`), uniqueness (`NON_UNIQUE`). `INDEX_NAME='PRIMARY'` carries PK identity. `CARDINALITY` (Tier-2) NOT collected. Not HighSensitivity. |
 | `mariadb_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE ENABLED=1` |
+| `mariadb_innodb_deadlocks_v1` | resources | `information_schema.INNODB_METRICS WHERE NAME='lock_deadlocks'` (no `ENABLED` filter) | #656; the cumulative InnoDB deadlock count for Analyzer's `innodb.deadlock_rate` rate rule (#3918). Selected **unconditionally** (not gated on `ENABLED=1`) so the single `lock_deadlocks` row is always present with its `ENABLED` flag, making the signal module-independent: `ENABLED=1` (the default across MariaDB 10.11/11.4/12.3) → `COUNT` is the live cumulative counter; `ENABLED=0` → the row still returns so the consumer emits NOT_ASSESSED rather than a silent zero. Bounded to one row. No sensitive payload. |
 | `mariadb_innodb_transactions_v1` | activity | `information_schema.INNODB_TRX` (oldest-first, LIMIT 200) — **HighSensitivity**, `trx_query` redacted (lowercase result key) |
 | `mariadb_innodb_locks_v1` | activity | `information_schema.INNODB_LOCKS` (LIMIT 500) — **HighSensitivity**, `lock_data` redacted (locked key value, lowercase result key) |
 | `mariadb_innodb_lock_waits_v1` | activity | `information_schema.INNODB_LOCK_WAITS` (LIMIT 500) — trx/lock ids only |
@@ -148,6 +149,22 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   DDL reconstructs correctly on MariaDB. Per-column / per-index selectivity and
   cardinality are Tier-2 and out of scope. Both collectors are schema metadata and
   are not `HighSensitivity`.
+- **MDC-R012** | `mariadb_global_status_v1` carries the InnoDB buffer-pool read
+  counters `Innodb_buffer_pool_reads` and `Innodb_buffer_pool_read_requests` in
+  its IN-list (cumulative counters; no producer-side delta — the Analyzer owns
+  the interval). These are the evidence for Analyzer's buffer-pool-read-pressure
+  rate rule (#3918). Present across MariaDB 10.11/11.4/12.3 (confirmed live);
+  MariaDB returns `GLOBAL_STATUS` names uppercased and the IN-list matches
+  case-insensitively.
+- **MDC-R013** | `mariadb_innodb_deadlocks_v1` selects the single `lock_deadlocks`
+  row from `information_schema.INNODB_METRICS` by `NAME` **without** the
+  `ENABLED=1` filter, returning `NAME`, `COUNT`, and `ENABLED`. The row is
+  therefore always present with its enabled-state, so the deadlock signal is
+  reliable regardless of the InnoDB metrics lock-module default: `ENABLED=1` (the
+  default) → `COUNT` is the live cumulative deadlock counter; `ENABLED=0` → the
+  consumer treats the count as NOT_ASSESSED rather than a silent zero. `COUNT` is
+  a cumulative counter (no producer-side delta — the Analyzer owns the interval,
+  #3918). Bounded to one row; read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -189,7 +206,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R011, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R013, INV-MDC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

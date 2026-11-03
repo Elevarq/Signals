@@ -42,9 +42,10 @@ wire session, identity resolution, and persistence/export.
 |----|----------|--------|-------|
 | `mysql_identity_v1` | server | `SELECT VERSION(), @@version_comment, @@version_compile_os` | server identity |
 | `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
-| `mysql_global_status_v1` | resources | `performance_schema.global_status` (IN-list) | live counters |
+| `mysql_global_status_v1` | resources | `performance_schema.global_status` (IN-list) | live counters; carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918) |
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
+| `mysql_innodb_deadlocks_v1` | resources | `information_schema.INNODB_METRICS WHERE NAME='lock_deadlocks'` (no `STATUS` filter) | #656; the cumulative InnoDB deadlock count for Analyzer's `innodb.deadlock_rate` rate rule (#3918). Selected **unconditionally** (not gated on `STATUS='enabled'`) so the single `lock_deadlocks` row is always present with its `STATUS`, making the signal module-independent: when the row's `STATUS='enabled'` (the default across MySQL 8.0/8.4/9.7) `COUNT` is the live cumulative counter; when an operator has disabled the metric the row still returns with `STATUS='disabled'` so the consumer emits NOT_ASSESSED rather than a silent zero. Bounded to one row. No sensitive payload. |
 | `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing |
 | `mysql_engines_v1` | server | `information_schema.ENGINES` | storage engine support |
 | `mysql_schemata_v1` | schema | `information_schema.SCHEMATA` | databases + charset/collation |
@@ -124,6 +125,22 @@ wire session, identity resolution, and persistence/export.
   cardinality are Tier-2 and out of scope. These two collectors are schema
   metadata (no query text, no row data) and are not `HighSensitivity`.
 
+- **MYC-R010** | `mysql_global_status_v1` carries the InnoDB buffer-pool read
+  counters `Innodb_buffer_pool_reads` and `Innodb_buffer_pool_read_requests` in
+  its IN-list (cumulative counters; no producer-side delta — the Analyzer owns
+  the interval). These are the evidence for Analyzer's buffer-pool-read-pressure
+  rate rule (#3918). Present across MySQL 8.0/8.4/9.7 (confirmed live).
+- **MYC-R011** | `mysql_innodb_deadlocks_v1` selects the single `lock_deadlocks`
+  row from `information_schema.INNODB_METRICS` by `NAME` **without** the
+  `STATUS='enabled'` filter, returning `NAME`, `COUNT`, and `STATUS`. The row is
+  therefore always present with its enabled-state, so the deadlock signal is
+  reliable regardless of the InnoDB metrics lock-module default: `STATUS='enabled'`
+  (the default) → `COUNT` is the live cumulative deadlock counter; `STATUS` any
+  other value → the consumer treats the count as NOT_ASSESSED rather than a
+  silent zero. `COUNT` is a cumulative counter (no producer-side delta — the
+  Analyzer owns the interval, #3918). Bounded to one row; read-only; not
+  `HighSensitivity`.
+
 ## Invariants
 
 - **INV-MYC-01** | Collection never issues a non-`SELECT` statement
@@ -164,7 +181,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R009, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R011, INV-MYC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
