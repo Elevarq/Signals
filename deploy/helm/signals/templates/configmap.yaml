@@ -57,22 +57,18 @@ data:
         {{- end }}
         {{- /*
           #330 — mTLS client-certificate auth. Only PATHS are rendered
-          (sslcert / sslkey / sslkey_passphrase_file); the certificate,
-          key, and passphrase CONTENTS never enter values or this
-          ConfigMap. Mount the corresponding Kubernetes Secret via
-          extraVolumes/extraVolumeMounts so the files land on disk, then
-          point these paths at the mount. The schema requires cert+key
-          when auth_method is mtls (FC-MTLS-001); the passphrase file is
-          optional and renders only when set.
+          (sslcert / sslkey); the certificate and key CONTENTS never enter
+          values or this ConfigMap. Mount the corresponding Kubernetes
+          Secret via extraVolumes/extraVolumeMounts so the files land on
+          disk, then point these paths at the mount. The schema requires
+          cert+key when auth_method is mtls (FC-MTLS-001). The sslkey must
+          be unencrypted — encrypted keys are unsupported (#654).
         */}}
         {{- with .Values.target.sslCertFile }}
         sslcert: {{ . }}
         {{- end }}
         {{- with .Values.target.sslKeyFile }}
         sslkey: {{ . }}
-        {{- end }}
-        {{- with .Values.target.sslKeyPassphraseFile }}
-        sslkey_passphrase_file: {{ . }}
         {{- end }}
         {{- /* Password source only for the default (password) method —
                token/secret methods are passwordless (FC005). */}}
@@ -119,9 +115,6 @@ data:
         {{- end }}
         {{- with .sslKeyFile }}
         sslkey: {{ . }}
-        {{- end }}
-        {{- with .sslKeyPassphraseFile }}
-        sslkey_passphrase_file: {{ . }}
         {{- end }}
         {{- with .passwordFile }}
         password_file: {{ . }}

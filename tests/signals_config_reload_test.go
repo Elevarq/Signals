@@ -181,7 +181,6 @@ func TestReload_PoolInvalidatedPerConnectionField(t *testing.T) {
 		{"SSLRootCertFile", func(tc *config.TargetConfig) { tc.SSLRootCertFile = "/etc/ca.pem" }},
 		{"SSLCert", func(tc *config.TargetConfig) { tc.SSLCert = "/etc/client.pem" }},
 		{"SSLKey", func(tc *config.TargetConfig) { tc.SSLKey = "/etc/client.key" }},
-		{"SSLKeyPassphraseFile", func(tc *config.TargetConfig) { tc.SSLKeyPassphraseFile = "/etc/key.pass" }},
 		// Credential selection
 		{"AuthMethod", func(tc *config.TargetConfig) { tc.AuthMethod = config.AuthMethodAWSRDSIAM }},
 		{"Region", func(tc *config.TargetConfig) { tc.Region = "eu-west-1" }},

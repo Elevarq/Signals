@@ -579,10 +579,9 @@ type connIdentity struct {
 	User    string
 	SSLMode string
 	// TLS: server verification (CA) + mTLS client material
-	SSLRootCertFile      string
-	SSLCert              string
-	SSLKey               string
-	SSLKeyPassphraseFile string
+	SSLRootCertFile string
+	SSLCert         string
+	SSLKey          string
 	// Credential selection
 	AuthMethod                   string
 	Region                       string
@@ -610,7 +609,6 @@ func connectionIdentity(t config.TargetConfig) connIdentity {
 		SSLRootCertFile:              t.SSLRootCertFile,
 		SSLCert:                      t.SSLCert,
 		SSLKey:                       t.SSLKey,
-		SSLKeyPassphraseFile:         t.SSLKeyPassphraseFile,
 		AuthMethod:                   t.AuthMethod,
 		Region:                       t.Region,
 		AzureClientID:                t.AzureClientID,

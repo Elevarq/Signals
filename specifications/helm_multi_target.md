@@ -37,8 +37,7 @@ Input: `.Values.targets` — an optional array. Each item mirrors the
 | `gcpImpersonateServiceAccount` | `gcp_impersonate_service_account` | |
 | `secretRef` | `secret_ref` | reference, not a secret |
 | `sslCertFile` | `sslcert` | mtls path |
-| `sslKeyFile` | `sslkey` | mtls path |
-| `sslKeyPassphraseFile` | `sslkey_passphrase_file` | mtls path |
+| `sslKeyFile` | `sslkey` | mtls path (unencrypted; encrypted keys unsupported, #654) |
 | `passwordFile` | `password_file` | path to a mounted password file |
 | `passwordEnv` | `password_env` | name of an env var (user-provided via `extraEnv`) |
 
