@@ -365,10 +365,13 @@ var CollectorFailedReasons = []string{
 // extension_missing / config_disabled; the runtime skip paths contribute
 // budget_exhausted (`internal/collector.reasonBudgetExhausted`),
 // privilege_owner_only (`reasonPrivilegeOwnerOnly`), and privilege_restricted
-// (`reasonPrivilegeRestricted`). A drift test asserts those consts match this
-// list and that the consumer guide documents exactly these values — the docs
-// previously omitted the three runtime reasons, so alerts on them saw empty
-// series.
+// (`reasonPrivilegeRestricted`). The MySQL-wire path contributes
+// perf_schema_disabled (`internal/singlestore.ReasonPerfSchemaDisabled`, #665):
+// a statement-digest collector returned 0 rows with performance_schema OFF (a
+// DEGRADED / NOT_ASSESSED outcome, MDC-R010). A drift test asserts those consts
+// match this list and that the consumer guide documents exactly these values —
+// the docs previously omitted the three privilege runtime reasons, so alerts on
+// them saw empty series.
 var CollectorSkippedReasons = []string{
 	"version_unsupported",
 	"extension_missing",
@@ -377,4 +380,5 @@ var CollectorSkippedReasons = []string{
 	"privilege_owner_only",
 	"privilege_restricted",
 	"privilege_column_filtered",
+	"perf_schema_disabled",
 }

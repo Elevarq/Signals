@@ -139,7 +139,8 @@ func mapWireCollection(engine, snapID string, targetID int64, version, collected
 		runID := fmt.Sprintf("%s-%03d-%s", snapID, i, r.CollectorID)
 		status := "success"
 		reason := ""
-		if r.Err != "" {
+		switch {
+		case r.Err != "":
 			// MKR-R007: a permission-denied error on a collector that declares
 			// an elevated privilege (e.g. MV_CLUSTER_STATUS needs CLUSTER) is an
 			// EXPECTED least-privilege degrade — recorded skipped, not failed.
@@ -153,6 +154,14 @@ func mapWireCollection(engine, snapID string, targetID int64, version, collected
 				// object_missing / execution_error), never empty.
 				reason = classifyRunError(r.Err)
 			}
+		case r.Status != "":
+			// #665 (MDC-R010): the collector layer already classified a runtime
+			// degrade it alone could determine — the perf_schema-off
+			// statement-digest NOT_ASSESSED skip (status=skipped,
+			// reason=perf_schema_disabled). Record it verbatim; it is neither an
+			// error nor a plain success.
+			status = r.Status
+			reason = r.Reason
 		}
 		payload, compressed, size, err := db.EncodeNDJSON(r.Rows)
 		if err != nil {

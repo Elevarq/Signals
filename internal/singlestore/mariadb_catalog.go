@@ -141,8 +141,12 @@ func mariadbCatalog() []Collector {
 		{
 			// #616: the query-workload signal (MariaDB's perf_schema digest summary).
 			// DIGEST_TEXT is the normalized sample SQL -> HighSensitivity + redacted.
-			// perf_schema is OFF by default -> legitimate empty until enabled. Top
-			// statements by accumulated latency, bounded. A digest id is never
+			// perf_schema is OFF by default on MariaDB -> the digest table is empty
+			// until an operator enables it. #665: a 0-row result is probed
+			// (@@performance_schema) and, when OFF, recorded as a DEGRADED /
+			// NOT_ASSESSED skip (perf_schema_disabled) rather than a silent empty
+			// success — so a consumer can tell "unavailable" from "no slow queries".
+			// Top statements by accumulated latency, bounded. A digest id is never
 			// equated with a PostgreSQL queryid.
 			ID:               "mariadb_statement_digests_v1",
 			Category:         "workload",
@@ -150,6 +154,7 @@ func mariadbCatalog() []Collector {
 			HighSensitivity:  true,
 			SensitiveColumns: []string{"DIGEST_TEXT"},
 			StructuralColumn: "DIGEST_TEXT", // #647 structural-query opt-in column
+			PerfSchemaGated:  true,          // #665 (MDC-R010): empty when perf_schema OFF
 		},
 		{
 			// #616: MariaDB replica-state signal. MariaDB has no SHOW SLAVE STATUS
