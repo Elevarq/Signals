@@ -22,7 +22,7 @@ func TestMariaDBCatalogReadOnly(t *testing.T) {
 	}
 }
 
-// TC-MDC-02 (MDC-R005): expected MariaDB collector set (17, all green under SELECT,PROCESS).
+// TC-MDC-02 (MDC-R005): expected MariaDB collector set (18, all green under SELECT,PROCESS).
 func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	want := []string{
 		"mariadb_columns_v1",
@@ -32,6 +32,7 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 		"mariadb_global_variables_v1",
 		"mariadb_identity_v1",
 		"mariadb_index_inventory_v1",
+		"mariadb_innodb_deadlocks_v1",
 		"mariadb_innodb_lock_waits_v1",
 		"mariadb_innodb_locks_v1",
 		"mariadb_innodb_metrics_v1",
@@ -50,6 +51,46 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	sort.Strings(got)
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("mariadb catalog set = %v, want %v", got, want)
+	}
+}
+
+// TC-MDC-15 (MDC-R012): global_status carries the InnoDB buffer-pool read
+// counters for Analyzer's buffer-pool-read-pressure rate rule (#656 / #3918).
+func TestMariaDBGlobalStatusBufferPoolReads(t *testing.T) {
+	gs := collectorByID(mariadbCatalog(), "mariadb_global_status_v1")
+	if gs == nil {
+		t.Fatal("mariadb_global_status_v1 missing")
+	}
+	for _, v := range []string{"Innodb_buffer_pool_reads", "Innodb_buffer_pool_read_requests"} {
+		if !strings.Contains(gs.SQL, "'"+v+"'") {
+			t.Errorf("mariadb_global_status_v1 IN-list must contain %q; SQL=%q", v, gs.SQL)
+		}
+	}
+}
+
+// TC-MDC-16 (MDC-R013): the deadlock counter is collected unconditionally (no
+// ENABLED=1 filter) with its ENABLED flag surfaced, so the signal is reliable
+// regardless of the InnoDB metrics lock-module default (#656 / #3918).
+func TestMariaDBInnodbDeadlocksCollector(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_innodb_deadlocks_v1")
+	if c == nil {
+		t.Fatal("mariadb_innodb_deadlocks_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mariadb_innodb_deadlocks_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mariadb_innodb_deadlocks_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INNODB_METRICS") || !strings.Contains(c.SQL, "'lock_deadlocks'") {
+		t.Errorf("mariadb_innodb_deadlocks_v1 must select lock_deadlocks from INNODB_METRICS; SQL=%q", c.SQL)
+	}
+	if strings.Contains(up, "ENABLED=1") || strings.Contains(up, "ENABLED = 1") {
+		t.Errorf("mariadb_innodb_deadlocks_v1 must NOT filter on ENABLED=1 (row must always return with its ENABLED flag); SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "ENABLED") {
+		t.Errorf("mariadb_innodb_deadlocks_v1 must surface ENABLED so the consumer can detect a disabled metric; SQL=%q", c.SQL)
 	}
 }
 

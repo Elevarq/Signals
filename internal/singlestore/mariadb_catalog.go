@@ -37,9 +37,15 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_VARIABLES WHERE VARIABLE_NAME IN ('max_connections', 'innodb_buffer_pool_size', 'max_allowed_packet', 'wait_timeout', 'version', 'log_bin', 'read_only', 'innodb_flush_log_at_trx_commit', 'tmp_table_size', 'max_heap_table_size', 'innodb_log_file_size', 'innodb_log_files_in_group', 'innodb_redo_log_capacity', 'sort_buffer_size', 'join_buffer_size', 'table_open_cache', 'table_definition_cache', 'thread_cache_size', 'innodb_io_capacity', 'innodb_io_capacity_max', 'innodb_flush_method', 'innodb_buffer_pool_instances', 'binlog_format', 'sync_binlog', 'skip_name_resolve')",
 		},
 		{
+			// #656: Innodb_buffer_pool_reads + Innodb_buffer_pool_read_requests
+			// added for Analyzer's buffer-pool-read-pressure rate rule (#3918).
+			// Cumulative counters — no producer-side delta; the Analyzer owns the
+			// interval (MDC-R012). Confirmed present live across MariaDB
+			// 10.11/11.4/12.3. MariaDB returns GLOBAL_STATUS names uppercased; the
+			// IN-list matches case-insensitively.
 			ID:       "mariadb_global_status_v1",
 			Category: "resources",
-			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables')",
+			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables', 'Innodb_buffer_pool_reads', 'Innodb_buffer_pool_read_requests')",
 		},
 		{
 			ID:               "mariadb_processlist_v1",
@@ -96,6 +102,21 @@ func mariadbCatalog() []Collector {
 			ID:       "mariadb_innodb_metrics_v1",
 			Category: "resources",
 			SQL:      "SELECT NAME, SUBSYSTEM, COUNT, TYPE, COMMENT FROM information_schema.INNODB_METRICS WHERE ENABLED=1",
+		},
+		{
+			// #656 (MDC-R013): the cumulative InnoDB deadlock count for Analyzer's
+			// innodb.deadlock_rate rate rule (#3918). Selected unconditionally by
+			// NAME — deliberately WITHOUT the ENABLED=1 filter the general
+			// mariadb_innodb_metrics_v1 uses — so the single lock_deadlocks row is
+			// always present with its ENABLED flag. This makes the signal module-
+			// independent: ENABLED=1 (the default on MariaDB 10.11/11.4/12.3) ->
+			// COUNT is the live cumulative counter; ENABLED=0 -> the consumer treats
+			// it as NOT_ASSESSED rather than a silent zero. COUNT is a cumulative
+			// counter (no producer-side delta; the Analyzer owns the interval).
+			// Bounded to one row; read-only; no sensitive payload.
+			ID:       "mariadb_innodb_deadlocks_v1",
+			Category: "resources",
+			SQL:      "SELECT NAME, COUNT, ENABLED FROM information_schema.INNODB_METRICS WHERE NAME = 'lock_deadlocks'",
 		},
 		{
 			// #616: active InnoDB transactions (point-in-time session evidence).

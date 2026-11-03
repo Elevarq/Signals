@@ -41,9 +41,13 @@ func mysqlCatalog() []Collector {
 			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME IN ('max_connections', 'innodb_buffer_pool_size', 'max_allowed_packet', 'wait_timeout', 'version', 'log_bin', 'read_only', 'innodb_flush_log_at_trx_commit', 'tmp_table_size', 'max_heap_table_size', 'innodb_log_file_size', 'innodb_log_files_in_group', 'innodb_redo_log_capacity', 'sort_buffer_size', 'join_buffer_size', 'table_open_cache', 'table_definition_cache', 'thread_cache_size', 'innodb_io_capacity', 'innodb_io_capacity_max', 'innodb_flush_method', 'innodb_buffer_pool_instances', 'binlog_format', 'sync_binlog', 'skip_name_resolve')",
 		},
 		{
+			// #656: Innodb_buffer_pool_reads + Innodb_buffer_pool_read_requests
+			// added for Analyzer's buffer-pool-read-pressure rate rule (#3918).
+			// Cumulative counters — no producer-side delta; the Analyzer owns the
+			// interval (MYC-R010). Confirmed present live across MySQL 8.0/8.4/9.7.
 			ID:       "mysql_global_status_v1",
 			Category: "resources",
-			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables')",
+			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables', 'Innodb_buffer_pool_reads', 'Innodb_buffer_pool_read_requests')",
 		},
 		{
 			ID:               "mysql_processlist_v1",
@@ -56,6 +60,21 @@ func mysqlCatalog() []Collector {
 			ID:       "mysql_innodb_metrics_v1",
 			Category: "resources",
 			SQL:      "SELECT NAME, SUBSYSTEM, COUNT, STATUS FROM information_schema.INNODB_METRICS WHERE STATUS = 'enabled'",
+		},
+		{
+			// #656 (MYC-R011): the cumulative InnoDB deadlock count for Analyzer's
+			// innodb.deadlock_rate rate rule (#3918). Selected unconditionally by
+			// NAME — deliberately WITHOUT the STATUS='enabled' filter the general
+			// mysql_innodb_metrics_v1 uses — so the single lock_deadlocks row is
+			// always present with its STATUS. This makes the signal module-
+			// independent: STATUS='enabled' (the default on MySQL 8.0/8.4/9.7) ->
+			// COUNT is the live cumulative counter; any other STATUS -> the consumer
+			// treats it as NOT_ASSESSED rather than a silent zero. COUNT is a
+			// cumulative counter (no producer-side delta; the Analyzer owns the
+			// interval). Bounded to one row; read-only; no sensitive payload.
+			ID:       "mysql_innodb_deadlocks_v1",
+			Category: "resources",
+			SQL:      "SELECT NAME, COUNT, STATUS FROM information_schema.INNODB_METRICS WHERE NAME = 'lock_deadlocks'",
 		},
 		{
 			ID:       "mysql_table_statistics_v1",

@@ -33,6 +33,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_group_replication_members_v1",
 		"mysql_identity_v1",
 		"mysql_index_inventory_v1",
+		"mysql_innodb_deadlocks_v1",
 		"mysql_innodb_metrics_v1",
 		"mysql_innodb_transactions_v1",
 		"mysql_metadata_locks_v1",
@@ -157,6 +158,46 @@ func TestMySQLStatementDigestsRedaction(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["DIGEST_TEXT"]; v != nil {
 		t.Errorf("DIGEST_TEXT must be redacted to nil, got %v", v)
+	}
+}
+
+// TC-MYC-10 (MYC-R010): global_status carries the InnoDB buffer-pool read
+// counters for Analyzer's buffer-pool-read-pressure rate rule (#656 / #3918).
+func TestMySQLGlobalStatusBufferPoolReads(t *testing.T) {
+	gs := collectorByID(mysqlCatalog(), "mysql_global_status_v1")
+	if gs == nil {
+		t.Fatal("mysql_global_status_v1 missing")
+	}
+	for _, v := range []string{"Innodb_buffer_pool_reads", "Innodb_buffer_pool_read_requests"} {
+		if !strings.Contains(gs.SQL, "'"+v+"'") {
+			t.Errorf("mysql_global_status_v1 IN-list must contain %q; SQL=%q", v, gs.SQL)
+		}
+	}
+}
+
+// TC-MYC-11 (MYC-R011): the deadlock counter is collected unconditionally (no
+// STATUS='enabled' filter) with its STATUS surfaced, so the signal is reliable
+// regardless of the InnoDB metrics lock-module default (#656 / #3918).
+func TestMySQLInnodbDeadlocksCollector(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_innodb_deadlocks_v1")
+	if c == nil {
+		t.Fatal("mysql_innodb_deadlocks_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mysql_innodb_deadlocks_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mysql_innodb_deadlocks_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INNODB_METRICS") || !strings.Contains(c.SQL, "'lock_deadlocks'") {
+		t.Errorf("mysql_innodb_deadlocks_v1 must select lock_deadlocks from INNODB_METRICS; SQL=%q", c.SQL)
+	}
+	if strings.Contains(up, "STATUS = 'ENABLED'") || strings.Contains(up, "STATUS='ENABLED'") {
+		t.Errorf("mysql_innodb_deadlocks_v1 must NOT filter on STATUS='enabled' (row must always return with its STATUS); SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "STATUS") {
+		t.Errorf("mysql_innodb_deadlocks_v1 must surface STATUS so the consumer can detect a disabled metric; SQL=%q", c.SQL)
 	}
 }
 

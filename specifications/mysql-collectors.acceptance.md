@@ -156,3 +156,39 @@ idx_tenant_created with columns in the exact order [tenant_id, created_at].
 **Expected Result:** Pass — `TestMySQLLiveReplayTier1Evidence` across every pinned
 `integration-mysql` leg (8.0, 8.4, 9.7); the deterministic verifier logic is
 covered by `TestVerifyReplayTier1Evidence_*`.
+
+---
+
+### TC-MYC-10: global_status carries the InnoDB buffer-pool read counters (normal)
+
+**Rule:** MYC-R010
+
+**Given:** `mysql_global_status_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains both `Innodb_buffer_pool_reads` and
+`Innodb_buffer_pool_read_requests` (the cumulative counters for Analyzer's
+buffer-pool-read-pressure rate rule), alongside the existing live counters.
+
+**Expected Result:** Pass when both counters are in the IN-list.
+
+---
+
+### TC-MYC-11: deadlock counter is collected unconditionally with its enabled-state (boundary)
+
+**Rule:** MYC-R011
+
+**Given:** `mysql_innodb_deadlocks_v1`.
+
+**When:** its SQL is inspected and run.
+
+**Then:** it selects the single `lock_deadlocks` row from
+`information_schema.INNODB_METRICS` by `NAME` (returning `NAME`, `COUNT`,
+`STATUS`) with **no** `STATUS='enabled'` filter, is a read-only `SELECT`, and is
+not `HighSensitivity`. The row is present regardless of the lock-module default
+so the consumer can read `COUNT` when `STATUS='enabled'` or treat it as
+NOT_ASSESSED otherwise.
+
+**Expected Result:** Pass when the deadlock row is collected unconditionally with
+its `STATUS` surfaced.
