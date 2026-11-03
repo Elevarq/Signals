@@ -6,18 +6,7 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
-### Removed
-
-- **Encrypted mTLS client-key support dropped (#654).** The
-  `sslkey_passphrase_file` target field and the encrypted-PEM decrypt path
-  are removed. They relied on the deprecated stdlib legacy-PEM encryption API
-  (`x509.IsEncryptedPEMBlock` / `DecryptPEMBlock`, SA1019) — RFC-1423 PEM
-  encryption is insecure by design, and there is no stdlib-only authenticated
-  replacement (NFR001). An encrypted `sslkey` (legacy RFC-1423 or PKCS#8
-  `ENCRYPTED PRIVATE KEY`) is now rejected at connect time with a clear,
-  redaction-safe message (FC-MTLS-003). **Migration:** supply an unencrypted
-  client key protected by the secret store and filesystem permissions. The
-  Helm `target.sslKeyPassphraseFile` value is removed.
+## [2.0.0-poc.3] - 2026-11-01
 
 ### Added
 
@@ -32,11 +21,6 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   cumulative (no producer-side delta — the Analyzer owns the interval), read-only,
   and carry no sensitive payload. Verified live across MySQL 8.0/8.4/9.7 and
   MariaDB 10.11/11.4/12.3.
-
-## [2.0.0-poc.3] - 2026-11-01
-
-### Added
-
 - **MySQL/MariaDB config-sizing variables collected** (#660): the
   `mysql_global_variables_v1` / `mariadb_global_variables_v1` IN-lists now carry
   the server-tuning variables the Analyzer config-sizing advisor family needs —
@@ -65,6 +49,33 @@ This project adheres to [Semantic Versioning](https://semver.org/).
   from `{part_type, rows, bytes_on_disk}` per part to `{partition_id, parts,
   rows, bytes_on_disk}` per partition); Analyzer consumer coordination tracked in
   the companion Analyzer issue.
+- **MariaDB statement digests emit `NOT_ASSESSED` when `performance_schema` is
+  OFF** (#665, MDC-R010/R011): the MySQL/MariaDB statement-digest collectors read
+  `performance_schema.events_statements_summary_by_digest`, which is empty while
+  `performance_schema` is OFF (the MariaDB default). A 0-row result was previously
+  recorded as a silent success, indistinguishable from "perf_schema ON but no slow
+  queries". These collectors are now perf_schema-aware: on 0 rows with no error a
+  cheap read-only probe (`SELECT @@performance_schema`) runs, and if perf_schema is
+  OFF the run is recorded as a DEGRADED / NOT_ASSESSED skip (`status=skipped`,
+  `reason=perf_schema_disabled`) instead of a silent empty success. A collector
+  that returned rows is never probed, perf_schema ON with 0 rows stays a legitimate
+  success, and a probe error never downgrades a legitimate outcome. Signals never
+  enables `performance_schema` — that is a server/deploy concern; this change only
+  surfaces the unavailable state.
+
+### Removed
+
+- **Encrypted mTLS client-key support dropped (#654).** The
+  `sslkey_passphrase_file` target field and the encrypted-PEM decrypt path
+  are removed. They relied on the deprecated stdlib legacy-PEM encryption API
+  (`x509.IsEncryptedPEMBlock` / `DecryptPEMBlock`, SA1019) — RFC-1423 PEM
+  encryption is insecure by design, and there is no stdlib-only authenticated
+  replacement (NFR001). An encrypted `sslkey` (legacy RFC-1423 or PKCS#8
+  `ENCRYPTED PRIVATE KEY`) is now rejected at connect time with a clear,
+  redaction-safe message (FC-MTLS-003). This is a **breaking change**.
+  **Migration:** supply an unencrypted client key protected by the secret store
+  and filesystem permissions. The Helm `target.sslKeyPassphraseFile` value is
+  removed.
 
 ## [2.0.0-poc.2] - 2026-10-26
 
