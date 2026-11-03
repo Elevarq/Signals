@@ -305,12 +305,6 @@ type TargetConfig struct {
 	SSLCert string `yaml:"sslcert"`
 	SSLKey  string `yaml:"sslkey"`
 
-	// SSLKeyPassphraseFile is an optional path to a file holding the passphrase
-	// for an encrypted SSLKey (mtls only, #98). File-only — never an inline or
-	// env value. When the key is encrypted and this is unset, resolution fails
-	// (FC-MTLS-003).
-	SSLKeyPassphraseFile string `yaml:"sslkey_passphrase_file"`
-
 	// R098: per-target sensitivity profile. Empty / absent means
 	// "inherit daemon-wide". See specifications/sensitivity-profiles.md.
 	Collectors TargetCollectorConfig `yaml:"collectors"`
@@ -1041,9 +1035,8 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			if t.SSLCert == "" || t.SSLKey == "" {
 				hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q requires both sslcert and sslkey", i, t.Name, AuthMethodMTLS))
 			}
-			// The optional sslkey_passphrase_file and a wrong/missing passphrase
-			// for an encrypted key are connect-time failures (FC-MTLS-003), not
-			// startup failures — the key is not read until connect time.
+			// The sslkey is read at connect time; an encrypted key is rejected
+			// then (FC-MTLS-003), not at startup — encrypted keys are unsupported.
 		default:
 			hard = append(hard, fmt.Sprintf("target[%d] (%s): auth_method %q is not supported by this build (supported: %s)", i, t.Name, t.AuthMethod, strings.Join(SupportedAuthMethods, ", ")))
 		}
