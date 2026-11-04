@@ -66,6 +66,7 @@ type Collector struct {
 	maxConcurrentTargets int           // set-at-construction.
 	targetTimeout        time.Duration // set-at-construction.
 	queryTimeout         time.Duration // set-at-construction.
+	queryTimeoutGrace    time.Duration // set-at-construction; SIGNALS-R128.
 	// minSnapshotInterval is the per-target floor between
 	// completed snapshots (R091). Zero means "rule not configured"
 	// — should never reach the collector at runtime; the config
@@ -204,6 +205,7 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 		maxConcurrentTargets: 4,
 		targetTimeout:        60 * time.Second,
 		queryTimeout:         10 * time.Second,
+		queryTimeoutGrace:    5 * time.Second,            // SIGNALS-R128; overridable via WithQueryTimeoutGrace
 		minSnapshotInterval:  DefaultMinSnapshotInterval, // R091; overridable via WithMinSnapshotInterval
 		pools:                make(map[string]*pgxpool.Pool),
 		collectNowCh:         make(chan CollectRequest, 1),
@@ -343,6 +345,20 @@ func WithQueryTimeout(d time.Duration) CollectorOption {
 	return func(c *Collector) {
 		if d > 0 {
 			c.queryTimeout = d
+		}
+	}
+}
+
+// WithQueryTimeoutGrace sets the client-side grace margin added to the
+// per-query budget (SIGNALS-R128 / #671). The server-side statement_timeout
+// is set to the per-query budget; the client query context is that budget
+// plus this grace, so the server's clean, savepoint-recoverable cancellation
+// always wins the race and a slow query never closes the connection out from
+// under the per-query savepoint recovery.
+func WithQueryTimeoutGrace(d time.Duration) CollectorOption {
+	return func(c *Collector) {
+		if d > 0 {
+			c.queryTimeoutGrace = d
 		}
 	}
 }
@@ -1462,7 +1478,9 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			break
 		}
 
-		// Per-query timeout: min(queryTimeout, q.Timeout, remaining target budget).
+		// Per-query budget: min(queryTimeout, q.Timeout, remaining target
+		// budget). This is the SERVER-side bound (statement_timeout, set
+		// below) — authoritative and savepoint-recoverable.
 		qTimeout := c.queryTimeout
 		if q.Timeout > 0 && q.Timeout < qTimeout {
 			qTimeout = q.Timeout
@@ -1474,8 +1492,37 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			}
 		}
 
-		qCtx, qCancel := context.WithTimeout(ctx, qTimeout)
+		// SIGNALS-R128 (#671): the CLIENT query context is a BACKSTOP only —
+		// the per-query budget PLUS a grace margin, strictly greater than the
+		// server-side statement_timeout set below. A client-side context
+		// deadline that fires during an in-flight query cancels it client-side
+		// and CLOSES the connection; the per-query ROLLBACK TO SAVEPOINT then
+		// fails on a dead connection and the WHOLE target snapshot is
+		// discarded. Giving the server bound (qTimeout) priority over the
+		// client bound (qTimeout+grace) means a slow query is cancelled
+		// server-side (clean SQLSTATE 57014) on a LIVE connection, the
+		// savepoint recovers the transaction, and the rest of the target still
+		// collects. The client ctx fires only for a genuinely wedged
+		// connection/network.
+		qCtx, qCancel := context.WithTimeout(ctx, qTimeout+c.queryTimeoutGrace)
 		start := time.Now()
+
+		// Set the SERVER statement_timeout to THIS query's budget. Before #671
+		// statement_timeout was set once per transaction to queryTimeout and
+		// ignored each collector's own (smaller) Timeout, so the client bound
+		// was strictly shorter than the server bound and always cancelled
+		// in-flight — closing the connection. Set it per query, BEFORE the
+		// savepoint so a ROLLBACK TO SAVEPOINT cannot revert it; the next
+		// iteration re-applies it. Floor at 1ms: statement_timeout=0 means NO
+		// timeout in PostgreSQL, which would disable the bound entirely.
+		stMS := qTimeout.Milliseconds()
+		if stMS < 1 {
+			stMS = 1
+		}
+		if _, stErr := tx.Exec(ctx, fmt.Sprintf("SET LOCAL statement_timeout = %d", stMS)); stErr != nil {
+			qCancel()
+			return fmt.Errorf("set per-query statement_timeout for %s: %w (timeout safety cannot be enforced; aborting cycle)", tgt.Name, stErr)
+		}
 
 		// Use a savepoint so a single query failure does not abort
 		// the entire READ ONLY transaction (PostgreSQL marks the

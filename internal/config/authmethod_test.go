@@ -31,6 +31,7 @@ func baseValidConfig(tgt TargetConfig) Config {
 			PollInterval:        time.Minute,
 			TargetTimeout:       60 * time.Second,
 			QueryTimeout:        10 * time.Second,
+			QueryTimeoutGrace:   5 * time.Second,
 			MinSnapshotInterval: 60 * time.Second,
 		},
 		Targets: []TargetConfig{tgt},

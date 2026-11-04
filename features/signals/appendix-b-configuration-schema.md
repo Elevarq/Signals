@@ -42,7 +42,13 @@ signals:
   log_json: false            # Output logs as JSON
   max_concurrent_targets: 4  # Max targets collected in parallel
   target_timeout: 60s        # Per-target collection time budget
-  query_timeout: 10s         # Per-query execution timeout
+  query_timeout: 10s         # Per-query execution timeout (server-side
+                              # statement_timeout, per SIGNALS-R128)
+  query_timeout_grace: 5s    # Client-side backstop margin above the
+                              # per-query budget; keeps the server
+                              # statement_timeout winning so a slow query
+                              # never closes the connection (SIGNALS-R128).
+                              # Optional; 0/unset uses the 5s default.
   high_sensitivity_collectors_enabled: true   # Default: true (collect-
                               # everything default). High-sensitivity
                               # collectors run by default; set to

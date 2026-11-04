@@ -211,6 +211,7 @@ func run() error {
 		collector.WithMaxConcurrentTargets(cfg.Signals.MaxConcurrentTargets),
 		collector.WithTargetTimeout(cfg.Signals.TargetTimeout),
 		collector.WithQueryTimeout(cfg.Signals.QueryTimeout),
+		collector.WithQueryTimeoutGrace(cfg.Signals.QueryTimeoutGrace),
 		collector.WithMinSnapshotInterval(cfg.Signals.MinSnapshotInterval),
 		collector.WithAllowUnsafeRole(cfg.AllowUnsafeRole),
 		collector.WithHighSensitivityCollectors(cfg.Signals.HighSensitivityCollectorsEnabled),

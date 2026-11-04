@@ -45,16 +45,27 @@ type SignalsConfig struct {
 	// cutoff for every retention class. R099 adds the structured
 	// `Retention` block below; the two are mutually exclusive
 	// (FC-21). When `Retention` is set, RetentionDays is ignored.
-	RetentionDays                    int             `yaml:"retention_days"`
-	Retention                        RetentionConfig `yaml:"retention"`
-	LogLevel                         string          `yaml:"log_level"`
-	LogJSON                          bool            `yaml:"log_json"`
-	MaxConcurrentTargets             int             `yaml:"max_concurrent_targets"`
-	TargetTimeout                    time.Duration   `yaml:"-"`
-	TargetTimeoutS                   string          `yaml:"target_timeout"`
-	QueryTimeout                     time.Duration   `yaml:"-"`
-	QueryTimeoutS                    string          `yaml:"query_timeout"`
-	HighSensitivityCollectorsEnabled bool            `yaml:"high_sensitivity_collectors_enabled"`
+	RetentionDays        int             `yaml:"retention_days"`
+	Retention            RetentionConfig `yaml:"retention"`
+	LogLevel             string          `yaml:"log_level"`
+	LogJSON              bool            `yaml:"log_json"`
+	MaxConcurrentTargets int             `yaml:"max_concurrent_targets"`
+	TargetTimeout        time.Duration   `yaml:"-"`
+	TargetTimeoutS       string          `yaml:"target_timeout"`
+	QueryTimeout         time.Duration   `yaml:"-"`
+	QueryTimeoutS        string          `yaml:"query_timeout"`
+	// QueryTimeoutGrace is the margin added to the per-query budget for
+	// the CLIENT-side query context, so the server-side statement_timeout
+	// (set to the per-query budget) always fires first and cancels a slow
+	// query cleanly on a live connection — the savepoint then recovers and
+	// the rest of the target still collects. The client context is a
+	// backstop only (a genuinely wedged connection/network); it must stay
+	// strictly greater than the server bound or an in-flight client cancel
+	// closes the connection and destroys the whole target snapshot
+	// (SIGNALS-R128 / #671). User-settable via `query_timeout_grace`.
+	QueryTimeoutGrace                time.Duration `yaml:"-"`
+	QueryTimeoutGraceS               string        `yaml:"query_timeout_grace"`
+	HighSensitivityCollectorsEnabled bool          `yaml:"high_sensitivity_collectors_enabled"`
 	// CollectArrayRangeHistograms (#128) is the per-collector
 	// opt-in for pg_stats_array_range_v1. Layered ON TOP of
 	// HighSensitivityCollectorsEnabled — both must be true for the
@@ -518,6 +529,8 @@ func DefaultConfig() Config {
 			TargetTimeoutS:       "60s",
 			QueryTimeout:         10 * time.Second,
 			QueryTimeoutS:        "10s",
+			QueryTimeoutGrace:    5 * time.Second,
+			QueryTimeoutGraceS:   "5s",
 			MinSnapshotInterval:  60 * time.Second,
 			MinSnapshotIntervalS: "60s",
 			MetricsEnabled:       false,
@@ -901,6 +914,14 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	}
 	if cfg.Signals.QueryTimeout <= 0 {
 		hard = append(hard, "signals.query_timeout must be > 0")
+	}
+	// query_timeout_grace is optional: a negative value is a hard error,
+	// but 0 (unset) is accepted and falls back to the built-in default
+	// (collector.WithQueryTimeoutGrace ignores a non-positive value). This
+	// keeps the SIGNALS-R128 backstop margin a tuning knob, not a required
+	// field.
+	if cfg.Signals.QueryTimeoutGrace < 0 {
+		hard = append(hard, "signals.query_timeout_grace must be >= 0")
 	}
 	// #31: SIGNALS_ALLOW_UNSAFE_ROLE bypasses the superuser /
 	// replication / bypassrls role-safety hard-stop — an evaluation-only
@@ -1494,6 +1515,13 @@ func parseDurations(cfg *Config) error {
 			return fmt.Errorf("parse signals.query_timeout %q: %w", cfg.Signals.QueryTimeoutS, err)
 		}
 		cfg.Signals.QueryTimeout = d
+	}
+	if cfg.Signals.QueryTimeoutGraceS != "" {
+		d, err := parseFlexDuration(cfg.Signals.QueryTimeoutGraceS)
+		if err != nil {
+			return fmt.Errorf("parse signals.query_timeout_grace %q: %w", cfg.Signals.QueryTimeoutGraceS, err)
+		}
+		cfg.Signals.QueryTimeoutGrace = d
 	}
 	if cfg.Signals.MinSnapshotIntervalS != "" {
 		d, err := parseFlexDuration(cfg.Signals.MinSnapshotIntervalS)

@@ -6,6 +6,32 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+
+- **P0: a single slow collector query no longer destroys the entire
+  PostgreSQL target snapshot** (#671, SIGNALS-R128). The server-side
+  `statement_timeout` was set once per transaction to `query_timeout` and
+  ignored each collector's own (smaller) `Timeout`, while the client-side
+  per-query context honoured it. For every collector with
+  `Timeout < query_timeout` the client deadline was therefore strictly shorter
+  than the server timeout, so the client cancelled the in-flight query, pgx
+  closed the connection, the per-query `ROLLBACK TO SAVEPOINT` failed on the
+  dead connection, and `collectTarget` returned a hard error — discarding the
+  whole target snapshot. Under load on a busy database this silently dropped
+  **all** PostgreSQL data on the first collector to exceed its budget. The
+  server `statement_timeout` is now set per query to the per-query budget, and
+  the client context is that budget plus a configurable grace margin
+  (`query_timeout_grace`, default `5s`), so the server's clean,
+  savepoint-recoverable cancellation always wins; the over-budget collector is
+  recorded `failed`/`timeout` and the target plus every other collector
+  persist. Regression-locked by a live-PostgreSQL integration test.
+
+### Added
+
+- **`query_timeout_grace` config knob** (default `5s`): the client-side backstop
+  margin above the per-query budget (SIGNALS-R128). Optional; `0`/unset uses the
+  default.
+
 ## [2.0.0-poc.3] - 2026-11-01
 
 ### Added
