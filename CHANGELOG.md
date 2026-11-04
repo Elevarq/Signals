@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.4] - 2026-11-04
+
 ### Fixed
 
 - **P0: a single slow collector query no longer destroys the entire
