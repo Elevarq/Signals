@@ -566,6 +566,40 @@ successful while leaving the remaining due collectors with no row at
 all — a consumer could not distinguish "ran clean" from "never got a
 turn" (R072 completeness).
 
+**SIGNALS-R128**: A single collector query that exceeds its per-query
+time budget shall be bounded **server-side** and recovered via its
+savepoint, so that the collector's timeout isolates to that one
+collector and the rest of the target still collects. Specifically:
+
+- The per-query budget is `min(query_timeout, collector.Timeout)`
+  (R012). The server-side `statement_timeout` shall be set **per
+  query** to this budget, so the database cancels an over-budget query
+  cleanly (SQLSTATE 57014) **on a live connection** — the per-query
+  `ROLLBACK TO SAVEPOINT` then recovers the read transaction (R038) and
+  the loop continues to the next collector.
+- The client-side query context is a **backstop only**: it shall be set
+  to the per-query budget **plus a grace margin**, strictly greater
+  than the server-side `statement_timeout`, so the server's clean,
+  recoverable cancellation always wins the race. A client-side context
+  deadline that fires *during an in-flight query* cancels it on the
+  client and closes the connection; the subsequent `ROLLBACK TO
+  SAVEPOINT` then fails on a dead connection, `collectTarget` returns a
+  hard error, and the **entire** target snapshot is discarded. The
+  grace margin exists precisely to keep that path from being the normal
+  one — it is reserved for a genuinely wedged connection or network.
+- The over-budget collector's run is recorded `failed` with
+  `reason=timeout` (the existing taxonomy, R012); the target's snapshot
+  and every other collector's run persist.
+
+Before this requirement the server `statement_timeout` was set once
+per transaction to `query_timeout` and ignored each collector's own
+(smaller) `Timeout`, while the client context honoured it — so for
+every collector with `Timeout < query_timeout` the client deadline was
+strictly shorter than the server timeout and always cancelled the
+in-flight query client-side, closing the connection and destroying the
+whole target snapshot on the first collector to exceed its budget under
+load (Elevarq/Signals#671).
+
 **SIGNALS-R109**: A disabled or removed target shall not appear in
 the default export or in `signalsctl status`. Specifically:
 
