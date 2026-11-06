@@ -254,3 +254,41 @@ zero.
 
 **Expected Result:** Pass when `AUTO_INCREMENT` is selected and a NULL is carried
 through as nil.
+
+---
+
+### TC-MDC-18: table_statistics carries TABLE_COLLATION (normal)
+
+**Rule:** MDC-R015
+
+**Given:** `mariadb_table_statistics_v1`.
+
+**When:** its SQL is inspected, and the collector is run against a target that
+returns a table with a `TABLE_COLLATION`.
+
+**Then:** the SQL selects `TABLE_COLLATION` from `information_schema.TABLES`, is a
+read-only `SELECT`, and is not `HighSensitivity`; in the normalized evidence the
+table's row carries the collation value under `TABLE_COLLATION`.
+
+**Expected Result:** Pass when `TABLE_COLLATION` is selected and carried through.
+
+---
+
+### TC-MDC-19: columns carry CHARACTER_SET_NAME/COLLATION_NAME, NULL carried as absent (normal + boundary)
+
+**Rule:** MDC-R015
+
+**Given:** `mariadb_columns_v1`.
+
+**When:** its SQL is inspected, and the collector is run against a target that
+returns one string column WITH a charset/collation and one non-string column
+WITHOUT (NULL for both).
+
+**Then:** the SQL selects `CHARACTER_SET_NAME` and `COLLATION_NAME` from
+`information_schema.COLUMNS`, is a read-only `SELECT`, and is not
+`HighSensitivity`; in the normalized evidence the string column's row carries the
+charset/collation values and the non-string column's row carries
+`CHARACTER_SET_NAME = nil` and `COLLATION_NAME = nil` (absent) — never an error.
+
+**Expected Result:** Pass when both columns are selected and a NULL is carried
+through as nil.

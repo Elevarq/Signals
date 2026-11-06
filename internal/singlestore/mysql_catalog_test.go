@@ -250,6 +250,104 @@ func TestMySQLTableStatisticsAutoIncrement(t *testing.T) {
 	}
 }
 
+// TC-MYC-13 (MYC-R013): the table-statistics collector carries TABLE_COLLATION
+// (the per-table collation) for Analyzer's utf8mb4-readiness / charset-collation
+// -mismatch rule (#684 / Analyzer #4001). The charset family is derivable from
+// the collation; information_schema.TABLES has no direct charset column.
+func TestMySQLTableStatisticsTableCollation(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_table_statistics_v1")
+	if c == nil {
+		t.Fatal("mysql_table_statistics_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mysql_table_statistics_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mysql_table_statistics_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.TABLES") {
+		t.Errorf("mysql_table_statistics_v1 must read information_schema.TABLES; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "TABLE_COLLATION") {
+		t.Errorf("mysql_table_statistics_v1 must select TABLE_COLLATION; SQL=%q", c.SQL)
+	}
+
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "information_schema.TABLES") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "TABLE_COLLATION": "utf8mb4_0900_ai_ci"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if rs[0].Err != "" {
+		t.Errorf("collector errored: %q", rs[0].Err)
+	}
+	if v := rs[0].Rows[0]["TABLE_COLLATION"]; v != "utf8mb4_0900_ai_ci" {
+		t.Errorf("TABLE_COLLATION = %v, want utf8mb4_0900_ai_ci", v)
+	}
+}
+
+// TC-MYC-14 (MYC-R013): the columns collector carries CHARACTER_SET_NAME and
+// COLLATION_NAME for Analyzer's utf8mb4-readiness rule (#684 / Analyzer #4001).
+// Both are NULL for non-string columns and must be carried through as absent
+// (nil) values, never an error.
+func TestMySQLColumnsCharsetCollation(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_columns_v1")
+	if c == nil {
+		t.Fatal("mysql_columns_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mysql_columns_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mysql_columns_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "CHARACTER_SET_NAME") {
+		t.Errorf("mysql_columns_v1 must select CHARACTER_SET_NAME; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "COLLATION_NAME") {
+		t.Errorf("mysql_columns_v1 must select COLLATION_NAME; SQL=%q", c.SQL)
+	}
+
+	// A string column carries charset/collation; a non-string column (e.g. int)
+	// carries NULL for both, carried through as nil — never an error.
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "information_schema.COLUMNS") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "COLUMN_NAME": "note", "CHARACTER_SET_NAME": "utf8mb3", "COLLATION_NAME": "utf8mb3_general_ci"},
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "COLUMN_NAME": "id", "CHARACTER_SET_NAME": nil, "COLLATION_NAME": nil},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 2 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if rs[0].Err != "" {
+		t.Errorf("collector errored on a NULL charset/collation: %q", rs[0].Err)
+	}
+	if v := rs[0].Rows[0]["CHARACTER_SET_NAME"]; v != "utf8mb3" {
+		t.Errorf("string column CHARACTER_SET_NAME = %v, want utf8mb3", v)
+	}
+	if v := rs[0].Rows[0]["COLLATION_NAME"]; v != "utf8mb3_general_ci" {
+		t.Errorf("string column COLLATION_NAME = %v, want utf8mb3_general_ci", v)
+	}
+	if v, ok := rs[0].Rows[1]["CHARACTER_SET_NAME"]; !ok || v != nil {
+		t.Errorf("non-string column CHARACTER_SET_NAME must be carried as nil (absent), got %v (present=%v)", v, ok)
+	}
+	if v, ok := rs[0].Rows[1]["COLLATION_NAME"]; !ok || v != nil {
+		t.Errorf("non-string column COLLATION_NAME must be carried as nil (absent), got %v (present=%v)", v, ok)
+	}
+}
+
 // TC-MYC-05 (INV-MYC-03, MYC-R004/R008): no query-text column or locked-key data
 // escapes the redaction contract — catalog-wide, case-insensitive on the SQL, and
 // SensitiveColumns must carry the exact result-row case so runtime redaction (an

@@ -86,9 +86,17 @@ func mysqlCatalog() []Collector {
 			// absent (nil) value exactly like the other nullable sizing columns —
 			// never an error, never a fabricated zero. Still information_schema.
 			// TABLES metadata only (no row data); read-only; not HighSensitivity.
+			//
+			// #684 (MYC-R013): TABLE_COLLATION is the per-table collation —
+			// evidence for Analyzer's utf8mb4-readiness / charset-collation-mismatch
+			// rule (Elevarq/Analyzer#4001), which flags legacy utf8(=utf8mb3)/latin1
+			// and collations inconsistent with the database default (from
+			// mysql_schemata_v1). The charset family is derivable from the collation;
+			// information_schema.TABLES has no direct charset column. Still metadata
+			// only; no new privilege; not HighSensitivity.
 			ID:       "mysql_table_statistics_v1",
 			Category: "schema",
-			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH, AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys')",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH, AUTO_INCREMENT, TABLE_COLLATION FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys')",
 		},
 		{
 			ID:       "mysql_engines_v1",
@@ -108,9 +116,16 @@ func mysqlCatalog() []Collector {
 			// each correct for its own engine, emitted verbatim). ORDINAL_POSITION
 			// preserves declared column order. Schema metadata only (no SQL text,
 			// no row data) -> not HighSensitivity. System schemas excluded.
+			//
+			// #684 (MYC-R013): CHARACTER_SET_NAME / COLLATION_NAME are the per-column
+			// charset/collation — evidence for Analyzer's utf8mb4-readiness /
+			// charset-collation-mismatch rule (Elevarq/Analyzer#4001). Both are NULL
+			// for non-string columns (int, date, etc.) and are carried through as an
+			// absent (nil) value exactly like the other nullable columns — never an
+			// error. Still schema metadata only; no new privilege.
 			ID:       "mysql_columns_v1",
 			Category: "schema",
-			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_TYPE, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, ORDINAL_POSITION, COLUMN_TYPE, DATA_TYPE, IS_NULLABLE, COLUMN_KEY, COLUMN_DEFAULT, EXTRA, CHARACTER_SET_NAME, COLLATION_NAME FROM information_schema.COLUMNS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION",
 		},
 		{
 			// #538 (Replay Tier-1 evidence): per-index inventory so Replay sees the
