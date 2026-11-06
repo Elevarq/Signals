@@ -2793,6 +2793,81 @@ secret material (INV-SIGNALS-07) — and its presence is what lets
 SIGNALS-R125 distinguish `last_collection_failed` from
 `no_collection_yet`.
 
+### Operator-visible per-target last error (R128, #681)
+
+**SIGNALS-R128**: A collection cycle that fails entirely for a
+configured, enabled target (`cycleStatus = "failed"`) shall be
+**surfaced to an operator over the API** — not only written to the
+process log. The failure is made visible in two places, both derived
+from the single durable last-cycle record (SIGNALS-R126):
+
+1. **`/status` per-target `last_error`.** For every enabled target whose
+   most recent cycle failed, the target object in the `GET /status`
+   response carries a `last_error` object with exactly three fields:
+   - **`category`** — a value from the operator-facing closed failure
+     taxonomy (`internal/metrics.FailureReasonCode`:
+     `target_unreachable`, `target_tls_invalid`, `auth_failed`,
+     `role_insufficient`, `collector_pg_version_unsupported`,
+     `collector_extension_missing`, `collector_query_timeout`,
+     `collector_circuit_open`, `storage_write_failed`, `storage_busy`,
+     `config_invalid`, `unknown`). This is a **different, richer**
+     vocabulary than the bounded Prometheus `reason` metric label
+     (R079) and the SIGNALS-R126 metric category — both of which are
+     unchanged.
+   - **`message`** — the **redacted** real error text
+     (`err.Error()`), scrubbed of any embedded DSN/credential via the
+     repository's existing DSN redaction (`collector.RedactDSN`) and
+     length-capped. This is the field that makes the actual cause
+     diagnosable without shelling into the container.
+   - **`at`** — the RFC3339 timestamp of the failing cycle.
+
+   A target whose most recent cycle succeeded (or that has never run)
+   carries **no** `last_error` key. A later successful cycle for the
+   same target clears the `last_error` (the SIGNALS-R126 marker is
+   overwritten with `success` and an empty category/message).
+
+2. **Preserved real error text on the catch-all bucket.** The failure
+   classifier shall map recognizable PostgreSQL / connection errors to
+   a **specific** `FailureReasonCode` rather than flattening everything
+   to a catch-all. At minimum: Postgres SQLSTATE `28P01` / `28000`
+   (invalid password / invalid authorization) → `auth_failed`; SQLSTATE
+   `42501` (insufficient privilege) → `role_insufficient`; connection
+   refused / connection timeout / host-unreachable → `target_unreachable`;
+   TLS / certificate verification failure → `target_tls_invalid`;
+   statement/query timeout → `collector_query_timeout`. The `unknown`
+   bucket is a **genuine last resort only**. Critically, even when the
+   category resolves to `unknown`, the surfaced `message` MUST still
+   carry the (redacted) real error text — a collection failure is never
+   invisible again (the regression this rule closes: the real error was
+   logged but never surfaced over the API, so a recurring "no data"
+   failure went undiagnosed).
+
+**Inputs**: the per-target cycle error (`error`) produced by
+`collectTarget`; the computed cycle status.
+
+**Outputs**: the durable last-cycle record extended with a redacted
+`message` and a `reason_code` (`FailureReasonCode`); the `/status`
+per-target `last_error` object.
+
+**Invariants**:
+- INV-SIGNALS-07 holds: the `message` is redacted — no credential, DSN,
+  or password value ever reaches `/status`, the log, or the stored
+  record. The `category`/`reason_code` are closed-enum values and carry
+  no free text.
+- The Prometheus metric `reason` label cardinality stays bounded
+  (R079): the metric label set (`CollectionFailureReasons`) remains a
+  closed enum; raw error text is never emitted as a metric label.
+
+**Failure conditions**:
+- FC-10: A fully-failed cycle for an enabled target → `/status` for that
+  target carries `last_error.{category,message,at}`; `message` is the
+  redacted real error; `category` is a `FailureReasonCode`.
+- FC-11: Classifier cannot map the error to a specific code →
+  `category = unknown` **and** `message` still carries the redacted real
+  error text (never empty, never invisible).
+- FC-12: A later successful cycle for the same target → `/status`
+  carries no `last_error` for that target (marker cleared).
+
 ## Invariants
 
 - **INV-SIGNALS-01**: Collector output is passive evidence, not interpretation.
@@ -2943,7 +3018,7 @@ SIGNALS-R125 distinguish `last_collection_failed` from
 
 | Status | Count |
 |--------|-------|
-| COVERED | 74 |
+| COVERED | 75 |
 | PARTIALLY COVERED | 0 |
 | UNCOVERED | 3 |
 

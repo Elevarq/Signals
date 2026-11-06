@@ -25,7 +25,7 @@ import (
 func TestFailedCyclePersistsOutcome(t *testing.T) {
 	store := openTestDB(t)
 
-	if err := store.RecordCycleOutcome("target-A", "failed", "connect_error"); err != nil {
+	if err := store.RecordCycleOutcome("target-A", "failed", "connect_error", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome: %v", err)
 	}
 
@@ -56,10 +56,10 @@ func TestFailedCyclePersistsOutcome(t *testing.T) {
 func TestSuccessfulCycleClearsFailedOutcome(t *testing.T) {
 	store := openTestDB(t)
 
-	if err := store.RecordCycleOutcome("target-A", "failed", "safety_check"); err != nil {
+	if err := store.RecordCycleOutcome("target-A", "failed", "safety_check", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome (failed): %v", err)
 	}
-	if err := store.RecordCycleOutcome("target-A", "success", ""); err != nil {
+	if err := store.RecordCycleOutcome("target-A", "success", "", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome (success): %v", err)
 	}
 
@@ -85,7 +85,7 @@ func TestSuccessfulCycleClearsFailedOutcome(t *testing.T) {
 func TestCycleOutcomeCarriesNoSecrets(t *testing.T) {
 	store := openTestDB(t)
 
-	if err := store.RecordCycleOutcome("target-secretful", "failed", "connect_error"); err != nil {
+	if err := store.RecordCycleOutcome("target-secretful", "failed", "connect_error", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome: %v", err)
 	}
 	outcomes, err := store.GetCycleOutcomes()
@@ -96,23 +96,26 @@ func TestCycleOutcomeCarriesNoSecrets(t *testing.T) {
 		t.Fatalf("want 1 outcome, got %d", len(outcomes))
 	}
 	// The durable record is metadata only (INV-SIGNALS-07): target
-	// name, status, bounded category, timestamp. The target name is
-	// stored verbatim (it is not a secret), but no credential/DSN/host
-	// value is ever persisted — the DB struct has no field to hold one.
-	// Guard the bounded field set structurally: reflection over the
-	// CycleOutcome type must expose exactly these four fields, so a
-	// future secret-bearing column cannot slip in unnoticed.
+	// name, status, bounded category, operator reason code, a REDACTED
+	// message, and a timestamp. The target name is stored verbatim (it
+	// is not a secret) and the message is redacted BEFORE it is written
+	// (collector.redactFailureMessage → RedactDSN), so no credential /
+	// DSN / host value is ever persisted un-redacted. Guard the bounded
+	// field set structurally: reflection over the CycleOutcome type must
+	// expose exactly these six fields, so a future secret-bearing column
+	// cannot slip in unnoticed. SIGNALS-R128 (#681) grew the set from
+	// four to six (ReasonCode, Message) — both metadata-only.
 	fields := reflect.VisibleFields(reflect.TypeOf(db.CycleOutcome{}))
 	got := make(map[string]bool, len(fields))
 	for _, f := range fields {
 		got[f.Name] = true
 	}
-	for _, want := range []string{"TargetName", "Status", "Category", "UpdatedAt"} {
+	for _, want := range []string{"TargetName", "Status", "Category", "ReasonCode", "Message", "UpdatedAt"} {
 		if !got[want] {
 			t.Errorf("CycleOutcome missing expected field %q", want)
 		}
 	}
-	if len(got) != 4 {
-		t.Errorf("CycleOutcome has %d fields %v, want exactly 4 (metadata only, no secret column)", len(got), got)
+	if len(got) != 6 {
+		t.Errorf("CycleOutcome has %d fields %v, want exactly 6 (metadata only, no secret column)", len(got), got)
 	}
 }
