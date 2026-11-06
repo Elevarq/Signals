@@ -204,7 +204,11 @@ func run() error {
 	// R097: per-target circuit-breaker manager. Constructed up front
 	// so the collector and the API handlers share the same state
 	// (both opaque-ly access it via collector.Circuit()).
-	circuitMgr := circuit.NewManager(cfg.Signals.Circuit.FailThreshold, cfg.Signals.Circuit.OpenCooldown)
+	circuitMgr := circuit.NewManagerWithBackoff(
+		cfg.Signals.Circuit.FailThreshold,
+		cfg.Signals.Circuit.OpenCooldown,
+		cfg.Signals.Circuit.MaxOpenCooldown,
+	)
 
 	// Initialize collector (no license gate, no stats engine).
 	collectorOpts := []collector.CollectorOption{

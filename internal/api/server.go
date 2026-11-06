@@ -259,6 +259,31 @@ func handleStatus(deps *Deps) http.HandlerFunc {
 				tInfo["last_collected"] = lc
 			}
 
+			// SIGNALS-R128 (#681): surface the real per-target last
+			// error so a collection failure is diagnosable over the API
+			// instead of being log-only. Present ONLY when the target's
+			// most recent cycle failed; a later success clears the
+			// marker, so a recovered target carries no last_error. The
+			// message is already REDACTED at persist time
+			// (collector.redactFailureMessage → RedactDSN), so no
+			// credential/DSN ever reaches this response (INV-SIGNALS-07).
+			// A read error here is logged, not fatal: last_error is
+			// advisory and must not take /status down.
+			if o, ok, err := deps.DB.GetCycleOutcome(t.Name); err != nil {
+				slog.Warn("status: GetCycleOutcome failed; omitting last_error",
+					"target", t.Name, "err", err)
+			} else if ok && o.Status == "failed" {
+				reason := o.ReasonCode
+				if reason == "" {
+					reason = string(metrics.ReasonUnknown)
+				}
+				tInfo["last_error"] = map[string]any{
+					"category": reason,
+					"message":  o.Message,
+					"at":       o.UpdatedAt,
+				}
+			}
+
 			targetInfo = append(targetInfo, tInfo)
 		}
 

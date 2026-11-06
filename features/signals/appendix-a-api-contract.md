@@ -63,7 +63,12 @@ Token comparison must be constant-time to prevent timing attacks.
       "user": "<string>",
       "sslmode": "<string>",
       "enabled": <boolean>,
-      "last_collected": "<RFC3339 timestamp or absent>"
+      "last_collected": "<RFC3339 timestamp or absent>",
+      "last_error": {
+        "category": "<FailureReasonCode, e.g. auth_failed>",
+        "message": "<redacted real error text>",
+        "at": "<RFC3339 timestamp>"
+      }
     }
   ],
   "snapshot_count": <integer>,
@@ -72,9 +77,23 @@ Token comparison must be constant-time to prevent timing attacks.
 }
 ```
 
+**`last_error` (SIGNALS-R128, #681):** Present on a target object **only**
+when that target's most recent collection cycle failed entirely
+(`cycleStatus = "failed"`). Absent for a target whose last cycle
+succeeded or that has never run. `category` is a value from the
+operator-facing closed failure taxonomy
+(`internal/metrics.FailureReasonCode` — e.g. `auth_failed`,
+`role_insufficient`, `target_unreachable`, `target_tls_invalid`,
+`collector_query_timeout`, `unknown`). `message` is the **redacted**
+real error string (DSN/credentials scrubbed via `collector.RedactDSN`,
+length-capped); even when `category` is `unknown`, `message` still
+carries the redacted real error so a failure is never invisible.
+`at` is the RFC3339 timestamp of the failing cycle.
+
 **Excluded fields:** The status response must NOT include `secret_type`,
 `secret_ref`, passwords, credential paths, or any information that
-reveals how or where credentials are stored.
+reveals how or where credentials are stored. The `last_error.message`
+is redacted before it reaches this response (INV-SIGNALS-07).
 
 ### POST /collect/now
 

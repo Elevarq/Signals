@@ -133,10 +133,12 @@ func equalStringSlice(a, b []string) bool {
 // the caller can assert the ledger advance (B5). Modelling vPREV as
 // "embedded set minus the final migration" guarantees >=1 missing migration
 // (a genuine upgrade) and keeps the query_runs status/reason columns
-// (migration 004) and cycle-outcomes table (005) available for a rich
-// fixture, while the upgrade applies the final migration — the circuit_state
-// table (006) — so a suffix-migration capability (UpsertCircuitState) can be
-// exercised post-upgrade (B6). (R-UPG-01 / R-UPG-02)
+// (migration 004), the cycle-outcomes table (005), and circuit_state
+// (006) available for a rich fixture, while the upgrade applies the
+// final migration — the #681 cycle-outcome reason_code/message columns
+// (007) — so a suffix-migration capability (RecordCycleOutcome writing,
+// and GetCycleOutcome reading, the new columns) can be exercised
+// post-upgrade (B6). (R-UPG-01 / R-UPG-02)
 func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, suffix []string) {
 	t.Helper()
 
@@ -220,9 +222,18 @@ func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, s
 		fx.wantRuns++
 	}
 
-	// A per-target cycle outcome (migration 005 is in the prefix).
-	if err := store.RecordCycleOutcome(fx.targetName, "success", ""); err != nil {
-		t.Fatalf("vPREV RecordCycleOutcome: %v", err)
+	// A per-target cycle outcome, written with the EARLIER-schema column
+	// set (migration 005 is in the prefix; the #681 reason_code/message
+	// columns from migration 007 are NOT, since 007 is the suffix under
+	// test). Insert directly so the vPREV store carries exactly the
+	// shape an earlier release would have written — the current
+	// RecordCycleOutcome writes the post-007 six-column row and must not
+	// be used against the prefix schema.
+	if _, err := store.SQL().Exec(
+		`INSERT INTO target_cycle_outcomes (target_name, status, category, updated_at) VALUES (?, ?, ?, ?)`,
+		fx.targetName, "success", "", fx.watermarkStamp,
+	); err != nil {
+		t.Fatalf("vPREV insert cycle outcome: %v", err)
 	}
 
 	return prefix, suffix
@@ -403,10 +414,10 @@ func TestPopulatedUpgrade_StateSurvivesVPrevToVNext(t *testing.T) {
 	if adv := wm2[fx.watermarkQueryID]; !adv.Equal(nextWM) {
 		t.Errorf("next collection did not advance the watermark incrementally: got %s, want %s (B4/B6 — continue-not-restart)", adv, nextWM)
 	}
-	// Suffix-migration capability: circuit_state (migration 006) exists and is
-	// writable after the upgrade.
+	// Prefix capability survives: circuit_state (migration 006, now in the
+	// prefix) exists and is writable after the upgrade.
 	if err := store.UpsertCircuitState(fx.targetName, "open", nextStamp, "too_many_failures", "auto", nextStamp); err != nil {
-		t.Fatalf("post-upgrade UpsertCircuitState (suffix-migration capability): %v (B6)", err)
+		t.Fatalf("post-upgrade UpsertCircuitState (prefix-migration capability): %v (B6)", err)
 	}
 	states, err := store.GetCircuitStates()
 	if err != nil {
@@ -414,6 +425,22 @@ func TestPopulatedUpgrade_StateSurvivesVPrevToVNext(t *testing.T) {
 	}
 	if len(states) != 1 || states[0].TargetName != fx.targetName {
 		t.Errorf("circuit_state not usable after upgrade: %+v (B6)", states)
+	}
+	// Suffix-migration capability (#681 / SIGNALS-R128): migration 007
+	// added the reason_code + message columns to target_cycle_outcomes.
+	// After the upgrade, the current RecordCycleOutcome must be able to
+	// write the six-column row and GetCycleOutcome must read the new
+	// columns back — proving the suffix migration's capability is usable
+	// on a store that was populated at the earlier schema.
+	if err := store.RecordCycleOutcome(fx.targetName, "failed", "connect_error", "target_unreachable", "connect pg-prod: dial tcp: i/o timeout"); err != nil {
+		t.Fatalf("post-upgrade RecordCycleOutcome (suffix-migration capability, #681): %v (B6)", err)
+	}
+	oc, ok, err := store.GetCycleOutcome(fx.targetName)
+	if err != nil {
+		t.Fatalf("post-upgrade GetCycleOutcome: %v", err)
+	}
+	if !ok || oc.ReasonCode != "target_unreachable" || oc.Message == "" {
+		t.Errorf("post-upgrade cycle outcome did not carry the #681 reason_code/message: ok=%v %+v (B6)", ok, oc)
 	}
 
 	// B7 / TC-UPG-07 (a): no credential value in the store.
