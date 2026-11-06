@@ -210,6 +210,29 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   `source`/`replica` semi-sync names, `log_replica_updates`) are not carried on
   the MariaDB collector, whose GTID/semi-sync model uses the names above.
   Read-only; not `HighSensitivity`.
+- **MDC-R017** | `mariadb_global_status_v1` extends its `GLOBAL_STATUS` IN-list
+  with the workload-counter and InnoDB-internals counters for the Analyzer
+  workload-counter and InnoDB-internals rule tranches (umbrella
+  Elevarq/Analyzer#4004) — the `GLOBAL_STATUS` analog of the MDC-R016
+  `GLOBAL_VARIABLES` batch-2 expansion. Workload / query counters —
+  `Created_tmp_disk_tables`, `Created_tmp_tables` (on-disk temp-table ratio),
+  `Select_scan`, `Select_full_join` (server-wide scan/join rate),
+  `Sort_merge_passes` (sort-buffer pressure), `Handler_read_rnd_next`
+  (scan-heavy workload), `Threads_created`, `Table_open_cache_hits`,
+  `Table_open_cache_misses` (thread/table-cache miss rate). InnoDB internals —
+  `Innodb_buffer_pool_pages_dirty`, `Innodb_buffer_pool_pages_total`
+  (dirty/flush pressure), `Innodb_buffer_pool_wait_free`, `Innodb_log_waits`
+  (redo/flush stalls), `Innodb_row_lock_waits`, `Innodb_row_lock_time` (lock
+  pressure), and `Innodb_deadlocks` where present (enables the deadlock-*rate*
+  rule; cf. the deadlock-*observability* rule Elevarq/Analyzer#4009 that flags
+  its absence). All are cumulative counters — no producer-side delta; the
+  Analyzer owns the interval (as with MDC-R012). The same counter set is carried
+  as for MySQL (MYC-R015); these counters are present on both engines. The
+  IN-list stays a curated allowlist (no `SHOW ALL STATUS`, no credentials) and
+  is version-tolerant: a counter absent on a given MariaDB version simply
+  returns no row — never an error, never a fabricated zero. MariaDB returns
+  `GLOBAL_STATUS` names uppercased and the IN-list matches case-insensitively.
+  Read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -251,7 +274,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R016, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R017, INV-MDC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

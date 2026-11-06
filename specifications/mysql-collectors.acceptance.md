@@ -294,3 +294,43 @@ in the IN-list.
 
 **Expected Result:** Pass when an absent variable yields no row (no error) and the
 IN-list contains no credential/secret variable name.
+
+---
+
+### TC-MYC-17: global_status carries the workload/InnoDB counters (normal)
+
+**Rule:** MYC-R015
+
+**Given:** `mysql_global_status_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains each workload counter (`Created_tmp_disk_tables`,
+`Created_tmp_tables`, `Select_scan`, `Select_full_join`, `Sort_merge_passes`,
+`Handler_read_rnd_next`, `Threads_created`, `Table_open_cache_hits`,
+`Table_open_cache_misses`) and each InnoDB-internals counter
+(`Innodb_buffer_pool_pages_dirty`, `Innodb_buffer_pool_pages_total`,
+`Innodb_buffer_pool_wait_free`, `Innodb_log_waits`, `Innodb_row_lock_waits`,
+`Innodb_row_lock_time`, `Innodb_deadlocks`), alongside the existing #656 buffer
+-pool read counters; the statement is a read-only `SELECT` and the collector is
+not `HighSensitivity`.
+
+**Expected Result:** Pass when every workload/InnoDB counter is in the IN-list.
+
+---
+
+### TC-MYC-18: version-absent global_status counter is carried as absent, never an error (boundary / invalid)
+
+**Rule:** MYC-R015
+
+**Given:** `mysql_global_status_v1` run against a MySQL build where a counter
+does not exist (e.g. `Innodb_deadlocks` where the build does not expose it).
+
+**When:** the version-tolerant IN-list SELECT executes.
+
+**Then:** the absent counter simply returns no row — the collector result is a
+successful partial set, never a failure and never a fabricated zero, and no
+credential/secret name is ever present in the IN-list.
+
+**Expected Result:** Pass when an absent counter yields no row (no error) and the
+IN-list contains no credential/secret name.
