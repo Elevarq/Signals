@@ -165,6 +165,11 @@ type CircuitConfig struct {
 	FailThreshold int           `yaml:"fail_threshold"`
 	OpenCooldown  time.Duration `yaml:"-"`
 	OpenCooldownS string        `yaml:"open_cooldown"`
+	// MaxOpenCooldown caps the capped-exponential open-cooldown backoff
+	// (R097-B): a persistently-failing target is re-probed after at most
+	// this long. Zero falls back to the package default (1h).
+	MaxOpenCooldown  time.Duration `yaml:"-"`
+	MaxOpenCooldownS string        `yaml:"max_open_cooldown"`
 }
 
 // RetentionConfig (R099) carries per-class retention thresholds.
@@ -851,6 +856,11 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 			"signals.circuit.open_cooldown must be >= 0 (got %s); use 0 for default",
 			cfg.Signals.Circuit.OpenCooldown))
 	}
+	if cfg.Signals.Circuit.MaxOpenCooldown < 0 {
+		hard = append(hard, fmt.Sprintf(
+			"signals.circuit.max_open_cooldown must be >= 0 (got %s); use 0 for default",
+			cfg.Signals.Circuit.MaxOpenCooldown))
+	}
 
 	// R099: structured retention block + flat retention_days are
 	// mutually exclusive (FC-21). Either form alone is fine; both
@@ -1402,6 +1412,13 @@ func parseDurations(cfg *Config) error {
 			return fmt.Errorf("parse signals.circuit.open_cooldown %q: %w", cfg.Signals.Circuit.OpenCooldownS, err)
 		}
 		cfg.Signals.Circuit.OpenCooldown = d
+	}
+	if cfg.Signals.Circuit.MaxOpenCooldownS != "" {
+		d, err := parseFlexDuration(cfg.Signals.Circuit.MaxOpenCooldownS)
+		if err != nil {
+			return fmt.Errorf("parse signals.circuit.max_open_cooldown %q: %w", cfg.Signals.Circuit.MaxOpenCooldownS, err)
+		}
+		cfg.Signals.Circuit.MaxOpenCooldown = d
 	}
 	if cfg.Signals.ScheduleJitterS != "" {
 		d, err := parseFlexDuration(cfg.Signals.ScheduleJitterS)
