@@ -46,7 +46,7 @@ wire session, identity resolution, and persistence/export.
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
 | `mysql_innodb_deadlocks_v1` | resources | `information_schema.INNODB_METRICS WHERE NAME='lock_deadlocks'` (no `STATUS` filter) | #656; the cumulative InnoDB deadlock count for Analyzer's `innodb.deadlock_rate` rate rule (#3918). Selected **unconditionally** (not gated on `STATUS='enabled'`) so the single `lock_deadlocks` row is always present with its `STATUS`, making the signal module-independent: when the row's `STATUS='enabled'` (the default across MySQL 8.0/8.4/9.7) `COUNT` is the live cumulative counter; when an operator has disabled the metric the row still returns with `STATUS='disabled'` so the consumer emits NOT_ASSESSED rather than a silent zero. Bounded to one row. No sensitive payload. |
-| `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing |
+| `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent). #677 / Analyzer #4004. |
 | `mysql_engines_v1` | server | `information_schema.ENGINES` | storage engine support |
 | `mysql_schemata_v1` | schema | `information_schema.SCHEMATA` | databases + charset/collation |
 | `mysql_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) | #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native), `DATA_TYPE`, `IS_NULLABLE`, ordinal, `COLUMN_KEY`, default, extra. Schema metadata only — not HighSensitivity. |
@@ -140,6 +140,18 @@ wire session, identity resolution, and persistence/export.
   silent zero. `COUNT` is a cumulative counter (no producer-side delta — the
   Analyzer owns the interval, #3918). Bounded to one row; read-only; not
   `HighSensitivity`.
+- **MYC-R012** | `mysql_table_statistics_v1` carries `AUTO_INCREMENT` — the
+  current AUTO_INCREMENT counter value from `information_schema.TABLES` — in its
+  `SELECT`, alongside the existing `TABLE_ROWS` / `DATA_LENGTH` / `INDEX_LENGTH`
+  sizing columns. This is the evidence for Analyzer's AUTO_INCREMENT-exhaustion
+  -risk rule (Elevarq/Analyzer#4004): the consumer compares the current counter
+  against the AI column's type maximum (derived from the `COLUMN_TYPE` /
+  `DATA_TYPE` already captured by `mysql_columns_v1`, MYC-R009) to compute
+  headroom. `AUTO_INCREMENT` is NULL for a table with no AUTO_INCREMENT column;
+  that NULL is carried through as an absent (nil) value in the normalized
+  evidence exactly like the other nullable sizing columns — never an error and
+  never a fabricated zero. Still `information_schema.TABLES` metadata only (no
+  row data); read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -181,7 +193,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R011, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R012, INV-MYC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

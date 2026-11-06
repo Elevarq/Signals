@@ -233,3 +233,24 @@ otherwise.
 
 **Expected Result:** Pass when the deadlock row is collected unconditionally with
 its `ENABLED` flag surfaced.
+
+---
+
+### TC-MDC-17: table_statistics carries AUTO_INCREMENT, NULL carried as absent (normal + boundary)
+
+**Rule:** MDC-R014
+
+**Given:** `mariadb_table_statistics_v1`.
+
+**When:** its SQL is inspected, and the collector is run against a target that
+returns one table WITH an AUTO_INCREMENT counter and one table WITHOUT (NULL).
+
+**Then:** the SQL selects `AUTO_INCREMENT` from `information_schema.TABLES`
+alongside `TABLE_ROWS` / `DATA_LENGTH` / `INDEX_LENGTH`, is a read-only `SELECT`,
+and is not `HighSensitivity`; in the normalized evidence the AI table's row
+carries the counter value under `AUTO_INCREMENT` and the non-AI table's row
+carries `AUTO_INCREMENT = nil` (absent) — never an error and never a fabricated
+zero.
+
+**Expected Result:** Pass when `AUTO_INCREMENT` is selected and a NULL is carried
+through as nil.
