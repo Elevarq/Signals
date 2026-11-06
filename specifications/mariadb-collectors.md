@@ -63,7 +63,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | ID | Category | Source |
 |----|----------|--------|
 | `mariadb_identity_v1` | server | `SELECT VERSION(), @@version_comment` |
-| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`gtid_strict_mode`/`gtid_domain_id`, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); version-tolerant IN-list (absent vars simply return no row) |
+| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`gtid_strict_mode`/`gtid_domain_id`, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); + `sql_mode` (the comma-separated server SQL-mode flag string, #686 / Analyzer #4010); version-tolerant IN-list (absent vars simply return no row) |
 | `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) — carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918). MariaDB returns `GLOBAL_STATUS` names uppercased; the IN-list matches case-insensitively. |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
 | `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) — row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent, #677 / Analyzer #4004) + `TABLE_COLLATION` (per-table collation; charset family derivable from it; #684 / Analyzer #4001). |
@@ -271,6 +271,16 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   runs (MDC-R002) — a legitimate degraded skip, never a cycle failure, and no
   grant beyond the baseline `SELECT, PROCESS` is ever required. Metadata only;
   read-only; not `HighSensitivity`.
+- **MDC-R020** | `mariadb_global_variables_v1` additionally carries `sql_mode` —
+  the comma-separated server SQL-mode flag string (e.g.
+  `STRICT_TRANS_TABLES,ERROR_FOR_DIVISION_BY_ZERO,NO_ENGINE_SUBSTITUTION,...`) —
+  for the Analyzer `sql_mode` advisory rule (Elevarq/Analyzer#4010), which flags
+  unsafe or non-strict mode combinations. `sql_mode` is a shared MySQL/MariaDB
+  server variable (same name on both engines), added to the same curated,
+  version-tolerant IN-list (no `SHOW ALL VARIABLES`, no credential variables):
+  `sql_mode` absent on a given build simply returns no row — never an error. No
+  data content (only the mode-flag string), same posture as MDC-R016 / MDC-R018.
+  Read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -323,7 +333,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R019, INV-MDC-01..04).
+Matrix: `features/signals/traceability.md` (MDC-R001..R020, INV-MDC-01..04).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

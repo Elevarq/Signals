@@ -41,7 +41,7 @@ wire session, identity resolution, and persistence/export.
 | ID | Category | Source | Notes |
 |----|----------|--------|-------|
 | `mysql_identity_v1` | server | `SELECT VERSION(), @@version_comment, @@version_compile_os` | server identity |
-| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`super_read_only`, GTID, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); version-tolerant IN-list (absent vars simply return no row) |
+| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`super_read_only`, GTID, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); + `sql_mode` (the comma-separated server SQL-mode flag string, #686 / Analyzer #4010); version-tolerant IN-list (absent vars simply return no row) |
 | `mysql_global_status_v1` | resources | `performance_schema.global_status` (IN-list) | live counters; carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918) |
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
@@ -245,6 +245,15 @@ wire session, identity resolution, and persistence/export.
   runs (MYC-R002) — a legitimate degraded skip, never a cycle failure, and no
   grant beyond the baseline `SELECT, PROCESS` is ever required. Metadata only;
   read-only; not `HighSensitivity`.
+- **MYC-R018** | `mysql_global_variables_v1` additionally carries `sql_mode` —
+  the comma-separated server SQL-mode flag string (e.g.
+  `ONLY_FULL_GROUP_BY,STRICT_TRANS_TABLES,NO_ZERO_DATE,...`) — for the Analyzer
+  `sql_mode` advisory rule (Elevarq/Analyzer#4010), which flags unsafe or
+  non-strict mode combinations. It is added to the same curated, version-tolerant
+  IN-list (no `SHOW ALL VARIABLES`, no credential variables): `sql_mode` absent on
+  a given build simply returns no row — never an error. No data content (only the
+  mode-flag string), same posture as MYC-R014 / MYC-R016. Read-only; not
+  `HighSensitivity`.
 
 ## Invariants
 
@@ -296,7 +305,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R017, INV-MYC-01..04).
+Matrix: `features/signals/traceability.md` (MYC-R001..R018, INV-MYC-01..04).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
