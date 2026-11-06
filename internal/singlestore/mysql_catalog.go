@@ -36,6 +36,24 @@ func mysqlCatalog() []Collector {
 			SQL:      "SELECT VERSION() AS version, @@version_comment AS version_comment, @@version_compile_os AS compile_os",
 		},
 		{
+			// #699: the neutral server_identity_v1 row carries the connected
+			// database_name (DATABASE(), which resolves from the target DSN's
+			// dbname — internal/mysqlwire sets it). The Analyzer keys a
+			// database's identity on server_identity_v1.database_name; without
+			// it, two targets on ONE MySQL server (e.g. the tpcc OLTP + tpch OLAP
+			// schemas) both arrive with an empty name and collapse into a single
+			// Workbench card. MySQL performance_schema is server-wide, so the
+			// statement-digest population is shared across those cards, but the
+			// per-database schema + identity is distinct — matching the
+			// PostgreSQL path, which already emits server_identity_v1 with
+			// current_database(). DATABASE() is NULL when the target carries no
+			// dbname; that is carried through as an absent value (no card split),
+			// never an error.
+			ID:       "server_identity_v1",
+			Category: "server",
+			SQL:      "SELECT DATABASE() AS database_name, VERSION() AS version",
+		},
+		{
 			ID:       "mysql_global_variables_v1",
 			Category: "config",
 			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_variables WHERE VARIABLE_NAME IN ('max_connections', 'innodb_buffer_pool_size', 'max_allowed_packet', 'wait_timeout', 'version', 'log_bin', 'read_only', 'innodb_flush_log_at_trx_commit', 'tmp_table_size', 'max_heap_table_size', 'innodb_log_file_size', 'innodb_log_files_in_group', 'innodb_redo_log_capacity', 'sort_buffer_size', 'join_buffer_size', 'table_open_cache', 'table_definition_cache', 'thread_cache_size', 'innodb_io_capacity', 'innodb_io_capacity_max', 'innodb_flush_method', 'innodb_buffer_pool_instances', 'binlog_format', 'sync_binlog', 'skip_name_resolve', 'slow_query_log', 'long_query_time', 'log_output', 'performance_schema', 'super_read_only', 'gtid_mode', 'enforce_gtid_consistency', 'binlog_expire_logs_seconds', 'expire_logs_days', 'rpl_semi_sync_source_enabled', 'rpl_semi_sync_replica_enabled', 'rpl_semi_sync_master_enabled', 'rpl_semi_sync_slave_enabled', 'log_replica_updates', 'log_slave_updates', 'innodb_adaptive_hash_index', 'innodb_flush_neighbors', 'innodb_change_buffering', 'innodb_read_io_threads', 'innodb_write_io_threads', 'character_set_server', 'collation_server', 'sql_mode')",

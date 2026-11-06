@@ -458,3 +458,22 @@ denial, and it does not fail the collection cycle.
 **Expected Result:** Pass — the not-a-replica empty worker table yields an absent
 lag value with no error (also exercised by `integration-mysql` against the pinned
 idle MySQL 8.4 service container).
+
+### TC-MYC-25: server_identity_v1 carries the connected database_name (normal / identity)
+
+**Rule:** MYC-R020
+
+**Given:** the MySQL catalog and a `server_identity_v1` collector whose SQL is
+`SELECT DATABASE() AS database_name, VERSION()`, run against a target connected
+to the `tpch` schema (the DSN carries the dbname).
+
+**When:** `Collect` runs the collector and `DATABASE()` returns `tpch`.
+
+**Then:** the catalog contains exactly one `server_identity_v1` collector; it is
+a read-only `SELECT`, not `HighSensitivity`, with no `SensitiveColumns`; and the
+result row carries `database_name == "tpch"`. (Two targets on one server — `tpcc`
+and `tpch` — therefore yield distinct `database_name` values, so the Analyzer
+keys them as distinct databases instead of collapsing them into one card.)
+
+**Expected Result:** Pass — `server_identity_v1` is present and surfaces the
+connected database name.

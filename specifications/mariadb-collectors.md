@@ -63,6 +63,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | ID | Category | Source |
 |----|----------|--------|
 | `mariadb_identity_v1` | server | `SELECT VERSION(), @@version_comment` |
+| `server_identity_v1` | server | `SELECT DATABASE() AS database_name, VERSION()` — neutral (engine-agnostic) identity row carrying the connected `database_name` (`DATABASE()`, resolved from the target DSN's dbname). The Analyzer keys a database's identity on `server_identity_v1.database_name`, so each per-dbname target on ONE server is a distinct card (tpcc OLTP vs tpch OLAP); without it they collapse. A NULL `DATABASE()` is carried through as absent (#699, MDC-R021). |
 | `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`gtid_strict_mode`/`gtid_domain_id`, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); + `sql_mode` (the comma-separated server SQL-mode flag string, #686 / Analyzer #4010); version-tolerant IN-list (absent vars simply return no row) |
 | `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) — carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918). MariaDB returns `GLOBAL_STATUS` names uppercased; the IN-list matches case-insensitively. |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
@@ -281,6 +282,20 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   `sql_mode` absent on a given build simply returns no row — never an error. No
   data content (only the mode-flag string), same posture as MDC-R016 / MDC-R018.
   Read-only; not `HighSensitivity`.
+- **MDC-R021** | `server_identity_v1` (the neutral, engine-agnostic identity
+  collector) supplies the connected `database_name` via `SELECT DATABASE() AS
+  database_name, VERSION()`. `DATABASE()` resolves to the target DSN's dbname
+  (`internal/mysqlwire` sets it on the connection). The Analyzer keys a
+  database's identity on `server_identity_v1.database_name`; the engine-specific
+  `mariadb_identity_v1` row is not read for identity, so without this neutral row
+  two targets on ONE MariaDB server (the `tpcc` OLTP schema and the `tpch` OLAP
+  schema) both arrive with an empty database name and collapse into a single
+  Workbench card. MariaDB `performance_schema` is server-wide, so the
+  statement-digest population is shared across those cards, but the per-database
+  schema + identity is distinct — matching the PostgreSQL path, which emits
+  `server_identity_v1` with `current_database()`. A NULL `DATABASE()` (a target
+  with no dbname) is carried through as an absent value — no card split — never
+  an error. Read-only; baseline `SELECT, PROCESS` only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -333,7 +348,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R020, INV-MDC-01..04).
+Matrix: `features/signals/traceability.md` (MDC-R001..R021, INV-MDC-01..04).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

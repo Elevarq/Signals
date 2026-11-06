@@ -45,6 +45,7 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 		"mariadb_table_statistics_v1",
 		"mariadb_user_accounts_v1",
 		"mariadb_user_privileges_v1",
+		"server_identity_v1",
 	}
 	var got []string
 	for _, c := range mariadbCatalog() {
@@ -53,6 +54,41 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	sort.Strings(got)
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("mariadb catalog set = %v, want %v", got, want)
+	}
+}
+
+// TC-MDC-28 (MDC-R021, #699): the neutral server_identity_v1 collector carries
+// the connected database_name (DATABASE()), so the Analyzer keys each per-dbname
+// target on one MariaDB server as a DISTINCT database (tpcc OLTP vs tpch OLAP) —
+// without it both collapse into a single card. Read-only, no elevated privilege,
+// no sensitive payload.
+func TestMariaDBServerIdentityDatabaseName(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "server_identity_v1")
+	if c == nil {
+		t.Fatal("server_identity_v1 missing from the MariaDB catalog")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("server_identity_v1 must be a read-only SELECT: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("server_identity_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "DATABASE()") || !strings.Contains(up, "DATABASE_NAME") {
+		t.Errorf("server_identity_v1 must select DATABASE() AS database_name; SQL=%q", c.SQL)
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "DATABASE()") {
+			return []map[string]any{{"database_name": "tpch", "version": "11.4.0-MariaDB"}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["database_name"]; v != "tpch" {
+		t.Errorf("server_identity_v1 database_name = %v, want tpch", v)
 	}
 }
 
