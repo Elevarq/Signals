@@ -31,7 +31,7 @@ explicitly qualified. For MySQL:
 
 - **Qualified (live CI):** MySQL **8.0** (8.0.46, legacy), **8.4 LTS**, and
   **9.7 LTS** (9.7.4) — each a pinned digest in the `integration-mysql` matrix,
-  all 16 collectors `status=success`.
+  all 22 collectors `status=success`.
 - **Best-effort:** the Innovation track (calendar-versioned since 26.7, e.g.
   26.x) and non-pinned LTS patch releases. 9.7 qualification does not imply 26.x.
 - **Unsupported:** < 8.0 (the activity/lock/digest/replication collectors require
@@ -59,7 +59,7 @@ default (defense in depth). No elevated grant required.
 
 ## Native workload / storage evidence
 
-The 16-collector catalog (`mysql-collectors.md`) covers identity, config/status,
+The 22-collector catalog (`mysql-collectors.md`) covers identity, config/status,
 InnoDB metrics, schema/table sizing, processlist, replication + Group Replication
 state, InnoDB transactions / data-locks / lock-waits / metadata-locks, and the
 Performance Schema statement-digest workload (`events_statements_summary_by_digest`).

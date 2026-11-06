@@ -59,6 +59,7 @@ wire session, identity resolution, and persistence/export.
 | `mysql_metadata_locks_v1` | activity | `performance_schema.metadata_locks` (PENDING-first, LIMIT 500) | #543; metadata-lock (MDL) inventory incl. PENDING waits. Object schema/name only, no SQL or row data. Rarely empty — the reading session's own MDL is visible; empty is still a legitimate success. |
 | `mysql_replica_applier_status_v1` | topology | `performance_schema.replication_applier_status` | #543; replica applier state (per channel). Legitimate zero-row on a standalone (non-replica) server — a distinct state, not a failure. Native state fields preserved. |
 | `mysql_group_replication_members_v1` | topology | `performance_schema.replication_group_members` | #543; Group Replication membership + role/state. Legitimate zero-row when Group Replication is not enabled — a distinct state, not a failure. Native topology fields (host/port/role/state) preserved. |
+| `mysql_replica_lag_v1` | topology | `performance_schema.replication_applier_status_by_worker` (lag derived from the applier transaction-commit timestamps) | #676; the replica-lag-seconds metric for Analyzer's replica-lag rule (Elevarq/Analyzer#4007 under #4004). Derives `replica_lag_seconds` as `TIMESTAMPDIFF(SECOND, COALESCE(APPLYING_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP, LAST_APPLIED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP), NOW(6))` — the perf_schema analogue of `Seconds_Behind_Source`/`Seconds_Behind_Master`, without `SHOW REPLICA STATUS` (which is not a `SELECT` and needs `REPLICATION CLIENT`). On a source/standalone (non-replica) the worker table is **empty** → a legitimate zero-row result carrying **no** lag value, never an error. Read-only `SELECT`; baseline `SELECT, PROCESS` only; not `HighSensitivity`. |
 | `mysql_user_accounts_v1` | security | `mysql.user` (`User`, `Host`, `plugin`, computed `has_empty_password`) | #693 / Analyzer #4004; the user-account inventory for the security/grants rule tranche (remote-root / anonymous / passwordless accounts, weak/legacy auth plugin). **Secret-free by construction**: the `SELECT` list carries `User`, `Host`, `plugin`, and a *computed BOOLEAN* `(authentication_string = '' OR authentication_string IS NULL) AS has_empty_password` — the `authentication_string` hash column is NEVER in the select list, the evidence, logs, or any error (INV-MYC-04). `plugin` is always non-empty for a usable MySQL 8 account (the server ignores empty-plugin rows), so it reliably carries the real plugin; pairing it with `has_empty_password` lets a consumer distinguish a true blank password from an external-auth account (e.g. `auth_socket`). Reads the `mysql` schema, covered by the baseline global `SELECT` grant (MYG-R005); a privilege denial is a legitimate skip, never a cycle failure (MYC-R017). Metadata only (no row data); not `HighSensitivity`. |
 | `mysql_user_privileges_v1` | security | `information_schema.USER_PRIVILEGES` (`GRANTEE`, `PRIVILEGE_TYPE`, `IS_GRANTABLE`) | #693 / Analyzer #4004; the global-privilege inventory so the rules see `*.*` sprawl and `WITH GRANT OPTION`. `USER_PRIVILEGES` has no password/hash column at all (INV-MYC-04). Under the baseline global `SELECT` grant the account sees every grantee's global privileges; a narrower grant shows only its own rows (a legitimate reduced result, not a failure). Metadata only; not `HighSensitivity`. |
 
@@ -83,6 +84,16 @@ wire session, identity resolution, and persistence/export.
   **then** each returns zero rows recorded as a successful empty result — the
   replication-disabled / GR-not-enabled state is distinct from unavailable or
   permission-denied.
+- **Given** a MySQL **replica** applying transactions, **when**
+  `mysql_replica_lag_v1` runs, **then** the result carries a per-channel
+  `replica_lag_seconds` value (the perf_schema analogue of
+  `Seconds_Behind_Source`) derived from the applier transaction-commit
+  timestamps, alongside the native `CHANNEL_NAME` / `SERVICE_STATE`.
+- **Given** a MySQL **source / standalone** (non-replica), **when**
+  `mysql_replica_lag_v1` runs, **then** the worker table is empty and the
+  collector returns a successful zero-row result — **no** `replica_lag_seconds`
+  value is present (absent, not a fabricated zero), and it is never an error nor
+  a failed collection cycle.
 - **Given** a MySQL target with a passwordless account and a `root@'%'` account
   with `*.*` privileges, **when** `mysql_user_accounts_v1` and
   `mysql_user_privileges_v1` run under the baseline grant, **then** the account
@@ -117,11 +128,11 @@ wire session, identity resolution, and persistence/export.
   operationally interesting rows (oldest transactions, WAITING/PENDING locks).
   An idle server yields a legitimate zero-row success, never a failure.
 - **MYC-R007** | The replication collectors (`mysql_replication_status_v1`,
-  `mysql_replica_applier_status_v1`, `mysql_group_replication_members_v1`) return
-  a legitimate zero-row success when the server is standalone, replication is
-  disabled, or Group Replication is not enabled. This state is distinct from a
-  collector error (unavailable) or a permission denial; native topology/state
-  fields are preserved verbatim when present.
+  `mysql_replica_applier_status_v1`, `mysql_group_replication_members_v1`,
+  `mysql_replica_lag_v1`) return a legitimate zero-row success when the server is
+  standalone, replication is disabled, or Group Replication is not enabled. This
+  state is distinct from a collector error (unavailable) or a permission denial;
+  native topology/state fields are preserved verbatim when present.
 - **MYC-R008** | Sensitive payload beyond query text is redacted by the same
   mechanism: `mysql_data_locks_v1` is `HighSensitivity` with `LOCK_DATA` (the
   locked index-key value — row data) in `SensitiveColumns`. Native lock
@@ -254,6 +265,26 @@ wire session, identity resolution, and persistence/export.
   a given build simply returns no row — never an error. No data content (only the
   mode-flag string), same posture as MYC-R014 / MYC-R016. Read-only; not
   `HighSensitivity`.
+- **MYC-R019** | `mysql_replica_lag_v1` supplies the replica-lag-seconds metric
+  for Analyzer's replica-lag rule (Elevarq/Analyzer#4007, under the replication
+  band #4004). It reads `performance_schema.replication_applier_status_by_worker`
+  — populated for any replica (single- or multi-threaded), and **empty on a
+  source / standalone** — and derives a single per-channel `replica_lag_seconds`
+  as `TIMESTAMPDIFF(SECOND, COALESCE(APPLYING_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP,
+  LAST_APPLIED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP), NOW(6))` — the seconds
+  between when the currently-applying (else last-applied) transaction was
+  committed on the original source and now. This is the perf_schema analogue of
+  `SHOW REPLICA STATUS`'s `Seconds_Behind_Source` (8.0.22+) / `Seconds_Behind_Master`
+  (pre-8.0.22). The perf_schema derivation is chosen over `SHOW REPLICA STATUS` /
+  `SHOW SLAVE STATUS` deliberately: those are **not** `SELECT` statements (they
+  would break INV-MYC-01 / MYC-R001) and require the `REPLICATION CLIENT`
+  privilege (they would break the baseline `SELECT, PROCESS` role, MYG-R001),
+  whereas the worker table is readable under the baseline role and the collector
+  stays a read-only `SELECT`. The `CHANNEL_NAME` and `SERVICE_STATE` native
+  fields are carried alongside. On a non-replica the empty worker table yields a
+  zero-row success with **no** `replica_lag_seconds` value — absent, never a
+  fabricated zero and never an error (MYC-R007). Read-only; baseline `SELECT,
+  PROCESS` only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -281,7 +312,7 @@ wire session, identity resolution, and persistence/export.
 | Trigger | Response |
 |---------|----------|
 | A collector's SQL errors (missing view / permission) | Captured in `Result.Err`; other collectors still run (MYC-R002). |
-| A standalone server with no replication channel | `mysql_replication_status_v1` / `mysql_replica_applier_status_v1` are successful zero-row results, never failures. |
+| A standalone server with no replication channel | `mysql_replication_status_v1` / `mysql_replica_applier_status_v1` / `mysql_replica_lag_v1` are successful zero-row results, never failures. For `mysql_replica_lag_v1` this means no `replica_lag_seconds` value is present (absent), never a fabricated zero. |
 | Group Replication not enabled | `mysql_group_replication_members_v1` is a successful zero-row result, never a failure. |
 | No active transactions / locks (idle server) | The activity collectors return successful zero-row results (0 == 0 reconciles), never failures. |
 | A very busy server (many transactions/locks) | The activity collectors are bounded by `LIMIT`; the payload stays bounded, prioritising oldest transactions and WAITING/PENDING locks (MYC-R006). |
@@ -305,7 +336,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R018, INV-MYC-01..04).
+Matrix: `features/signals/traceability.md` (MYC-R001..R019, INV-MYC-01..04).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
