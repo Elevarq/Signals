@@ -633,7 +633,7 @@ and the dbname-required rule. POC blocker F4.
 
 ## MySQL collection (PR1: seam generalization + catalog)
 
-Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R011, INV-MYC-01..03),
+Specs: `specifications/mysql-collectors.md` (ACTIVE, MYC-R001..R012, INV-MYC-01..03),
 `specifications/mysql-grants.md` (ACTIVE, DOC), and the backend-driven dispatch +
 `CatalogFor` generalization in `specifications/engine-collection-dispatch.md`
 (ECD-R002/R004/R006/R008). The MySQL-wire session, dispatch, identity, and
@@ -654,6 +654,7 @@ reporting are engine-generic; MySQL is added as a catalog + registry entry +
 | MYC-R009 | mysql_columns_v1 + mysql_index_inventory_v1 provide Replay Tier-1 evidence (columns name/type/nullability/ordinal; index name/ordered-columns/uniqueness; PRIMARY=PK identity); ordinal + composite ordering preserved; COLUMN_TYPE engine-native; not HighSensitivity | TestMySQLCatalogExpectedSet, TestMySQLLiveReplayTier1Evidence, TestVerifyReplayTier1Evidence_Pass, TestVerifyReplayTier1Evidence_CompositeOrderEnforced | COVERED | INTEGRATION | #538; live semantic qual across 8.0/8.4/9.7 legs + deterministic verifier tests; serves Analyzer replay-evidence-contract.md. |
 | MYC-R010 | mysql_global_status_v1 carries Innodb_buffer_pool_reads + Innodb_buffer_pool_read_requests (cumulative counters; no producer-side delta) for Analyzer's buffer-pool-read-pressure rate rule | TestMySQLGlobalStatusBufferPoolReads | COVERED | BEHAVIORAL | #656 / Analyzer #3918; both counters present live across MySQL 8.0/8.4/9.7. |
 | MYC-R011 | mysql_innodb_deadlocks_v1 selects lock_deadlocks from INNODB_METRICS unconditionally (no STATUS='enabled' filter), returning NAME/COUNT/STATUS so the deadlock signal is reliable regardless of the lock-module default (NOT_ASSESSED when disabled); cumulative COUNT; bounded 1 row; not HighSensitivity | TestMySQLInnodbDeadlocksCollector, TestMySQLCatalogExpectedSet | COVERED | BEHAVIORAL | #656 / Analyzer #3918; STATUS='enabled' is the default across MySQL 8.0/8.4/9.7 (confirmed live). |
+| MYC-R012 | mysql_table_statistics_v1 selects AUTO_INCREMENT (the current counter value) alongside the TABLE_ROWS/DATA_LENGTH/INDEX_LENGTH sizing columns; NULL (no AI column) carried as absent (nil), never an error or fabricated zero; read-only; not HighSensitivity | TestMySQLTableStatisticsAutoIncrement | COVERED | BEHAVIORAL | #677 / Analyzer #4004; evidence for the AUTO_INCREMENT-exhaustion-risk rule (headroom = type max vs current counter; type from mysql_columns_v1). information_schema.TABLES metadata only. |
 | INV-MYC-01 | Collection never issues a non-SELECT | TestMySQLCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (16). |
 | INV-MYC-02 | mysql_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMySQLProcesslistRedaction | COVERED | BEHAVIORAL | — |
 | INV-MYC-03 | No query-text column (INFO/DIGEST_TEXT/trx_query) or locked-key data (LOCK_DATA) escapes the redaction contract | TestMySQLCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |
@@ -685,7 +686,7 @@ evidence. Verifier shared with SingleStore (engine-generic). Harness:
 
 ## MariaDB collection (PR1: catalog + seam wire-up)
 
-Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R013,
+Specs: `specifications/mariadb-collectors.md` (ACTIVE, MDC-R001..R014,
 INV-MDC-01..03) + `specifications/mariadb-grants.md` (ACTIVE, DOC). MariaDB added
 as a catalog + `CatalogFor` registry entry + `SupportedEngines` membership +
 `SelectBackend` wire mapping — no per-engine dispatch/session/identity/reporting
@@ -708,6 +709,7 @@ Replay Tier-1 columns + index-inventory collectors (17 collectors).
 | MDC-R011 | perf_schema_disabled is canonical, pinned to metrics.CollectorSkippedReasons; a probe error does not downgrade the 0-row success to failed/skipped | TestPerfSchemaDisabledReasonIsCanonical, TestMariaDBStatementDigestsProbeErrorStaysSuccess | COVERED | BEHAVIORAL | #665; probe is diagnostic enrichment, not a correctness gate. |
 | MDC-R012 | mariadb_global_status_v1 carries Innodb_buffer_pool_reads + Innodb_buffer_pool_read_requests (cumulative counters; no producer-side delta) for Analyzer's buffer-pool-read-pressure rate rule | TestMariaDBGlobalStatusBufferPoolReads | COVERED | BEHAVIORAL | #656 / Analyzer #3918; both counters present live across MariaDB 10.11/11.4/12.3 (names returned uppercased, IN-list matches case-insensitively). |
 | MDC-R013 | mariadb_innodb_deadlocks_v1 selects lock_deadlocks from INNODB_METRICS unconditionally (no ENABLED=1 filter), returning NAME/COUNT/ENABLED so the deadlock signal is reliable regardless of the lock-module default (NOT_ASSESSED when disabled); cumulative COUNT; bounded 1 row; not HighSensitivity | TestMariaDBInnodbDeadlocksCollector, TestMariaDBCatalogExpectedSet | COVERED | BEHAVIORAL | #656 / Analyzer #3918; ENABLED=1 is the default across MariaDB 10.11/11.4/12.3 (confirmed live). |
+| MDC-R014 | mariadb_table_statistics_v1 selects AUTO_INCREMENT (the current counter value) alongside the TABLE_ROWS/DATA_LENGTH/INDEX_LENGTH sizing columns; NULL (no AI column) carried as absent (nil), never an error or fabricated zero; read-only; not HighSensitivity | TestMariaDBTableStatisticsAutoIncrement | COVERED | BEHAVIORAL | #677 / Analyzer #4004; evidence for the AUTO_INCREMENT-exhaustion-risk rule (headroom = type max vs current counter; type from mariadb_columns_v1). information_schema.TABLES metadata only. |
 | INV-MDC-01 | Collection never issues a non-SELECT | TestMariaDBCatalogReadOnly | COVERED | BEHAVIORAL | HasWrite over the whole catalog (15). |
 | INV-MDC-02 | mariadb_processlist_v1 is HighSensitivity with INFO in SensitiveColumns | TestMariaDBProcesslistRedaction | COVERED | BEHAVIORAL | — |
 | INV-MDC-03 | No query-text column (INFO/trx_query/DIGEST_TEXT) or locked-key data (lock_data) escapes the redaction contract | TestMariaDBCatalogNoUnredactedSensitiveColumn | COVERED | BEHAVIORAL | Catalog-wide, case-insensitive scan; exact-case SensitiveColumns membership. |

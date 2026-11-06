@@ -372,6 +372,55 @@ func TestMariaDBStatementDigestsIsPerfSchemaGated(t *testing.T) {
 	}
 }
 
+// TC-MDC-17 (MDC-R014): the table-statistics collector carries AUTO_INCREMENT
+// (the current counter value) for Analyzer's AUTO_INCREMENT-exhaustion-risk rule
+// (#677 / Analyzer #4004). It is NULL for a table with no AUTO_INCREMENT column
+// and must be carried through as an absent (nil) value, never an error.
+func TestMariaDBTableStatisticsAutoIncrement(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_table_statistics_v1")
+	if c == nil {
+		t.Fatal("mariadb_table_statistics_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mariadb_table_statistics_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mariadb_table_statistics_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.TABLES") {
+		t.Errorf("mariadb_table_statistics_v1 must read information_schema.TABLES; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "AUTO_INCREMENT") {
+		t.Errorf("mariadb_table_statistics_v1 must select AUTO_INCREMENT; SQL=%q", c.SQL)
+	}
+
+	// A NULL AUTO_INCREMENT (table with no AI column) is carried through as nil,
+	// exactly like the other nullable sizing columns — never an error.
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "information_schema.TABLES") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "AUTO_INCREMENT": "4096"},
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "audit_log", "AUTO_INCREMENT": nil},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 2 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if rs[0].Err != "" {
+		t.Errorf("collector errored on a NULL AUTO_INCREMENT: %q", rs[0].Err)
+	}
+	if v := rs[0].Rows[0]["AUTO_INCREMENT"]; v != "4096" {
+		t.Errorf("AI table AUTO_INCREMENT = %v, want the counter value 4096", v)
+	}
+	if v, ok := rs[0].Rows[1]["AUTO_INCREMENT"]; !ok || v != nil {
+		t.Errorf("non-AI table AUTO_INCREMENT must be carried as nil (absent), got %v (present=%v)", v, ok)
+	}
+}
+
 func collectorByID(cat []Collector, id string) *Collector {
 	for i := range cat {
 		if cat[i].ID == id {

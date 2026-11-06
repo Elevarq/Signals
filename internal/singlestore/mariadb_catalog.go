@@ -55,9 +55,18 @@ func mariadbCatalog() []Collector {
 			SensitiveColumns: []string{"INFO"},
 		},
 		{
+			// #677 (MDC-R014): AUTO_INCREMENT is the current AUTO_INCREMENT counter
+			// value — the evidence for Analyzer's AUTO_INCREMENT-exhaustion-risk
+			// rule (Elevarq/Analyzer#4004), which compares it against the AI
+			// column's type max (derived from the COLUMN_TYPE/DATA_TYPE already
+			// captured by mariadb_columns_v1) to compute headroom. It is NULL for a
+			// table with no AUTO_INCREMENT column and is carried through as an
+			// absent (nil) value exactly like the other nullable sizing columns —
+			// never an error, never a fabricated zero. Still information_schema.
+			// TABLES metadata only (no row data); read-only; not HighSensitivity.
 			ID:       "mariadb_table_statistics_v1",
 			Category: "schema",
-			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys')",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, ENGINE, TABLE_ROWS, DATA_LENGTH, INDEX_LENGTH, AUTO_INCREMENT FROM information_schema.TABLES WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys')",
 		},
 		{
 			ID:       "mariadb_engines_v1",
