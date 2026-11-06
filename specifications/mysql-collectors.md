@@ -41,7 +41,7 @@ wire session, identity resolution, and persistence/export.
 | ID | Category | Source | Notes |
 |----|----------|--------|-------|
 | `mysql_identity_v1` | server | `SELECT VERSION(), @@version_comment, @@version_compile_os` | server identity |
-| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
+| `mysql_global_variables_v1` | config | `performance_schema.global_variables` (IN-list) | connection, durability + config-sizing tunables (buffer pool, redo log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`super_read_only`, GTID, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); version-tolerant IN-list (absent vars simply return no row) |
 | `mysql_global_status_v1` | resources | `performance_schema.global_status` (IN-list) | live counters; carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918) |
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
@@ -165,6 +165,25 @@ wire session, identity resolution, and persistence/export.
   through as absent (nil) values in the normalized evidence exactly like the
   other nullable columns — never an error. Read-only `information_schema`
   metadata only (no row data); no new privilege; not `HighSensitivity`.
+- **MYC-R014** | `mysql_global_variables_v1` extends its `global_variables`
+  IN-list with the "batch 2" variables for the Analyzer observability,
+  replication-config, and InnoDB-internals rule tranches (Elevarq/Analyzer#4004):
+  observability — `slow_query_log`, `long_query_time`, `log_output`,
+  `performance_schema`; replication/HA config — `super_read_only`, `gtid_mode`,
+  `enforce_gtid_consistency`, `binlog_expire_logs_seconds`, `expire_logs_days`,
+  `rpl_semi_sync_source_enabled`, `rpl_semi_sync_replica_enabled`,
+  `rpl_semi_sync_master_enabled`, `rpl_semi_sync_slave_enabled`,
+  `log_replica_updates`, `log_slave_updates`; InnoDB internals —
+  `innodb_adaptive_hash_index`, `innodb_flush_neighbors`,
+  `innodb_change_buffering`, `innodb_read_io_threads`,
+  `innodb_write_io_threads`; and server charset/collation —
+  `character_set_server`, `collation_server` (the global complement of the
+  per-table/per-column charset evidence of MYC-R013). The IN-list stays a
+  curated allowlist (no `SHOW ALL VARIABLES`, no credential variables) and is
+  version-tolerant: a variable absent on a given MySQL version (the semi-sync
+  `source`/`replica` names on <8.0.26, the `master`/`slave` names on newer
+  releases, `binlog_expire_logs_seconds` vs `expire_logs_days`) simply returns
+  no row — never an error. Read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -206,7 +225,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R013, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R014, INV-MYC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

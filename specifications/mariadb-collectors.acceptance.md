@@ -292,3 +292,46 @@ charset/collation values and the non-string column's row carries
 
 **Expected Result:** Pass when both columns are selected and a NULL is carried
 through as nil.
+
+---
+
+### TC-MDC-20: global_variables carries the batch-2 observability/replication/InnoDB/charset variables (normal)
+
+**Rule:** MDC-R016
+
+**Given:** `mariadb_global_variables_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains each batch-2 variable — observability (`slow_query_log`,
+`long_query_time`, `log_output`, `performance_schema`), replication/HA config
+(`gtid_strict_mode`, `gtid_domain_id`, `expire_logs_days`,
+`rpl_semi_sync_master_enabled`, `rpl_semi_sync_slave_enabled`,
+`log_slave_updates`), InnoDB internals (`innodb_adaptive_hash_index`,
+`innodb_flush_neighbors`, `innodb_change_buffering`, `innodb_read_io_threads`,
+`innodb_write_io_threads`), and server charset/collation
+(`character_set_server`, `collation_server`), alongside the existing #660 sizing
+variables; the statement is a read-only `SELECT` and the collector is not
+`HighSensitivity`. MySQL-only names (`super_read_only`, `gtid_mode`, …) are not
+present on the MariaDB collector.
+
+**Expected Result:** Pass when every MariaDB batch-2 variable is in the IN-list
+and no MySQL-only name leaks in.
+
+---
+
+### TC-MDC-21: version-absent batch-2 variable is carried as absent, never an error (boundary / invalid)
+
+**Rule:** MDC-R016
+
+**Given:** `mariadb_global_variables_v1` run against a MariaDB version where a
+batch-2 variable does not exist.
+
+**When:** the version-tolerant IN-list SELECT executes.
+
+**Then:** the absent variable simply returns no row — the collector result is a
+successful partial set, never a failure, and no credential variable is ever named
+in the IN-list.
+
+**Expected Result:** Pass when an absent variable yields no row (no error) and the
+IN-list contains no credential/secret variable name.
