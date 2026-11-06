@@ -59,9 +59,19 @@ func TestCatalogForIsTotal(t *testing.T) {
 		t.Errorf("catalogFor(mysql) wrong: %v", my)
 	}
 	for _, q := range pgqueries.All() {
+		// #699: server_identity_v1 is a NEUTRAL (engine-agnostic) identity
+		// collector — emitted by every engine, carrying the connected
+		// database_name. PostgreSQL happens to define it too, so its presence in
+		// the MySQL catalog is NOT a PostgreSQL-id leak; skip it in the leak check.
+		if q.ID == "server_identity_v1" {
+			continue
+		}
 		if my[q.ID] {
 			t.Errorf("catalogFor(mysql) leaked PostgreSQL id %q", q.ID)
 		}
+	}
+	if !my["server_identity_v1"] {
+		t.Errorf("catalogFor(mysql) must carry the neutral server_identity_v1 (database_name identity, #699)")
 	}
 	if got := catalogFor("nonsense-engine"); len(got) != 0 {
 		t.Errorf("catalogFor(unknown) = %d entries, want 0 (no fallback)", len(got))

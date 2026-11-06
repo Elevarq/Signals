@@ -78,8 +78,11 @@ func TestCollectTarget_MySQLProductionBoundary(t *testing.T) {
 		t.Fatal("no runs persisted for the mysql snapshot")
 	}
 	for _, r := range runs {
-		if !strings.HasPrefix(r.QueryID, "mysql_") {
-			t.Errorf("mysql snapshot carried a non-mysql collector %q (foreign catalog leaked)", r.QueryID)
+		// #699: server_identity_v1 is the neutral (engine-agnostic) identity
+		// collector carrying database_name — legitimately present in every
+		// engine's snapshot, not a foreign-catalog leak.
+		if !strings.HasPrefix(r.QueryID, "mysql_") && r.QueryID != "server_identity_v1" {
+			t.Errorf("mysql snapshot carried a non-mysql, non-neutral collector %q (foreign catalog leaked)", r.QueryID)
 		}
 		if r.Status != "success" {
 			t.Errorf("collector %q status=%q, want success", r.QueryID, r.Status)
