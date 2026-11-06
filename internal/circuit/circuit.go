@@ -38,9 +38,20 @@ const (
 	// trips `closed → open` when the operator hasn't overridden.
 	DefaultFailThreshold = 3
 
-	// DefaultOpenCooldown is how long an auto-opened circuit stays
-	// open before auto-recovering to `closed`.
+	// DefaultOpenCooldown is the BASE cooldown an auto-opened circuit
+	// stays open before auto-recovering to `closed` on its FIRST open
+	// cycle. Subsequent consecutive open cycles back off from this base
+	// (R097-B).
 	DefaultOpenCooldown = 5 * time.Minute
+
+	// DefaultMaxOpenCooldown caps the capped-exponential backoff
+	// (R097-B): no matter how many times a target has consecutively
+	// auto-opened, it is always re-probed after at most this long.
+	// 1h — the backoff matters in the minute range (don't hammer a
+	// dead target every 5m forever); once it reaches hourly re-probes
+	// that cadence is acceptable (owner decision, #680). Progression
+	// with the 5m base: 5m → 10m → 20m → 40m → 60m (cap) → 60m …
+	DefaultMaxOpenCooldown = 60 * time.Minute
 
 	// MaxReasonLength caps the operator-provided pause reason.
 	// Aligns with FC-CIRC-01 / FC-17.
@@ -68,6 +79,12 @@ type targetCircuit struct {
 	pausedAt         time.Time
 	pausedReason     string
 	pausedActor      string
+
+	// openEpochs counts consecutive `closed → open` transitions with
+	// no intervening success or manual resume (R097-B). The first open
+	// sets it to 1; it drives the capped-exponential open-cooldown. A
+	// RecordSuccess or Resume resets it to 0.
+	openEpochs int
 }
 
 // Decision is the outcome of ShouldCollect. Skip == true means the
@@ -85,7 +102,11 @@ type Manager struct {
 	mu            sync.Mutex
 	circuits      map[string]*targetCircuit
 	failThreshold int
-	openCooldown  time.Duration
+	// openCooldown is the BASE cooldown (first open cycle). The
+	// effective cooldown for the Nth consecutive open cycle grows
+	// exponentially from this base, capped at maxOpenCooldown (R097-B).
+	openCooldown    time.Duration
+	maxOpenCooldown time.Duration
 
 	// now is injectable for deterministic tests.
 	now func() time.Time
@@ -109,21 +130,69 @@ type TransitionMeta struct {
 	Reason string
 }
 
-// NewManager creates a Manager. Zero / negative thresholds fall
-// back to the documented defaults.
+// NewManager creates a Manager with the default max-open-cooldown cap
+// (R097-B). Zero / negative thresholds fall back to the documented
+// defaults.
 func NewManager(failThreshold int, openCooldown time.Duration) *Manager {
+	return NewManagerWithBackoff(failThreshold, openCooldown, DefaultMaxOpenCooldown)
+}
+
+// NewManagerWithBackoff creates a Manager with an explicit cap on the
+// capped-exponential open-cooldown backoff (R097-B). Zero / negative
+// values fall back to the documented defaults (fail threshold 3, base
+// cooldown 5m, max cooldown 1h). A maxOpenCooldown smaller than the
+// base is tolerated — the effective cooldown is then clamped to the
+// base (the cap can never shorten the first cooldown below base).
+func NewManagerWithBackoff(failThreshold int, openCooldown, maxOpenCooldown time.Duration) *Manager {
 	if failThreshold <= 0 {
 		failThreshold = DefaultFailThreshold
 	}
 	if openCooldown <= 0 {
 		openCooldown = DefaultOpenCooldown
 	}
-	return &Manager{
-		circuits:      map[string]*targetCircuit{},
-		failThreshold: failThreshold,
-		openCooldown:  openCooldown,
-		now:           time.Now,
+	if maxOpenCooldown <= 0 {
+		maxOpenCooldown = DefaultMaxOpenCooldown
 	}
+	return &Manager{
+		circuits:        map[string]*targetCircuit{},
+		failThreshold:   failThreshold,
+		openCooldown:    openCooldown,
+		maxOpenCooldown: maxOpenCooldown,
+		now:             time.Now,
+	}
+}
+
+// effectiveCooldown returns the open-cooldown for the Nth consecutive
+// open cycle (openEpochs ≥ 1): min(base * 2^(N-1), maxOpenCooldown),
+// clamped to at least base. Computed with an overflow guard so a large
+// epoch count can never wrap time.Duration — once doubling would reach
+// or exceed the cap (or overflow), the cap is returned.
+func (m *Manager) effectiveCooldown(openEpochs int) time.Duration {
+	// Floor: the cap can never shorten below the base (handles a
+	// cap < base misconfiguration).
+	capped := m.maxOpenCooldown
+	if capped < m.openCooldown {
+		capped = m.openCooldown
+	}
+	if openEpochs <= 1 {
+		d := m.openCooldown
+		if d > capped {
+			d = capped
+		}
+		return d
+	}
+	d := m.openCooldown
+	for i := 1; i < openEpochs; i++ {
+		// Guard against overflow and short-circuit once capped.
+		if d >= capped || d > capped/2 {
+			return capped
+		}
+		d *= 2
+	}
+	if d > capped {
+		d = capped
+	}
+	return d
 }
 
 // SetOnChange registers a callback for state transitions. Replaces
@@ -151,6 +220,13 @@ func (m *Manager) SetOnChange(fn func(target string, from, to State, meta Transi
 // cooldown that elapsed during downtime closes on the first
 // ShouldCollect; consecutiveFails is seeded to the threshold so the
 // "next cycle IS the probe" semantics hold (one failure re-opens).
+//
+// Backoff anchor (R097-B): the pre-restart backoff epoch is NOT
+// persisted (the circuit_state store carries only state/since/reason/
+// actor), so a restored open circuit resumes at openEpochs = 1 — i.e.
+// the BASE cooldown. This is the conservative, re-probe-sooner choice:
+// it never makes a restored target wait longer than a fresh open, and
+// the backoff climbs again if the target keeps failing post-restart.
 func (m *Manager) Restore(target string, state State, since time.Time, reason, actor string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -160,6 +236,7 @@ func (m *Manager) Restore(target string, state State, since time.Time, reason, a
 		tc.state = StateOpen
 		tc.openedAt = since
 		tc.consecutiveFails = m.failThreshold
+		tc.openEpochs = 1
 	case StatePaused:
 		tc.state = StatePaused
 		tc.pausedAt = since
@@ -178,11 +255,12 @@ func (m *Manager) ShouldCollect(target string) Decision {
 	tc := m.lookupOrCreate(target)
 	before := tc.state
 
-	// open → closed after cooldown. We intentionally preserve
-	// consecutiveFails so a single recovery-cycle failure
-	// re-opens the circuit immediately (spec: "next cycle IS the
-	// probe").
-	if tc.state == StateOpen && m.now().Sub(tc.openedAt) >= m.openCooldown {
+	// open → closed after the (backed-off, capped) cooldown. We
+	// intentionally preserve consecutiveFails AND openEpochs so a
+	// single recovery-cycle failure re-opens the circuit immediately
+	// at the NEXT backoff level (spec R097-B: "next cycle IS the
+	// probe"; the circuit is never terminal — INV-CIRC-05).
+	if tc.state == StateOpen && m.now().Sub(tc.openedAt) >= m.effectiveCooldown(tc.openEpochs) {
 		tc.state = StateClosed
 	}
 
@@ -218,6 +296,11 @@ func (m *Manager) RecordFailure(target string) {
 	if tc.state == StateClosed && tc.consecutiveFails >= m.failThreshold {
 		tc.state = StateOpen
 		tc.openedAt = m.now()
+		// Each consecutive closed→open bumps the backoff epoch so the
+		// next open cooldown is longer (R097-B). A success / resume
+		// resets openEpochs to 0, so the first open after a reset is
+		// epoch 1 (base cooldown).
+		tc.openEpochs++
 	}
 	after := tc.state
 	cb := m.onChange
@@ -228,11 +311,13 @@ func (m *Manager) RecordFailure(target string) {
 }
 
 // RecordSuccess is called by the collector after a successful
-// cycle. Resets the consecutive-fail counter.
+// cycle. Resets the consecutive-fail counter AND the backoff epoch
+// (R097-B) so the next open cycle starts again at the base cooldown.
 func (m *Manager) RecordSuccess(target string) {
 	m.mu.Lock()
 	tc := m.lookupOrCreate(target)
 	tc.consecutiveFails = 0
+	tc.openEpochs = 0
 	m.mu.Unlock()
 }
 
@@ -279,6 +364,11 @@ func (m *Manager) Resume(target, actor string) {
 	before := tc.state
 	tc.state = StateClosed
 	tc.consecutiveFails = 0
+	// A manual resume is an explicit operator "this target is healthy
+	// again" — reset the backoff epoch too so the next open cycle
+	// starts at the base cooldown (R097-B). Pause does NOT touch
+	// openEpochs; resume is what clears the backoff.
+	tc.openEpochs = 0
 	tc.pausedReason = ""
 	tc.pausedAt = time.Time{}
 	tc.pausedActor = ""
