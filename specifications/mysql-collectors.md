@@ -46,10 +46,10 @@ wire session, identity resolution, and persistence/export.
 | `mysql_processlist_v1` | activity | `information_schema.PROCESSLIST` | **HighSensitivity**, `INFO` redacted; `PROCESS` grant surfaces all sessions |
 | `mysql_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE STATUS='enabled'` | engine counters |
 | `mysql_innodb_deadlocks_v1` | resources | `information_schema.INNODB_METRICS WHERE NAME='lock_deadlocks'` (no `STATUS` filter) | #656; the cumulative InnoDB deadlock count for Analyzer's `innodb.deadlock_rate` rate rule (#3918). Selected **unconditionally** (not gated on `STATUS='enabled'`) so the single `lock_deadlocks` row is always present with its `STATUS`, making the signal module-independent: when the row's `STATUS='enabled'` (the default across MySQL 8.0/8.4/9.7) `COUNT` is the live cumulative counter; when an operator has disabled the metric the row still returns with `STATUS='disabled'` so the consumer emits NOT_ASSESSED rather than a silent zero. Bounded to one row. No sensitive payload. |
-| `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent). #677 / Analyzer #4004. |
+| `mysql_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) | row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent, #677 / Analyzer #4004) + `TABLE_COLLATION` (per-table collation; charset family derivable from it; #684 / Analyzer #4001). |
 | `mysql_engines_v1` | server | `information_schema.ENGINES` | storage engine support |
 | `mysql_schemata_v1` | schema | `information_schema.SCHEMATA` | databases + charset/collation |
-| `mysql_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) | #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native), `DATA_TYPE`, `IS_NULLABLE`, ordinal, `COLUMN_KEY`, default, extra. Schema metadata only — not HighSensitivity. |
+| `mysql_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) | #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native), `DATA_TYPE`, `IS_NULLABLE`, ordinal, `COLUMN_KEY`, default, extra; + `CHARACTER_SET_NAME` / `COLLATION_NAME` (per-column charset/collation; NULL for non-string columns — carried as absent; #684 / Analyzer #4001). Schema metadata only — not HighSensitivity. |
 | `mysql_index_inventory_v1` | schema | `information_schema.STATISTICS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`) | #538 Replay Tier-1 evidence; per-index name, ordered columns (`SEQ_IN_INDEX`), uniqueness (`NON_UNIQUE`), type. `INDEX_NAME='PRIMARY'` carries PK identity losslessly. Per-index `CARDINALITY` is Tier-2 and NOT collected. Not HighSensitivity. |
 | `mysql_replication_status_v1` | topology | `performance_schema.replication_connection_status` | legitimate zero-row on a standalone server |
 | `mysql_statement_digests_v1` | workload | `performance_schema.events_statements_summary_by_digest` (top-200 by latency) | #540; **HighSensitivity**, `DIGEST_TEXT` redacted; empty when Performance Schema is off; NULL-digest overflow row included naturally. The MySQL query-workload signal (analogue of pg_stat_statements). A digest id is never equated with a PostgreSQL queryid. |
@@ -152,6 +152,19 @@ wire session, identity resolution, and persistence/export.
   evidence exactly like the other nullable sizing columns — never an error and
   never a fabricated zero. Still `information_schema.TABLES` metadata only (no
   row data); read-only; not `HighSensitivity`.
+- **MYC-R013** | Per-table and per-column charset/collation for Analyzer's
+  utf8mb4-readiness / charset-collation-mismatch rule (Elevarq/Analyzer#4001).
+  `mysql_table_statistics_v1` carries `TABLE_COLLATION` in its `SELECT`
+  (the charset family is derivable from the collation — `information_schema.TABLES`
+  has no direct charset column); `mysql_columns_v1` carries `CHARACTER_SET_NAME`
+  and `COLLATION_NAME` in its `SELECT`. The Analyzer rule flags legacy
+  `utf8`(=utf8mb3) / `latin1` and collations inconsistent with the database
+  default (already captured by `mysql_schemata_v1`'s
+  `DEFAULT_CHARACTER_SET_NAME` / `DEFAULT_COLLATION_NAME`). `CHARACTER_SET_NAME`
+  and `COLLATION_NAME` are NULL for non-string columns; those NULLs are carried
+  through as absent (nil) values in the normalized evidence exactly like the
+  other nullable columns — never an error. Read-only `information_schema`
+  metadata only (no row data); no new privilege; not `HighSensitivity`.
 
 ## Invariants
 
@@ -193,7 +206,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R012, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R013, INV-MYC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is

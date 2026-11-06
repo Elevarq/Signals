@@ -66,10 +66,10 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
 | `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) — carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918). MariaDB returns `GLOBAL_STATUS` names uppercased; the IN-list matches case-insensitively. |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
-| `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) — row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent). #677 / Analyzer #4004. |
+| `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) — row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent, #677 / Analyzer #4004) + `TABLE_COLLATION` (per-table collation; charset family derivable from it; #684 / Analyzer #4001). |
 | `mariadb_engines_v1` | server | `information_schema.ENGINES` |
 | `mariadb_schemata_v1` | schema | `information_schema.SCHEMATA` |
-| `mariadb_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) — #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native: MariaDB retains `bigint(20)`/`int(11)`), `IS_NULLABLE`, ordinal, key, default, extra. Not HighSensitivity. |
+| `mariadb_columns_v1` | schema | `information_schema.COLUMNS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, ORDINAL_POSITION`) — #538 Replay Tier-1 evidence; per-column name, `COLUMN_TYPE` (DDL-faithful, engine-native: MariaDB retains `bigint(20)`/`int(11)`), `IS_NULLABLE`, ordinal, key, default, extra; + `CHARACTER_SET_NAME` / `COLLATION_NAME` (per-column charset/collation; NULL for non-string columns — carried as absent; #684 / Analyzer #4001). Not HighSensitivity. |
 | `mariadb_index_inventory_v1` | schema | `information_schema.STATISTICS` (excl. system schemas, `ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`) — #538 Replay Tier-1 evidence; per-index name, ordered columns (`SEQ_IN_INDEX`), uniqueness (`NON_UNIQUE`). `INDEX_NAME='PRIMARY'` carries PK identity. `CARDINALITY` (Tier-2) NOT collected. Not HighSensitivity. |
 | `mariadb_innodb_metrics_v1` | resources | `information_schema.INNODB_METRICS WHERE ENABLED=1` |
 | `mariadb_innodb_deadlocks_v1` | resources | `information_schema.INNODB_METRICS WHERE NAME='lock_deadlocks'` (no `ENABLED` filter) | #656; the cumulative InnoDB deadlock count for Analyzer's `innodb.deadlock_rate` rate rule (#3918). Selected **unconditionally** (not gated on `ENABLED=1`) so the single `lock_deadlocks` row is always present with its `ENABLED` flag, making the signal module-independent: `ENABLED=1` (the default across MariaDB 10.11/11.4/12.3) → `COUNT` is the live cumulative counter; `ENABLED=0` → the row still returns so the consumer emits NOT_ASSESSED rather than a silent zero. Bounded to one row. No sensitive payload. |
@@ -177,6 +177,19 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   evidence exactly like the other nullable sizing columns — never an error and
   never a fabricated zero. Still `information_schema.TABLES` metadata only (no
   row data); read-only; not `HighSensitivity`.
+- **MDC-R015** | Per-table and per-column charset/collation for Analyzer's
+  utf8mb4-readiness / charset-collation-mismatch rule (Elevarq/Analyzer#4001).
+  `mariadb_table_statistics_v1` carries `TABLE_COLLATION` in its `SELECT`
+  (the charset family is derivable from the collation — `information_schema.TABLES`
+  has no direct charset column); `mariadb_columns_v1` carries
+  `CHARACTER_SET_NAME` and `COLLATION_NAME` in its `SELECT`. The Analyzer rule
+  flags legacy `utf8`(=utf8mb3) / `latin1` and collations inconsistent with the
+  database default (already captured by `mariadb_schemata_v1`'s
+  `DEFAULT_CHARACTER_SET_NAME` / `DEFAULT_COLLATION_NAME`). `CHARACTER_SET_NAME`
+  and `COLLATION_NAME` are NULL for non-string columns; those NULLs are carried
+  through as absent (nil) values in the normalized evidence exactly like the
+  other nullable columns — never an error. Read-only `information_schema`
+  metadata only (no row data); no new privilege; not `HighSensitivity`.
 
 ## Invariants
 
@@ -218,7 +231,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R014, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R015, INV-MDC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
