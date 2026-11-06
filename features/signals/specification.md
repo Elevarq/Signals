@@ -1855,7 +1855,7 @@ state in memory and gate `collectTarget` invocations on it:
 | State | Behaviour |
 |-------|-----------|
 | `closed` | Normal — cycles run. |
-| `open` | Auto-disabled after `fail_threshold` (default 3) consecutive `collectTarget` errors. Skips cycles. Auto-recovers to `closed` after `open_cooldown` (default 5m). |
+| `open` | Auto-disabled after `fail_threshold` (default 3) consecutive `collectTarget` errors. Skips cycles. Auto-recovers to `closed` after a backed-off cooldown: `min(open_cooldown * 2^(N-1), max_open_cooldown)` for the Nth consecutive open cycle (base `open_cooldown` default 5m, cap `max_open_cooldown` default 1h — R097-B). Never terminal; a success or manual resume resets the backoff. |
 | `paused` | Manually disabled via `signalsctl collect pause` or `POST /collect/pause`. Stays `paused` until explicit `resume`. |
 
 Manual `paused` takes priority over the auto state (INV-CIRC-02).
@@ -1893,7 +1893,8 @@ Configuration:
 signals:
   circuit:
     fail_threshold: 3
-    open_cooldown: 5m
+    open_cooldown: 5m        # base cooldown for the first open cycle
+    max_open_cooldown: 1h    # cap on the capped-exponential backoff (R097-B)
 ```
 
 ### Failure conditions (R097)

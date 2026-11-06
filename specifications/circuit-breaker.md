@@ -40,12 +40,79 @@ times (default; configurable via `signals.circuit.fail_threshold`).
 "Failed" means `collectTarget` returned a non-nil error — the same
 signal that today drives the `collect_error` audit event.
 
-**open → closed** automatically when the cooldown elapses (default
-5 minutes; configurable via `signals.circuit.open_cooldown`). The
+**open → closed** automatically when the cooldown elapses. The
 next scheduled cycle runs; if it fails again, the circuit returns
 to `open` immediately (the consecutive-fail counter is preserved
 across the open-cooldown boundary so a single recovery cycle is
 not required to climb from zero).
+
+The open-cooldown is **not** a fixed interval — it grows on a capped
+exponential backoff across consecutive open cycles (R097-B, below), so
+a persistently-failing target is re-probed less and less aggressively
+rather than hammered every fixed cooldown. The circuit NEVER reaches a
+terminal "give up" state: it always eventually re-probes, just at a
+longer interval.
+
+### R097-B — capped exponential open-cooldown backoff
+
+**Purpose.** The owner's requirement: "Signals should never stop trying
+to collect data, just the interval for the retry must change." A target
+that keeps failing must keep being re-probed, but the probe interval
+must back off so a chronically-broken target is not retried every fixed
+`open_cooldown` forever.
+
+**Inputs.**
+
+- `base` — `signals.circuit.open_cooldown` (default 5m). The cooldown
+  for the first open cycle.
+- `maxCooldown` — `signals.circuit.max_open_cooldown` (default 1h). The
+  cap on the backed-off cooldown. Zero / negative → default. If a
+  configured `max_open_cooldown` is smaller than `base`, the effective
+  cooldown is clamped to `base` (the cap can never shorten the first
+  cooldown below the base).
+- `openEpochs` — the count of consecutive `closed → open` transitions
+  with no intervening success or manual resume. The first open sets it
+  to 1.
+
+**Output — effective cooldown.** For the Nth consecutive open cycle
+(`N = openEpochs ≥ 1`):
+
+```
+effectiveCooldown(N) = min(base * 2^(N-1), maxCooldown)
+```
+
+So with `base=5m`, `maxCooldown=1h`: 5m, 10m, 20m, 40m, 60m, 60m, … The
+shift is computed with a guard so `base * 2^(N-1)` cannot overflow
+`time.Duration` — once `base << (N-1)` would exceed `maxCooldown` (or
+overflow), the result is `maxCooldown`.
+
+**Behaviour.**
+
+- On each `closed → open` transition `openEpochs` increments and
+  `openedAt` is set to `now`. The circuit stays open until
+  `now - openedAt >= effectiveCooldown(openEpochs)`.
+- `open → closed` (cooldown elapsed) preserves `openEpochs` and the
+  consecutive-fail counter, so the next cycle IS the probe exactly as
+  today; a single failure re-opens, and because `openEpochs` has
+  incremented the NEXT open cycle uses the next (larger, capped)
+  cooldown.
+- **`RecordSuccess` resets the backoff** — `openEpochs → 0` and the
+  consecutive-fail counter → 0, so the next open cycle starts again at
+  `base`.
+- **Manual `Resume` resets the backoff** too (`openEpochs → 0`),
+  alongside the existing fail-counter reset.
+- **`Pause` does not touch `openEpochs`** — it is an operator state
+  orthogonal to the auto-backoff; a resume (not a pause) is what clears
+  the backoff.
+- **Restore anchor.** A restored `open` circuit anchors `openedAt` at
+  the persisted `since` (unchanged) and seeds `openEpochs = 1` — i.e. it
+  resumes at the `base` cooldown, not at whatever backed-off level it had
+  reached before the restart. Rationale: the pre-restart epoch count is
+  not persisted (the `circuit_state` store carries only state + since +
+  reason + actor), and starting the restored target at `base` is the
+  conservative, re-probe-sooner choice — it never makes a restored target
+  wait longer than a fresh open would, and it still backs off again if the
+  target keeps failing after the restart.
 
 **closed | open → paused** when the operator issues
 `signalsctl collect pause` (or `POST /collect/pause`). Carries a
@@ -178,6 +245,17 @@ Operators alert on `signals_circuit_state{state=~"open|paused"} == 1`.
   caller's perspective — the API endpoint and CLI subcommand return
   only after the state has flipped. The next tick uses the new
   state.
+- **INV-CIRC-05** (R097-B): The circuit is never terminal — it ALWAYS
+  eventually re-probes. For any finite `openEpochs`, `effectiveCooldown`
+  is finite (`≤ max_open_cooldown`), so a persistently-failing target is
+  always re-probed after a bounded interval. There is no "give up"
+  state.
+- **INV-CIRC-06** (R097-B): The effective cooldown is monotonically
+  non-decreasing in `openEpochs` and capped: for all `N ≥ 1`,
+  `base ≤ effectiveCooldown(N) ≤ max_open_cooldown` (with `base` clamped
+  to `max_open_cooldown` when a misconfiguration sets the cap below the
+  base). A success or a manual resume resets `openEpochs` to 0, so the
+  next open cycle starts again at `base`.
 
 ## Failure Conditions
 
@@ -201,12 +279,15 @@ Operators alert on `signals_circuit_state{state=~"open|paused"} == 1`.
 signals:
   circuit:
     fail_threshold: 3        # consecutive failures before closed → open
-    open_cooldown: 5m        # duration in open before auto-recovery to closed
+    open_cooldown: 5m        # BASE cooldown for the first open cycle
+    max_open_cooldown: 1h    # cap on the backed-off cooldown (R097-B)
 ```
 
-Both fields have sensible defaults. `fail_threshold` must be ≥ 1.
-`open_cooldown` must be > 0. `ValidateStrict` rejects out-of-range
-values.
+All fields have sensible defaults. `fail_threshold` must be ≥ 1.
+`open_cooldown` must be > 0. `max_open_cooldown` must be ≥ 0 (0 → the
+1h default). `ValidateStrict` rejects negative values. The effective
+cooldown for the Nth consecutive open cycle is
+`min(open_cooldown * 2^(N-1), max_open_cooldown)` (R097-B).
 
 ## Audit events
 
@@ -230,8 +311,42 @@ values.
   granularity below that is the sensitivity-profile concern (issue
   #69).
 - Adaptive thresholds based on target health history. The defaults
-  (3 consecutive failures, 5min cooldown) are operator-tunable but
-  not auto-tuned.
+  (3 consecutive failures, 5min base cooldown) are operator-tunable
+  but not auto-tuned. The backoff in R097-B is a deterministic capped
+  exponential of the open-cycle count — it is NOT health-history-driven
+  adaptive tuning of `fail_threshold`.
+
+## Acceptance cases (R097-B — backoff)
+
+Language-neutral acceptance cases for the capped-exponential open-cooldown
+backoff. Each maps to a test in `internal/circuit/circuit_test.go`.
+
+- **TC-CIRC-09 (normal — backoff grows):** With `base=1m`,
+  `max_open_cooldown=10m`, open the circuit; the first open cooldown is
+  `1m`. After it elapses and a single failure re-opens, the second open
+  cooldown is `2m`, the third `4m`, the fourth `8m` — each consecutive
+  open cycle doubles the required cooldown.
+- **TC-CIRC-10 (boundary — cap):** With `base=1m`, `max_open_cooldown=3m`,
+  the cooldown sequence is `1m, 2m, 3m, 3m, …` — it never exceeds the cap
+  and never overflows regardless of how many consecutive opens occur
+  (e.g. 60 consecutive opens still cap at `3m`).
+- **TC-CIRC-11 (reset on success):** After the backoff has grown (e.g. to
+  the 4m level), a `RecordSuccess` resets `openEpochs`; the next open
+  cycle's cooldown is back to `base`.
+- **TC-CIRC-12 (reset on resume):** A manual `Resume` resets the backoff
+  the same way `RecordSuccess` does; the next open cycle is `base`.
+- **TC-CIRC-13 (never terminal):** No matter how many consecutive opens
+  occur, `ShouldCollect` always transitions `open → closed` once the
+  (capped) cooldown elapses — the target is always re-probed.
+- **TC-CIRC-14 (pause leaves backoff intact):** `Pause` does not reset
+  `openEpochs`; only a `Resume` (or a success) does. (Validated via the
+  reset-on-resume path — pause is the operator state, resume is the
+  reset.)
+- **TC-CIRC-15 (restore anchor):** A restored `open` circuit resumes at
+  `base` (`openEpochs = 1`), anchored at the persisted `since`.
+- **TC-CIRC-16 (cap < base misconfig):** If `max_open_cooldown < base`,
+  the effective cooldown is clamped to `base` (the cap cannot shorten the
+  first cooldown below the base).
 
 ## Analyzer requirements unblocked
 
