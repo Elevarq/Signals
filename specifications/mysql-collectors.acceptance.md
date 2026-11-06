@@ -251,3 +251,46 @@ charset/collation values and the non-string column's row carries
 
 **Expected Result:** Pass when both columns are selected and a NULL is carried
 through as nil.
+
+---
+
+### TC-MYC-15: global_variables carries the batch-2 observability/replication/InnoDB/charset variables (normal)
+
+**Rule:** MYC-R014
+
+**Given:** `mysql_global_variables_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains each batch-2 variable — observability (`slow_query_log`,
+`long_query_time`, `log_output`, `performance_schema`), replication/HA config
+(`super_read_only`, `gtid_mode`, `enforce_gtid_consistency`,
+`binlog_expire_logs_seconds`, `expire_logs_days`, `rpl_semi_sync_source_enabled`,
+`rpl_semi_sync_replica_enabled`, `rpl_semi_sync_master_enabled`,
+`rpl_semi_sync_slave_enabled`, `log_replica_updates`, `log_slave_updates`),
+InnoDB internals (`innodb_adaptive_hash_index`, `innodb_flush_neighbors`,
+`innodb_change_buffering`, `innodb_read_io_threads`, `innodb_write_io_threads`),
+and server charset/collation (`character_set_server`, `collation_server`),
+alongside the existing #660 sizing variables; the statement is a read-only
+`SELECT` and the collector is not `HighSensitivity`.
+
+**Expected Result:** Pass when every batch-2 variable is in the IN-list.
+
+---
+
+### TC-MYC-16: version-absent batch-2 variable is carried as absent, never an error (boundary / invalid)
+
+**Rule:** MYC-R014
+
+**Given:** `mysql_global_variables_v1` run against a MySQL version where a batch-2
+variable does not exist (e.g. `rpl_semi_sync_source_enabled` on MySQL <8.0.26, or
+`binlog_expire_logs_seconds` vs `expire_logs_days`).
+
+**When:** the version-tolerant IN-list SELECT executes.
+
+**Then:** the absent variable simply returns no row — the collector result is a
+successful partial set, never a failure, and no credential variable is ever named
+in the IN-list.
+
+**Expected Result:** Pass when an absent variable yields no row (no error) and the
+IN-list contains no credential/secret variable name.

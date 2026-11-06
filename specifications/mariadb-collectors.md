@@ -63,7 +63,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | ID | Category | Source |
 |----|----------|--------|
 | `mariadb_identity_v1` | server | `SELECT VERSION(), @@version_comment` |
-| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity); version-tolerant IN-list (#660) |
+| `mariadb_global_variables_v1` | config | `information_schema.GLOBAL_VARIABLES` (IN-list) | connection, durability + config-sizing tunables (buffer pool, log, temp/sort/join buffers, table/thread caches, io_capacity; #660); + observability (slow-query log, `performance_schema`), replication/HA config (`gtid_strict_mode`/`gtid_domain_id`, semi-sync, binlog retention), InnoDB internals (adaptive hash, flush neighbors, change buffering, IO threads), and server charset/collation (#679 / Analyzer #4004); version-tolerant IN-list (absent vars simply return no row) |
 | `mariadb_global_status_v1` | resources | `information_schema.GLOBAL_STATUS` (IN-list) — carries the InnoDB buffer-pool read counters `Innodb_buffer_pool_reads` + `Innodb_buffer_pool_read_requests` for Analyzer's buffer-pool-read-pressure rate rule (#656 / Analyzer #3918). MariaDB returns `GLOBAL_STATUS` names uppercased; the IN-list matches case-insensitively. |
 | `mariadb_processlist_v1` | activity | `information_schema.PROCESSLIST` — **HighSensitivity**, `INFO` redacted |
 | `mariadb_table_statistics_v1` | schema | `information_schema.TABLES` (excl. system schemas) — row/byte sizing + `AUTO_INCREMENT` (the current counter value; NULL for tables with no AUTO_INCREMENT column — carried as absent, #677 / Analyzer #4004) + `TABLE_COLLATION` (per-table collation; charset family derivable from it; #684 / Analyzer #4001). |
@@ -190,6 +190,26 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   through as absent (nil) values in the normalized evidence exactly like the
   other nullable columns — never an error. Read-only `information_schema`
   metadata only (no row data); no new privilege; not `HighSensitivity`.
+- **MDC-R016** | `mariadb_global_variables_v1` extends its `GLOBAL_VARIABLES`
+  IN-list with the "batch 2" variables for the Analyzer observability,
+  replication-config, and InnoDB-internals rule tranches (Elevarq/Analyzer#4004):
+  observability — `slow_query_log`, `long_query_time`, `log_output`,
+  `performance_schema`; replication/HA config — `gtid_strict_mode`,
+  `gtid_domain_id` (the MariaDB GTID analogs), `expire_logs_days` (binlog
+  retention), `rpl_semi_sync_master_enabled`, `rpl_semi_sync_slave_enabled`
+  (MariaDB semi-sync naming), `log_slave_updates`; InnoDB internals —
+  `innodb_adaptive_hash_index`, `innodb_flush_neighbors`,
+  `innodb_change_buffering`, `innodb_read_io_threads`,
+  `innodb_write_io_threads`; and server charset/collation —
+  `character_set_server`, `collation_server` (the global complement of the
+  per-table/per-column charset evidence of MDC-R015). The IN-list stays a
+  curated allowlist (no `SHOW ALL VARIABLES`, no credential variables) and is
+  version-tolerant: a variable absent on a given MariaDB version simply returns
+  no row — never an error. MySQL-only names (`super_read_only`, `gtid_mode`,
+  `enforce_gtid_consistency`, `binlog_expire_logs_seconds`, the
+  `source`/`replica` semi-sync names, `log_replica_updates`) are not carried on
+  the MariaDB collector, whose GTID/semi-sync model uses the names above.
+  Read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -231,7 +251,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R015, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R016, INV-MDC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
