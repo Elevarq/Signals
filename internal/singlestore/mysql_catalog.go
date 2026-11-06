@@ -45,9 +45,28 @@ func mysqlCatalog() []Collector {
 			// added for Analyzer's buffer-pool-read-pressure rate rule (#3918).
 			// Cumulative counters — no producer-side delta; the Analyzer owns the
 			// interval (MYC-R010). Confirmed present live across MySQL 8.0/8.4/9.7.
+			//
+			// #678 (MYC-R015): the global_status analog of the #679/MYC-R014
+			// global_variables batch-2 expansion — workload-counter and
+			// InnoDB-internals counters for the Analyzer workload-counter and
+			// InnoDB-internals rule tranches (umbrella Elevarq/Analyzer#4004).
+			// Workload/query: Created_tmp_disk_tables/Created_tmp_tables (on-disk
+			// temp-table ratio), Select_scan/Select_full_join (scan/join rate),
+			// Sort_merge_passes (sort-buffer pressure), Handler_read_rnd_next
+			// (scan-heavy), Threads_created/Table_open_cache_hits/
+			// Table_open_cache_misses (thread + table-cache miss rate). InnoDB:
+			// Innodb_buffer_pool_pages_dirty/_total (dirty/flush pressure),
+			// Innodb_buffer_pool_wait_free/Innodb_log_waits (redo/flush stalls),
+			// Innodb_row_lock_waits/Innodb_row_lock_time (lock pressure), and
+			// Innodb_deadlocks where present (enables the deadlock-RATE rule; cf.
+			// the deadlock-observability rule Elevarq/Analyzer#4009). All are
+			// cumulative counters (no producer-side delta — the Analyzer owns the
+			// interval). The IN-list stays a curated allowlist (no SHOW ALL STATUS,
+			// no credentials) and is version-tolerant: a counter absent on a given
+			// build simply returns no row, never an error.
 			ID:       "mysql_global_status_v1",
 			Category: "resources",
-			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables', 'Innodb_buffer_pool_reads', 'Innodb_buffer_pool_read_requests')",
+			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM performance_schema.global_status WHERE VARIABLE_NAME IN ('Threads_connected', 'Threads_running', 'Uptime', 'Questions', 'Slow_queries', 'Aborted_connects', 'Max_used_connections', 'Open_tables', 'Innodb_buffer_pool_reads', 'Innodb_buffer_pool_read_requests', 'Created_tmp_disk_tables', 'Created_tmp_tables', 'Select_scan', 'Select_full_join', 'Sort_merge_passes', 'Handler_read_rnd_next', 'Threads_created', 'Table_open_cache_hits', 'Table_open_cache_misses', 'Innodb_buffer_pool_pages_dirty', 'Innodb_buffer_pool_pages_total', 'Innodb_buffer_pool_wait_free', 'Innodb_log_waits', 'Innodb_row_lock_waits', 'Innodb_row_lock_time', 'Innodb_deadlocks')",
 		},
 		{
 			ID:               "mysql_processlist_v1",

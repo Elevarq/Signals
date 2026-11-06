@@ -184,6 +184,27 @@ wire session, identity resolution, and persistence/export.
   `source`/`replica` names on <8.0.26, the `master`/`slave` names on newer
   releases, `binlog_expire_logs_seconds` vs `expire_logs_days`) simply returns
   no row — never an error. Read-only; not `HighSensitivity`.
+- **MYC-R015** | `mysql_global_status_v1` extends its `global_status` IN-list
+  with the workload-counter and InnoDB-internals counters for the Analyzer
+  workload-counter and InnoDB-internals rule tranches (umbrella
+  Elevarq/Analyzer#4004) — the `global_status` analog of the MYC-R014
+  `global_variables` batch-2 expansion. Workload / query counters —
+  `Created_tmp_disk_tables`, `Created_tmp_tables` (on-disk temp-table ratio),
+  `Select_scan`, `Select_full_join` (server-wide scan/join rate),
+  `Sort_merge_passes` (sort-buffer pressure), `Handler_read_rnd_next`
+  (scan-heavy workload), `Threads_created`, `Table_open_cache_hits`,
+  `Table_open_cache_misses` (thread/table-cache miss rate). InnoDB internals —
+  `Innodb_buffer_pool_pages_dirty`, `Innodb_buffer_pool_pages_total`
+  (dirty/flush pressure), `Innodb_buffer_pool_wait_free`, `Innodb_log_waits`
+  (redo/flush stalls), `Innodb_row_lock_waits`, `Innodb_row_lock_time` (lock
+  pressure), and `Innodb_deadlocks` where present (enables the deadlock-*rate*
+  rule; cf. the deadlock-*observability* rule Elevarq/Analyzer#4009 that flags
+  its absence). All are cumulative counters — no producer-side delta; the
+  Analyzer owns the interval (as with MYC-R010). The IN-list stays a curated
+  allowlist (no `SHOW ALL STATUS`, no credentials) and is version-tolerant: a
+  counter absent on a given MySQL version (e.g. `Innodb_deadlocks` where the
+  build does not expose it) simply returns no row — never an error, never a
+  fabricated zero. Read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -225,7 +246,7 @@ wire session, identity resolution, and persistence/export.
 ## Traceability
 
 Acceptance: `specifications/mysql-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MYC-R001..R014, INV-MYC-01..03).
+Matrix: `features/signals/traceability.md` (MYC-R001..R015, INV-MYC-01..03).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
