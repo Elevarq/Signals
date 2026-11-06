@@ -6,6 +6,28 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.5] - 2026-11-06
+
+### Fixed
+
+- **MySQL/MariaDB OLAP databases no longer collapse into a single
+  Analyzer/Workbench card** (#699). The MySQL and MariaDB catalogs now emit the
+  neutral `server_identity_v1` collector carrying the connected `database_name`
+  (`DATABASE()`, resolved from the target DSN's dbname). The Analyzer keys a
+  database's identity on `server_identity_v1.database_name`; previously only
+  `mysql_identity_v1` / `mariadb_identity_v1` were emitted (with no database
+  name), so two schemas on one server — e.g. a `tpcc` OLTP database and a `tpch`
+  OLAP database — both arrived nameless and merged into one card. This matches
+  the PostgreSQL path (`current_database()`). `performance_schema` statement
+  digests remain server-wide (shared across the cards), but the per-database
+  schema + identity is now distinct.
+
+### Security
+
+- Bumped `golang.org/x/net` 0.61.0 → 0.62.0, clearing the low-severity
+  advisories GO-2026-6860 / GO-2026-6866 flagged by code scanning (#66, #67);
+  `govulncheck` reports 0 reachable vulnerabilities after the bump.
+
 ## [2.0.0-poc.4] - 2026-11-04
 
 ### Fixed

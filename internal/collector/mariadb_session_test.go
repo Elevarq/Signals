@@ -67,8 +67,11 @@ func TestCollectTarget_MariaDBProductionBoundary(t *testing.T) {
 		t.Fatal("no runs persisted for the mariadb snapshot")
 	}
 	for _, r := range runs {
-		if !strings.HasPrefix(r.QueryID, "mariadb_") {
-			t.Errorf("mariadb snapshot carried a non-mariadb collector %q (foreign catalog leaked)", r.QueryID)
+		// #699: server_identity_v1 is the neutral (engine-agnostic) identity
+		// collector carrying database_name — legitimately present in every
+		// engine's snapshot, not a foreign-catalog leak.
+		if !strings.HasPrefix(r.QueryID, "mariadb_") && r.QueryID != "server_identity_v1" {
+			t.Errorf("mariadb snapshot carried a non-mariadb, non-neutral collector %q (foreign catalog leaked)", r.QueryID)
 		}
 		if r.Status != "success" {
 			t.Errorf("collector %q status=%q, want success", r.QueryID, r.Status)

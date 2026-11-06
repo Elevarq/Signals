@@ -46,6 +46,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_table_statistics_v1",
 		"mysql_user_accounts_v1",
 		"mysql_user_privileges_v1",
+		"server_identity_v1",
 	}
 	var got []string
 	for _, c := range mysqlCatalog() {
@@ -54,6 +55,44 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 	sort.Strings(got)
 	if strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Errorf("mysql catalog set = %v, want %v", got, want)
+	}
+}
+
+// TC-MYC-25 (MYC-R020, #699): the neutral server_identity_v1 collector carries
+// the connected database_name (DATABASE()), so the Analyzer keys each per-dbname
+// target on one MySQL server as a DISTINCT database (tpcc OLTP vs tpch OLAP) —
+// without it both collapse into a single card. It is a read-only SELECT, needs
+// no elevated privilege, and carries no sensitive payload. DATABASE() returns
+// the connected schema (the target DSN sets it) and is carried through as a
+// plain value; a NULL (target with no dbname) is absent, never an error.
+func TestMySQLServerIdentityDatabaseName(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "server_identity_v1")
+	if c == nil {
+		t.Fatal("server_identity_v1 missing from the MySQL catalog")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("server_identity_v1 must be a read-only SELECT: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("server_identity_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "DATABASE()") || !strings.Contains(up, "DATABASE_NAME") {
+		t.Errorf("server_identity_v1 must select DATABASE() AS database_name; SQL=%q", c.SQL)
+	}
+	// The connected database name is carried through as the row's database_name.
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "DATABASE()") {
+			return []map[string]any{{"database_name": "tpch", "version": "8.4.0"}}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["database_name"]; v != "tpch" {
+		t.Errorf("server_identity_v1 database_name = %v, want tpch", v)
 	}
 }
 
