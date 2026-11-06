@@ -22,7 +22,7 @@ func TestMariaDBCatalogReadOnly(t *testing.T) {
 	}
 }
 
-// TC-MDC-02 (MDC-R005): expected MariaDB collector set (18, all green under SELECT,PROCESS).
+// TC-MDC-02 (MDC-R005): expected MariaDB collector set (all green under SELECT,PROCESS).
 func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	want := []string{
 		"mariadb_columns_v1",
@@ -43,6 +43,8 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 		"mariadb_schemata_v1",
 		"mariadb_statement_digests_v1",
 		"mariadb_table_statistics_v1",
+		"mariadb_user_accounts_v1",
+		"mariadb_user_privileges_v1",
 	}
 	var got []string
 	for _, c := range mariadbCatalog() {

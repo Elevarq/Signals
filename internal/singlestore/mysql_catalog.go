@@ -246,5 +246,42 @@ func mysqlCatalog() []Collector {
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, MEMBER_ID, MEMBER_HOST, MEMBER_PORT, MEMBER_STATE, MEMBER_ROLE, MEMBER_VERSION FROM performance_schema.replication_group_members",
 		},
+		{
+			// #693 (MYC-R016): the user-account inventory for the Analyzer
+			// security/grants rule tranche (umbrella Elevarq/Analyzer#4004):
+			// remote-root (root@'%') / anonymous / passwordless accounts and
+			// weak/legacy auth plugins. THE MOST SENSITIVE COLLECTOR — it reads
+			// mysql.user, so the SELECT list is proven secret-free by construction
+			// (INV-MYC-04): it carries ONLY User, Host, plugin, and a COMPUTED
+			// boolean has_empty_password. The authentication_string hash column (MySQL
+			// 8 has no Password column) is NEVER named in the select list, the
+			// normalized evidence, logs, or any error — the empty-password signal is
+			// the *fact* of an empty/absent password, carried solely as the derived
+			// boolean (authentication_string = '' OR authentication_string IS NULL).
+			// plugin is always non-empty for a usable MySQL 8 account (the server
+			// ignores empty-plugin rows), so it reliably reports the real plugin; a
+			// consumer pairs it with has_empty_password to tell a true blank password
+			// from an external-auth account (e.g. auth_socket). Reading the mysql
+			// schema is covered by the baseline global SELECT grant (mysql-grants.md
+			// MYG-R001); a permission denial is a legitimate skip recorded in Err
+			// (MYC-R002/R017), never a cycle failure. Metadata only (no row data);
+			// read-only; not HighSensitivity.
+			ID:       "mysql_user_accounts_v1",
+			Category: "security",
+			SQL:      "SELECT User, Host, plugin, (authentication_string = '' OR authentication_string IS NULL) AS has_empty_password FROM mysql.user",
+		},
+		{
+			// #693 (MYC-R017): the global-privilege inventory so the Analyzer
+			// security rules can see *.* privilege sprawl and WITH GRANT OPTION
+			// (IS_GRANTABLE='YES'). information_schema.USER_PRIVILEGES has no
+			// password/hash column at all (INV-MYC-04) — secret-free by construction.
+			// Under the baseline global SELECT grant the account sees every grantee's
+			// global privileges; a narrower grant shows only its own rows (a
+			// legitimate reduced result, not a failure). Metadata only; read-only;
+			// not HighSensitivity.
+			ID:       "mysql_user_privileges_v1",
+			Category: "security",
+			SQL:      "SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.USER_PRIVILEGES",
+		},
 	}
 }

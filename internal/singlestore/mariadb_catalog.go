@@ -239,5 +239,48 @@ func mariadbCatalog() []Collector {
 			Category: "topology",
 			SQL:      "SELECT VARIABLE_NAME, VARIABLE_VALUE FROM information_schema.GLOBAL_STATUS WHERE VARIABLE_NAME IN ('WSREP_CLUSTER_SIZE', 'WSREP_CLUSTER_STATUS', 'WSREP_CONNECTED', 'WSREP_READY', 'WSREP_LOCAL_STATE_COMMENT', 'WSREP_LOCAL_RECV_QUEUE', 'WSREP_FLOW_CONTROL_PAUSED', 'WSREP_CERT_DEPS_DISTANCE')",
 		},
+		{
+			// #693 (MDC-R018): the user-account inventory for the Analyzer
+			// security/grants rule tranche (umbrella Elevarq/Analyzer#4004):
+			// remote-root / anonymous / passwordless accounts and weak/legacy auth
+			// plugins. THE MOST SENSITIVE COLLECTOR — it reads the read-only
+			// mysql.user VIEW, so the SELECT list is proven secret-free by
+			// construction (INV-MDC-04): it carries ONLY User, Host, plugin, and a
+			// COMPUTED boolean has_empty_password. The Password / authentication_string
+			// hash columns (the MariaDB mysql.user view retains both) are NEVER named
+			// in the select list, the normalized evidence, logs, or any error — the
+			// empty-password signal is the derived boolean only: both hash columns
+			// empty/NULL ⇒ no password.
+			//
+			// LOWEST-EXPOSURE SOURCE + OWNER-DECISION FLAG: MariaDB (unlike MySQL 8)
+			// has NO reliable hash-free single source. The mysql.user VIEW is the
+			// lowest-exposure SELECT-able source that works under the baseline grant;
+			// we deliberately DO NOT read mysql.global_priv because its JSON Priv
+			// column embeds the hash. The documented cost is plugin precision:
+			// MariaDB states the mysql.user view "doesn't show alternative
+			// authentication plugins", so plugin can be empty/mysql_native_password
+			// for accounts whose real plugin (ed25519, unix_socket, multi-auth) lives
+			// in the JSON. has_empty_password stays correct regardless. This residual
+			// trade-off is flagged for owner review (issue #693), not silently
+			// resolved by requiring the hash-exposing source. Reading the mysql schema
+			// is covered by the baseline global SELECT grant (mariadb-grants.md
+			// MDG-R001); a permission denial is a legitimate skip (MDC-R002/R019).
+			// Metadata only (no row data); read-only; not HighSensitivity.
+			ID:       "mariadb_user_accounts_v1",
+			Category: "security",
+			SQL:      "SELECT User, Host, plugin, ((Password = '' OR Password IS NULL) AND (authentication_string = '' OR authentication_string IS NULL)) AS has_empty_password FROM mysql.user",
+		},
+		{
+			// #693 (MDC-R019): the global-privilege inventory so the Analyzer
+			// security rules can see *.* privilege sprawl and WITH GRANT OPTION
+			// (IS_GRANTABLE='YES'). information_schema.USER_PRIVILEGES has no
+			// password/hash column (INV-MDC-04) — secret-free by construction. Under
+			// the baseline global SELECT grant the account sees every grantee; a
+			// narrower grant shows only its own rows (a legitimate reduced result).
+			// Metadata only; read-only; not HighSensitivity.
+			ID:       "mariadb_user_privileges_v1",
+			Category: "security",
+			SQL:      "SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM information_schema.USER_PRIVILEGES",
+		},
 	}
 }

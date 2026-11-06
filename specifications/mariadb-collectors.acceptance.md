@@ -376,3 +376,68 @@ credential/secret name is ever present in the IN-list.
 
 **Expected Result:** Pass when an absent counter yields no row (no error) and the
 IN-list contains no credential/secret name.
+
+---
+
+### TC-MDC-24: user-accounts collector is secret-free with a computed empty-password flag (normal / safety)
+
+**Rule:** MDC-R018, INV-MDC-04
+
+**Given:** `mariadb_user_accounts_v1`.
+
+**When:** its SQL and (via `Collect`) its normalized rows are inspected for a
+`mysql.user` view fixture carrying `root`@`%`, an anonymous `''`@`localhost`, and
+a passwordless account.
+
+**Then:** the `SELECT` list is exactly `User`, `Host`, `plugin`, and the computed
+boolean `((Password = '' OR Password IS NULL) AND (authentication_string = '' OR
+authentication_string IS NULL)) AS has_empty_password`; the statement names no
+`Password` / `authentication_string` / hash column in its select list; it reads
+the read-only `mysql.user` view (NOT `mysql.global_priv`); the collector is a
+read-only `SELECT` and is not `HighSensitivity`; and every returned row carries
+`User` / `Host` / `plugin` / `has_empty_password` and NO `Password` /
+`authentication_string` / hash key.
+
+**Expected Result:** Pass when the empty-password signal is the derived boolean,
+the lowest-exposure view source is read, and no hash column is selected or
+present in the evidence.
+
+---
+
+### TC-MDC-25: user-privileges collector carries grantee/privilege/grantable (normal)
+
+**Rule:** MDC-R019
+
+**Given:** `mariadb_user_privileges_v1`.
+
+**When:** its SQL is inspected and `Collect` runs over a `USER_PRIVILEGES`
+fixture with a `*.*` grant and a `WITH GRANT OPTION` row.
+
+**Then:** the `SELECT` reads `GRANTEE`, `PRIVILEGE_TYPE`, `IS_GRANTABLE` from
+`information_schema.USER_PRIVILEGES`; it is read-only and not `HighSensitivity`;
+the returned rows carry the grantee, the privilege type, and the `IS_GRANTABLE`
+flag; and a permission-denied error degrades (recorded in `Err`) without
+aborting the other collectors.
+
+**Expected Result:** Pass when the privilege shape is captured and a denial is a
+non-fatal skip.
+
+---
+
+### TC-MDC-26: no MariaDB collector selects a password/hash column (invariant / safety)
+
+**Rule:** INV-MDC-04
+
+**Given:** `mariadbCatalog()`.
+
+**When:** every collector's SQL select list is scanned (case-insensitively) for
+a password/hash column name (`Password`, `authentication_string`, or any
+`*password*` / hash token appearing as a selected column, not inside the computed
+`has_empty_password` boolean or an IN-list predicate).
+
+**Then:** no collector selects such a column, no collector reads
+`mysql.global_priv`, and no normalized evidence key of the security collectors is
+a password/hash column.
+
+**Expected Result:** Pass when the catalog is provably hash-free in its select
+lists and evidence.
