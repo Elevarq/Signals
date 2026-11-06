@@ -1324,3 +1324,63 @@ snapshot.
 **Failure Expectation:** Refusing the `--all` scope, or emitting a ZIP
 whose `collection_status` reads `ok` when there is no successful data,
 regresses R125.
+
+---
+
+## TC-SIG-140: Classifier Maps Recognizable Errors to a Specific FailureReasonCode
+
+**Linked Rules:** SIGNALS-R128, FC-10
+**Scenario:** A collection cycle fails with a recognizable
+PostgreSQL / connection error (NORMAL + BOUNDARY).
+**Inputs:** Representative errors — a `*pgconn.PgError` with SQLSTATE
+`28P01` (invalid password), SQLSTATE `28000` (invalid authorization),
+SQLSTATE `42501` (insufficient privilege); a wrapped "connection
+refused" / i/o timeout; a TLS certificate-verification error; a
+statement-timeout error.
+**Expected Behavior:** The failure-reason classifier returns a
+**specific** `FailureReasonCode`: `28P01`/`28000` → `auth_failed`;
+`42501` → `role_insufficient`; connection refused / timeout /
+host-unreachable → `target_unreachable`; TLS verification failure →
+`target_tls_invalid`; statement timeout → `collector_query_timeout`.
+**Failure Expectation:** Flattening any recognizable error to the
+`unknown` (catch-all) bucket regresses R128.
+
+---
+
+## TC-SIG-141: Unknown Category Still Carries the Redacted Real Error (never invisible)
+
+**Linked Rules:** SIGNALS-R128, FC-11, INV-SIGNALS-07
+**Scenario:** A collection cycle fails with an error the classifier
+cannot map to a specific code (INVALID / unrecognized input), and the
+raw error text embeds a credential-bearing DSN.
+**Inputs:** An opaque error whose `Error()` contains a
+`postgres://user:secret@host/db` DSN and no recognizable sentinel.
+**Expected Behavior:** The surfaced `category` is `unknown`, and the
+surfaced `message` is the **redacted** real error text — the password
+is replaced with `****` (no plaintext secret), but the real,
+non-secret error detail survives so the failure is diagnosable. The
+message is non-empty.
+**Failure Expectation:** An empty message on the `unknown` bucket (the
+pre-fix behavior, where the real error was logged but never surfaced)
+regresses R128; a message that leaks the plaintext password regresses
+INV-SIGNALS-07.
+
+---
+
+## TC-SIG-142: `/status` Surfaces and Clears Per-Target `last_error`
+
+**Linked Rules:** SIGNALS-R128, FC-10, FC-12, INV-SIGNALS-07
+**Scenario:** `GET /status` after a failed cycle, then after a later
+successful cycle for the same target (FAILURE path + recovery).
+**Inputs:** An enabled target with a persisted `failed` last-cycle
+record carrying a `reason_code` and a redacted `message`; then the same
+target with a persisted `success` record.
+**Expected Behavior:** While the last cycle is `failed`, the target
+object in `/status` carries `last_error` with exactly `category`
+(a `FailureReasonCode`), `message` (the redacted error), and `at`
+(RFC3339). After the later success, the target object carries **no**
+`last_error` key. No credential/DSN/secret appears anywhere in the
+`/status` body.
+**Failure Expectation:** Omitting `last_error` after a failure (the
+regression this issue fixes — failure unreportable over the API), or
+leaving a stale `last_error` after recovery, regresses R128.

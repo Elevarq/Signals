@@ -12,6 +12,8 @@ import (
 	// security tokens — crypto/rand would be slower for zero
 	// security benefit.
 	"math/rand" // nosemgrep: go.lang.security.audit.crypto.math_random.math-random-used
+	"net"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -1141,11 +1143,21 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// failure here is logged, not fatal: the cycle's real outcome
 		// already stands, and the worst case is a stale marker that a
 		// later cycle overwrites.
+		// SIGNALS-R126: the bounded Prometheus-aligned metric category.
+		// SIGNALS-R128 (#681): additionally persist the operator-facing
+		// reason code AND the REDACTED real error text, so /status can
+		// surface a diagnosable per-target last_error instead of the
+		// failure being log-only. A success/partial cycle clears all
+		// three fields (the marker reflects the LAST outcome).
 		outcomeCategory := ""
+		outcomeReason := ""
+		outcomeMessage := ""
 		if status == "failed" {
 			outcomeCategory = classifyCollectionFailure(err)
+			outcomeReason = string(classifyFailureReason(err))
+			outcomeMessage = redactFailureMessage(err)
 		}
-		if recErr := c.db.RecordCycleOutcome(tgt.Name, status, outcomeCategory); recErr != nil {
+		if recErr := c.db.RecordCycleOutcome(tgt.Name, status, outcomeCategory, outcomeReason, outcomeMessage); recErr != nil {
 			slog.Warn("failed to persist cycle outcome (R126)",
 				"target", tgt.Name, "status", status, "err", recErr)
 		}
@@ -1923,6 +1935,123 @@ func isPermissionDenied(err error) bool {
 		return pgErr.Code == "42501"
 	}
 	return false
+}
+
+// failureMessageMaxLen caps the redacted failure message persisted and
+// surfaced via /status so a pathological driver error (e.g. a giant
+// wrapped config dump) cannot push an unbounded payload into the store
+// or the API response. Mirrors the reload path's reloadErrMaxLen cap.
+const failureMessageMaxLen = 512
+
+// classifyFailureReason maps a failed collection cycle's error into the
+// operator-facing closed failure taxonomy (metrics.FailureReasonCode),
+// surfaced per target via /status (SIGNALS-R128, #681).
+//
+// This is a DIFFERENT, richer vocabulary than classifyCollectionFailure
+// (the bounded Prometheus `reason` metric label, R079) — that classifier
+// and the metric cardinality are unchanged. The matching patterns here
+// mirror the proven conntest.Classify logic (SQLSTATE for PG errors,
+// typed net errors + stable string markers for transport/TLS), but map
+// to FailureReasonCode and add the role_insufficient (42501) and
+// query-timeout distinctions that conntest's connect-test enum lacks.
+// collector cannot import conntest (conntest imports collector), so the
+// patterns are re-expressed here rather than shared.
+//
+// ReasonUnknown is a genuine last resort: even when it is returned, the
+// caller still persists and surfaces the REDACTED real error text
+// (SIGNALS-R128 / FC-11), so a failure is never invisible again.
+func classifyFailureReason(err error) metrics.FailureReasonCode {
+	if err == nil {
+		return ""
+	}
+
+	// PG server errors — match by SQLSTATE, never free-form text.
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) {
+		switch pgErr.Code {
+		case "28P01", "28000": // invalid_password / invalid_authorization
+			return metrics.ReasonAuthFailed
+		case "42501": // insufficient_privilege
+			return metrics.ReasonRoleInsufficient
+		case "57014": // query_canceled (statement/lock timeout cancels)
+			return metrics.ReasonCollectorQueryTimeout
+		}
+	}
+
+	msg := strings.ToLower(err.Error())
+
+	// TLS / certificate verification — crypto/tls + crypto/x509 wrap in
+	// stable substrings. Check before the generic transport markers so a
+	// TLS failure is not mis-bucketed as unreachable.
+	if strings.Contains(msg, "tls:") || strings.Contains(msg, "x509:") ||
+		strings.Contains(msg, "certificate") {
+		return metrics.ReasonTargetTLSInvalid
+	}
+
+	// Query / statement timeout — the collector's per-query deadline.
+	if strings.Contains(msg, "statement timeout") ||
+		strings.Contains(msg, "query_timeout") ||
+		strings.Contains(msg, "context deadline exceeded") {
+		return metrics.ReasonCollectorQueryTimeout
+	}
+
+	// Transport-layer unreachability. Prefer the typed *net.OpError /
+	// *net.DNSError, then fall back to the stable wrapped-by-pgx markers.
+	var opErr *net.OpError
+	var dnsErr *net.DNSError
+	if errors.As(err, &opErr) || errors.As(err, &dnsErr) {
+		return metrics.ReasonTargetUnreachable
+	}
+	for _, marker := range []string{
+		"connection refused",
+		"i/o timeout",
+		"no route to host",
+		"network is unreachable",
+		"host is unreachable",
+		"no such host",
+		"failed to connect",
+	} {
+		if strings.Contains(msg, marker) {
+			return metrics.ReasonTargetUnreachable
+		}
+	}
+
+	// Genuine last resort. The caller still surfaces the redacted real
+	// error text so the failure stays diagnosable (FC-11).
+	return metrics.ReasonUnknown
+}
+
+// embeddedDSNUserinfo matches the userinfo (`user:password@`) of a
+// postgres:// / postgresql:// URL embedded ANYWHERE inside a larger
+// string — the exact shape pgx uses when it wraps a connection error
+// (e.g. "failed to connect to `postgres://signals:secret@host:5432/db`:
+// ..."). RedactDSN only redacts a URL that is the WHOLE string (prefix
+// match), so an embedded URL would otherwise leak its password into the
+// operator-facing /status message. The capture group preserves the
+// username; the password is replaced with `****`.
+var embeddedDSNUserinfo = regexp.MustCompile(`(postgres(?:ql)?://[^:/@\s]+):[^@/\s]*@`)
+
+// redactFailureMessage produces the operator-facing, REDACTED failure
+// message persisted in the cycle outcome and surfaced via /status
+// (SIGNALS-R128). It scrubs any embedded DSN/credential (INV-SIGNALS-07)
+// and caps the length, exactly as the reload path redacts load/validate
+// errors before they reach an API body.
+//
+// Two layers of DSN scrubbing: RedactDSN handles a whole-string DSN and
+// the libpq `password=` key=value form; embeddedDSNUserinfo additionally
+// scrubs a postgres:// URL embedded MID-STRING (RedactDSN's URL branch
+// is prefix-only, so a wrapped pgx connection error would otherwise leak
+// the password).
+func redactFailureMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	msg := RedactDSN(err.Error())
+	msg = embeddedDSNUserinfo.ReplaceAllString(msg, "$1:****@")
+	if len(msg) > failureMessageMaxLen {
+		msg = msg[:failureMessageMaxLen] + "...[truncated]"
+	}
+	return msg
 }
 
 // probeColumnPrivilege runs a collector's ColumnPrivilegeProbeSQL (#458) and
