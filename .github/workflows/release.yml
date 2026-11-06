@@ -363,11 +363,11 @@ jobs:
       # image in its own registry — consumers pulling from Docker
       # Hub need a signature in Docker Hub.
       - name: Sign image in GHCR (cosign keyless)
-        run: cosign sign --yes ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
+        run: scripts/cosign-sign-idempotent.sh ${{ env.IMAGE_NAME }}@${{ steps.push.outputs.digest }}
 
       - name: Sign image in Docker Hub (cosign keyless)
         if: steps.dockerhub.outputs.enabled == 'true'
-        run: cosign sign --yes ${{ env.DOCKERHUB_IMAGE }}@${{ steps.push.outputs.digest }}
+        run: scripts/cosign-sign-idempotent.sh ${{ env.DOCKERHUB_IMAGE }}@${{ steps.push.outputs.digest }}
 
       # The release also publishes a downloadable SPDX SBOM file as a
       # workflow artifact. This is independent of the registry-attached
@@ -492,7 +492,7 @@ jobs:
       # signature binds back to this workflow's GitHub OIDC identity.
       - name: Sign chart (cosign keyless)
         run: |
-          cosign sign --yes \
+          scripts/cosign-sign-idempotent.sh \
             "ghcr.io/elevarq/charts/signals@${{ steps.push.outputs.digest }}"
 
   # ── Go binary artifacts ───────────────────────────────────────────────
