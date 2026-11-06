@@ -441,3 +441,23 @@ a password/hash column.
 
 **Expected Result:** Pass when the catalog is provably hash-free in its select
 lists and evidence.
+
+---
+
+### TC-MDC-27: global_variables carries sql_mode (normal)
+
+**Rule:** MDC-R020
+
+**Given:** `mariadb_global_variables_v1`.
+
+**When:** its SQL IN-list is inspected.
+
+**Then:** it contains `sql_mode` — the comma-separated server SQL-mode flag
+string (a shared MySQL/MariaDB server variable) consumed by the Analyzer
+`sql_mode` advisory rule (Analyzer #4010) — alongside the existing #660/#679
+variables; the statement is a read-only `SELECT`, the IN-list carries no
+credential variable, and `sql_mode` absent on a given build simply returns no row
+(never an error); the collector is not `HighSensitivity`.
+
+**Expected Result:** Pass when `sql_mode` is in the IN-list and the version-tolerant,
+credential-free allowlist posture holds.
