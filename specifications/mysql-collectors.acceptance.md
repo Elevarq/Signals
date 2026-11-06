@@ -29,7 +29,7 @@ and its registration in the per-engine `CatalogFor` registry.
 
 **When:** its collector ids are enumerated.
 
-**Then:** they are exactly the sixteen `mysql_*_v1` collectors in the spec, each
+**Then:** they are exactly the nineteen `mysql_*_v1` collectors in the spec, each
 with a non-empty category and SQL.
 
 **Expected Result:** Pass when the set matches.
@@ -334,3 +334,47 @@ credential/secret name is ever present in the IN-list.
 
 **Expected Result:** Pass when an absent counter yields no row (no error) and the
 IN-list contains no credential/secret name.
+
+---
+
+### TC-MYC-19: replica_lag collector derives replica_lag_seconds on a replica (normal)
+
+**Rule:** MYC-R016
+
+**Given:** `mysql_replica_lag_v1`, and a replica returning one applier-worker row
+carrying the transaction-commit timestamps.
+
+**When:** its SQL is inspected, and the collector is run against a target
+returning that row.
+
+**Then:** the SQL reads `performance_schema.replication_applier_status_by_worker`,
+is a read-only `SELECT`, is not `HighSensitivity`, needs no privilege beyond the
+baseline `SELECT, PROCESS` (no `SHOW REPLICA STATUS` / `REPLICATION CLIENT`), and
+derives a single per-channel `replica_lag_seconds` column
+(`TIMESTAMPDIFF(SECOND, COALESCE(APPLYING_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP,
+LAST_APPLIED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP), NOW(6))`) alongside the
+native `CHANNEL_NAME` / `SERVICE_STATE`; in the normalized evidence the replica's
+row carries a `replica_lag_seconds` value.
+
+**Expected Result:** Pass when `replica_lag_seconds` is derived and carried for a
+replica.
+
+---
+
+### TC-MYC-20: replica_lag on a source/standalone is an absent, zero-row success (boundary)
+
+**Rule:** MYC-R016, MYC-R007
+
+**Given:** `mysql_replica_lag_v1` against a **source / standalone** (non-replica),
+where `performance_schema.replication_applier_status_by_worker` is **empty**.
+
+**When:** `Collect` runs the collector and it returns zero rows.
+
+**Then:** it is recorded as a successful empty result (`Err == ""`,
+`Status == ""`), carrying **no** `replica_lag_seconds` value (absent, not a
+fabricated zero) — distinct from a collector error (unavailable) or a permission
+denial, and it does not fail the collection cycle.
+
+**Expected Result:** Pass — the not-a-replica empty worker table yields an absent
+lag value with no error (also exercised by `integration-mysql` against the pinned
+idle MySQL 8.4 service container).

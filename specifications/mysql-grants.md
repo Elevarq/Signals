@@ -7,7 +7,7 @@ ACTIVE
 ## Purpose
 
 Define the least-privilege, read-only MySQL role Signals uses to run the MySQL
-collector catalog (`specifications/mysql-collectors.md`, 16 collectors), and
+collector catalog (`specifications/mysql-collectors.md`, 19 collectors), and
 characterize the cross-user / sensitive evidence each grant exposes
 (Elevarq/Signals #545, audit finding F2). Source-permission-first: the database
 grant is the primary collection boundary; Signals-side redaction is defense in
@@ -20,7 +20,7 @@ depth, not a substitute. PostgreSQL behavior is unchanged.
 | `GRANT SELECT ON *.*` | identity, global_variables, global_status, innodb_metrics, table_statistics, engines, schemata, replication_status, statement_digests, innodb_transactions, data_locks, data_lock_waits, metadata_locks, replica_applier_status, group_replication_members — **but** `information_schema.PROCESSLIST` / `INNODB_TRX` show only the monitoring session's own rows |
 | `+ GRANT PROCESS ON *.*` | the above with `mysql_processlist_v1` and `mysql_innodb_transactions_v1` surfacing **all** sessions/transactions (operational visibility) |
 
-The full 16-collector catalog runs green under `SELECT, PROCESS` (the
+The full 19-collector catalog runs green under `SELECT, PROCESS` (the
 `integration-mysql` live qualification: all collectors `status=success`).
 `REPLICATION CLIENT` is **not** required; the replication collectors read
 `performance_schema` views a `SELECT`-granted role can read (zero rows on a
@@ -59,7 +59,7 @@ primary control over whether cross-user SQL is reachable at all.
 
 | ID | Rule |
 |----|------|
-| **MYG-R001** | Baseline role = `GRANT SELECT, PROCESS ON *.*`; read-only, covers all 16 collectors. No write/admin/superuser privilege is ever required. |
+| **MYG-R001** | Baseline role = `GRANT SELECT, PROCESS ON *.*`; read-only, covers all 19 collectors. No write/admin/superuser privilege is ever required. |
 | **MYG-R002** | `PROCESS` is the only privilege beyond `SELECT`; it broadens `PROCESSLIST` / `INNODB_TRX` from own-session to all sessions. Without it those are own-session only (not denied) and the rest of the catalog is unaffected. |
 | **MYG-R003** | Every collector that can surface cross-user SQL or locked row data (`INFO`, `trx_query`, `DIGEST_TEXT`, `LOCK_DATA`) is `HighSensitivity` and redacted by default (defense in depth); the DB grant is the primary boundary. |
 | **MYG-R004** | No elevated/optional grant is required; replication/Group-Replication absence is a legitimate empty result, never a failure. |

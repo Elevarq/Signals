@@ -246,5 +246,27 @@ func mysqlCatalog() []Collector {
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, MEMBER_ID, MEMBER_HOST, MEMBER_PORT, MEMBER_STATE, MEMBER_ROLE, MEMBER_VERSION FROM performance_schema.replication_group_members",
 		},
+		{
+			// #676 (MYC-R016): the replica-lag-seconds metric for Analyzer's
+			// replica-lag rule (Elevarq/Analyzer#4007, replication band #4004).
+			// Source = performance_schema.replication_applier_status_by_worker,
+			// populated for ANY replica (single- or multi-threaded) and EMPTY on a
+			// source / standalone. replica_lag_seconds is derived as the seconds
+			// between when the currently-applying (else last-applied) transaction
+			// was committed on the ORIGINAL source and now — the perf_schema
+			// analogue of SHOW REPLICA STATUS's Seconds_Behind_Source (8.0.22+) /
+			// Seconds_Behind_Master (pre-8.0.22). The perf_schema derivation is
+			// chosen over SHOW REPLICA STATUS / SHOW SLAVE STATUS deliberately:
+			// those are NOT SELECT statements (they would break INV-MYC-01 /
+			// MYC-R001) and require the REPLICATION CLIENT privilege (they would
+			// break the baseline SELECT, PROCESS role, MYG-R001), whereas the
+			// worker table is readable under the baseline role and this stays a
+			// read-only SELECT. On a non-replica the empty worker table yields a
+			// zero-row success with NO replica_lag_seconds value — absent, never a
+			// fabricated zero and never an error / failed cycle (MYC-R007).
+			ID:       "mysql_replica_lag_v1",
+			Category: "topology",
+			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, TIMESTAMPDIFF(SECOND, COALESCE(APPLYING_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP, LAST_APPLIED_TRANSACTION_ORIGINAL_COMMIT_TIMESTAMP), NOW(6)) AS replica_lag_seconds FROM performance_schema.replication_applier_status_by_worker",
+		},
 	}
 }

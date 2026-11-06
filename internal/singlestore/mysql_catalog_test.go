@@ -39,6 +39,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_metadata_locks_v1",
 		"mysql_processlist_v1",
 		"mysql_replica_applier_status_v1",
+		"mysql_replica_lag_v1",
 		"mysql_replication_status_v1",
 		"mysql_schemata_v1",
 		"mysql_statement_digests_v1",
@@ -465,5 +466,89 @@ func TestMySQLDataLocksRedaction(t *testing.T) {
 	// Native descriptors preserved.
 	if row["OBJECT_NAME"] != "accounts" || row["LOCK_STATUS"] != "WAITING" {
 		t.Errorf("native lock descriptors must be preserved, got %+v", row)
+	}
+}
+
+// TC-MYC-19 (MYC-R016): the replica-lag collector reads
+// performance_schema.replication_applier_status_by_worker and derives a single
+// per-channel replica_lag_seconds (the perf_schema analogue of
+// Seconds_Behind_Source) for Analyzer's replica-lag rule (#676 / Analyzer
+// #4007). It is a read-only SELECT needing only the baseline SELECT, PROCESS
+// role — not SHOW REPLICA STATUS / REPLICATION CLIENT — and is not
+// HighSensitivity. On a replica the row carries a replica_lag_seconds value.
+func TestMySQLReplicaLagCollector(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_replica_lag_v1")
+	if c == nil {
+		t.Fatal("mysql_replica_lag_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mysql_replica_lag_v1 must be a read-only SELECT: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mysql_replica_lag_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	if c.ElevatedPrivilege != "" {
+		t.Errorf("mysql_replica_lag_v1 must need no privilege beyond baseline SELECT, PROCESS; got ElevatedPrivilege=%q", c.ElevatedPrivilege)
+	}
+	up := strings.ToUpper(c.SQL)
+	// perf_schema derivation, NOT SHOW REPLICA STATUS / SHOW SLAVE STATUS.
+	if strings.Contains(up, "SHOW REPLICA STATUS") || strings.Contains(up, "SHOW SLAVE STATUS") {
+		t.Errorf("mysql_replica_lag_v1 must NOT use SHOW REPLICA/SLAVE STATUS (non-SELECT, needs REPLICATION CLIENT); SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "REPLICATION_APPLIER_STATUS_BY_WORKER") {
+		t.Errorf("mysql_replica_lag_v1 must read performance_schema.replication_applier_status_by_worker; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "REPLICA_LAG_SECONDS") {
+		t.Errorf("mysql_replica_lag_v1 must derive a replica_lag_seconds column; SQL=%q", c.SQL)
+	}
+
+	// A replica: the worker table returns a row; the derived replica_lag_seconds
+	// value is carried through.
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(sql, "replication_applier_status_by_worker") {
+			return []map[string]any{
+				{"CHANNEL_NAME": "", "SERVICE_STATE": "ON", "replica_lag_seconds": "12"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if rs[0].Err != "" {
+		t.Errorf("collector errored on a replica: %q", rs[0].Err)
+	}
+	if v := rs[0].Rows[0]["replica_lag_seconds"]; v != "12" {
+		t.Errorf("replica replica_lag_seconds = %v, want the derived lag value 12", v)
+	}
+}
+
+// TC-MYC-20 (MYC-R016 / MYC-R007): on a source / standalone (non-replica) the
+// performance_schema.replication_applier_status_by_worker table is EMPTY, so the
+// replica-lag collector returns a successful zero-row result carrying NO
+// replica_lag_seconds value (absent, not a fabricated zero) and NO error — it
+// must never fail the collection cycle.
+func TestMySQLReplicaLagNotAReplicaAbsent(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_replica_lag_v1")
+	if c == nil {
+		t.Fatal("mysql_replica_lag_v1 missing")
+	}
+	// Non-replica: the worker table is empty -> zero rows, no error.
+	runner := func(_ context.Context, _ string) ([]map[string]any, error) {
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 {
+		t.Fatalf("unexpected result count: %+v", rs)
+	}
+	if rs[0].Err != "" {
+		t.Errorf("not-a-replica must be a successful empty result, got Err=%q", rs[0].Err)
+	}
+	if rs[0].Status != "" {
+		t.Errorf("not-a-replica must be a plain empty success (no skipped/degraded status), got Status=%q Reason=%q", rs[0].Status, rs[0].Reason)
+	}
+	if len(rs[0].Rows) != 0 {
+		t.Errorf("not-a-replica must yield zero rows (no replica_lag_seconds value present), got %d rows: %+v", len(rs[0].Rows), rs[0].Rows)
 	}
 }
