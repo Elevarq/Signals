@@ -1,0 +1,35 @@
+-- Migration: operator-visible per-target last error (SIGNALS-R128, #681).
+--
+-- Before this migration, a fully-failed collection cycle recorded only a
+-- bounded metric `category` (SIGNALS-R126). The real error text
+-- (err.Error()) was logged via slog but NEVER surfaced to an operator
+-- over the API: `/status` had no per-target last-error, and the metric
+-- label was coarse (everything unrecognised flattened to `internal`).
+-- A collection failure on a healthy DB was therefore unreportable
+-- without shelling into the container — a recurring "no data" bug went
+-- undiagnosed for months (#681).
+--
+-- This migration extends the durable last-cycle record with two
+-- additive, metadata-only columns so the failure is operator-visible:
+--
+--   reason_code — a value from the richer operator-facing failure
+--                 taxonomy (internal/metrics.FailureReasonCode:
+--                 target_unreachable, target_tls_invalid, auth_failed,
+--                 role_insufficient, collector_query_timeout, ...,
+--                 unknown). This is a DIFFERENT, richer vocabulary than
+--                 the SIGNALS-R126 `category` (which stays the bounded
+--                 Prometheus metric reason) — both coexist.
+--
+--   message     — the REDACTED real error text (err.Error()), scrubbed
+--                 of any embedded DSN/credential via collector.RedactDSN
+--                 and length-capped. This is the field that makes the
+--                 actual cause diagnosable. It carries NO credential,
+--                 password, or DSN value (INV-SIGNALS-07): redaction is
+--                 applied before the row is written.
+--
+-- Both columns default to the empty string, so a successful/partial
+-- cycle (which clears the failure marker) leaves them empty. Existing
+-- rows written by migration 005 adopt the empty default.
+
+ALTER TABLE target_cycle_outcomes ADD COLUMN reason_code TEXT NOT NULL DEFAULT '';
+ALTER TABLE target_cycle_outcomes ADD COLUMN message     TEXT NOT NULL DEFAULT '';

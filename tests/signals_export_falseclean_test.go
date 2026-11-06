@@ -122,7 +122,7 @@ func TestExportRefusesDefaultFailedCycle(t *testing.T) {
 	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
-	if err := store.RecordCycleOutcome("target-A", "failed", "connect_error"); err != nil {
+	if err := store.RecordCycleOutcome("target-A", "failed", "connect_error", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome: %v", err)
 	}
 
@@ -174,7 +174,7 @@ func TestExportAllScopeMarksCollectionStatus(t *testing.T) {
 	if _, err := store.UpsertTarget("target-A", "host-a", 5432, "postgres", "elevarq", "disable", "NONE", "", true); err != nil {
 		t.Fatalf("UpsertTarget: %v", err)
 	}
-	if err := store.RecordCycleOutcome("target-A", "failed", "safety_check"); err != nil {
+	if err := store.RecordCycleOutcome("target-A", "failed", "safety_check", "", ""); err != nil {
 		t.Fatalf("RecordCycleOutcome: %v", err)
 	}
 

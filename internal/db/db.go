@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
@@ -404,35 +405,47 @@ func (d *DB) GetTargets() ([]Target, error) {
 
 // CycleOutcome is the durable record of a target's most recent
 // collection-cycle outcome. It carries metadata only — target name,
-// status, a bounded failure category, and a timestamp — never a
-// credential, DSN, host, or secret (INV-SIGNALS-07). It exists so an
-// export can distinguish "last collection failed: <category>" from "no
-// collection has run yet" (SIGNALS-R125), closing the FC-05 false-clean
-// gap.
+// status, a bounded failure category, an operator-facing reason code,
+// a REDACTED failure message, and a timestamp — never a credential,
+// DSN, host, or secret (INV-SIGNALS-07). It exists so an export can
+// distinguish "last collection failed: <category>" from "no collection
+// has run yet" (SIGNALS-R125), closing the FC-05 false-clean gap, and
+// so `/status` can surface the real (redacted) last error per target
+// (SIGNALS-R128, #681).
 type CycleOutcome struct {
 	TargetName string
 	Status     string // "success" | "partial" | "failed"
-	Category   string // bounded failure category; empty on success/partial
+	Category   string // bounded metric failure category; empty on success/partial
+	ReasonCode string // FailureReasonCode (operator taxonomy); empty on success/partial
+	Message    string // REDACTED real error text; empty on success/partial
 	UpdatedAt  string // RFC3339
 }
 
 // RecordCycleOutcome upserts the most-recent cycle outcome for a target
-// (SIGNALS-R126). A failed cycle records status="failed" and a bounded
-// category; a successful/partial cycle records that status and clears
-// the category, so the row always reflects the LAST outcome and a later
-// success clears an earlier failure marker.
+// (SIGNALS-R126 / SIGNALS-R128). A failed cycle records status="failed",
+// a bounded metric category, an operator-facing reasonCode, and the
+// REDACTED real error message; a successful/partial cycle records that
+// status and clears category/reasonCode/message, so the row always
+// reflects the LAST outcome and a later success clears an earlier
+// failure marker.
 //
 // category MUST be one of the bounded, secret-free metric categories
 // (connect_error, safety_check, version_unsupported, timeout_setup,
-// persistence, internal) or empty; callers never pass raw error text.
-func (d *DB) RecordCycleOutcome(targetName, status, category string) error {
+// persistence, internal) or empty. reasonCode MUST be a
+// metrics.FailureReasonCode wire string or empty. message MUST already
+// be REDACTED by the caller (collector.RedactDSN) — this method never
+// redacts; callers never pass a raw, un-redacted DSN-bearing string
+// (INV-SIGNALS-07).
+func (d *DB) RecordCycleOutcome(targetName, status, category, reasonCode, message string) error {
 	now := time.Now().UTC().Format(time.RFC3339)
 	_, err := d.sql.Exec(`
-		INSERT INTO target_cycle_outcomes (target_name, status, category, updated_at)
-		VALUES (?, ?, ?, ?)
+		INSERT INTO target_cycle_outcomes (target_name, status, category, reason_code, message, updated_at)
+		VALUES (?, ?, ?, ?, ?, ?)
 		ON CONFLICT(target_name) DO UPDATE SET
-			status=excluded.status, category=excluded.category, updated_at=excluded.updated_at`,
-		targetName, status, category, now,
+			status=excluded.status, category=excluded.category,
+			reason_code=excluded.reason_code, message=excluded.message,
+			updated_at=excluded.updated_at`,
+		targetName, status, category, reasonCode, message, now,
 	)
 	return err
 }
@@ -442,7 +455,7 @@ func (d *DB) RecordCycleOutcome(targetName, status, category string) error {
 // deterministic output (SIGNALS-R126).
 func (d *DB) GetCycleOutcomes() ([]CycleOutcome, error) {
 	rows, err := d.sql.Query(
-		"SELECT target_name, status, category, updated_at FROM target_cycle_outcomes ORDER BY target_name")
+		"SELECT target_name, status, category, reason_code, message, updated_at FROM target_cycle_outcomes ORDER BY target_name")
 	if err != nil {
 		return nil, err
 	}
@@ -451,12 +464,31 @@ func (d *DB) GetCycleOutcomes() ([]CycleOutcome, error) {
 	var outcomes []CycleOutcome
 	for rows.Next() {
 		var o CycleOutcome
-		if err := rows.Scan(&o.TargetName, &o.Status, &o.Category, &o.UpdatedAt); err != nil {
+		if err := rows.Scan(&o.TargetName, &o.Status, &o.Category, &o.ReasonCode, &o.Message, &o.UpdatedAt); err != nil {
 			return nil, err
 		}
 		outcomes = append(outcomes, o)
 	}
 	return outcomes, rows.Err()
+}
+
+// GetCycleOutcome returns the most-recent cycle outcome for a single
+// target by name (SIGNALS-R128). The bool is false when no cycle has
+// ever run for that target. Used by `/status` to surface a per-target
+// last_error without scanning every target's row.
+func (d *DB) GetCycleOutcome(targetName string) (CycleOutcome, bool, error) {
+	var o CycleOutcome
+	err := d.sql.QueryRow(
+		"SELECT target_name, status, category, reason_code, message, updated_at FROM target_cycle_outcomes WHERE target_name = ?",
+		targetName,
+	).Scan(&o.TargetName, &o.Status, &o.Category, &o.ReasonCode, &o.Message, &o.UpdatedAt)
+	if errors.Is(err, sql.ErrNoRows) {
+		return CycleOutcome{}, false, nil
+	}
+	if err != nil {
+		return CycleOutcome{}, false, err
+	}
+	return o, true, nil
 }
 
 // --- Circuit state (#455) ---
