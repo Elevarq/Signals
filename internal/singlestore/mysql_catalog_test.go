@@ -43,6 +43,8 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_schemata_v1",
 		"mysql_statement_digests_v1",
 		"mysql_table_statistics_v1",
+		"mysql_user_accounts_v1",
+		"mysql_user_privileges_v1",
 	}
 	var got []string
 	for _, c := range mysqlCatalog() {

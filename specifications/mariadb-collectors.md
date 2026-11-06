@@ -80,6 +80,8 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | `mariadb_statement_digests_v1` | workload | `performance_schema.events_statements_summary_by_digest` (top-200 by latency) — **HighSensitivity**, `DIGEST_TEXT` redacted; **perf_schema-gated (`PerfSchemaGated`)**: a 0-row result with perf_schema OFF is recorded `skipped`/`perf_schema_disabled` (DEGRADED / NOT_ASSESSED, MDC-R010), not a silent success |
 | `mariadb_replication_status_v1` | topology | GTID/binlog/read_only server variables (`@@global.server_id`, `log_bin`, `read_only`, `gtid_current_pos`, `gtid_binlog_pos`, `gtid_slave_pos`) |
 | `mariadb_galera_status_v1` | topology | `information_schema.GLOBAL_STATUS` (`WSREP_*` IN-list) — Galera cluster state; standalone = `Disconnected`/`OFF`, a distinct legitimate state |
+| `mariadb_user_accounts_v1` | security | `mysql.user` view (`User`, `Host`, `plugin`, computed `has_empty_password`) | #693 / Analyzer #4004; the user-account inventory for the security/grants rule tranche. **Secret-free by construction** (INV-MDC-04): the `SELECT` list carries `User`, `Host`, `plugin`, and a *computed BOOLEAN* `((Password = '' OR Password IS NULL) AND (authentication_string = '' OR authentication_string IS NULL)) AS has_empty_password` — the `Password` / `authentication_string` hash columns are NEVER in the select list, the evidence, logs, or any error. **Lowest-exposure source chosen (MDC-R018) + documented owner-decision trade-off**: MariaDB has no reliable hash-free single source — the `mysql.user` view is read-only and hash-free *in the projected columns*, but MariaDB documents that the view "doesn't show alternative authentication plugins", so `plugin` can be empty/`mysql_native_password` for accounts whose real plugin lives in `mysql.global_priv` JSON. We read the view (lowest exposure, baseline grant) rather than the JSON (which embeds the hash) and FLAG the residual plugin-reliability limitation for the owner. Reads the `mysql` schema, covered by baseline global `SELECT`; a privilege denial is a legitimate skip (MDC-R019). Metadata only; not `HighSensitivity`. |
+| `mariadb_user_privileges_v1` | security | `information_schema.USER_PRIVILEGES` (`GRANTEE`, `PRIVILEGE_TYPE`, `IS_GRANTABLE`) | #693 / Analyzer #4004; the global-privilege inventory so the rules see `*.*` sprawl and `WITH GRANT OPTION`. `USER_PRIVILEGES` has no password/hash column (INV-MDC-04). Under baseline global `SELECT` the account sees every grantee; a narrower grant shows only its own rows (a legitimate reduced result). Metadata only; not `HighSensitivity`. |
 
 ## Rules
 
@@ -233,6 +235,42 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   returns no row — never an error, never a fabricated zero. MariaDB returns
   `GLOBAL_STATUS` names uppercased and the IN-list matches case-insensitively.
   Read-only; not `HighSensitivity`.
+- **MDC-R018** | `mariadb_user_accounts_v1` is the user-account inventory for the
+  Analyzer security/grants rule tranche (Elevarq/Analyzer#4004): remote-root /
+  anonymous / passwordless accounts and weak/legacy auth plugins. It reads the
+  read-only `mysql.user` view and its `SELECT` list is **exactly** `User`,
+  `Host`, `plugin`, and a *computed boolean* `((Password = '' OR Password IS
+  NULL) AND (authentication_string = '' OR authentication_string IS NULL)) AS
+  has_empty_password` (the MariaDB `mysql.user` view retains the legacy `Password`
+  column alongside `authentication_string`; both empty ⇒ no password). The hash
+  columns (`Password`, `authentication_string`) MUST NEVER appear in the select
+  list, the normalized evidence, logs, or any error (INV-MDC-04): the
+  empty-password signal is carried solely as the derived boolean. **Lowest-
+  exposure source + owner-decision flag**: MariaDB (unlike MySQL 8) has no
+  reliable hash-free single source. The `mysql.user` view is the lowest-exposure
+  SELECT-able source that works under the baseline grant, but MariaDB documents
+  the view "doesn't show alternative authentication plugins" — so `plugin` is
+  reliable for classic `mysql_native_password` accounts yet can be
+  empty/`mysql_native_password` for accounts whose real plugin (e.g. `ed25519`,
+  `unix_socket`, multi-auth) lives in the `mysql.global_priv` JSON. We
+  deliberately DO NOT read `mysql.global_priv` because its JSON `Priv` column
+  embeds the hash; reading the view keeps the collector hash-free at the cost of
+  plugin precision for alternative-auth accounts. This residual trade-off is an
+  **owner decision flagged for review** (see issue #693 report), not silently
+  resolved by requiring the hash-exposing source. Metadata only (no row data);
+  read-only; not `HighSensitivity`.
+- **MDC-R019** | `mariadb_user_privileges_v1` is the global-privilege inventory
+  (`SELECT GRANTEE, PRIVILEGE_TYPE, IS_GRANTABLE FROM
+  information_schema.USER_PRIVILEGES`) so the Analyzer security rules can see
+  `*.*` privilege sprawl and `WITH GRANT OPTION` (`IS_GRANTABLE='YES'`).
+  `USER_PRIVILEGES` carries no password/hash column, so it is secret-free by
+  construction (INV-MDC-04). Both security collectors read the `mysql` schema /
+  its view, covered by the baseline global `SELECT` grant
+  (`mariadb-grants.md` MDG-R001); where the monitoring role lacks that read, the
+  collector records a permission-denied `Err` and the rest of the catalog still
+  runs (MDC-R002) — a legitimate degraded skip, never a cycle failure, and no
+  grant beyond the baseline `SELECT, PROCESS` is ever required. Metadata only;
+  read-only; not `HighSensitivity`.
 
 ## Invariants
 
@@ -244,6 +282,15 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
   HighSensitivity + redaction contract (MDC-R004 / MDC-R008). The catalog-wide
   scan matches column names case-insensitively but each `SensitiveColumns` entry
   uses the exact result-row case so runtime redaction actually fires.
+- **INV-MDC-04** | No credential/secret material ever appears in the security
+  collectors. No MariaDB catalog statement names a password/hash column
+  (`Password`, `authentication_string`, or any `*password*`/hash column) in its
+  `SELECT` list, and the normalized evidence of `mariadb_user_accounts_v1` /
+  `mariadb_user_privileges_v1` contains no such column key and no hash-shaped
+  value — the empty-password signal is carried only as the derived boolean
+  `has_empty_password`. A structural guard independent of redaction: the hash is
+  never fetched in the first place. (The `mysql.global_priv` JSON source, which
+  embeds the hash, is deliberately not read — MDC-R018.)
 
 ## Failure conditions
 
@@ -258,6 +305,8 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 | The `@@performance_schema` probe itself errors | The run keeps its pre-probe 0-row `success` outcome; the probe never turns a success into a failure (MDC-R011). |
 | Idle server (no transactions/locks) | The activity collectors return successful zero-row results. |
 | Busy server | The activity collectors are bounded by `LIMIT` (MDC-R006). |
+| The monitoring role cannot read the `mysql` schema | `mariadb_user_accounts_v1` records a permission-denied `Err`; the other collectors still run (MDC-R002 / MDC-R019) — a degraded skip, never a cycle failure. |
+| An account uses an alternative auth plugin not shown by the `mysql.user` view | `plugin` may be empty/`mysql_native_password`; `has_empty_password` is still correct. Documented MariaDB view limitation (MDC-R018), an owner-flagged trade-off, not a failure. |
 
 ## Constraints / NFR
 
@@ -274,7 +323,7 @@ MariaDB's system views genuinely differ (this is why the catalogs are separate):
 ## Traceability
 
 Acceptance: `specifications/mariadb-collectors.acceptance.md`.
-Matrix: `features/signals/traceability.md` (MDC-R001..R017, INV-MDC-01..03).
+Matrix: `features/signals/traceability.md` (MDC-R001..R019, INV-MDC-01..04).
 The Tier-1 evidence contract this serves is Analyzer's
 `replay-evidence-contract.md` (#3891 follow-on); the live semantic qualification
 that the evidence survives collection → persistence → export is
