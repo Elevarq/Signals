@@ -76,3 +76,27 @@ routes through the same terminal gate as PostgreSQL and cannot add a
 PostgreSQL-free green path).
 
 **Expected Result:** Pass when `integration-clickhouse` is wired into the gate.
+
+---
+
+### TC-MLQ-05: replicated cluster — cluster-scope collectors surface real replication (normal, live)
+
+**Rule:** CHLQ-R006, CHLQ-R007
+
+**Given:** the pinned 1-shard / 2-replica ClickHouse cluster + Keeper
+(`examples/clickhouse-cluster`) brought up by
+`scripts/clickhouse-cluster-fixture.sh up`, seeded with a read-only `signals_ro`
+role (`SELECT ON system.*` + `SHOW TABLES ON signals_demo.*`) and a
+`ReplicatedMergeTree` created `ON CLUSTER`.
+
+**When:** the fixture `verify` runs and the normal daemon qualifies against node
+`ch1` (`CH_QUAL_EXTERNAL=1 scripts/clickhouse-live-qual.sh all`).
+
+**Then:** `system.clusters` reports `signals_cluster` with 2 replicas
+(`clickhouse_clusters_v1`), `system.replicas` carries `signals_demo.repl` with
+live state (`clickhouse_replicas_v1`), every ClickHouse collector persists
+`status='success'`, and the export reconciles — all under a read-only role (no
+data-read grant; `SHOW TABLES` is metadata-only).
+
+**Expected Result:** Pass — proven locally (11 snapshots, all collectors
+`status=success`, export reconciled) and in CI via `integration-clickhouse-replicated`.

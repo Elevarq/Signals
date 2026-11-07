@@ -1,0 +1,15 @@
+<!-- Signals replicated-cluster node ch2 (#566): one shard, two replicas,
+     Keeper-coordinated. macros drive ReplicatedMergeTree zpaths. -->
+<clickhouse>
+  <remote_servers>
+    <signals_cluster>
+      <shard>
+        <internal_replication>true</internal_replication>
+        <replica><host>ch1</host><port>9000</port></replica>
+        <replica><host>ch2</host><port>9000</port></replica>
+      </shard>
+    </signals_cluster>
+  </remote_servers>
+  <zookeeper><node><host>ch-keeper</host><port>9181</port></node></zookeeper>
+  <macros><shard>01</shard><replica>ch2</replica></macros>
+</clickhouse>

@@ -1,0 +1,27 @@
+# Signals ClickHouse REPLICATED live-qualification fixture (#566): a pinned
+# 1-shard / 2-replica cluster (ch1, ch2) coordinated by a single ClickHouse
+# Keeper. Deterministic + disposable; image pinned by digest (upgrades require
+# re-qualification). Brought up by scripts/clickhouse-cluster-fixture.sh.
+services:
+  ch-keeper:
+    image: clickhouse/clickhouse-server@sha256:1ffa82edee000a42c09313bd9f1293d94c570aee74babc1b3ca9983a35fa597b
+    container_name: ${CH_CLUSTER_PREFIX:-signals-ch-cluster}-keeper
+    hostname: ch-keeper
+    command: ["clickhouse-keeper", "--config-file=/etc/clickhouse-keeper/keeper_config.xml"]
+    volumes: ["./keeper_config.xml:/etc/clickhouse-keeper/keeper_config.xml:ro"]
+    ulimits: {nofile: {soft: 262144, hard: 262144}}
+  ch1:
+    image: clickhouse/clickhouse-server@sha256:1ffa82edee000a42c09313bd9f1293d94c570aee74babc1b3ca9983a35fa597b
+    container_name: ${CH_CLUSTER_PREFIX:-signals-ch-cluster}-ch1
+    hostname: ch1
+    depends_on: [ch-keeper]
+    volumes: ["./ch1.xml:/etc/clickhouse-server/config.d/cluster.xml:ro"]
+    ulimits: {nofile: {soft: 262144, hard: 262144}}
+    ports: ["${CH_CLUSTER_PORT:-9000}:9000"]
+  ch2:
+    image: clickhouse/clickhouse-server@sha256:1ffa82edee000a42c09313bd9f1293d94c570aee74babc1b3ca9983a35fa597b
+    container_name: ${CH_CLUSTER_PREFIX:-signals-ch-cluster}-ch2
+    hostname: ch2
+    depends_on: [ch-keeper]
+    volumes: ["./ch2.xml:/etc/clickhouse-server/config.d/cluster.xml:ro"]
+    ulimits: {nofile: {soft: 262144, hard: 262144}}

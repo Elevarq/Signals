@@ -340,6 +340,45 @@ jobs:
       - name: Run the ClickHouse live qualification (normal daemon -> exporter)
         run: CH_QUAL_EXTERNAL=1 bash scripts/clickhouse-live-qual.sh all
 
+  # ClickHouse REPLICATED live qualification (#566): a pinned 1-shard / 2-replica
+  # cluster (ch1, ch2) + a single ClickHouse Keeper, via docker compose
+  # (examples/clickhouse-cluster), so the cluster-scope collectors
+  # (clickhouse_clusters_v1, clickhouse_replicas_v1) are exercised against REAL
+  # replication — system.clusters reports 2 replicas and system.replicas carries a
+  # ReplicatedMergeTree with live state — rather than the single-node zero-row
+  # case (CHLQ-R006). Same normal daemon -> exporter producer path as
+  # integration-clickhouse, pointed at cluster node ch1. MUST be in ci-gate.needs
+  # (#528 req #4) so it routes through the PostgreSQL-mandatory terminal gate.
+  integration-clickhouse-replicated:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - name: Setup Go
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e  # v7.0.0
+        with:
+          go-version: "1.26.10"
+          cache: true
+
+      - name: Download modules
+        run: go mod download
+
+      - name: Bring up the pinned replicated ClickHouse cluster (keeper + ch1 + ch2)
+        run: bash scripts/clickhouse-cluster-fixture.sh up
+
+      - name: Assert cluster-scope evidence (system.clusters = 2 replicas, system.replicas carries the ReplicatedMergeTree)
+        run: bash scripts/clickhouse-cluster-fixture.sh verify
+
+      - name: Run the ClickHouse live qualification against the cluster (normal daemon -> exporter, node ch1)
+        env:
+          SS_RO_PASSWORD: signals_ro_pw
+        run: CH_QUAL_EXTERNAL=1 bash scripts/clickhouse-live-qual.sh all
+
+      - name: Tear down the cluster
+        if: always()
+        run: bash scripts/clickhouse-cluster-fixture.sh down
+
   # SingleStore live qualification against the pinned SingleStore Dev Image as a
   # service container (specifications/singlestore-live-qualification.md,
   # SLQ-R010). This is the real producer path (daemon -> exporter) replaying the
@@ -581,7 +620,7 @@ jobs:
   # TestCIGateRequiresPostgreSQL (in the unit `test` job) fails if one is not,
   # so no engine can add a PostgreSQL-free green path.
   ci-gate:
-    needs: [test, integration-pg, integration-mysql, integration-mariadb, integration-clickhouse, integration-singlestore, built-image-smoke, security-scan]
+    needs: [test, integration-pg, integration-mysql, integration-mariadb, integration-clickhouse, integration-clickhouse-replicated, integration-singlestore, built-image-smoke, security-scan]
     if: always()
     runs-on: ubuntu-24.04
     steps:
@@ -592,12 +631,13 @@ jobs:
           RESULT_MYSQL: ${{ needs.integration-mysql.result }}
           RESULT_MARIADB: ${{ needs.integration-mariadb.result }}
           RESULT_CLICKHOUSE: ${{ needs.integration-clickhouse.result }}
+          RESULT_CLICKHOUSE_REPL: ${{ needs.integration-clickhouse-replicated.result }}
           RESULT_SINGLESTORE: ${{ needs.integration-singlestore.result }}
           RESULT_SMOKE: ${{ needs.built-image-smoke.result }}
           RESULT_SECURITY: ${{ needs.security-scan.result }}
         run: |
           set -euo pipefail
-          echo "test=$RESULT_TEST integration-pg=$RESULT_PG integration-mysql=$RESULT_MYSQL integration-mariadb=$RESULT_MARIADB integration-clickhouse=$RESULT_CLICKHOUSE integration-singlestore=$RESULT_SINGLESTORE built-image-smoke=$RESULT_SMOKE security-scan=$RESULT_SECURITY"
+          echo "test=$RESULT_TEST integration-pg=$RESULT_PG integration-mysql=$RESULT_MYSQL integration-mariadb=$RESULT_MARIADB integration-clickhouse=$RESULT_CLICKHOUSE integration-clickhouse-replicated=$RESULT_CLICKHOUSE_REPL integration-singlestore=$RESULT_SINGLESTORE built-image-smoke=$RESULT_SMOKE security-scan=$RESULT_SECURITY"
           fail=0
           for pair in \
             "test:$RESULT_TEST" \
@@ -605,6 +645,7 @@ jobs:
             "integration-mysql:$RESULT_MYSQL" \
             "integration-mariadb:$RESULT_MARIADB" \
             "integration-clickhouse:$RESULT_CLICKHOUSE" \
+            "integration-clickhouse-replicated:$RESULT_CLICKHOUSE_REPL" \
             "integration-singlestore:$RESULT_SINGLESTORE" \
             "built-image-smoke:$RESULT_SMOKE" \
             "security-scan:$RESULT_SECURITY"; do
