@@ -1036,12 +1036,20 @@ func (c *Collector) runCycle(ctx context.Context, forceAll bool, req CollectRequ
 // (R108). Recorded as a skipped run so the status inventory is complete.
 const reasonBudgetExhausted = "budget_exhausted"
 
-// budgetSkippedRuns builds one skipped/budget_exhausted run per
-// remaining due collector when a cycle stops early on budget
-// (R108 / INV-SIGNALS-19). newID supplies run IDs (ULIDs in production;
-// injected so the construction is unit-testable without an entropy
-// source).
-func budgetSkippedRuns(remaining []pgqueries.QueryDef, targetID int64, snapID, collectedAt, versionStr string, newID func() string) []db.QueryRun {
+// reasonConnectionLost marks collectors that were due and eligible but did
+// not get a turn because the connection was lost mid-cycle (#705): a query
+// error closed the connection and the per-query ROLLBACK TO SAVEPOINT could
+// not recover the read transaction, so the remaining collectors cannot run
+// on the dead conn. Recorded as a skipped run (like budget_exhausted) so the
+// status inventory stays complete and the whole target is NOT discarded.
+const reasonConnectionLost = "connection_lost"
+
+// remainingSkippedRuns builds one skipped run per remaining due collector
+// when a cycle stops early (R108 / INV-SIGNALS-19 / #705). reason is the
+// skip reason (budget_exhausted or connection_lost). newID supplies run IDs
+// (ULIDs in production; injected so the construction is unit-testable
+// without an entropy source).
+func remainingSkippedRuns(remaining []pgqueries.QueryDef, targetID int64, snapID, collectedAt, versionStr, reason string, newID func() string) []db.QueryRun {
 	if len(remaining) == 0 {
 		return nil
 	}
@@ -1056,7 +1064,7 @@ func budgetSkippedRuns(remaining []pgqueries.QueryDef, targetID int64, snapID, c
 			PGVersion:   versionStr,
 			CreatedAt:   collectedAt,
 			Status:      "skipped",
-			Reason:      reasonBudgetExhausted,
+			Reason:      reason,
 		})
 	}
 	return runs
@@ -1208,7 +1216,11 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// MKR-R005: a cycle that attempted collectors but recorded zero
 		// successes is failed (it produced no data), so pass the success
 		// count too.
-		status := cycleStatus(err, success, failed, skippedByReason[reasonBudgetExhausted])
+		// #705: connection_lost skips make the cycle partial exactly like
+		// budget_exhausted — remaining collectors did not run, so the cycle is
+		// not a clean success even if the query that lost the conn itself
+		// counted elsewhere.
+		status := cycleStatus(err, success, failed, skippedByReason[reasonBudgetExhausted]+skippedByReason[reasonConnectionLost])
 		duration := time.Since(cycleStart)
 		completedAttrs := []any{
 			"target", tgt.Name,
@@ -1478,13 +1490,21 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	}
 
 	// Step 4: Execute each query with budget-aware timeout.
+	// #705: set when a query error closes the connection and the per-query
+	// savepoint rollback cannot recover the read transaction. The conn is
+	// then unusable for the remaining collectors, so instead of discarding
+	// the whole target (the pre-#705 hard return) we record this collector
+	// failed, mark the rest skipped/connection_lost, skip the (impossible)
+	// commit, and persist the PARTIAL snapshot.
+	connLost := false
+	var connLostErr error
 	for i, q := range queries {
 		// Check if target context is already expired.
 		if ctx.Err() != nil {
 			// R108: the budget elapsed before this collector (and the
 			// rest) was attempted — record every remaining due collector
 			// as skipped/budget_exhausted so the inventory is complete.
-			runs = append(runs, budgetSkippedRuns(queries[i:], targetID, snapID, collectedAt, versionStr, newRunID)...)
+			runs = append(runs, remainingSkippedRuns(queries[i:], targetID, snapID, collectedAt, versionStr, reasonBudgetExhausted, newRunID)...)
 			slog.Warn("target budget exhausted, remaining due collectors recorded as skipped",
 				"target", tgt.Name, "remaining", len(queries[i:]))
 			break
@@ -1575,13 +1595,28 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		if qErr != nil {
 			// Roll back to the savepoint to recover the transaction.
 			if _, rbErr := tx.Exec(spCtx, "ROLLBACK TO SAVEPOINT "+savepointName); rbErr != nil {
-				spCancel()
-				return fmt.Errorf("rollback to savepoint %s for %s: %w (transaction state inconsistent after query error: %v)", savepointName, tgt.Name, rbErr, qErr)
+				// #705: the query error closed the connection, so the
+				// savepoint rollback cannot recover the read transaction.
+				// Pre-#705 this returned a hard error and the ENTIRE target
+				// snapshot was discarded — one slow/contended collector took
+				// down every healthy one (the #643 field failure). Instead,
+				// flag connection loss: this collector is recorded failed
+				// below, the remaining collectors are marked
+				// skipped/connection_lost, the (impossible) commit is skipped,
+				// and the PARTIAL snapshot is persisted. qErr is the real
+				// cause; rbErr is the symptom of the dead conn.
+				connLost = true
+				connLostErr = fmt.Errorf("rollback to savepoint %s for %s: %w (transaction state inconsistent after query error: %v)", savepointName, tgt.Name, rbErr, qErr)
 			}
 		}
-		if _, relErr := tx.Exec(spCtx, "RELEASE SAVEPOINT "+savepointName); relErr != nil {
-			spCancel()
-			return fmt.Errorf("release savepoint %s for %s: %w", savepointName, tgt.Name, relErr)
+		// RELEASE only while the connection is still alive (a failed rollback
+		// already means the conn is dead). A RELEASE that fails on a dead conn
+		// is itself connection loss — degrade to partial, never discard.
+		if !connLost {
+			if _, relErr := tx.Exec(spCtx, "RELEASE SAVEPOINT "+savepointName); relErr != nil {
+				connLost = true
+				connLostErr = fmt.Errorf("release savepoint %s for %s: %w", savepointName, tgt.Name, relErr)
+			}
 		}
 		spCancel()
 
@@ -1598,53 +1633,75 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			CreatedAt:   collectedAt,
 		}
 
-		if qErr != nil {
-			run.Error = qErr.Error()
-			// R116 (#200) / #305: a collector flagged for a privilege
-			// degrade (OwnerOnlyDegrade or PrivilegedViewDegrade) that hits
-			// a permission-denied error is recorded skipped, not failed —
-			// an expected privilege boundary, not a fault. Every other
-			// failure keeps status=failed.
-			run.Status, run.Reason = classifyQueryFailure(q.OwnerOnlyDegrade, q.PrivilegedViewDegrade, qErr)
-			switch {
-			case run.Status == "skipped" && run.Reason == reasonPrivilegeOwnerOnly:
-				// R117 (#200): advise once per (target, collector), not
-				// every poll — and with correct wording (ownership, not
-				// pg_monitor, grants the owner-only catalog).
-				if c.warnOnce(tgt.Name, q.ID, "owner_only") {
-					slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not confer it). To collect it, GRANT SELECT ON pg_catalog.pg_statistic_ext_data to the monitoring role — no superuser required — otherwise this is an expected privilege boundary, recorded skipped, not failed",
-						"query", q.ID, "target", tgt.Name)
+		if qErr != nil || connLost {
+			if qErr != nil {
+				run.Error = qErr.Error()
+				// R116 (#200) / #305: a collector flagged for a privilege
+				// degrade (OwnerOnlyDegrade or PrivilegedViewDegrade) that hits
+				// a permission-denied error is recorded skipped, not failed —
+				// an expected privilege boundary, not a fault. Every other
+				// failure keeps status=failed.
+				run.Status, run.Reason = classifyQueryFailure(q.OwnerOnlyDegrade, q.PrivilegedViewDegrade, qErr)
+				switch {
+				case run.Status == "skipped" && run.Reason == reasonPrivilegeOwnerOnly:
+					// R117 (#200): advise once per (target, collector), not
+					// every poll — and with correct wording (ownership, not
+					// pg_monitor, grants the owner-only catalog).
+					if c.warnOnce(tgt.Name, q.ID, "owner_only") {
+						slog.Warn("collector skipped: pg_statistic_ext_data has PUBLIC SELECT revoked and is not readable by a least-privilege monitoring role (pg_monitor does not confer it). To collect it, GRANT SELECT ON pg_catalog.pg_statistic_ext_data to the monitoring role — no superuser required — otherwise this is an expected privilege boundary, recorded skipped, not failed",
+							"query", q.ID, "target", tgt.Name)
+					}
+				case run.Status == "skipped" && run.Reason == reasonPrivilegeRestricted:
+					// #305: pg_hba_file_rules needs SELECT on the view plus
+					// EXECUTE on pg_hba_file_rules() (pg_monitor /
+					// pg_read_all_settings do not grant them). Advise once per
+					// (target, collector) how to grant read access.
+					if c.warnOnce(tgt.Name, q.ID, "privilege_restricted") {
+						slog.Warn("collector skipped: pg_hba_file_rules needs GRANT SELECT ON pg_catalog.pg_hba_file_rules and GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() to the monitoring role (pg_monitor/pg_read_all_settings do not grant them) — recorded skipped, not failed",
+							"query", q.ID, "target", tgt.Name)
+					}
+				case isPermissionDenied(qErr):
+					if c.warnOnce(tgt.Name, q.ID, "permission_denied") {
+						slog.Warn("query permission denied — grant pg_monitor to the monitoring role",
+							"query", q.ID, "target", tgt.Name)
+					}
+				case ctx.Err() != nil:
+					slog.Warn("query timed out (target budget exhausted)",
+						"query", q.ID, "target", tgt.Name, "duration_ms", elapsed.Milliseconds())
+				case qTimedOut:
+					slog.Warn("query timed out",
+						"query", q.ID, "target", tgt.Name, "timeout", qTimeout, "duration_ms", elapsed.Milliseconds())
+				default:
+					slog.Warn("query failed", "query", q.ID, "target", tgt.Name, "err", qErr)
 				}
-			case run.Status == "skipped" && run.Reason == reasonPrivilegeRestricted:
-				// #305: pg_hba_file_rules needs SELECT on the view plus
-				// EXECUTE on pg_hba_file_rules() (pg_monitor /
-				// pg_read_all_settings do not grant them). Advise once per
-				// (target, collector) how to grant read access.
-				if c.warnOnce(tgt.Name, q.ID, "privilege_restricted") {
-					slog.Warn("collector skipped: pg_hba_file_rules needs GRANT SELECT ON pg_catalog.pg_hba_file_rules and GRANT EXECUTE ON FUNCTION pg_catalog.pg_hba_file_rules() to the monitoring role (pg_monitor/pg_read_all_settings do not grant them) — recorded skipped, not failed",
-						"query", q.ID, "target", tgt.Name)
-				}
-			case isPermissionDenied(qErr):
-				if c.warnOnce(tgt.Name, q.ID, "permission_denied") {
-					slog.Warn("query permission denied — grant pg_monitor to the monitoring role",
-						"query", q.ID, "target", tgt.Name)
-				}
-			case ctx.Err() != nil:
-				slog.Warn("query timed out (target budget exhausted)",
-					"query", q.ID, "target", tgt.Name, "duration_ms", elapsed.Milliseconds())
-			case qTimedOut:
-				slog.Warn("query timed out",
-					"query", q.ID, "target", tgt.Name, "timeout", qTimeout, "duration_ms", elapsed.Milliseconds())
-			default:
-				slog.Warn("query failed", "query", q.ID, "target", tgt.Name, "err", qErr)
+			} else {
+				// #705: the query itself succeeded but the savepoint RELEASE
+				// failed on a dead conn — the connection is lost. Record this
+				// collector failed so the loss is visible, never a false
+				// success on a torn transaction.
+				run.Error = connLostErr.Error()
+				run.Status = "failed"
+				run.Reason = reasonConnectionLost
 			}
 			runs = append(runs, run)
+
+			// #705: connection lost mid-cycle — the conn is dead, so no further
+			// collector can run on this tx. Record the remaining due collectors
+			// as skipped/connection_lost and stop; the PARTIAL snapshot is
+			// persisted (the now-impossible commit is skipped below). This
+			// replaces the pre-#705 hard return that discarded the whole target.
+			if connLost {
+				runs = append(runs, remainingSkippedRuns(queries[i+1:], targetID, snapID, collectedAt, versionStr, reasonConnectionLost, newRunID)...)
+				slog.Warn("connection lost mid-cycle; remaining collectors recorded skipped, persisting partial snapshot (#705)",
+					"target", tgt.Name, "query", q.ID, "remaining", len(queries[i+1:]), "err", connLostErr)
+				break
+			}
 
 			// If target context expired, stop processing more queries —
 			// but first record the remaining due collectors as skipped so
 			// the status inventory stays complete (R108).
 			if ctx.Err() != nil {
-				runs = append(runs, budgetSkippedRuns(queries[i+1:], targetID, snapID, collectedAt, versionStr, newRunID)...)
+				runs = append(runs, remainingSkippedRuns(queries[i+1:], targetID, snapID, collectedAt, versionStr, reasonBudgetExhausted, newRunID)...)
 				break
 			}
 			continue
@@ -1745,11 +1802,22 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 	// budget would fail an over-budget cycle and discard the complete
 	// status inventory R108 just recorded. R108: persistence must
 	// survive the exhausted budget.
-	commitCtx, commitCancel := context.WithTimeout(context.Background(), 5*time.Second)
-	cErr := tx.Commit(commitCtx)
-	commitCancel()
-	if cErr != nil {
-		return fmt.Errorf("commit tx for %s: %w", tgt.Name, cErr)
+	// #705: when the connection was lost mid-cycle (a query error closed it
+	// and the savepoint rollback could not recover the tx), there is nothing
+	// to commit — the conn is gone and the read-only tx died with it. NOTHING
+	// was ever written to PostgreSQL (INV: read-only preserved), so skip the
+	// commit and persist the partial inventory collected before the loss.
+	// Committing here would fail on the dead conn and wrongly discard the
+	// whole target — the exact pre-#705 defect (#643).
+	if connLost {
+		slog.Warn("tx commit skipped — connection lost mid-cycle; persisting partial snapshot (#705)", "target", tgt.Name)
+	} else {
+		commitCtx, commitCancel := context.WithTimeout(context.Background(), 5*time.Second)
+		cErr := tx.Commit(commitCtx)
+		commitCancel()
+		if cErr != nil {
+			return fmt.Errorf("commit tx for %s: %w", tgt.Name, cErr)
+		}
 	}
 
 	// Step 4b: Record gated collectors as skipped runs so

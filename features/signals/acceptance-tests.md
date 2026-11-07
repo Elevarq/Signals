@@ -1384,3 +1384,26 @@ object in `/status` carries `last_error` with exactly `category`
 **Failure Expectation:** Omitting `last_error` after a failure (the
 regression this issue fixes — failure unreportable over the API), or
 leaving a stale `last_error` after recovery, regresses R128.
+
+---
+
+## TC-SIG-143: Mid-cycle Connection Loss Degrades to a Partial Snapshot
+
+**Linked Rules:** SIGNALS-R129, SIGNALS-R108, INV-SIGNALS-19
+**Scenario:** A live PostgreSQL target where the connection is lost
+**mid-cycle** — a collector's query errors and closes the connection, so
+the per-query `ROLLBACK TO SAVEPOINT` fails on the dead conn (the #643
+field failure, forced deterministically via the `beforeQueryForTest`
+seam closing the conn on a known mid-sequence collector).
+**Inputs:** An enabled target; collection driven by the normal
+`collectTarget`; one mid-sequence collector closes the connection.
+**Expected Behavior:** `collectTarget` returns **no hard error**; exactly
+one snapshot persists carrying its full query-run inventory; the
+earlier collectors are `success`; the triggering collector is `failed`;
+every remaining collector is `skipped` with `reason=connection_lost`;
+the cycle status is `partial`; nothing was written to PostgreSQL.
+**Failure Expectation:** A hard error from `collectTarget` with **no
+snapshot persisted** (the pre-#705 whole-target discard — the #643
+defect) regresses SIGNALS-R129; a persisted snapshot missing the
+`connection_lost` skips for the remaining collectors regresses the R108
+completeness guarantee.
