@@ -6,6 +6,37 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.7.0] - 2026-11-07
+
+### Added
+
+- **Real per-target collection error surfaced over `/status` (#681).** A
+  collection failure on a healthy database was previously undiagnosable: the
+  cycle error was flattened to the bare metric reason `internal` and the real
+  error was log-only. `/status` now emits a per-target `last_error`
+  (`category`, `message`, `at`) **only** when the last cycle failed, cleared on
+  recovery. `classifyFailureReason` maps connection/auth/privilege/TLS/timeout
+  errors to the `FailureReasonCode` taxonomy; `redactFailureMessage` scrubs any
+  embedded DSN userinfo and length-caps the text before persist, so no
+  credential ever reaches `/status` (INV-SIGNALS-07). Additive durable columns
+  via migration `007`. Collection, the circuit breaker, and the safety model
+  are unchanged.
+
+### Changed
+
+- **Capped exponential backoff for the circuit open-cooldown — never stop
+  collecting (#680).** When a target's circuit opens, the re-probe cooldown now
+  grows exponentially from the configured base and is capped at
+  `maxOpenCooldown` (R097-B), instead of a fixed cooldown. A persistently
+  failing target no longer either hammers the database every cycle or gets
+  stuck off — it backs off and keeps retrying within bounds.
+
+### Security
+
+- **Go toolchain 1.26.9 → 1.26.10 (#651)** to remediate GO-2026-6809.
+- Dependency group updates: `go-minor` groups (#664, #646) and GitHub Actions
+  minor group (#645); `govulncheck` reports 0 reachable vulnerabilities.
+
 ### Removed
 
 - **Encrypted mTLS client-key support dropped (#654).** The
