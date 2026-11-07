@@ -566,6 +566,37 @@ successful while leaving the remaining due collectors with no row at
 all — a consumer could not distinguish "ran clean" from "never got a
 turn" (R072 completeness).
 
+**SIGNALS-R129**: When the connection is lost **mid-cycle** — a
+collector's query errors and closes the connection, so the per-query
+`ROLLBACK TO SAVEPOINT` that recovers the read transaction (R038) fails
+on the dead conn — the cycle shall **degrade to a partial snapshot**,
+never discard the whole target. Specifically:
+
+- The collector whose query triggered the loss is recorded `failed`
+  (its real error / R012 taxonomy), exactly as any other failed
+  collector.
+- Every remaining due collector is recorded `skipped` with
+  `reason=connection_lost` — the same completeness mechanism as R108's
+  `budget_exhausted`, so the status inventory is complete and the loss
+  is visible per collector.
+- The now-impossible transaction commit is **skipped** (the read-only
+  transaction died with the connection; nothing was ever written to
+  PostgreSQL — the read-only posture of R013/R017/R021 is preserved),
+  and the snapshot collected before the loss is persisted (R077 atomic).
+- The cycle status is `partial` when a collector was recorded failed or
+  a `connection_lost` skip occurred (R108 / MKR-R005); a snapshot with
+  its complete inventory is ALWAYS persisted, so a healthy, reachable
+  target can never silently yield zero data, and the real per-target
+  reason is surfaced over `/status`.
+
+Before this requirement the dead-conn savepoint rollback returned a
+hard error and discarded the entire target snapshot every cycle — so
+under load an RDS/Postgres target silently yielded NO data while its
+healthy collectors' results were thrown away
+(Elevarq/Signals#682/#705, Elevarq/timeseries-demo#643). The per-query
+server-side timeout (R012) keeps the connection alive for the common
+over-budget case; R129 is the backstop for when it genuinely closes.
+
 **SIGNALS-R109**: A disabled or removed target shall not appear in
 the default export or in `signalsctl status`. Specifically:
 
