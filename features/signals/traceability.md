@@ -799,13 +799,17 @@ replacing the CH-1 identity-only foundation; validated live against ClickHouse
 
 ## ClickHouse live qualification (CH-3, #566/#567)
 
-Spec: `specifications/clickhouse-live-qualification.md` (ACTIVE, CHLQ-R001..R005,
+Spec: `specifications/clickhouse-live-qualification.md` (ACTIVE, CHLQ-R001..R007,
 INV-CHLQ-01..03). The normal cmd/signals daemon collects a real ClickHouse (CI
 service container `integration-clickhouse` + local Dev Image, single-node) and
 exports through the production exporter; success asserted as status='success'
-with reconciled evidence. Harness: `scripts/clickhouse-dev-fixture.sh`,
-`scripts/clickhouse-live-qual.sh`, `internal/collector/clickhouse_live_test.go`
-(//go:build clickhouse_live), `examples/clickhouse-init.sql`,
+with reconciled evidence. #566 adds a REPLICATED leg: a pinned 1-shard/2-replica
+cluster + Keeper (`examples/clickhouse-cluster`, `scripts/clickhouse-cluster-fixture.sh`,
+CI job `integration-clickhouse-replicated`) exercising the cluster-scope collectors
+against real replication. Harness: `scripts/clickhouse-dev-fixture.sh`,
+`scripts/clickhouse-cluster-fixture.sh`, `scripts/clickhouse-live-qual.sh`,
+`internal/collector/clickhouse_live_test.go` (//go:build clickhouse_live),
+`examples/clickhouse-init.sql`, `examples/clickhouse-cluster/*`,
 `examples/clickhouse-daemon.yaml`.
 
 | Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
@@ -815,6 +819,8 @@ with reconciled evidence. Harness: `scripts/clickhouse-dev-fixture.sh`,
 | CHLQ-R003 | Legitimate empty system.* results are successes, never failures | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | single-node replicas/merges/mutations empty = success. |
 | CHLQ-R004 | One exact snapshot passes VerifyExportReconciliation: metadata engine/version, no foreign PG collector, collected==persisted==exported, query redacted, manifest complete | TestClickHouseLiveExportReconciliation, TestClickHouseExportSerializationReconciles | COVERED | INTEGRATION | Live + deterministic serialization legs. |
 | CHLQ-R005 | The ClickHouse live qualification runs in CI as integration-clickhouse and is a dependency of ci-gate | TestCIGateRequiresPostgreSQL | COVERED | STRUCTURAL | M0 guard asserts every integration-* job in ci-gate.needs. |
+| CHLQ-R006 | Replicated qualification: cluster-scope collectors surface real replication (system.clusters 2 replicas, system.replicas carries the ReplicatedMergeTree) via the pinned 2-replica cluster + Keeper; daemon qualifies against ch1 | TestClickHouseLiveCadenceQualification, TestCIGateRequiresPostgreSQL | COVERED | INTEGRATION | CI `integration-clickhouse-replicated` runs `clickhouse-cluster-fixture.sh up/verify` + the live-qual; proven locally (11 snapshots all success, verify: clusters=2, replicas=1). |
+| CHLQ-R007 | Cluster-scope replica evidence requires SHOW-level visibility (SHOW TABLES on monitored db); baseline SELECT ON system.* alone yields zero system.replicas rows. Metadata grant only — role stays read-only | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | Proven locally: signals_ro replicas=0 at baseline, =1 after `GRANT SHOW TABLES ON signals_demo.*`; INV-CHLQ-01 preserved. |
 | INV-CHLQ-01 | Collection is read-only; no writes beyond the one-time seed | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | SELECT-only (CHC-R001). |
 | INV-CHLQ-02 | Dedicated container/service + isolated temp store; never touches a developer's own ClickHouse | TestClickHouseLiveExportReconciliation | COVERED | INTEGRATION | clickhouse-dev-fixture fail-closed, refuses existing container (#588). |
 | INV-CHLQ-03 | status='success' is the success signal; a row/snapshot count is never sufficient | TestClickHouseLiveCadenceQualification | COVERED | INTEGRATION | Shared verifier asserts status. |

@@ -85,6 +85,25 @@ runnable locally.
 - **CHLQ-R005** — The ClickHouse live qualification runs in CI as a pinned
   `integration-clickhouse` job and is a dependency of the terminal `ci-gate` (so it
   routes through the same PostgreSQL-mandatory gate, #528 req #4).
+- **CHLQ-R006** — A REPLICATED qualification runs against a pinned 1-shard /
+  2-replica cluster + ClickHouse Keeper (`examples/clickhouse-cluster`, brought up
+  by `scripts/clickhouse-cluster-fixture.sh`): the cluster-scope collectors surface
+  REAL replication evidence — `system.clusters` reports the 2-replica
+  `signals_cluster` (`clickhouse_clusters_v1`) and `system.replicas` carries the
+  `ReplicatedMergeTree` with live state (`clickhouse_replicas_v1`), not the
+  single-node zero-row case of CHLQ-R003. The same normal daemon → exporter
+  producer path qualifies against cluster node `ch1`; the fixture `verify`
+  asserts the cluster-scope evidence at source, and `VerifyCadenceSnapshot` /
+  `VerifyExportReconciliation` (CHLQ-R002/R004) hold unchanged. Runs in CI as the
+  pinned `integration-clickhouse-replicated` job, also a `ci-gate` dependency
+  (#528 req #4).
+- **CHLQ-R007** — Cluster-scope replica evidence requires SHOW-level visibility
+  on the monitored databases: `system.replicas` is access-filtered by table
+  visibility, so the baseline `SELECT ON system.*` role alone yields ZERO rows
+  even when `ReplicatedMergeTree` tables exist. The replicated fixture grants
+  `SHOW TABLES ON <db>.*` to `signals_ro` — a METADATA grant, not data read, so
+  the role stays read-only (no row access to user data) while per-table replica
+  state becomes visible. (INV-CHLQ-01 is preserved: collection stays read-only.)
 
 ## Invariants
 
