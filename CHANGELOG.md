@@ -34,8 +34,11 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 ### Security
 
 - **Go toolchain 1.26.9 → 1.26.10 (#651)** to remediate GO-2026-6809.
+- **`golang.org/x/net` 0.61.0 → 0.62.0** to clear CVE-2026-78661 (`net/html`
+  denial-of-service, HIGH) flagged by the Trivy release gate. `govulncheck`
+  reports 0 reachable vulnerabilities after the bump.
 - Dependency group updates: `go-minor` groups (#664, #646) and GitHub Actions
-  minor group (#645); `govulncheck` reports 0 reachable vulnerabilities.
+  minor group (#645).
 
 ### Removed
 
