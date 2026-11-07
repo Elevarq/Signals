@@ -600,6 +600,32 @@ in-flight query client-side, closing the connection and destroying the
 whole target snapshot on the first collector to exceed its budget under
 load (Elevarq/Signals#671).
 
+**SIGNALS-R129**: When the connection is nonetheless lost **mid-cycle**
+— the R128 backstop path fires (a query error closes the connection and
+the per-query `ROLLBACK TO SAVEPOINT` cannot recover the read
+transaction on the dead conn) — the cycle shall **degrade to a partial
+snapshot**, never discard the whole target. Specifically:
+
+- The collector whose query triggered the loss is recorded `failed`
+  (its real error), exactly as any other failed collector.
+- Every remaining due collector is recorded `skipped` with
+  `reason=connection_lost` (the R108 completeness mechanism), so the
+  status inventory is complete and the loss is visible per collector.
+- The now-impossible transaction commit is **skipped** (the read-only
+  transaction died with the connection; nothing was ever written to
+  PostgreSQL — the read-only invariant is preserved), and the snapshot
+  collected before the loss is persisted (R077 atomic).
+- The cycle status is `partial` when any collector succeeded, or
+  `failed` when none did (R108 / MKR-R005) — but a snapshot with its
+  complete inventory is ALWAYS persisted, and `/status` surfaces the
+  real per-target reason (SIGNALS-R128/#681).
+
+Before this requirement the dead-conn rollback returned a hard error
+and discarded the entire target snapshot every cycle — so under extreme
+contention an RDS/Postgres target went dark after stand-up while healthy
+collectors' data was thrown away (Elevarq/timeseries-demo#643,
+Elevarq/Signals#705).
+
 **SIGNALS-R109**: A disabled or removed target shall not appear in
 the default export or in `signalsctl status`. Specifically:
 

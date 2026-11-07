@@ -22,7 +22,7 @@ func TestBudgetSkippedRunsRecordsEveryRemainingDueCollector(t *testing.T) {
 		return "run-" + string(rune('0'+i))
 	}
 
-	runs := budgetSkippedRuns(remaining, 7, "snap-x", "2026-05-27T10:00:00Z", "PostgreSQL 18.0", newID)
+	runs := remainingSkippedRuns(remaining, 7, "snap-x", "2026-05-27T10:00:00Z", "PostgreSQL 18.0", reasonBudgetExhausted, newID)
 
 	if len(runs) != len(remaining) {
 		t.Fatalf("got %d runs, want %d (one per remaining due collector)", len(runs), len(remaining))
@@ -56,7 +56,7 @@ func TestBudgetSkippedRunsRecordsEveryRemainingDueCollector(t *testing.T) {
 }
 
 func TestBudgetSkippedRunsEmpty(t *testing.T) {
-	runs := budgetSkippedRuns(nil, 1, "s", "t", "v", func() string { return "x" })
+	runs := remainingSkippedRuns(nil, 1, "s", "t", "v", reasonBudgetExhausted, func() string { return "x" })
 	if len(runs) != 0 {
 		t.Errorf("empty remaining should produce no runs, got %d", len(runs))
 	}
