@@ -321,7 +321,14 @@ func TestDataDurability_MountSetsOwnership(t *testing.T) {
 	for _, a := range artifacts {
 		name := filepath.Join(a...)
 		src := readDeploy(t, a...)
-		if !chown.MatchString(src) {
+		// #713: the AWS/Azure/GCP terraform now delegate the mount (including the
+		// chown to 10001:10001) to the shared prepare-data-disk.sh, embedded via
+		// file(). Those artifacts satisfy R-DUR-04 by embedding that script (which
+		// chowns $MOUNT to DATA_OWNER=10001:10001); the generic bicep/CFN/
+		// imagebuilder templates still chown inline. Either form is acceptable.
+		embedsSharedMount := strings.Contains(src, "prepare-data-disk.sh") &&
+			strings.Contains(src, `DATA_OWNER="10001:10001"`)
+		if !chown.MatchString(src) && !embedsSharedMount {
 			t.Errorf("%s: mount logic does not chown /data to 10001:10001 — the non-root container user cannot write signals.db (R-DUR-04)", name)
 		}
 	}

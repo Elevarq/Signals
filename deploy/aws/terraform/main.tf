@@ -39,31 +39,17 @@ locals {
     # root disk and NOT a Docker named volume on the root disk. Mount it
     # format-if-empty: a fresh volume is formatted once; a re-attached populated
     # volume keeps its signals.db untouched (R-DUR-03).
-    DATA_DEV="${var.data_device_name}"
-    # NVMe-backed instances remap /dev/sdX to /dev/nvmeXn1, so resolve the real
-    # device: the single non-root block device that is not the OS disk.
-    if [ ! -b "$DATA_DEV" ]; then
-      for d in /dev/nvme*n1; do
-        [ -b "$d" ] || continue
-        # Skip the root device (mounted at /).
-        if lsblk -no MOUNTPOINT "$d" | grep -q '^/$'; then continue; fi
-        DATA_DEV="$d"
-      done
-    fi
-    mkdir -p /data
-    # Format ONLY when the device has no filesystem (first provisioning).
-    if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
-      mkfs.ext4 -F "$DATA_DEV"
-    fi
-    # Persist the mount across reboots by stable UUID (survives device renames).
-    DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
-    grep -q "$DATA_UUID" /etc/fstab || \
-      echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
-    mount /data || mount "$DATA_DEV" /data
-    # The non-root container user (uid 10001, group 10001) must own /data so it
-    # can write signals.db (R-DUR-04). On a re-attached populated volume this is
-    # a cheap no-op that preserves the existing data.
-    chown 10001:10001 /data
+    # #713 (F07): resolve the intended EBS volume by its STABLE Nitro by-id path
+    # (derived from the volume id), wait bounded for it, and format only if it is
+    # provably blank — never scan-and-pick an arbitrary non-root NVMe disk, and
+    # never treat a blkid probe error as "empty". Shared, tested logic in
+    # deploy/common/scripts/prepare-data-disk.sh, embedded verbatim below. On
+    # Nitro, EBS vol-0a1b… appears at
+    # /dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_vol0a1b… (dashes stripped).
+    export DATA_DISK_IDENTITY="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${replace(aws_ebs_volume.data.id, "-", "")}"
+    export DATA_MOUNT="/data"
+    export DATA_OWNER="10001:10001"
+${indent(4, file("${path.module}/../../common/scripts/prepare-data-disk.sh"))}
     # RDS server CA bundle for sslmode=verify-full.
     curl -fsSL https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem \
       -o /etc/signals/rds-ca.pem
@@ -120,6 +106,15 @@ locals {
   EOT
 }
 
+# #713 (F07): the data volume's AZ is sourced from the SUBNET, not from the
+# instance. Deriving it from aws_instance.collector made the retained volume a
+# replacement dependency of the instance AND (once the instance's user_data
+# resolves the volume by id) created a dependency cycle. The subnet fixes the AZ
+# independently of the replaceable instance.
+data "aws_subnet" "selected" {
+  id = var.subnet_id
+}
+
 # --- Durable data volume (#501) ---------------------------------------------
 # A separate, encrypted EBS volume holds /data (signals.db). Its lifecycle is
 # independent of the instance: user_data_replace_on_change replaces ONLY the
@@ -128,7 +123,7 @@ locals {
 # instance identity, and cadence watermarks survive an AMI/instance upgrade
 # (INV-DUR-01 / INV-DUR-02 / INV-DUR-05, R-DUR-05 / R-DUR-06).
 resource "aws_ebs_volume" "data" {
-  availability_zone = aws_instance.collector.availability_zone
+  availability_zone = data.aws_subnet.selected.availability_zone
   size              = var.data_volume_size
   type              = "gp3"
   encrypted         = true
