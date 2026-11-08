@@ -168,8 +168,10 @@ func collectPauseCmd() *cobra.Command {
 		Long: `Pause collection for one target or every enabled target.
 
 A paused target stays paused until 'signalsctl collect resume' is run.
-State is in-memory only — a daemon restart resumes all targets.
-The pause/resume events live in the audit log so the operator trail
+The pause is PERSISTED: a daemon restart restores it (RestoreCircuitState),
+so a paused target stays paused across restarts and must be resumed
+explicitly — restarting the daemon does NOT resume collection. The
+pause/resume events also live in the audit log so the operator trail
 survives the restart.
 
 Spec: features/signals/specification.md (R097).`,
