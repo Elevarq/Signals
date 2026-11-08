@@ -275,7 +275,17 @@ func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfi
 	// SCH-R004: bound each collector by the configured per-query timeout while
 	// the target context remains the outer bound of the cycle.
 	runner := boundedSingleStoreRunner(conn.runner, c.queryTimeout)
-	results := singlestore.Collect(ctx, runner, singlestore.CatalogFor(engine), !c.highSensitivityEnabled, c.collectNormalizedQueryText)
+	// SP-R010/#709: apply the target's per-target collection profile at the
+	// engine-neutral boundary BEFORE executing queries — a restricted/custom
+	// profile must constrain the wire engine exactly as PostgreSQL, not run the
+	// whole catalog. Dropped collectors are recorded as skipped/config_disabled
+	// below so the per-target outcome inventory stays truthful.
+	eligibleCat, gatedCat := profileFilterCatalog(
+		singlestore.CatalogFor(engine), tgt,
+		func(c singlestore.Collector) string { return c.ID },
+		func(c singlestore.Collector) bool { return c.HighSensitivity },
+	)
+	results := singlestore.Collect(ctx, runner, eligibleCat, !c.highSensitivityEnabled, c.collectNormalizedQueryText)
 
 	for _, r := range results {
 		if cerr := c.db.UpsertQueryCatalog(db.QueryCatalogRow{
@@ -289,6 +299,17 @@ func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfi
 	snap, mappedRuns, payloads, mapErr := mapWireCollection(engine, snapID, targetID, version, collectedAt, results)
 	if mapErr != nil {
 		return snapID, nil, mapErr
+	}
+	// SP-R010/#709: record the profile-dropped collectors as skipped so the
+	// status/outcome inventory names them, matching the PostgreSQL gated-run
+	// handling. No payload rows — a skipped collector produces no evidence.
+	if len(gatedCat) > 0 {
+		gatedIDs := make([]string, len(gatedCat))
+		for i, g := range gatedCat {
+			gatedIDs[i] = g.ID
+		}
+		mappedRuns = append(mappedRuns, profileSkippedRuns(targetID, snapID, version, collectedAt, gatedIDs,
+			func() string { return ulid.MustNew(ulid.Timestamp(now), c.entropy).String() })...)
 	}
 	runs = mappedRuns
 

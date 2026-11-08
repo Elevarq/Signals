@@ -173,7 +173,17 @@ func (c *Collector) collectClickHouse(ctx context.Context, tgt config.TargetConf
 	}
 
 	runner := boundedClickHouseRunner(conn.runner, c.queryTimeout)
-	results := clickhouse.Collect(ctx, runner, clickhouse.Catalog(), !c.highSensitivityEnabled)
+	// SP-R010/#709: apply the target's per-target collection profile at the
+	// engine-neutral boundary BEFORE executing queries — a restricted/custom
+	// profile must constrain ClickHouse (incl. the high-sensitivity query_log
+	// collectors) exactly as PostgreSQL, not run the whole catalog. Dropped
+	// collectors are recorded as skipped/config_disabled below.
+	eligibleCat, gatedCat := profileFilterCatalog(
+		clickhouse.Catalog(), tgt,
+		func(c clickhouse.Collector) string { return c.ID },
+		func(c clickhouse.Collector) bool { return c.HighSensitivity },
+	)
+	results := clickhouse.Collect(ctx, runner, eligibleCat, !c.highSensitivityEnabled)
 
 	for _, r := range results {
 		if cerr := c.db.UpsertQueryCatalog(db.QueryCatalogRow{
@@ -187,6 +197,17 @@ func (c *Collector) collectClickHouse(ctx context.Context, tgt config.TargetConf
 	snap, mappedRuns, payloads, mapErr := mapClickHouseCollection(snapID, targetID, version, collectedAt, results)
 	if mapErr != nil {
 		return snapID, nil, mapErr
+	}
+	// SP-R010/#709: record the profile-dropped collectors as skipped so the
+	// status/outcome inventory names them, matching the PostgreSQL gated-run
+	// handling. No payload rows — a skipped collector produces no evidence.
+	if len(gatedCat) > 0 {
+		gatedIDs := make([]string, len(gatedCat))
+		for i, g := range gatedCat {
+			gatedIDs[i] = g.ID
+		}
+		mappedRuns = append(mappedRuns, profileSkippedRuns(targetID, snapID, version, collectedAt, gatedIDs,
+			func() string { return ulid.MustNew(ulid.Timestamp(now), c.entropy).String() })...)
 	}
 	runs = mappedRuns
 
