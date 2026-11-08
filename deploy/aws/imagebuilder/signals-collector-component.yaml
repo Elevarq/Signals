@@ -71,21 +71,39 @@ phases:
             content: |
               #!/bin/bash
               set -euo pipefail
-              # Resolve the durable data device: the single non-root block
-              # device (NVMe-remapped EBS data volume), preferring the standard
-              # attach name when present.
-              DATA_DEV="/dev/sdf"
-              if [ ! -b "$DATA_DEV" ]; then
-                for d in /dev/nvme*n1; do
+              # #713 (F07): resolve the durable data device safely. A generic
+              # AMI has no volume id to pin, so identify THE SINGLE non-root,
+              # unmounted block device — and FAIL CLOSED on absence or ambiguity
+              # rather than scanning and picking the last match. Wait bounded for
+              # attachment; never format on a blkid probe error.
+              DATA_DEV=""
+              for _ in $(seq 1 60); do
+                cands=""
+                for d in /dev/nvme*n1 /dev/sd? /dev/xvd?; do
                   [ -b "$d" ] || continue
-                  if lsblk -no MOUNTPOINT "$d" | grep -q '^/$'; then continue; fi
-                  DATA_DEV="$d"
+                  mp="$(lsblk -no MOUNTPOINT "$d" 2>/dev/null | head -n1)"
+                  case "$mp" in /|/boot|/boot/*) continue;; esac
+                  # Skip a device that carries partitions (likely the OS disk).
+                  [ "$(lsblk -no NAME "$d" 2>/dev/null | wc -l)" -gt 1 ] && continue
+                  cands="$cands $d"
                 done
-              fi
+                set -- $cands
+                if [ "$#" -eq 1 ]; then DATA_DEV="$1"; break; fi
+                if [ "$#" -gt 1 ]; then echo "ERROR: ambiguous data device candidates:$cands" >&2; exit 1; fi
+                sleep 2
+              done
+              [ -n "$DATA_DEV" ] && [ -b "$DATA_DEV" ] || { echo "ERROR: intended data device did not attach (fail closed)" >&2; exit 1; }
               mkdir -p /data
-              # Format ONLY when empty (first provisioning). Re-attach preserves.
-              if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
+              # Format ONLY when a low-level probe proves the device is blank
+              # (blkid -p exit 2). On a probe ERROR (any other non-zero) FAIL
+              # CLOSED — never format on an error (could destroy data).
+              blkid -p "$DATA_DEV" >/dev/null 2>&1; rc=$?
+              if [ "$rc" -eq 0 ]; then
+                : # existing filesystem/signature — preserve it.
+              elif [ "$rc" -eq 2 ]; then
                 mkfs.ext4 -F "$DATA_DEV"
+              else
+                echo "ERROR: blkid probe of $DATA_DEV failed (rc=$rc); refusing to format" >&2; exit 1
               fi
               DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
               grep -q "$DATA_UUID" /etc/fstab || \
