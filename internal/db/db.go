@@ -565,12 +565,64 @@ type Snapshot struct {
 	SourcePort int
 	SourceDB   string
 	SourceUser string
+	// Collection-time policy provenance captured at insert (#729 / A3, CTP).
+	// Tri-state: a non-nil value is the unsafe-role / high-sensitivity policy
+	// in effect WHEN THIS SNAPSHOT WAS COLLECTED; nil means UNKNOWN (a pre-#729
+	// snapshot that predates the column — never invented). Immutable per
+	// snapshot, so an export can describe included history honestly instead of
+	// stamping the current exporter's policy onto older evidence.
+	CollectUnsafeMode      *bool
+	CollectHighSensitivity *bool
+}
+
+// snapshotColumns is the canonical SELECT column order consumed by
+// scanSnapshot. Any snapshot query that feeds scanSnapshot MUST select exactly
+// these columns in this order.
+const snapshotColumns = "id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user, collect_unsafe_mode, collect_high_sensitivity"
+
+// rowScanner abstracts *sql.Row and *sql.Rows for snapshot scanning.
+type rowScanner interface {
+	Scan(dest ...any) error
+}
+
+// nbPtr maps a nullable SQL bool to the tri-state *bool used for
+// collection-time policy provenance: NULL -> nil (unknown), else &value.
+func nbPtr(nb sql.NullBool) *bool {
+	if !nb.Valid {
+		return nil
+	}
+	v := nb.Bool
+	return &v
+}
+
+// scanSnapshot reads one snapshot row in snapshotColumns order, mapping the
+// nullable collection-policy columns to tri-state *bool (nil = unknown, #729).
+func scanSnapshot(sc rowScanner) (Snapshot, error) {
+	var s Snapshot
+	var payload []byte
+	var cu, ch sql.NullBool
+	if err := sc.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes,
+		&s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser, &cu, &ch); err != nil {
+		return Snapshot{}, err
+	}
+	s.Payload = json.RawMessage(payload)
+	s.CollectUnsafeMode = nbPtr(cu)
+	s.CollectHighSensitivity = nbPtr(ch)
+	return s, nil
+}
+
+// boolToNull maps a tri-state *bool to a nullable SQL bool for insertion.
+func boolToNull(b *bool) sql.NullBool {
+	if b == nil {
+		return sql.NullBool{}
+	}
+	return sql.NullBool{Bool: *b, Valid: true}
 }
 
 func (d *DB) InsertSnapshot(s Snapshot) error {
 	_, err := d.sql.Exec(
-		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-		s.ID, s.TargetID, s.CollectedAt, s.PGVersion, string(s.Payload), s.SizeBytes, s.SourceHost, s.SourcePort, s.SourceDB, s.SourceUser,
+		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user, collect_unsafe_mode, collect_high_sensitivity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		s.ID, s.TargetID, s.CollectedAt, s.PGVersion, string(s.Payload), s.SizeBytes, s.SourceHost, s.SourcePort, s.SourceDB, s.SourceUser, boolToNull(s.CollectUnsafeMode), boolToNull(s.CollectHighSensitivity),
 	)
 	return err
 }
@@ -617,7 +669,7 @@ func canonicalUntilBound(s string) string {
 
 func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapshot, error) {
 	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
-	query := "SELECT id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE target_id = ?"
+	query := "SELECT " + snapshotColumns + " FROM snapshots WHERE target_id = ?"
 	args := []any{targetID}
 	if since != "" {
 		query += " AND collected_at >= ?"
@@ -637,12 +689,10 @@ func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapsh
 
 	var snaps []Snapshot
 	for rows.Next() {
-		var s Snapshot
-		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
+		s, err := scanSnapshot(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Payload = json.RawMessage(payload)
 		snaps = append(snaps, s)
 	}
 	return snaps, rows.Err()
@@ -650,7 +700,7 @@ func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapsh
 
 func (d *DB) GetAllSnapshots(since, until string) ([]Snapshot, error) {
 	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
-	query := "SELECT id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE 1=1"
+	query := "SELECT " + snapshotColumns + " FROM snapshots WHERE 1=1"
 	var args []any
 	if since != "" {
 		query += " AND collected_at >= ?"
@@ -670,12 +720,10 @@ func (d *DB) GetAllSnapshots(since, until string) ([]Snapshot, error) {
 
 	var snaps []Snapshot
 	for rows.Next() {
-		var s Snapshot
-		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
+		s, err := scanSnapshot(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Payload = json.RawMessage(payload)
 		snaps = append(snaps, s)
 	}
 	return snaps, rows.Err()
@@ -723,19 +771,16 @@ func (d *DB) Vacuum() error {
 // FC-08 (translated to HTTP 404 by the API layer / non-zero
 // `signalsctl` exit).
 func (d *DB) GetSnapshotByID(id string) (*Snapshot, error) {
-	var s Snapshot
-	var payload string
-	err := d.sql.QueryRow(
-		"SELECT id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE id = ?",
+	s, err := scanSnapshot(d.sql.QueryRow(
+		"SELECT "+snapshotColumns+" FROM snapshots WHERE id = ?",
 		id,
-	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser)
+	))
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	s.Payload = json.RawMessage(payload)
 	return &s, nil
 }
 
@@ -752,7 +797,7 @@ func (d *DB) GetSnapshotByID(id string) (*Snapshot, error) {
 // accessible via the `--all` selector for forensic exports.
 func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 	const q = `
-		SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user
+		SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user, s.collect_unsafe_mode, s.collect_high_sensitivity
 		FROM snapshots s
 		JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		JOIN (
@@ -775,16 +820,14 @@ func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 	var snaps []Snapshot
 	seen := map[int64]bool{}
 	for rows.Next() {
-		var s Snapshot
-		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
+		s, err := scanSnapshot(rows)
+		if err != nil {
 			return nil, err
 		}
 		if seen[s.TargetID] {
 			continue
 		}
 		seen[s.TargetID] = true
-		s.Payload = json.RawMessage(payload)
 		snaps = append(snaps, s)
 	}
 	return snaps, rows.Err()
@@ -801,23 +844,20 @@ func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 // operator can fall back to `--all --target-id=<orphan>` to recover
 // forensic visibility into corrupt history.
 func (d *DB) GetLatestSnapshotForTarget(targetID int64) (*Snapshot, error) {
-	var s Snapshot
-	var payload string
-	err := d.sql.QueryRow(
-		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user
+	s, err := scanSnapshot(d.sql.QueryRow(
+		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user, s.collect_unsafe_mode, s.collect_high_sensitivity
 		 FROM snapshots s
 		 JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		 WHERE s.target_id = ?
 		 ORDER BY s.collected_at DESC, s.id DESC LIMIT 1`,
 		targetID,
-	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser)
+	))
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	s.Payload = json.RawMessage(payload)
 	return &s, nil
 }
 
@@ -967,7 +1007,7 @@ func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
 	}
 	placeholders := strings.Repeat("?,", len(ids))
 	placeholders = placeholders[:len(placeholders)-1]
-	q := `SELECT id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user
+	q := `SELECT ` + snapshotColumns + `
 	      FROM snapshots WHERE id IN (` + placeholders + `)
 	      ORDER BY target_id ASC, id ASC`
 	args := make([]any, len(ids))
@@ -982,12 +1022,10 @@ func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
 
 	var snaps []Snapshot
 	for rows.Next() {
-		var s Snapshot
-		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
+		s, err := scanSnapshot(rows)
+		if err != nil {
 			return nil, err
 		}
-		s.Payload = json.RawMessage(payload)
 		snaps = append(snaps, s)
 	}
 	return snaps, rows.Err()
@@ -1093,9 +1131,10 @@ func (d *DB) InsertCollectionAtomic(snapshot Snapshot, runs []QueryRun, results 
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes, source_host, source_port, source_db, source_user, collect_unsafe_mode, collect_high_sensitivity) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
 		snapshot.ID, snapshot.TargetID, snapshot.CollectedAt, snapshot.PGVersion, string(snapshot.Payload), snapshot.SizeBytes,
 		snapshot.SourceHost, snapshot.SourcePort, snapshot.SourceDB, snapshot.SourceUser,
+		boolToNull(snapshot.CollectUnsafeMode), boolToNull(snapshot.CollectHighSensitivity),
 	); err != nil {
 		return fmt.Errorf("insert snapshot: %w", err)
 	}
