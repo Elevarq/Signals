@@ -28,6 +28,20 @@ spec:
       app.kubernetes.io/instance: {{ .Release.Name }}
   template:
     metadata:
+      annotations:
+        # #728 (A2): roll the pod when the target ConfigMap content changes so a
+        # config-only `helm upgrade` is actually applied. The daemon has no
+        # config-file watcher, so without this a changed ConfigMap would leave
+        # the old target/connection settings active until a manual reload or
+        # rollout — misleading operators about which databases are monitored.
+        # The checksum changes iff the rendered ConfigMap changes, so a pure
+        # image/other change does NOT needlessly restart. Combined with the
+        # Recreate strategy (#718) this is a single-store-safe stop-before-start
+        # restart — no surge pod, no migration race.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+        {{- with .Values.podAnnotations }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
       labels:
         app.kubernetes.io/name: signals
         app.kubernetes.io/instance: {{ .Release.Name }}
