@@ -184,6 +184,21 @@ func mysqlCatalog() []Collector {
 			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION, CARDINALITY FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
 		},
 		{
+			// #640 Replay Tier-2: per-index-PREFIX cardinality from InnoDB's
+			// persistent statistics (mysql.innodb_index_stats). The `n_diff_pfxNN`
+			// rows carry the engine's estimated distinct-value count for each index
+			// prefix length — finer-grained than information_schema.STATISTICS.
+			// CARDINALITY and the direct input to the Analyzer row-estimate
+			// injection (Analyzer#4142). Read-only metadata from the `mysql` system
+			// schema (baseline global SELECT grant; a privilege denial is a
+			// legitimate skip, not a failure). Bounded by schema size (one row per
+			// index prefix), not data size. Signals reads the engine's precomputed
+			// stat; it never computes it. Not HighSensitivity.
+			ID:       "mysql_innodb_index_stats_v1",
+			Category: "schema",
+			SQL:      "SELECT database_name, table_name, index_name, stat_name, stat_value, sample_size FROM mysql.innodb_index_stats WHERE database_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND stat_name LIKE 'n_diff_pfx%' ORDER BY database_name, table_name, index_name, stat_name",
+		},
+		{
 			ID:       "mysql_replication_status_v1",
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, SOURCE_UUID FROM performance_schema.replication_connection_status",
