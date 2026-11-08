@@ -221,6 +221,26 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, PARTITION_ORDINAL_POSITION, PARTITION_METHOD, SUBPARTITION_METHOD, PARTITION_EXPRESSION, SUBPARTITION_EXPRESSION, PARTITION_DESCRIPTION, TABLE_ROWS FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND PARTITION_NAME IS NOT NULL ORDER BY TABLE_SCHEMA, TABLE_NAME, PARTITION_ORDINAL_POSITION",
 		},
 		{
+			// #640 Replay Tier-3: per-column histogram SHAPE metadata from MariaDB
+			// Engine-Independent Table Statistics (mysql.column_stats). hist_type
+			// (SINGLE_PREC_HB / DOUBLE_PREC_HB) and hist_size (bucket/byte count) are
+			// the histogram presence/shape signal, populated by ANALYZE TABLE ...
+			// PERSISTENT. Filtered to columns that actually carry a histogram
+			// (hist_size > 0). This tells the Analyzer a column has a histogram of a
+			// given precision/size so it can weight selectivity confidence
+			// (Analyzer#4142). MariaDB-only.
+			//
+			// SAFETY: the encoded `histogram` blob (bucket fractions) and the
+			// min_value / max_value it is interpreted against are deliberately NOT
+			// selected — only the type + size scalars — mirroring the i3 min/max
+			// exclusion; raw histogram contents are deferred behind a separate
+			// redaction design. Read-only mysql-schema metadata; schema-bounded;
+			// engine-precomputed, never computed. Not HighSensitivity.
+			ID:       "mariadb_column_histograms_v1",
+			Category: "schema",
+			SQL:      "SELECT db_name, table_name, column_name, hist_size, hist_type FROM mysql.column_stats WHERE db_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND hist_size > 0 ORDER BY db_name, table_name, column_name",
+		},
+		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
 			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
 			// STATUS='enabled').

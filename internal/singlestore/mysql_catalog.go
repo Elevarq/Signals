@@ -219,6 +219,27 @@ func mysqlCatalog() []Collector {
 			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, PARTITION_ORDINAL_POSITION, PARTITION_METHOD, SUBPARTITION_METHOD, PARTITION_EXPRESSION, SUBPARTITION_EXPRESSION, PARTITION_DESCRIPTION, TABLE_ROWS FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND PARTITION_NAME IS NOT NULL ORDER BY TABLE_SCHEMA, TABLE_NAME, PARTITION_ORDINAL_POSITION",
 		},
 		{
+			// #640 Replay Tier-3: per-column histogram SHAPE metadata from
+			// information_schema.COLUMN_STATISTICS (MySQL 8.0+). The HISTOGRAM column
+			// is a JSON document; we extract only its scalar shape fields
+			// (histogram-type, number-of-buckets-specified, sampling-rate,
+			// null-values, data-type, last-updated) plus the bucket COUNT
+			// (JSON_LENGTH of the buckets array). This tells the Analyzer that a
+			// column carries an N-bucket histogram at a given sampling rate so it can
+			// weight selectivity-estimate confidence (Analyzer#4142).
+			//
+			// SAFETY: the buckets array ($.buckets[*]) holds ACTUAL sampled column
+			// boundary VALUES (potential PII) — the same class of data as the i3
+			// min_value/max_value we excluded. This SELECT deliberately extracts ONLY
+			// the scalar shape fields and the bucket COUNT via JSON_LENGTH, and NEVER
+			// an indexed bucket value ($.buckets[N]); the raw bucket contents are
+			// deferred behind a separate redaction design. Read-only; schema-bounded;
+			// engine-precomputed, never computed. Not HighSensitivity.
+			ID:       "mysql_column_histograms_v1",
+			Category: "schema",
+			SQL:      "SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_UNQUOTE(JSON_EXTRACT(HISTOGRAM, '$.\"histogram-type\"')) AS histogram_type, JSON_EXTRACT(HISTOGRAM, '$.\"number-of-buckets-specified\"') AS buckets_specified, JSON_LENGTH(JSON_EXTRACT(HISTOGRAM, '$.buckets')) AS bucket_count, JSON_EXTRACT(HISTOGRAM, '$.\"sampling-rate\"') AS sampling_rate, JSON_EXTRACT(HISTOGRAM, '$.\"null-values\"') AS null_fraction, JSON_UNQUOTE(JSON_EXTRACT(HISTOGRAM, '$.\"data-type\"')) AS data_type, JSON_UNQUOTE(JSON_EXTRACT(HISTOGRAM, '$.\"last-updated\"')) AS last_updated FROM information_schema.COLUMN_STATISTICS WHERE SCHEMA_NAME NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY SCHEMA_NAME, TABLE_NAME, COLUMN_NAME",
+		},
+		{
 			ID:       "mysql_replication_status_v1",
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, SOURCE_UUID FROM performance_schema.replication_connection_status",

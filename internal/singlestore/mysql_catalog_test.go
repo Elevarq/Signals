@@ -24,6 +24,7 @@ func TestMySQLCatalogReadOnly(t *testing.T) {
 // TC-MYC-02 (MYC-R005): expected MySQL collector set.
 func TestMySQLCatalogExpectedSet(t *testing.T) {
 	want := []string{
+		"mysql_column_histograms_v1",
 		"mysql_columns_v1",
 		"mysql_data_lock_waits_v1",
 		"mysql_data_locks_v1",
@@ -723,5 +724,52 @@ func TestMySQLPartitions(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["TABLE_ROWS"]; v != "120000" {
 		t.Errorf("TABLE_ROWS = %v, want 120000", v)
+	}
+}
+
+// #640 Replay Tier-3 — mysql_column_histograms_v1 reads information_schema.
+// COLUMN_STATISTICS for histogram SHAPE metadata only. SAFETY: it extracts the
+// scalar shape fields and the bucket COUNT from the HISTOGRAM JSON, never an
+// actual bucket boundary VALUE (those are sampled column data, potential PII).
+func TestMySQLColumnHistograms(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_column_histograms_v1")
+	if c == nil {
+		t.Fatal("mysql_column_histograms_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("histogram shape metadata carries no sensitive payload")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.COLUMN_STATISTICS") {
+		t.Errorf("must read information_schema.COLUMN_STATISTICS; SQL=%q", c.SQL)
+	}
+	// Safety: count buckets, never extract a bucket boundary value (indexed
+	// `$.buckets[N]` access). JSON_LENGTH on the array is a count, not a value.
+	if strings.Contains(up, "BUCKETS[") {
+		t.Errorf("must NOT extract indexed bucket boundary values; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "JSON_LENGTH") {
+		t.Errorf("bucket cardinality must come from JSON_LENGTH (a count, not values); SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "HISTOGRAM-TYPE") {
+		t.Errorf("must extract the histogram-type shape field; SQL=%q", c.SQL)
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "INFORMATION_SCHEMA.COLUMN_STATISTICS") {
+			return []map[string]any{
+				{"SCHEMA_NAME": "app", "TABLE_NAME": "orders", "COLUMN_NAME": "status", "histogram_type": "singleton", "bucket_count": "6", "sampling_rate": "1.0", "null_fraction": "0.0", "data_type": "string"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["bucket_count"]; v != "6" {
+		t.Errorf("bucket_count = %v, want 6", v)
 	}
 }

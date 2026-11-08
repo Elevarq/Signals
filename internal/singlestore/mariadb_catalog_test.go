@@ -25,6 +25,7 @@ func TestMariaDBCatalogReadOnly(t *testing.T) {
 // TC-MDC-02 (MDC-R005): expected MariaDB collector set (all green under SELECT,PROCESS).
 func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	want := []string{
+		"mariadb_column_histograms_v1",
 		"mariadb_column_stats_v1",
 		"mariadb_columns_v1",
 		"mariadb_engines_v1",
@@ -731,5 +732,53 @@ func TestMariaDBPartitions(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["TABLE_ROWS"]; v != "88000" {
 		t.Errorf("TABLE_ROWS = %v, want 88000", v)
+	}
+}
+
+// #640 Replay Tier-3 — mariadb_column_histograms_v1 reads mysql.column_stats for
+// histogram SHAPE metadata only (hist_type, hist_size). SAFETY: the encoded
+// `histogram` blob and the min_value/max_value it is interpreted against are
+// deliberately NOT selected — only the type + size scalars.
+func TestMariaDBColumnHistograms(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_column_histograms_v1")
+	if c == nil {
+		t.Fatal("mariadb_column_histograms_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("histogram shape metadata carries no sensitive payload")
+	}
+	low := strings.ToLower(c.SQL)
+	if !strings.Contains(low, "mysql.column_stats") {
+		t.Errorf("must read mysql.column_stats; SQL=%q", c.SQL)
+	}
+	// Safety: only the shape scalars — never the encoded histogram blob or the
+	// min/max data values it is interpreted against.
+	for _, banned := range []string{"histogram", "min_value", "max_value"} {
+		if strings.Contains(low, banned) {
+			t.Errorf("must NOT select data/blob column %q; SQL=%q", banned, c.SQL)
+		}
+	}
+	for _, want := range []string{"hist_size", "hist_type"} {
+		if !strings.Contains(low, want) {
+			t.Errorf("must select histogram shape scalar %q; SQL=%q", want, c.SQL)
+		}
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToLower(sql), "mysql.column_stats") {
+			return []map[string]any{
+				{"db_name": "app", "table_name": "orders", "column_name": "status", "hist_size": "16", "hist_type": "DOUBLE_PREC_HB"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["hist_type"]; v != "DOUBLE_PREC_HB" {
+		t.Errorf("hist_type = %v, want DOUBLE_PREC_HB", v)
 	}
 }
