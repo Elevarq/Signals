@@ -1709,6 +1709,14 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		PGVersion:   data.Version,
 		Payload:     json.RawMessage(payload),
 		SizeBytes:   len(payload),
+		// #716 / R094.1: capture the source identity at collection time so this
+		// snapshot keeps its collection-time identity even if the target name is
+		// later retargeted to a different database. Taken from the target config,
+		// not a mutable targets-row lookup. No auth material.
+		SourceHost: tgt.Host,
+		SourcePort: tgt.Port,
+		SourceDB:   tgt.DBName,
+		SourceUser: tgt.User,
 	}
 
 	// Step 5: Persist snapshot + runs + results atomically (R077). A

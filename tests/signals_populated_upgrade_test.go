@@ -205,8 +205,35 @@ func buildVPrevStore(t *testing.T, dbPath string, fx *upgradeFixture) (prefix, s
 		if i == 1 {
 			results = []db.QueryResult{{RunID: run.ID, Payload: fx.resultPayload, Compressed: false, SizeBytes: len(fx.resultPayload)}}
 		}
-		if err := store.InsertCollectionAtomic(snap, []db.QueryRun{run}, results); err != nil {
-			t.Fatalf("vPREV InsertCollectionAtomic[%d]: %v", i, err)
+		// Insert with the vPREV snapshot column set. The current binary's
+		// InsertCollectionAtomic writes snapshots.source_* (added by migration
+		// 008, the dropped suffix), so it cannot run against this earlier
+		// schema — use raw inserts matching the prefix shape. (query_runs /
+		// query_results are unchanged across the suffix.) #716.
+		if _, err := store.SQL().Exec(
+			"INSERT INTO snapshots (id, target_id, collected_at, pg_version, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?)",
+			snap.ID, snap.TargetID, snap.CollectedAt, snap.PGVersion, string(snap.Payload), snap.SizeBytes,
+		); err != nil {
+			t.Fatalf("vPREV insert snapshot[%d]: %v", i, err)
+		}
+		if _, err := store.SQL().Exec(
+			`INSERT INTO query_runs (id, target_id, snapshot_id, query_id, collected_at, pg_version, duration_ms, row_count, error, created_at, status, reason)
+			 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			run.ID, run.TargetID, run.SnapshotID, run.QueryID, run.CollectedAt, run.PGVersion, run.DurationMS, run.RowCount, run.Error, run.CreatedAt, "success", run.Reason,
+		); err != nil {
+			t.Fatalf("vPREV insert run[%d]: %v", i, err)
+		}
+		for _, res := range results {
+			comp := 0
+			if res.Compressed {
+				comp = 1
+			}
+			if _, err := store.SQL().Exec(
+				"INSERT INTO query_results (run_id, payload, compressed, size_bytes) VALUES (?, ?, ?, ?)",
+				res.RunID, res.Payload, comp, res.SizeBytes,
+			); err != nil {
+				t.Fatalf("vPREV insert result[%d]: %v", i, err)
+			}
 		}
 		fx.wantSnapshots++
 		fx.wantRuns++
