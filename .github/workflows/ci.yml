@@ -320,22 +320,35 @@ jobs:
       # chart. Helm is preinstalled on the GitHub Ubuntu runner;
       # the linters are downloaded as release tarballs because the
       # upstream actions are out-of-date or require a license.
+      # #733 (audit A8): verify the release tarball's SHA-256 against a
+      # pinned digest before extraction — never pipe an unverified download
+      # straight into tar. Update procedure: see specifications/ci-tool-pinning.md.
       - name: Install kube-linter
         env:
           KUBE_LINTER_VERSION: "0.8.3"
+          # sha256 of kube-linter-linux.tar.gz @ v0.8.3
+          KUBE_LINTER_SHA256: "1a6d8419b11971372971fdbc22682b684ebfb7cf1c39591662d1b6ca736c41df"
         run: |
           set -euo pipefail
-          curl -sSfL "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_LINTER_VERSION}/kube-linter-linux.tar.gz" \
-            | tar -xz -C /usr/local/bin kube-linter
+          bash scripts/install-pinned-tool.sh \
+            "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_LINTER_VERSION}/kube-linter-linux.tar.gz" \
+            "${KUBE_LINTER_SHA256}" \
+            kube-linter \
+            /usr/local/bin
           kube-linter version
 
       - name: Install conftest
         env:
           CONFTEST_VERSION: "0.62.0"
+          # sha256 of conftest_0.62.0_Linux_x86_64.tar.gz (upstream checksums.txt)
+          CONFTEST_SHA256: "284231908e4cf66d156e5577c3eee2f67d9f2edf2521fa2309e0df1969f871e5"
         run: |
           set -euo pipefail
-          curl -sSfL "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
-            | tar -xz -C /usr/local/bin conftest
+          bash scripts/install-pinned-tool.sh \
+            "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            "${CONFTEST_SHA256}" \
+            conftest \
+            /usr/local/bin
           conftest --version
 
       - name: Helm + Kubernetes gate (kube-linter + conftest via preflight.sh)
