@@ -172,7 +172,8 @@
       "properties": {
         "enabled": { "type": "boolean" },
         "size": { "type": "string" },
-        "storageClass": { "type": "string", "description": "StorageClass for the collector's PersistentVolume. On EKS set an EBS-CSI class (e.g. an encrypted gp3)." }
+        "storageClass": { "type": "string", "description": "StorageClass for the collector's PersistentVolume. On EKS set an EBS-CSI class (e.g. an encrypted gp3)." },
+        "retain": { "type": "boolean", "description": "Keep the data PVC on `helm uninstall` via the helm.sh/resource-policy: keep annotation (default true). Prevents uninstall from deleting the SQLite snapshot store (and, on a Delete-reclaim StorageClass, destroying collection history). Set false only for a disposable store. See R-DUR-11 / #712." }
       }
     },
     "securityContext": { "type": "object" }

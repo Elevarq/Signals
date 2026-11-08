@@ -226,13 +226,39 @@ Removed:
 - Deployment, ConfigMap, Service, ServiceAccount, NetworkPolicy
   (if enabled), PodDisruptionBudget (if enabled).
 
+> **Back up first.** Snapshot the data PV (volume-snapshot API or
+> your backup tool) **before** any `helm uninstall` or
+> storage-class migration. The steps below retain the claim, but a
+> snapshot is the only recovery source if a claim is later deleted
+> or a PV is reclaimed. See "Safe-rollback recipe" above.
+
 **Retained (intentional — operator must explicitly clean up):**
 
-- **PVC**: Helm does not delete PVCs by default; the SQLite
-  snapshot store survives uninstall. Delete with:
-  ```sh
-  kubectl -n observability delete pvc signals-signals-data
-  ```
+- **PVC**: the chart annotates the data PVC with
+  `helm.sh/resource-policy: keep` (`persistence.retain: true`, the
+  default — R-DUR-11 / #712), so `helm uninstall` leaves the claim
+  in place and the SQLite snapshot store survives. This is NOT
+  Helm's default behaviour for a chart-owned PVC — an un-annotated
+  PVC **is** deleted by uninstall; the annotation is what retains
+  it here.
+  - **Reinstall / adopt**: a later `helm install signals` in the
+    **same namespace with the same release name** re-attaches the
+    retained PVC (Helm adopts the existing resource) — collection
+    identity, history and watermarks continue. Do not rename the
+    release or namespace, or the deployment will bind a fresh,
+    empty claim.
+  - **Deliberately delete the store** (only when you intend to
+    discard history):
+    ```sh
+    kubectl -n observability delete pvc signals-signals-data
+    ```
+    Whether deleting the PVC also destroys the underlying volume
+    is governed by the bound PV's **`reclaimPolicy`** (set by the
+    StorageClass), not by Helm: `Delete` reclaim destroys the
+    bytes; `Retain` reclaim leaves an unbound PV you can re-bind.
+  - **Disposable install**: set `persistence.retain: false` to drop
+    the `keep` annotation so uninstall removes the claim with the
+    release.
 - **Secrets**: `signals-api` (API bearer token) and
   `pg-credentials` (Postgres password) were provisioned out-of-
   band and Helm does not manage them. Delete with:
@@ -243,10 +269,12 @@ Removed:
   namespace gone, `kubectl delete namespace observability` after
   the helm uninstall + PVC/Secret cleanup.
 
-The retention is deliberate: an operator who runs `helm uninstall`
-for a reconfiguration round-trip MUST NOT lose collected
-historical snapshots. Production-team review feedback drove this
-choice.
+The PVC retention is deliberate: an operator who runs
+`helm uninstall` for a reconfiguration round-trip MUST NOT lose
+collected historical snapshots. Production-team review feedback
+drove this choice, and R-DUR-11 (#712) makes it explicit in the
+chart (the `keep` annotation) rather than relying on a Helm default
+that does not exist.
 
 ## Validation
 

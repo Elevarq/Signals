@@ -16,6 +16,17 @@ apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: {{ .Release.Name }}-signals-data
+  {{- if .Values.persistence.retain }}
+  annotations:
+    # R-DUR-11 / #712 (F06): retain the SQLite snapshot store across
+    # `helm uninstall`. Without this, the chart-owned PVC is deleted on
+    # uninstall and — with a StorageClass whose PV reclaimPolicy is Delete —
+    # the underlying volume (instance identity, collection history,
+    # watermarks) is destroyed. `keep` leaves the PVC (and its bound PV) in
+    # place; a same-name / same-namespace reinstall re-attaches (adopts) it.
+    # Opt out with `persistence.retain: false` for a disposable store.
+    helm.sh/resource-policy: keep
+  {{- end }}
   labels:
     app.kubernetes.io/name: signals
     app.kubernetes.io/instance: {{ .Release.Name }}
