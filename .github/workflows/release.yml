@@ -189,10 +189,49 @@ jobs:
       - name: Smoke the built image against real PostgreSQL
         run: SIGNALS_SMOKE_IMAGE=signals:smoke bash scripts/smoke-built-image.sh
 
+  # ── Gate A guard: the full CI qualification (engine/upgrade matrix) must have
+  #    passed for THIS exact tagged commit before anything publishes (#724 /
+  #    F17b). The authoritative matrix lives in ci.yml; we reuse its WHOLE run
+  #    (no second drifting release-only matrix) by asserting the ci.yml workflow
+  #    run for GITHUB_SHA concluded success. This is branch-agnostic — it ties
+  #    the release to whatever engine/topology matrix ci.yml runs on that line
+  #    (main: PG matrix; poc: PG+MySQL+MariaDB+SingleStore+ClickHouse+upgrade) —
+  #    and a stale PR/branch success for a different SHA cannot authorize it.
+  require-qualification:
+    name: Require CI qualification at tag SHA
+    needs: validate
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - name: Assert the ci.yml run succeeded for this exact commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          SHA="${GITHUB_SHA}"
+          echo "Verifying CI qualification (ci.yml run) at ${SHA} ..."
+          # Latest completed ci.yml run for this exact commit (head_sha filter);
+          # on re-runs take the most recently started. Its conclusion is the
+          # aggregate of every ci.yml job — requiring success ties the release
+          # to the engine/upgrade matrix at the precise qualified SHA.
+          conclusion="$(gh api \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/ci.yml/runs?head_sha=${SHA}&status=completed&per_page=100" \
+            --jq '[.workflow_runs[]] | sort_by(.run_started_at) | last | .conclusion // "missing"')"
+          echo "ci.yml run conclusion for ${SHA}: ${conclusion}"
+          if [ "${conclusion}" != "success" ]; then
+            echo "STOP: the CI qualification run (ci.yml) did not succeed for the tagged commit ${SHA} (got: ${conclusion})."
+            echo "The engine/upgrade qualification matrix must pass on the EXACT tagged commit before release."
+            echo "Fix: tag a commit that has already passed ci.yml on main/poc (green), then re-tag that qualified SHA."
+            exit 1
+          fi
+          echo "Qualified: ci.yml is green for ${SHA} — release may proceed."
+
   # ── Gate D + E: Build, Sign & Publish ─────────────────────────────────
   publish:
     name: Publish to GHCR
-    needs: [validate, test, lint, security-scan, built-image-smoke]
+    needs: [validate, require-qualification, test, lint, security-scan, built-image-smoke]
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -535,7 +574,12 @@ jobs:
   # ── Gate F: Release ───────────────────────────────────────────────────
   release:
     name: GitHub Release
-    needs: [validate, publish, build-binaries]
+    # #724 / F17b: completion must wait for the promised chart delivery. Without
+    # publish-chart here, the GitHub Release could be created (announcing the
+    # release done) while the Helm chart publish/signature failed — a release
+    # that claims completion but did not ship all its signed artifacts. A failed
+    # or cancelled publish-chart now blocks completion.
+    needs: [validate, publish, publish-chart, build-binaries]
     runs-on: ubuntu-24.04
     permissions:
       contents: write  # softprops/action-gh-release creates the GitHub Release + uploads assets
