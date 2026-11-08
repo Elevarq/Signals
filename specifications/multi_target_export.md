@@ -40,6 +40,22 @@ the Elevarq Analyzer receives a consistent, single-target bundle.
   same JSON shapes. Only the contents are filtered by target.
 - MTE-R009: Existing callers that do not set TargetID continue to
   work without modification.
+- MTE-R010 (#720 / F09 — canonical-instant time-range comparison):
+  The `since` / `until` export selectors MUST select by the **instant**
+  they denote, not by their textual form. `collected_at` is stored as
+  canonical UTC second-resolution RFC3339 (`...Z`); the store MUST
+  normalize each bound to that same canonical form before comparing, so
+  two RFC3339 strings that denote the **same instant** (e.g.
+  `2026-11-07T11:00:00+01:00` and `2026-11-07T10:00:00Z`) select
+  identical evidence. Bounds are **inclusive** with correct whole-second
+  precision against second-resolution storage: a `since` lower bound
+  rounds **up** to the next whole second when it carries sub-second
+  precision (so a stored second strictly before the requested instant is
+  not wrongly included), and an `until` upper bound truncates **down** to
+  the whole second (so an exactly-equal whole-second stored timestamp is
+  included even when `until` is expressed with fractional seconds). An
+  empty bound is unconstrained; an unparseable bound is left unchanged
+  (the API rejects invalid RFC3339 before the store is reached).
 
 ## Invariants
 
@@ -47,3 +63,6 @@ the Elevarq Analyzer receives a consistent, single-target bundle.
   different target.
 - INV-MTE-02: Export output is deterministic for the same target
   and time range.
+- INV-MTE-03 (#720): Time-range selection depends only on the instants
+  the bounds denote — never on timezone-offset spelling or sub-second
+  text that sorts differently from the equivalent canonical UTC form.
