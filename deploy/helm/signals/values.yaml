@@ -87,19 +87,16 @@ targets: []
 collector:
   pollInterval: 5m
   retentionDays: 30
-<<<<<<< HEAD
   # Max concurrent full-history exports (#730). Excess requests get HTTP 429
   # instead of piling up history + buffered ZIPs past the pod memory limit.
   # Default 2; 0 = unlimited (opt-out — size the memory limit accordingly).
   maxConcurrentExports: 2
-=======
   # Audit-event (`events` table) retention, DISTINCT from the diagnostic
   # retentionDays above (#726). Collection events are pruned older than this
   # many days so the audit log cannot grow unbounded over the daemon's
   # lifetime. Default 90 (audit/incident evidence outlives diagnostic data).
   # Set to 0 to keep events forever (explicit opt-out — provision/monitor disk).
   auditRetentionDays: 90
->>>>>>> e68bd99 (collector: bound the audit event log with its own retention (#726) (#782))
   targetTimeout: 60s
   queryTimeout: 10s
 
