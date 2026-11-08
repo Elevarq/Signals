@@ -85,22 +85,20 @@ locals {
     # The config carries no secret; make the bind-mounted files world-readable
     # so the non-root container (uid 10001) can read them.
     chmod 0644 /etc/signals/signals.yaml /etc/signals/cloudsql-ca.pem
-    # Mint a strong control-plane API token, passed to the container via the
-    # environment and stored root-only, outside the bind mount, so the operator
-    # can authenticate the verify step.
-    SIGNALS_API_TOKEN="$(openssl rand -hex 32)"
-    umask 077
-    printf '%s\n' "$SIGNALS_API_TOKEN" > /root/signals-api-token
-    # ENTRYPOINT is `tini --` with CMD `signals`; the `signals` arg below is
-    # required, else the image args replace CMD and tini execs --config.
+    # Mint-or-reuse the operator token and reconcile the collector container
+    # idempotently (#732 / A7b): on a reboot or startup-script re-run, reuse the
+    # already-minted token and reconcile the EXISTING container by name rather
+    # than unconditionally `docker run` (which would fail on the name clash after
+    # replacing the token, orphaning operator access). The reconcile logic lives
+    # in deploy/gcp/scripts/reconcile-collector.sh and is embedded verbatim
+    # below, so that script is the single, tested source of truth.
+    # ENTRYPOINT is `tini --` with CMD `signals`; the `signals` arg in the script
+    # is required, else the image args replace CMD and tini execs --config.
     # /data is the durable persistent-disk mount prepared above (#501): bind the
     # HOST path, never a Docker named volume (which lives on the ephemeral boot disk).
-    docker run -d --name signals --restart=always \
-      -e SIGNALS_API_TOKEN="$SIGNALS_API_TOKEN" \
-      -v /etc/signals:/etc/signals:ro \
-      -v /data:/data \
-      -p 127.0.0.1:8081:8081 \
-      ${var.image_uri} signals --config /etc/signals/signals.yaml
+    export IMAGE_URI="${var.image_uri}"
+    export TOKEN_FILE="/root/signals-api-token"
+${indent(4, file("${path.module}/../scripts/reconcile-collector.sh"))}
   EOT
 }
 
