@@ -2100,6 +2100,41 @@ pool, and the reload audit still records the target as
 distinguishes an applied modification (a `config_reload_target_
 modified` event) from an unchanged target (no event).
 
+**SIGNALS-R100.2 (stale-cycle pool-install prevention — #715 /
+F13)**: Closing a modified target's pool on reload (R100.1) is
+necessary but not sufficient. A collection cycle captures its
+target config at cycle start and acquires the pool later, so an
+**in-flight cycle holding a pre-reload target** can call `getPool`
+*after* reload has closed the modified pool and **re-create the
+pool from its stale captured config** — which later, current
+cycles then reuse by name, dialing the OLD host / authenticating
+with the OLD credential indefinitely. This is a distinct root
+cause from R100.1's field-comparison completeness (#328) and
+occurs even when that comparison correctly tears down every
+modified pool.
+
+To prevent it, pool ownership MUST be bound to the connection
+identity and validated on **both** reuse and installation:
+
+- **Reuse**: `getPool` returns an existing pool for a name only
+  when the stored pool's connection identity equals the
+  requesting target's identity; a stored pool whose identity
+  differs is stale and MUST NOT be returned (it is closed and
+  rebuilt).
+- **Installation**: `getPool` MUST refuse to build or install a
+  pool for a target whose connection identity no longer matches
+  the **current** configuration for that name (i.e. the caller
+  holds a target superseded by a reload) — returning an error for
+  that cycle rather than installing the stale pool as the name's
+  canonical pool. A target absent from the current config falls
+  through to the normal removed-target handling.
+
+The net guarantee: after a reload, the pool a name resolves to is
+always the one matching the current configuration; a superseded
+in-flight cycle can neither reuse nor install a pool carrying a
+prior target's dial/credential inputs. (INV-SIGNALS: no older
+configuration's pool is ever observable to a later cycle.)
+
 Reload v1 does NOT update (set-at-construction for now):
 
 - `poll_interval` (ticker keeps its boot value)
