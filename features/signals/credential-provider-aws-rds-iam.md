@@ -90,9 +90,11 @@ awsRDSIAMProvider implements CredentialProvider:
 - **SIGNALS-AUTH-AWS-INV003**: The token is cached per target and
   re-minted before expiry at `max(60s, min(5m, 15m*0.20))` = **3 minutes**
   before the 15-minute expiry (i.e. re-mint once a cached token is ~12
-  minutes old). Cache key = `target_id` + `auth_method` + `db_user` +
-  host/instance identity (reuses `TargetConfig.ConnIdentity()` plus the
-  method). Never shared across targets. (Instance of keystone NFR001.)
+  minutes old). Cache key = the full credential-cache identity
+  (keystone NFR001 / #714): `TargetConfig.CredentialCacheIdentity()` —
+  connection identity + target name + source selectors (incl. `region`) +
+  `max_cache_ttl` + `auth_method`. Never shared across targets or across
+  configs that differ only in credential source. (Instance of keystone NFR001.)
 
 ## Failure Conditions
 

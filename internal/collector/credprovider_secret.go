@@ -111,7 +111,7 @@ func (r *credentialResolver) resolveSecretStore(ctx context.Context, tgt config.
 // distinct hosts/users — produce distinct keys, so a secret is never shared
 // across targets (NFR001 / INV003).
 func secretCacheKey(tgt config.TargetConfig) string {
-	return tgt.ConnIdentity() + "|" + config.AuthMethodSecretStore
+	return tgt.CredentialCacheIdentity() + "|" + config.AuthMethodSecretStore
 }
 
 // secretCacheBound computes the cache reuse bound from the vault-supplied

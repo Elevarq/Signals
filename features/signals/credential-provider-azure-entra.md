@@ -102,10 +102,12 @@ audience) and is not operator-configurable.
 - **SIGNALS-AUTH-AZURE-INV003**: The token is cached per target and
   re-acquired before expiry at `max(60s, min(5m, ttl*0.20))` (the
   keystone cross-provider default; for a ~75-minute token this caps at
-  the **5-minute** ceiling). Cache key = `target_id` + `auth_method` +
-  `db_user` + host/instance identity (reuses `TargetConfig.ConnIdentity()`
-  plus the method). Never shared across targets. (Instance of keystone
-  NFR001.)
+  the **5-minute** ceiling). Cache key = the full credential-cache
+  identity (keystone NFR001 / #714): `TargetConfig.CredentialCacheIdentity()`
+  — connection identity + target name + source selectors (incl.
+  `azure_client_id`) + `max_cache_ttl` + `auth_method`. Never shared across
+  targets or across configs that differ only in credential source. (Instance
+  of keystone NFR001.)
 - **SIGNALS-AUTH-AZURE-INV004**: The token scope is fixed at
   `https://ossrdbms-aad.database.windows.net/.default`; no code path or
   config may widen or change the audience.

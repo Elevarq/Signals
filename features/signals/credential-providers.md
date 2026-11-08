@@ -254,11 +254,21 @@ corresponding derived spec; this table is the binding map between
   within the existing per-target connection budget. Minted tokens are
   cached in memory and refreshed *before* expiry so steady-state
   reconnects do not pay mint latency on every connection. The cache is
-  **per target, never shared**:
-  - **Cache key** = `target_id` + `auth_method` + `db_user` +
-    host/instance identity. Tokens MUST NOT be shared across targets even
-    when those fields coincide by accident — the key makes the isolation
-    explicit.
+  **per target and per credential source, never shared**:
+  - **Cache key (#714 / F08)** = the target's **full credential-cache
+    identity** (`config.TargetConfig.CredentialCacheIdentity()`): the
+    connection identity (host/port/db/user) + the target **name** + every
+    credential-**source selector** (`secret_ref`, `secret_json_key`,
+    `azure_client_id`, `gcp_impersonate_service_account`, `region`) + the
+    cache **policy** (`max_cache_ttl`) + `auth_method`. A resolved
+    credential MUST NOT be shared across targets, nor across two
+    configurations that share a connection tuple but resolve from a
+    **different source** (different vault reference / JSON key / selected
+    cloud identity / impersonation / region) or carry a **different cache
+    policy** — those coincidental-tuple cases shared one key before #714
+    and leaked one target's credential (and TTL) to another. A changed
+    source or policy yields a different key, so the prior entry is never
+    reused.
   - **Refresh skew** (how long before expiry the token is re-minted) =
     `max(60s, min(5m, ttl * 0.20))`. Example: AWS RDS IAM tokens last
     15 minutes → a 3-minute refresh skew.

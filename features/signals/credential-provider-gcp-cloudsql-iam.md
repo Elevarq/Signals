@@ -131,8 +131,11 @@ operator-configurable.
 - **SIGNALS-AUTH-GCP-INV003**: The token is cached per target and
   re-acquired before expiry at `max(60s, min(5m, ttl*0.20))` (keystone
   default; for a ~60-minute token this caps at the **5-minute** ceiling).
-  Cache key = `target_id` + `auth_method` + `db_user` + host/instance
-  identity. Never shared across targets. (Keystone NFR001.)
+  Cache key = the full credential-cache identity (keystone NFR001 / #714):
+  `TargetConfig.CredentialCacheIdentity()` — connection identity + target
+  name + source selectors (incl. `gcp_impersonate_service_account`) +
+  `max_cache_ttl` + `auth_method`. Never shared across targets or across
+  configs that differ only in credential source. (Keystone NFR001.)
 - **SIGNALS-AUTH-GCP-INV004**: The token scope is fixed at
   `https://www.googleapis.com/auth/sqlservice.login`; no code path or
   config may widen it.

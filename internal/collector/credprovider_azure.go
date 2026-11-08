@@ -90,7 +90,7 @@ func (r *credentialResolver) resolveAzure(ctx context.Context, tgt config.Target
 // distinct hosts/users — produce distinct keys, so a token is never shared
 // across targets (NFR001).
 func azureCacheKey(tgt config.TargetConfig) string {
-	return tgt.ConnIdentity() + "|" + config.AuthMethodAzureEntra
+	return tgt.CredentialCacheIdentity() + "|" + config.AuthMethodAzureEntra
 }
 
 // resolveAzureClientID resolves the user-assigned managed identity client
