@@ -37,7 +37,12 @@ func handleConfigReload(deps *Deps, configPath string) http.HandlerFunc {
 			})
 			return
 		}
-		if _, err := config.ValidateStrict(newCfg); err != nil {
+		// R130/F05: authoritative effective validation (ValidateStrict +
+		// ValidateProdTLS) under the daemon's running immutable environment.
+		// A ValidateStrict-only gate let an env=prod target edited to
+		// sslmode=disable (or env downgraded prod->dev) install over /reload
+		// with HTTP 200, defeating the production TLS policy.
+		if _, err := config.ValidateEffective(deps.RunningEnv, newCfg); err != nil {
 			redacted := redactReloadErr(err)
 			safety.AuditLog("config_reload_rejected",
 				"actor", actor, "reason", "validate_failed", "error", redacted)

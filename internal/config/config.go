@@ -1306,6 +1306,59 @@ func ValidateProdTLS(cfg Config) error {
 	return nil
 }
 
+// envRank orders the environment security policies from most permissive to
+// strictest: dev (0) < lab (1) < prod (2). An unknown/empty env ranks as dev
+// (the documented default) for ordering only — ValidateStrict/ValidateEffective
+// still validate the literal value elsewhere.
+func envRank(env string) int {
+	switch env {
+	case "prod":
+		return 2
+	case "lab":
+		return 1
+	default:
+		return 0
+	}
+}
+
+// strictestEnv returns whichever of the two environments carries the stronger
+// security policy. Used by ValidateEffective to pin a reload to at least the
+// running daemon's environment so a config-file edit cannot downgrade the live
+// TLS / role policy (F05 / #711 / SIGNALS-R130).
+func strictestEnv(a, b string) string {
+	if envRank(a) >= envRank(b) {
+		return a
+	}
+	return b
+}
+
+// ValidateEffective is the single authoritative validation applied before any
+// configuration becomes the live/effective configuration — at startup and on
+// every reload path (POST /reload, the SIGHUP handler, and the doctor
+// config_valid (C1) diagnostic). It runs ValidateStrict and then
+// ValidateProdTLS (SIGNALS-R130): before R130 the reload paths ran
+// ValidateStrict only, so an env=prod + password-auth target edited to
+// sslmode=disable passed strict validation and was installed as the next live
+// target, defeating the production TLS policy during an ordinary reload.
+//
+// runningEnv is the environment the daemon started in (the immutable security
+// policy). ValidateEffective validates under the STRICTEST of (runningEnv,
+// cfg.Env) so a reload can never relax the environment — lowering env=prod to
+// dev/lab in the file at reload time cannot slip an insecure-TLS or
+// unsafe-role edit past the production gate. Raising the environment is
+// honoured. At startup, pass cfg.Env (there is no prior policy to preserve).
+func ValidateEffective(runningEnv string, cfg Config) (warnings []string, err error) {
+	cfg.Env = strictestEnv(runningEnv, cfg.Env)
+	warnings, err = ValidateStrict(cfg)
+	if err != nil {
+		return warnings, err
+	}
+	if err := ValidateProdTLS(cfg); err != nil {
+		return warnings, err
+	}
+	return warnings, nil
+}
+
 // ResolveControlPlaneToken reads the configured Elevarq control-plane
 // token (R083). It is called per authentication attempt by the auth
 // middleware so rotating the file's contents takes effect on the
