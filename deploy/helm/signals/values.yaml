@@ -258,6 +258,14 @@ persistence:
   enabled: true
   size: 1Gi
   storageClass: ""
+  # retain: keep the data PVC when the release is uninstalled (R-DUR-11 /
+  # #712). true (default) annotates the PVC with `helm.sh/resource-policy:
+  # keep`, so `helm uninstall` leaves the SQLite snapshot store in place and a
+  # same-name reinstall re-attaches it — instead of deleting the claim and,
+  # on a Delete-reclaim StorageClass, destroying collection identity/history.
+  # Set false ONLY for a genuinely disposable store you want removed on
+  # uninstall. See docs/install/kubernetes-production.md (Uninstall).
+  retain: true
 
 # Security context
 securityContext:
