@@ -1,6 +1,11 @@
 # Stage 1: Build
 FROM golang:1.26.10-alpine@sha256:27f2d3b83cfc5803c8078f8e730af0f7c431bf067afaec8f60a36fb763187cba AS builder
 
+# DL3018 suppressed: Alpine's repo retains only the latest of each package, and
+# the runtime stage deliberately runs `apk upgrade` for CVE freshness (see
+# below), so pinning apk versions would be counterproductive and break on the
+# next Alpine bump. Reproducibility is anchored by the digest-pinned base image.
+# hadolint ignore=DL3018
 RUN apk add --no-cache git
 
 WORKDIR /src
@@ -45,7 +50,10 @@ LABEL org.opencontainers.image.title="signals" \
 # libssl3) from the 3.21 repo, so the release Trivy gate isn't blocked by a
 # base-image HIGH that Alpine has already fixed but the pinned digest predates
 # (Signals#480-adjacent; v1.5.1 was blocked by CVE-2026-75804/-84782, openssl
-# fixed in 3.3.7-r2 while the pinned base carried 3.3.7-r1).
+# fixed in 3.3.7-r2 while the pinned base carried 3.3.7-r1). DL3018 is suppressed
+# for the same reason: `apk upgrade` + digest-pinned base is our freshness model,
+# so pinning apk versions would fight it and break on the next Alpine bump.
+# hadolint ignore=DL3018
 RUN apk upgrade --no-cache \
     && apk add --no-cache tini ca-certificates \
     && adduser -D -u 10001 signals
