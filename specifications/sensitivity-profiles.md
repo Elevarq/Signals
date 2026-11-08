@@ -42,7 +42,32 @@ Built-in profiles:
 | `restricted` | Drop every collector flagged `HighSensitivity=true` for this target, regardless of the daemon-wide gate. |
 | `custom` | Use explicit `include` / `exclude` lists. If both are present, the same collector ID in both is a config-validation error. |
 
-`include` and `exclude` accept collector IDs (e.g. `pg_views_definitions_v1`).
+`include` and `exclude` accept collector IDs (e.g. `pg_views_definitions_v1`
+for PostgreSQL, `mysql_process_list_v1` for MySQL/MariaDB/SingleStore,
+`ch_query_log_v1` for ClickHouse).
+
+### Engine-neutral enforcement (SP-R010, #709 / F02)
+
+The per-target profile is a **privacy and collection-cost control, not a
+PostgreSQL feature**. It MUST be enforced for **every supported engine** —
+PostgreSQL *and* the MySQL-wire engines (MySQL, MariaDB, SingleStore) and the
+ClickHouse native engine — using the same gate semantics (`restricted` drops
+every `HighSensitivity=true` collector; `custom` `include` is an allowlist,
+`exclude` a denylist). Before SP-R010, only PostgreSQL applied the profile:
+the wire/native sessions executed the **entire** engine catalog and consulted
+only the daemon-wide sensitivity flag, so a `restricted` target still ran
+high-sensitivity collectors (e.g. MySQL/SingleStore process-list / statement
+digests, ClickHouse `query_log`) and retained SQL text its profile forbade,
+and a `custom include` could not constrain collection cost. That violated
+INV-SENS-01 for non-PostgreSQL targets.
+
+Enforcement is at the **engine-neutral collector boundary** (the session
+filters its catalog by the target profile *before* executing any query), so
+the policy is shared, not re-implemented per engine. A profile-dropped
+collector MUST be recorded exactly as on PostgreSQL — `status=skipped,
+reason=config_disabled` — so the per-target outcome inventory is truthful
+(the operator/analyzer sees the deliberate omission, not a silent gap). The
+profile NEVER widens eligibility for any engine (INV-SENS-01).
 
 ## Inputs
 
@@ -127,6 +152,15 @@ operator-configured states (EA-R001).
   collector ID is a warning (not a hard error) — the catalog
   evolves and a future-release collector might be referenced by
   forward-looking configs.
+- **INV-SENS-05 (engine-neutral, #709 / F02)**: The per-target profile
+  constrains collection, persistence and export identically for **every**
+  supported engine (PostgreSQL, MySQL, MariaDB, SingleStore, ClickHouse).
+  No engine may execute a collector its target profile drops; a `restricted`
+  or `custom` profile can never cause a non-PostgreSQL target to run or
+  persist a high-sensitivity / excluded collector that the same profile would
+  drop on PostgreSQL. A `custom include` naming only existent collectors runs
+  **only** those; a `custom include` naming only non-existent collectors runs
+  **none** (it never silently falls back to the full catalog).
 
 ## Failure Conditions
 
