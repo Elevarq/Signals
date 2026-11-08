@@ -261,3 +261,39 @@ failure condition.
   store), and (d) states the pre-fix-history-is-unrecoverable rollback note.
 
 **Test:** `TestDataDurability_TransitionRunbookDocumented`
+
+---
+
+### TC-DUR-12: Helm data PVC is retained across uninstall (default) and the runbook states the real lifecycle
+
+**Rule:** R-DUR-11 (#712 / F06) — Normal + Boundary + Failure (red-gate, chart + docs-as-behavior)
+
+**Scenario:** The chart-owned data PVC must not be silently deleted by
+`helm uninstall` (which, with a `Delete` reclaim-policy StorageClass, would
+destroy identity/history/watermarks). The chart annotates it
+`helm.sh/resource-policy: keep` by default so uninstall retains it and a
+same-name reinstall adopts it; the runbook must state this real lifecycle and
+must not claim "Helm does not delete PVCs by default".
+
+**Given:**
+- The rendered chart (`helm template` of `deploy/helm/signals`) and the
+  Kubernetes production runbook (`docs/install/kubernetes-production.md`).
+
+**Then (normal):**
+- The default render of the `PersistentVolumeClaim` carries the annotation
+  `helm.sh/resource-policy: keep`.
+
+**Then (boundary):**
+- With `--set persistence.retain=false`, the PVC renders **without** the
+  `helm.sh/resource-policy: keep` annotation (opt-out for a disposable store).
+
+**Then (failure / docs):**
+- The runbook no longer claims "Helm does not delete PVCs by default"; it
+  states that uninstall retains the PVC **because of** the `keep` annotation,
+  explains reinstall adoption, how to deliberately delete the claim, that the
+  underlying volume's destruction is governed by the PV `reclaimPolicy` (not
+  Helm), and directs operators to snapshot/back up the PV before uninstall or
+  storage migration.
+
+**Test:** `TestDataDurability_HelmPVCRetainedAcrossUninstall`,
+`TestDataDurability_HelmUninstallRunbookStatesRealLifecycle`

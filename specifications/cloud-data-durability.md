@@ -185,6 +185,29 @@ upgrade-safe.
   Where a mode cannot migrate automatically and safely, it MUST fail closed
   and surface an explicit operator runbook (see "Existing-install
   transition"). Reaffirmed by B3.
+- **R-DUR-11 (#712 / F06 — Helm PVC retained across uninstall)**: The Helm
+  chart's `PersistentVolumeClaim` is an ordinary chart-owned resource, so a
+  plain `helm uninstall` deletes it — and with a StorageClass whose PV
+  `reclaimPolicy` is `Delete`, deleting the PVC destroys the underlying
+  volume (instance identity, collection history, watermarks). Therefore the
+  chart MUST, by default, annotate the data PVC with
+  `helm.sh/resource-policy: keep` so that `helm uninstall` leaves the claim
+  (and its bound PV) in place and a same-name / same-namespace reinstall
+  re-attaches (adopts) it instead of formatting a fresh store. The retention
+  MUST be toggleable via `persistence.retain` (default `true`); setting it to
+  `false` restores the delete-on-uninstall behaviour for a genuinely
+  disposable store. The Kubernetes production runbook MUST state the ACTUAL
+  lifecycle (uninstall retains the PVC **because of** this annotation; how to
+  adopt it on reinstall; how to deliberately delete it; and that provider PV
+  `reclaimPolicy`, not Helm, governs destruction of the underlying bytes) and
+  MUST NOT claim "Helm does not delete PVCs by default" — that is false for an
+  un-annotated chart-owned PVC. Operators MUST be directed to snapshot/back up
+  the PV before any uninstall or storage-class migration. Verification is
+  structural (`helm template` render asserts the annotation is present by
+  default and absent when `persistence.retain=false`) plus the runbook guard;
+  the live install → populate → uninstall → reinstall/adopt qualification
+  under both `Delete` and `Retain` reclaim policies is an operator/cluster
+  gate recorded in the runbook, not runnable in CI.
 
 ## Invariants
 

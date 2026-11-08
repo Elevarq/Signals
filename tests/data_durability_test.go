@@ -244,6 +244,64 @@ func TestDataDurability_HelmEvalFenced(t *testing.T) {
 	}
 }
 
+// --- TC-DUR-12: Helm data PVC is retained across uninstall -------------------
+
+// TestDataDurability_HelmPVCRetainedAcrossUninstall asserts the chart-owned
+// data PVC carries `helm.sh/resource-policy: keep` by DEFAULT (so
+// `helm uninstall` leaves the claim + bound PV in place instead of deleting
+// it and — on a Delete-reclaim StorageClass — destroying identity/history/
+// watermarks), and that the retention is opt-out via `persistence.retain=false`
+// (R-DUR-11 / #712 / F06). The annotation appears only on the PVC, so a render
+// substring check is sufficient.
+func TestDataDurability_HelmPVCRetainedAcrossUninstall(t *testing.T) {
+	const keep = "helm.sh/resource-policy: keep"
+
+	// Normal: default render retains the PVC.
+	def := renderHelm(t)
+	if !strings.Contains(def, "kind: PersistentVolumeClaim") {
+		t.Fatal("default render has no PersistentVolumeClaim (R-DUR-11 precondition)")
+	}
+	if !strings.Contains(def, keep) {
+		t.Errorf("default render: data PVC is missing %q — helm uninstall would delete the store (R-DUR-11/#712)", keep)
+	}
+
+	// Boundary: explicit opt-out drops the keep annotation for a disposable store.
+	off := renderHelm(t, "persistence.retain=false")
+	if strings.Contains(off, keep) {
+		t.Errorf("persistence.retain=false still emits %q — the retention toggle does not opt out (R-DUR-11)", keep)
+	}
+}
+
+// TestDataDurability_HelmUninstallRunbookStatesRealLifecycle asserts the
+// Kubernetes production runbook states the ACTUAL PVC lifecycle and no longer
+// carries the false "Helm does not delete PVCs by default" claim (R-DUR-11 /
+// #712 / F06). The runbook is the shipped behavior for the uninstall path.
+func TestDataDurability_HelmUninstallRunbookStatesRealLifecycle(t *testing.T) {
+	b, err := os.ReadFile(filepath.Join("..", "docs", "install", "kubernetes-production.md"))
+	if err != nil {
+		t.Fatalf("read kubernetes-production runbook: %v", err)
+	}
+	runbook := string(b)
+	lc := strings.ToLower(runbook)
+
+	// The false claim must be gone.
+	if strings.Contains(lc, "helm does not delete pvcs by default") {
+		t.Error("runbook still claims 'Helm does not delete PVCs by default' — false for an un-annotated chart-owned PVC (R-DUR-11/#712)")
+	}
+	// The real mechanism must be named.
+	if !strings.Contains(lc, "helm.sh/resource-policy: keep") && !strings.Contains(lc, "resource-policy: keep") {
+		t.Error("runbook does not name the helm.sh/resource-policy: keep annotation that actually retains the PVC (R-DUR-11)")
+	}
+	// Reclaim policy governs the underlying bytes, not Helm.
+	if !strings.Contains(lc, "reclaimpolicy") && !strings.Contains(lc, "reclaim policy") {
+		t.Error("runbook does not explain that the PV reclaimPolicy (not Helm) governs destruction of the underlying volume (R-DUR-11)")
+	}
+	// Operators must be told to back up / snapshot before uninstall or migration.
+	if !strings.Contains(lc, "snapshot") && !strings.Contains(lc, "back up") && !strings.Contains(lc, "backup") {
+		t.Error("runbook does not direct operators to snapshot/back up the PV before uninstall or storage migration (R-DUR-11)")
+	}
+}
+
 // --- TC-DUR-09: mount logic sets /data ownership to uid/gid 10001 ------------
 
 // TestDataDurability_MountSetsOwnership asserts the format-if-empty mount logic
