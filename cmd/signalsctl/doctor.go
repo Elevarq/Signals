@@ -44,7 +44,7 @@ func doctorCmd() *cobra.Command {
 		Use:   "doctor",
 		Short: "Run pre-flight readiness checks against config and targets",
 		Long: "Runs read-only operator pre-flight checks (R095):\n" +
-			"  C1 config_valid             - Config file parses + passes ValidateStrict\n" +
+			"  C1 config_valid             - Config file parses + passes strict + production TLS validation\n" +
 			"  C2 store_writable           - SQLite store path is writable\n" +
 			"  C3 target_reachable         - Each enabled target accepts TCP\n" +
 			"  C4 role_safe                - Each reachable target's role is not superuser/replication/bypassrls\n" +
