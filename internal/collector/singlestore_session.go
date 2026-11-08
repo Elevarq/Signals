@@ -317,6 +317,12 @@ func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfi
 	}
 	runs = mappedRuns
 
+	// #729 / CTP: stamp the collection-time sensitivity/unsafe policy on the
+	// snapshot so the SingleStore engine's history carries honest per-cycle
+	// provenance, not the exporter's current flag.
+	snap.CollectUnsafeMode = boolPtr(c.allowUnsafeRole)
+	snap.CollectHighSensitivity = boolPtr(c.highSensitivityEnabled)
+
 	if insErr := c.db.InsertCollectionAtomic(snap, mappedRuns, payloads); insErr != nil {
 		c.metrics.IncSQLitePersistenceFailure()
 		return snapID, runs, fmt.Errorf("persist collection cycle for %s: %w", tgt.Name, insErr)
