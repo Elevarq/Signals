@@ -474,6 +474,22 @@ func (t TargetConfig) EffectiveAuthMethod() string {
 	return t.AuthMethod
 }
 
+// RequiresCredentialResolver reports whether connecting to this target needs
+// the runtime credential resolver (#722 / F16) rather than the static
+// password-by-reference DSN: the cloud-identity methods mint/fetch a credential
+// (aws_rds_iam / azure_entra / gcp_cloudsql_iam / secret_store) and mtls applies
+// a client certificate — none of which a password DSN carries. Password (and the
+// empty default) connect via the DSN path, whose resolution errors are
+// non-secret and actionable (e.g. "password_env FOO not set").
+func (t TargetConfig) RequiresCredentialResolver() bool {
+	switch t.EffectiveAuthMethod() {
+	case AuthMethodAWSRDSIAM, AuthMethodAzureEntra, AuthMethodGCPCloudSQLIAM, AuthMethodSecretStore, AuthMethodMTLS:
+		return true
+	default:
+		return false
+	}
+}
+
 // Engine identity constants (engine-identity.md). PostgreSQL is the only
 // engine with a collection backend in this build; the others are reserved
 // identifiers so identity, config, and persistence are ready before their

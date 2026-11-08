@@ -11,6 +11,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"os"
 	"path/filepath"
@@ -233,22 +235,26 @@ func CheckRoleSafe(ctx context.Context, tgt config.TargetConfig, reachable bool)
 		return result
 	}
 
-	dsn, err := collector.BuildSafeDSN(tgt)
-	if err != nil {
-		// Password resolution failed (missing password_env, unreadable
-		// password_file, etc.). Surface it as the C4 failure instead
-		// of letting an empty-password connection produce a misleading
-		// "authentication failed" error downstream.
-		result.Status = StatusFail
-		result.Detail = "resolve password: " + collector.RedactError(err).Error()
+	// #722 / F16 (POC): the role-safety check runs PostgreSQL catalog queries.
+	// A non-PostgreSQL engine target is explicitly unsupported here, not run
+	// through pgx against the wrong protocol.
+	if engine := tgt.EffectiveEngine(); engine != config.EnginePostgreSQL {
+		result.Status = StatusWarn
+		result.Detail = fmt.Sprintf("skipped (role_safe is PostgreSQL-only; engine %q is not supported by this check)", engine)
 		result.Duration = time.Since(start)
 		return result
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+
+	// #722 / F16: connect through the SAME credential resolver collection uses
+	// (dispatching on auth_method) so a cloud-IAM / vault / mTLS target is
+	// diagnosed with its real credential, not a password-only DSN that would
+	// fail. Password-by-reference targets resolve identically. A resolve failure
+	// is surfaced as the C4 failure rather than a misleading downstream auth
+	// error.
+	pool, err := openDiagnosticPool(ctx, tgt)
 	if err != nil {
-		// Redact in case pgxpool ever echoes the DSN.
 		result.Status = StatusFail
-		result.Detail = fmt.Sprintf("connect: %s", collector.RedactDSN(err.Error()))
+		result.Detail = collector.RedactDSN(err.Error())
 		result.Duration = time.Since(start)
 		return result
 	}
@@ -274,9 +280,48 @@ func CheckRoleSafe(ctx context.Context, tgt config.TargetConfig, reachable bool)
 	return result
 }
 
-// buildSafeDSN moved to collector.BuildSafeDSN (R096 shared helper).
-// Kept as a deprecation marker so future code searches for the old
-// name find the new location.
+// openDiagnosticPool opens a single-connection pool to tgt with the path
+// appropriate to its auth_method (#722 / F16). Cloud-identity and mtls targets
+// resolve their real credential through the SAME resolver collection uses, so a
+// cloud-IAM / vault / mTLS target connects instead of failing against a
+// password-only DSN. Password-by-reference targets stay on the static DSN path,
+// whose resolution errors are non-secret and actionable (e.g. "password_env FOO
+// not set"). The resolved credential value never appears in the returned error.
+func openDiagnosticPool(ctx context.Context, tgt config.TargetConfig) (*pgxpool.Pool, error) {
+	if tgt.RequiresCredentialResolver() {
+		res := collector.NewCredentialResolver(slog.New(slog.NewTextHandler(io.Discard, nil)))
+		cred, err := res.Resolve(ctx, tgt)
+		if err != nil {
+			return nil, fmt.Errorf("resolve credential: %s", collector.RedactError(err).Error())
+		}
+		connCfg, err := collector.BuildConnConfigWithCredential(tgt, cred)
+		if err != nil {
+			return nil, fmt.Errorf("build connection config: %s", collector.RedactError(err).Error())
+		}
+		poolCfg, err := pgxpool.ParseConfig("postgres://localhost")
+		if err != nil {
+			return nil, err
+		}
+		poolCfg.ConnConfig = connCfg
+		poolCfg.MaxConns = 1
+		pool, err := pgxpool.NewWithConfig(ctx, poolCfg)
+		if err != nil {
+			return nil, fmt.Errorf("connect: %s", collector.RedactDSN(err.Error()))
+		}
+		return pool, nil
+	}
+
+	// Password-by-reference / default: the actionable static-DSN path.
+	dsn, err := collector.BuildSafeDSN(tgt)
+	if err != nil {
+		return nil, fmt.Errorf("resolve password: %s", collector.RedactError(err).Error())
+	}
+	pool, err := pgxpool.New(ctx, dsn)
+	if err != nil {
+		return nil, fmt.Errorf("connect: %s", collector.RedactDSN(err.Error()))
+	}
+	return pool, nil
+}
 
 // CheckCollectorPrerequisites (C5) classifies each enabled collector
 // against the target's actual PG version + installed extensions.
@@ -297,10 +342,12 @@ func CheckCollectorPrerequisites(ctx context.Context, tgt config.TargetConfig, r
 		return result
 	}
 
-	dsn, err := collector.BuildSafeDSN(tgt)
-	if err != nil {
+	// #722 / F16 (POC): collector-prerequisite classification is PostgreSQL
+	// version/extension specific. A non-PostgreSQL engine target is explicitly
+	// unsupported by this check.
+	if engine := tgt.EffectiveEngine(); engine != config.EnginePostgreSQL {
 		result.Status = StatusWarn
-		result.Detail = "skipped (resolve password: " + collector.RedactError(err).Error() + ")"
+		result.Detail = fmt.Sprintf("skipped (collector_prerequisites is PostgreSQL-only; engine %q is not supported by this check)", engine)
 		result.Duration = time.Since(start)
 		return result
 	}
@@ -308,10 +355,12 @@ func CheckCollectorPrerequisites(ctx context.Context, tgt config.TargetConfig, r
 	dialCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
-	pool, err := pgxpool.New(dialCtx, dsn)
+	// #722 / F16: connect through the shared credential resolver (auth_method
+	// dispatch) so cloud-IAM / vault / mTLS targets are reachable here too.
+	pool, err := openDiagnosticPool(dialCtx, tgt)
 	if err != nil {
 		result.Status = StatusWarn
-		result.Detail = "skipped (connect: " + collector.RedactDSN(err.Error()) + ")"
+		result.Detail = "skipped (" + collector.RedactDSN(err.Error()) + ")"
 		result.Duration = time.Since(start)
 		return result
 	}
