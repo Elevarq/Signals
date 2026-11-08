@@ -95,7 +95,11 @@ func (d *DB) checkNotNewer() error {
 	}
 	defer rows.Close()
 
-	known := knownMigrationSet()
+	// R-SCHEMA-08: recognize cross-branch equivalents (e.g. the production
+	// 007_cycle_outcome_last_error.sql == this binary's embedded 008) so a
+	// legacy production ledger is adopted, not misread as unknown/newer. Only a
+	// filename that is neither embedded nor an enumerated equivalent is newer.
+	known := recognizedLedgerFilenames()
 	var unknown []string
 	for rows.Next() {
 		var filename string

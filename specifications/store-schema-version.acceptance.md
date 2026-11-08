@@ -202,3 +202,43 @@ one-shot that later silently proceeds).
   mutation on either call).
 
 **Test:** `TestSchemaVersion_NewerStoreRefusalIdempotentNonDestructive`
+
+---
+
+### TC-SCHEMA-09: Production ledger reconciles to POC/2.0 (cross-branch equivalence)
+
+**Rule:** R-SCHEMA-08 / INV-SCHEMA-06 — Normal + Boundary + Failure (red-gate,
+cross-branch upgrade)
+
+**Scenario:** A real production (1.x) store whose ledger ends at
+`007_cycle_outcome_last_error.sql` is opened by the POC/2.0 binary, whose
+embedded `008_cycle_outcome_last_error.sql` is the same DDL renumbered after
+`007` was taken for snapshot-engine identity. The upgrade must adopt the store,
+apply the genuinely-new `007_snapshot_engine.sql`, and record `008` ledger-only
+(no duplicate `ADD COLUMN`), preserving state — while still refusing a genuinely
+newer migration.
+
+**Given:**
+- A store built from the REAL released DDL: shared migrations `001..006` applied
+  normally, then the cycle-outcome DDL applied under the production filename
+  `007_cycle_outcome_last_error.sql` (byte-identical to embedded `008`), and
+  `007_snapshot_engine.sql` NOT applied. Pre-upgrade meta is set.
+
+**Then (normal + boundary):**
+- `Migrate` succeeds (no `*SchemaNewerError`, no duplicate-column error).
+- `snapshots.engine` exists afterwards (new `007_snapshot_engine.sql` applied).
+- `target_cycle_outcomes.reason_code` exists exactly once (reconcile did not
+  re-run the DDL).
+- The ledger contains all of `007_cycle_outcome_last_error.sql` (preserved),
+  `007_snapshot_engine.sql`, and `008_cycle_outcome_last_error.sql`.
+- Pre-upgrade meta survives; the store is usable (`EnsureInstanceID`).
+- A second `Migrate` is a no-op (idempotent re-run; ledger unchanged).
+
+**Then (failure):**
+- The same store with an additional genuinely-newer `999_from_the_future.sql`
+  ledger row is still refused with `*SchemaNewerError` — the equivalence map is a
+  closed enumerated set and never widens acceptance.
+
+**Test:** `TestSchemaVersion_ProductionLedgerReconciles`,
+`TestSchemaVersion_ReconcileIdempotent`,
+`TestSchemaVersion_EquivalenceDoesNotAcceptGenuinelyNewer`

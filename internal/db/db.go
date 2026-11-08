@@ -176,31 +176,89 @@ func (d *DB) Migrate() error {
 		return entries[i].Name() < entries[j].Name()
 	})
 
+	// Snapshot the ledger once so the forward-apply loop can consult
+	// cross-branch equivalents (R-SCHEMA-08) as well as exact matches.
+	ledger, err := d.ledgerSet()
+	if err != nil {
+		return err
+	}
+
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
+		name := entry.Name()
 
-		var applied int
-		err := d.sql.QueryRow("SELECT COUNT(*) FROM schema_migrations WHERE filename = ?", entry.Name()).Scan(&applied)
-		if err != nil {
-			return fmt.Errorf("check migration %s: %w", entry.Name(), err)
-		}
-		if applied > 0 {
+		if _, done := ledger[name]; done {
 			continue
 		}
 
-		data, err := fs.ReadFile(migrationsFS, migrationsDir+"/"+entry.Name())
-		if err != nil {
-			return fmt.Errorf("read migration %s: %w", entry.Name(), err)
+		// R-SCHEMA-08 reconcile: a prior release line already applied this
+		// migration's DDL under a different ordinal (e.g. the production
+		// 007_cycle_outcome_last_error.sql == embedded 008). The columns
+		// already exist, so re-running the DDL would fail with a duplicate
+		// column. Record the embedded filename ledger-only (no DDL) so the
+		// ledger converges to this binary's identity without mutating schema.
+		if priorEquivalentApplied(name, ledger) {
+			slog.Info("reconciling cross-branch migration (ledger-only, DDL already applied under an equivalent)", "file", name)
+			if err := d.recordMigrationReconciled(name); err != nil {
+				return err
+			}
+			ledger[name] = struct{}{}
+			continue
 		}
 
-		slog.Info("applying migration", "file", entry.Name())
-		if err := d.applyMigration(entry.Name(), string(data)); err != nil {
+		data, err := fs.ReadFile(migrationsFS, migrationsDir+"/"+name)
+		if err != nil {
+			return fmt.Errorf("read migration %s: %w", name, err)
+		}
+
+		slog.Info("applying migration", "file", name)
+		if err := d.applyMigration(name, string(data)); err != nil {
 			return err
 		}
+		ledger[name] = struct{}{}
 	}
 
+	return nil
+}
+
+// ledgerSet reads the schema_migrations ledger into a set of recorded
+// filenames. The ledger table is ensured to exist by the caller (Migrate).
+func (d *DB) ledgerSet() (map[string]struct{}, error) {
+	rows, err := d.sql.Query("SELECT filename FROM schema_migrations")
+	if err != nil {
+		return nil, fmt.Errorf("read schema_migrations ledger: %w", err)
+	}
+	defer rows.Close()
+
+	set := map[string]struct{}{}
+	for rows.Next() {
+		var filename string
+		if err := rows.Scan(&filename); err != nil {
+			return nil, fmt.Errorf("scan schema_migrations ledger: %w", err)
+		}
+		set[filename] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate schema_migrations ledger: %w", err)
+	}
+	return set, nil
+}
+
+// recordMigrationReconciled records an embedded migration as applied WITHOUT
+// running its DDL — used only when a cross-branch equivalent already applied the
+// same change (R-SCHEMA-08). The insert is transactional and idempotent
+// (INSERT OR IGNORE on the filename primary key) so an interrupted/re-run
+// upgrade cannot half-record or duplicate it. It never touches the equivalent's
+// historical ledger row (non-destructive, INV-SCHEMA-02/06).
+func (d *DB) recordMigrationReconciled(filename string) error {
+	if _, err := d.sql.Exec(
+		"INSERT OR IGNORE INTO schema_migrations (filename, applied_at) VALUES (?, ?)",
+		filename, time.Now().UTC().Format(time.RFC3339),
+	); err != nil {
+		return fmt.Errorf("reconcile migration %s: %w", filename, err)
+	}
 	return nil
 }
 
