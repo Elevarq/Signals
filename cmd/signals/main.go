@@ -295,25 +295,33 @@ func run() error {
 			slog.Info("scheduled auto-export enabled (one file per database)", "dest", cfg.Signals.ExportDest, "cadence", "per collection cycle")
 		}
 		if se != nil {
-			coll.SetAfterCycle(func(ctx context.Context) {
-				paths, err := se.ExportLatest(ctx)
+			// #721 — delivery outcome logging, shared by the post-cycle hook and
+			// the initial push. Runs on the bounded background delivery goroutine.
+			se.SetAfterDelivery(func(paths []string, err error) {
 				if err != nil {
-					slog.Warn("scheduled export failed; some databases may not have been written this cycle",
+					slog.Warn("scheduled export failed; some databases may not have been written this delivery",
 						"err", err.Error(), "dest", cfg.Signals.ExportDest, "written", len(paths))
 					return
 				}
-				slog.Info("scheduled export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
+				if len(paths) > 0 {
+					slog.Info("scheduled export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
+				}
 			})
-			// #403 — populate the destination immediately with the current
-			// latest per target, so there is no up-to-one-poll-interval blind
-			// window when push is first enabled. Best-effort; never blocks
-			// startup. Latest-per-target, NOT a backlog replay.
-			if paths, eerr := se.ExportLatest(ctx); eerr != nil {
-				slog.Warn("scheduled export: initial export failed; will retry next cycle",
-					"err", eerr.Error(), "dest", cfg.Signals.ExportDest)
-			} else if len(paths) > 0 {
-				slog.Info("scheduled export: initial export written", "files", len(paths), "dest", cfg.Signals.ExportDest)
-			}
+			// #721 — the post-cycle hook only TRIGGERS delivery: Deliver returns
+			// immediately, runs at most one bounded delivery in the background,
+			// and coalesces concurrent triggers, so a hung/slow sink can no
+			// longer stall the collection loop. Use the daemon context (not the
+			// per-cycle ctx, which cancels when the cycle ends) so shutdown
+			// cancels an in-flight delivery.
+			daemonCtx := ctx
+			coll.SetAfterCycle(func(context.Context) {
+				se.Deliver(daemonCtx)
+			})
+			// #403 + #721 — populate the destination immediately when push is
+			// first enabled (no up-to-one-poll-interval blind window), but NEVER
+			// block startup: trigger the initial delivery in the background too.
+			// Latest-per-target, NOT a backlog replay.
+			se.Deliver(daemonCtx)
 		}
 	}
 
