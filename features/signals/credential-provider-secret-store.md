@@ -174,9 +174,14 @@ dependency.
   MUST NOT be reused past its bound, where the bound is:
   `min(vault TTL/lease if present, max_cache_ttl if set)`. When the vault
   supplies no TTL and `max_cache_ttl` is unset, the secret is **re-fetched
-  on every reconnect** (cache bound = 0). Cache key = `target_id` +
-  `auth_method` + `db_user` + host identity; never shared across targets.
-  (Keystone INV004 / NFR001 / RULE008.)
+  on every reconnect** (cache bound = 0). Cache key = the full
+  credential-cache identity (keystone NFR001 / #714):
+  `TargetConfig.CredentialCacheIdentity()` — connection identity + target
+  name + source selectors (incl. `secret_ref`, `secret_json_key`) +
+  `max_cache_ttl` + `auth_method`; never shared across targets, nor across
+  two configs that share a connection tuple but name a **different
+  `secret_ref` / JSON key** or carry a different `max_cache_ttl`. (Keystone
+  INV004 / NFR001 / RULE008.)
 - **SIGNALS-AUTH-SECRET-INV004 (verify-full floor)**: A `secret_store`
   target's effective `sslmode` MUST be `verify-full`, in every environment.
   This applies the keystone INV003 transport floor (defined there for token
