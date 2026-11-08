@@ -2,6 +2,7 @@ package export
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
@@ -308,7 +309,21 @@ func (h *hashingZip) writeManifest() error {
 	})
 }
 
+// WriteTo writes the export ZIP with a background context (no cancellation).
+// Retained for callers (tests, signalsctl) that do not thread a request
+// context; the HTTP path uses WriteToCtx so a cancelled/timed-out request
+// aborts the export and frees resources (#730 / A6).
 func (b *Builder) WriteTo(w io.Writer, opts Options) error {
+	return b.WriteToCtx(context.Background(), w, opts)
+}
+
+// WriteToCtx is WriteTo with request-context cancellation (#730 / A6). The
+// context is checked at each materialization phase boundary (and inside the
+// large per-snapshot / per-run writers), so a cancelled or timed-out export
+// stops promptly instead of materializing the full history into memory. On
+// cancellation it returns ctx.Err() and the deferred Close discards the
+// partial archive.
+func (b *Builder) WriteToCtx(ctx context.Context, w io.Writer, opts Options) error {
 	// R110: hold the export read lock for the whole sequence of store
 	// reads below. Retention DELETEs (`DeleteSnapshotsOlderThan`,
 	// `DeleteQueryRunsOlderThanByClass`) take the exclusive lock, so a
@@ -320,6 +335,10 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 	// internally consistent.
 	release := b.store.LockExports()
 	defer release()
+
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 
 	// Resolve the snapshot scope once, up front, into a per-call value.
 	// Every writer below reads from this local scope so the six files
@@ -359,6 +378,9 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 		return fmt.Errorf("write collector_status.json: %w", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := b.writeSnapshots(hz, opts, scope); err != nil {
 		return fmt.Errorf("write snapshots.ndjson: %w", err)
 	}
@@ -367,10 +389,16 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 		return fmt.Errorf("write query_catalog.json: %w", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := b.writeQueryRuns(hz, scope); err != nil {
 		return fmt.Errorf("write query_runs.ndjson: %w", err)
 	}
 
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	if err := b.writeQueryResults(hz, scope); err != nil {
 		return fmt.Errorf("write query_results.ndjson: %w", err)
 	}
