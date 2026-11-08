@@ -170,12 +170,18 @@ func mysqlCatalog() []Collector {
 			// losslessly (so no separate PK collector is needed); NON_UNIQUE=0
 			// distinguishes unique/PK from ordinary indexes; SEQ_IN_INDEX preserves
 			// composite-index column ordering exactly (e.g. idx_tenant_created ->
-			// tenant_id seq 1, created_at seq 2). Per-index CARDINALITY is Tier-2
-			// and deliberately NOT collected here. Schema metadata only -> not
-			// HighSensitivity. System schemas excluded.
+			// tenant_id seq 1, created_at seq 2). #640 Replay Tier-2: CARDINALITY
+			// is the engine's precomputed estimate of distinct values in the index
+			// prefix up to this column — the per-index selectivity the Analyzer
+			// replay-evidence-contract Tier-2 leads with (consumed by
+			// Elevarq/Analyzer#4142). Read-only metadata from the SAME
+			// information_schema.STATISTICS row; Signals reads the engine's stat,
+			// never computes it. NULL when ANALYZE has not populated it (carried as
+			// absent). Schema metadata only -> not HighSensitivity. System schemas
+			// excluded.
 			ID:       "mysql_index_inventory_v1",
 			Category: "schema",
-			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION, CARDINALITY FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
 		},
 		{
 			ID:       "mysql_replication_status_v1",
