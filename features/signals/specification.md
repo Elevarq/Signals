@@ -1876,9 +1876,14 @@ state in memory and gate `collectTarget` invocations on it:
 | `paused` | Manually disabled via `signalsctl collect pause` or `POST /collect/pause`. Stays `paused` until explicit `resume`. |
 
 Manual `paused` takes priority over the auto state (INV-CIRC-02).
-State is in-memory only — restart resets all targets to `closed`
-(INV-CIRC-01). Past pause/resume events live in the audit log so
-the operator trail survives the restart.
+Circuit state is held in memory **and persisted across restarts**
+(#455, `RestoreCircuitState`): on startup the daemon rehydrates the
+persisted `open`/`paused` states, so a restart does **not** reset
+targets to `closed` — a paused target stays paused and must be resumed
+explicitly, and an operator pause is never silently undone
+(INV-CIRC-01; see `specifications/circuit-breaker.md`). Past
+pause/resume events also live in the audit log so the operator trail
+survives the restart.
 
 A skipped cycle (open or paused) writes zero rows (INV-CIRC-03 —
 identical posture to R091's INV-SIGNALS-15). The
