@@ -94,3 +94,17 @@ self-hosted clusters, extend the SELECT in a separate change —
 the existing rows degrade gracefully on managed platforms because
 `source` already distinguishes `configuration file` from
 `override`.
+
+## Credential redaction (REDACT-R001, #708 / F01, INV-SIGNALS-07)
+
+`pg_settings_v1` returns `setting`/`reset_val`/`boot_val` for every GUC,
+including credential-bearing ones the sensitivity opt-out does not exclude:
+`primary_conninfo` (a libpq conninfo carrying `password=`) and the arbitrary
+operator commands `archive_command`, `restore_command`,
+`archive_cleanup_command`, `recovery_end_command`, `ssl_passphrase_command`.
+Before the rows are encoded to NDJSON — so cleartext never reaches the SQLite
+store, the ZIP export, or any configured S3 output — the value columns of these
+GUCs are replaced with `<redacted>` (`redactSettingsSecretsIfNeeded`). An empty
+value stays empty so "set vs unset" remains distinguishable (the same
+presence-only signal the WAL collector preserves). Non-credential GUCs are
+untouched; the collector stays read-only.
