@@ -87,6 +87,12 @@ TOKEN="$(sudo cat /root/signals-api-token)"
 # confirm collector status and trigger an export over the loopback API
 docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl status
 docker exec -e SIGNALS_API_TOKEN="$TOKEN" signals signalsctl export --output /data/snapshot.zip
+
+# host-side control-plane check (#719): the daemon binds the container
+# interface (0.0.0.0:8081) and the container publishes to host loopback only
+# (-p 127.0.0.1:8081:8081), so the VM host reaches the API while other hosts
+# cannot. From the VM:
+curl -fsS -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8081/health
 ```
 
 A healthy run connects with **no password in config**, mints a token from the
