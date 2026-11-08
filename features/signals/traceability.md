@@ -1098,3 +1098,24 @@ and orphaned operator access (audit A7b). The logic lives in a single shared
 | GSI-R003 | Single shared reconcile script embedded by terraform | TestGCPReconcile_TerraformEmbedsSharedScript | COVERED | STRUCTURAL | file() embed of reconcile-collector.sh. |
 | INV-GSI-01 | After reboots/re-runs exactly one container runs with the stored token | TestGCPReconcile_IdempotentAcrossRerun | COVERED | BEHAVIORAL | Idempotent reconcile. |
 | INV-GSI-02 | Re-running never destroys durable data or orphans access | TestGCPReconcile_IdempotentAcrossRerun | COVERED | DOC | /data + token preserved. |
+=======
+
+## Cloud Data Disk Mount Safety (`specifications/cloud-data-disk-safety.md`, #713)
+
+The VM bootstraps resolve the durable data volume by provider identity, wait
+bounded, and format only a provably-blank device (blkid -p exit 2) — never
+scan-and-pick an arbitrary disk, never format on a probe error, and the AWS
+volume AZ is sourced from the subnet (not the replaceable instance). Shared
+`prepare-data-disk.sh` (embedded by the terraform bootstraps) + inline probe
+gates in the generic templates (audit F07). Acceptance:
+`specifications/cloud-data-disk-safety.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CDD-R001 | Resolve by identity, bounded wait, fail closed on absence/ambiguity; no scan-pick | TestPrepareDisk_MissingDeviceFailsClosed, TestPrepareDisk_AmbiguousIdentityFailsClosed | COVERED | BEHAVIORAL | Shared script fails closed. |
+| CDD-R002 | Format only on confirmed-blank probe; fail closed on probe error | TestPrepareDisk_FormatsBlankDevice, TestPrepareDisk_ProbeErrorFailsClosed | COVERED | BEHAVIORAL | blkid -p exit 2 gate. |
+| CDD-R003 | Existing filesystem preserved on re-attach | TestPrepareDisk_PreservesExistingFilesystem | COVERED | BEHAVIORAL | Probe exit 0 → no reformat. |
+| CDD-R004 | No affected template retains the unsafe patterns | TestCloudTemplates_NoUnsafeDiskPattern | COVERED | STRUCTURAL | 6 templates: embed shared script or inline probe gate. |
+| CDD-R005 | AWS data volume AZ sourced from the subnet, not the instance | TestCloudTemplates_NoUnsafeDiskPattern | COVERED | DOC | data.aws_subnet.selected breaks the replacement dependency + cycle. |
+| INV-CDD-01 | Existing data filesystem never destroyed by the bootstrap | TestPrepareDisk_PreservesExistingFilesystem | COVERED | BEHAVIORAL | Format only on confirmed-blank. |
+| INV-CDD-02 | Absence/ambiguity/probe errors fail closed | TestPrepareDisk_ProbeErrorFailsClosed, TestPrepareDisk_MissingDeviceFailsClosed | COVERED | BEHAVIORAL | Never act on an unverified device. |
