@@ -62,6 +62,39 @@ set; otherwise it is a no-op (existing behaviour unchanged).
   temporary file and promotes/uploads **nothing** (SE-R012/SE-R013), so a
   failed finalization is never renamed into place or `PutObject`-ed as a
   completed artifact.
+- **SE-R015 (per-target delivery isolation — #721 / F15)** — `ExportLatest`
+  delivers one file per target and MUST NOT let one target's delivery failure
+  abort the delivery of the other, independent targets. A per-target error is
+  recorded and the loop continues to the remaining targets; the method returns
+  every file it successfully wrote plus the **aggregate** of the per-target
+  errors (`errors.Join`). (Before #721 the first target error returned early,
+  so a single bad target starved every later target of its push.)
+- **SE-R016 (bounded, coalesced, non-blocking delivery — #721 / F15)** —
+  Delivery MUST be decoupled from collection and startup so a hung or slow sink
+  cannot gate API/readiness startup, stall the collection loop, or build an
+  unbounded backlog:
+  - **Non-blocking trigger.** Both the initial push (when push is first
+    enabled) and the post-cycle hook trigger delivery via `Deliver(ctx)`, which
+    returns immediately. It MUST NOT run the delivery inline on the startup path
+    or inside the collector's cycle. Startup proceeds to start the collector and
+    API regardless of sink health; a cycle completes without waiting on the
+    sink.
+  - **Finite deadline.** Each delivery runs under a bounded context
+    (`deliveryTimeout`, a finite default, overridable) so a hung sink delivery
+    is cancelled rather than hanging forever. Cancellation is honoured at the
+    boundaries that can block on the network sink (the S3 `PutObject` takes the
+    bounded context).
+  - **Coalescing, bounded work.** At most **one** delivery runs at a time
+    (single-flight). A trigger that arrives while a delivery is in flight is
+    **coalesced** (dropped), not queued — so a sink outage can never accumulate
+    an unbounded queue of pending deliveries or goroutines. Because each
+    delivery reads the *latest* snapshot per target at run time, coalescing
+    preserves latest-per-target semantics: the in-flight run already publishes
+    the newest state, and the next cycle re-triggers, so delivery is at most one
+    cycle stale under sink pressure.
+  - **Observable.** Delivery outcome (written count / error) and coalesced
+    triggers are logged so an operator can see a backlog/outage without it
+    affecting collection.
 
 ## Invariants
 
@@ -70,6 +103,11 @@ set; otherwise it is a no-op (existing behaviour unchanged).
   latest-snapshot export to a file on the collection schedule.
 - **SE-INV-02** — Files are flat in the destination (no per-target
   subdirectories), so a flat-directory consumer sees every export.
+- **SE-INV-03 (#721)** — Sink health never gates the core: a blocked, slow, or
+  failing export destination cannot prevent API/readiness startup, stall the
+  collection loop, or accumulate unbounded pending work. Collection continues at
+  its cadence through a sink outage, and delivery resumes on its own once the
+  sink recovers.
 
 ## Acceptance cases
 
