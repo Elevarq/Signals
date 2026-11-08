@@ -1068,3 +1068,17 @@ the Azure/GCP host-side control-plane reachability (audit F13). Acceptance:
 | CAB-R001 | Bridge templates bind the container interface (0.0.0.0:8081), not loopback | TestCloudTemplates_BindContainerInterface | COVERED | STRUCTURAL | Azure/GCP terraform + bicep. |
 | CAB-R002 | Host publish stays loopback-restricted (127.0.0.1:8081:8081), never all-interfaces | TestCloudTemplates_HostPublishStaysLoopback | COVERED | STRUCTURAL | No external exposure introduced. |
 | INV-CAB-01 | No change widens reachability beyond the VM itself | TestCloudTemplates_HostPublishStaysLoopback | COVERED | STRUCTURAL | Loopback-published + token-authenticated. |
+## Apply Config-Only Helm Changes (`specifications/config-apply-on-upgrade.md`, #728)
+
+The pod template carries a `checksum/config` annotation derived from the target
+ConfigMap, so a config-only `helm upgrade` changes the pod template and rolls
+the pod (single-store-safe via Recreate, #718) — the daemon has no config
+watcher, so otherwise a changed ConfigMap would leave the old target set active
+(audit A2). Acceptance: `specifications/config-apply-on-upgrade.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CAU-R001 | Pod template carries checksum/config so a config change rolls the pod | TestHelm_ConfigChangeRollsPod | COVERED | STRUCTURAL | sha256 of rendered configmap.yaml. |
+| CAU-R002 | Annotation tracks ConfigMap only; unrelated changes do not restart | TestHelm_NonConfigChangeDoesNotRollPod | COVERED | STRUCTURAL | Image-tag edit leaves checksum unchanged. |
+| INV-CAU-01 | After a config-changing upgrade the running pod reflects the new ConfigMap | TestHelm_ConfigChangeRollsPod | COVERED | STRUCTURAL | New pod template → rollout. |
+| INV-CAU-02 | Config-triggered rollout preserves single-store ownership (Recreate) | TestHelm_ConfigChangeRollsPod | COVERED | DOC | Pairs with STO-R001 (#718). |
