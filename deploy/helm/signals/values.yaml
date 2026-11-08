@@ -152,6 +152,11 @@ serviceAccount:
 #     azure.workload.identity/use: "true"
 podLabels: {}
 
+# Extra pod-template annotations (#728). Merged alongside the
+# chart-managed `checksum/config` annotation that rolls the pod when the
+# target ConfigMap changes (so a config-only `helm upgrade` is applied).
+podAnnotations: {}
+
 # Scheduled auto-export (#350/#403/#472). When onCollect is true and dest is
 # set, Signals writes the latest snapshot ZIP per database after every
 # collection cycle. `dest` is either a local directory on the /data volume OR
