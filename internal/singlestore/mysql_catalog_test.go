@@ -29,6 +29,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_data_lock_waits_v1",
 		"mysql_data_locks_v1",
 		"mysql_engines_v1",
+		"mysql_foreign_keys_v1",
 		"mysql_global_status_v1",
 		"mysql_global_variables_v1",
 		"mysql_group_replication_members_v1",
@@ -771,5 +772,50 @@ func TestMySQLColumnHistograms(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["bucket_count"]; v != "6" {
 		t.Errorf("bucket_count = %v, want 6", v)
+	}
+}
+
+// #640 Replay Tier-3 — mysql_foreign_keys_v1 reads information_schema.
+// KEY_COLUMN_USAGE for the FK column graph (referenced schema/table/column),
+// bounded to FK rows. Read-only schema metadata (identifiers only, no data
+// values); not HighSensitivity.
+func TestMySQLForeignKeys(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_foreign_keys_v1")
+	if c == nil {
+		t.Fatal("mysql_foreign_keys_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("FK graph carries no sensitive payload (identifiers only)")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.KEY_COLUMN_USAGE") {
+		t.Errorf("must read information_schema.KEY_COLUMN_USAGE; SQL=%q", c.SQL)
+	}
+	// Bounded to FK rows (PK/unique rows carry a NULL referenced table).
+	if !strings.Contains(up, "REFERENCED_TABLE_NAME IS NOT NULL") {
+		t.Errorf("must restrict to FK rows via REFERENCED_TABLE_NAME IS NOT NULL; SQL=%q", c.SQL)
+	}
+	for _, want := range []string{"REFERENCED_TABLE_NAME", "REFERENCED_COLUMN_NAME", "CONSTRAINT_NAME"} {
+		if !strings.Contains(up, want) {
+			t.Errorf("must select %s for the FK graph; SQL=%q", want, c.SQL)
+		}
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "INFORMATION_SCHEMA.KEY_COLUMN_USAGE") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "COLUMN_NAME": "customer_id", "CONSTRAINT_NAME": "fk_orders_customer", "ORDINAL_POSITION": "1", "REFERENCED_TABLE_SCHEMA": "app", "REFERENCED_TABLE_NAME": "customers", "REFERENCED_COLUMN_NAME": "id"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["REFERENCED_TABLE_NAME"]; v != "customers" {
+		t.Errorf("REFERENCED_TABLE_NAME = %v, want customers", v)
 	}
 }

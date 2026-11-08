@@ -119,6 +119,21 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT ENGINE, SUPPORT, TRANSACTIONS, XA, SAVEPOINTS FROM information_schema.ENGINES",
 		},
 		{
+			// #640 Replay Tier-3: the foreign-key column graph from information_
+			// schema.KEY_COLUMN_USAGE, restricted to FK rows via REFERENCED_TABLE_NAME
+			// IS NOT NULL (PK/unique rows carry a NULL referenced table). Each row
+			// maps an FK column to the schema/table/column it references, with the
+			// constraint name and ordinal — the join-cardinality / FK-pruning signal
+			// the Analyzer consumes (Analyzer#4142). MariaDB exposes the same
+			// KEY_COLUMN_USAGE shape as MySQL; distinct MariaDB identity. All values
+			// are schema identifiers (constraint, table, column names — verbatim in
+			// SHOW CREATE TABLE), never row data. Read-only; schema-bounded (one row
+			// per FK column); engine-precomputed, never computed. Not HighSensitivity.
+			ID:       "mariadb_foreign_keys_v1",
+			Category: "schema",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, CONSTRAINT_NAME, ORDINAL_POSITION, POSITION_IN_UNIQUE_CONSTRAINT, REFERENCED_TABLE_SCHEMA, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME FROM information_schema.KEY_COLUMN_USAGE WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND REFERENCED_TABLE_NAME IS NOT NULL ORDER BY TABLE_SCHEMA, TABLE_NAME, CONSTRAINT_NAME, ORDINAL_POSITION",
+		},
+		{
 			ID:       "mariadb_schemata_v1",
 			Category: "schema",
 			SQL:      "SELECT SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA",
