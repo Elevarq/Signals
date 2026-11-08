@@ -2,11 +2,19 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    # Qualify the active integration lines on direct push, not only via PRs
+    # (#723 / F17a): main is the production line; poc/singlestore is the active
+    # 2.0 POC integration branch. Without poc/singlestore here, a direct push
+    # to the POC line ran no CI, so unqualified 2.0 changes could become the
+    # branch head. (Enforcing these contexts as *required* checks is a separate
+    # branch-protection/ruleset settings change owned by the repo admin.)
+    branches: [main, poc/singlestore]
   pull_request:
 
 concurrency:
-  group: ${{ github.workflow }}
+  # Scope per-branch so a poc/singlestore push and a main push qualify
+  # concurrently instead of serializing on one shared CI group.
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
 
 permissions:
