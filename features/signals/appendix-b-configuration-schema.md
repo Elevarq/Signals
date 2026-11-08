@@ -41,6 +41,7 @@ signals:
   log_level: info            # debug, info, warn, error
   log_json: false            # Output logs as JSON
   max_concurrent_targets: 4  # Max targets collected in parallel
+  max_concurrent_exports: 2  # Max concurrent full-history exports (#730); excess -> HTTP 429; 0 = unlimited
   target_timeout: 60s        # Per-target collection time budget
   query_timeout: 10s         # Per-query execution timeout (server-side
                               # statement_timeout, per SIGNALS-R128)
@@ -178,6 +179,7 @@ fields:
 | `SIGNALS_LOG_LEVEL` | `signals.log_level` | `info` | |
 | `SIGNALS_LOG_JSON` | `signals.log_json` | `false` | |
 | `SIGNALS_MAX_CONCURRENT_TARGETS` | `signals.max_concurrent_targets` | `4` | |
+| — | `signals.max_concurrent_exports` | `2` | Max concurrent exports (#730); excess -> HTTP 429; 0 = unlimited |
 | `SIGNALS_TARGET_TIMEOUT` | `signals.target_timeout` | `60s` | |
 | `SIGNALS_QUERY_TIMEOUT` | `signals.query_timeout` | `10s` | |
 | `SIGNALS_HIGH_SENSITIVITY_COLLECTORS_ENABLED` | `signals.high_sensitivity_collectors_enabled` | `true` | Default-on (collect-everything default, R075 revised). Set to `false` to opt out — redact-path collectors run with `SensitiveColumns` nulled, skip-path collectors are skipped. |

@@ -1119,3 +1119,20 @@ gates in the generic templates (audit F07). Acceptance:
 | CDD-R005 | AWS data volume AZ sourced from the subnet, not the instance | TestCloudTemplates_NoUnsafeDiskPattern | COVERED | DOC | data.aws_subnet.selected breaks the replacement dependency + cycle. |
 | INV-CDD-01 | Existing data filesystem never destroyed by the bootstrap | TestPrepareDisk_PreservesExistingFilesystem | COVERED | BEHAVIORAL | Format only on confirmed-blank. |
 | INV-CDD-02 | Absence/ambiguity/probe errors fail closed | TestPrepareDisk_ProbeErrorFailsClosed, TestPrepareDisk_MissingDeviceFailsClosed | COVERED | BEHAVIORAL | Never act on an unverified device. |
+
+## Bounded Export Memory and Cancellation (`specifications/bounded-export.md`, #730)
+
+Concurrent full-history exports are admission-bounded (`max_concurrent_exports`,
+default 2; 0 = unlimited) so excess requests get HTTP 429 instead of piling up
+history + buffered ZIPs past the memory budget, and `WriteToCtx` honours
+request-context cancellation so a cancelled/timed-out export aborts and frees
+resources (audit A6, POC scope). Acceptance:
+`specifications/bounded-export.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| BEX-R001 | /export admits <= max_concurrent_exports; excess -> HTTP 429, no buffering | TestExportLimiter_AdmitsUpToLimitThenRejects | COVERED | BEHAVIORAL | Non-blocking semaphore. |
+| BEX-R002 | max_concurrent_exports<=0 = unlimited; default 2 bounds by default | TestExportLimiter_NilIsUnlimited | COVERED | BEHAVIORAL | nil limiter admits all. |
+| BEX-R003 | Export honours context cancellation; WriteTo stays a background shim | TestWriteToCtx_CancelledReturnsError, TestWriteTo_BackgroundContextStillWorks | COVERED | BEHAVIORAL | Phase-boundary ctx.Err() checks; no partial archive. |
+| INV-BEX-01 | Peak concurrent exports bounded unless opted out | TestExportLimiter_AdmitsUpToLimitThenRejects | COVERED | BEHAVIORAL | Caps peak materialization memory. |
+| INV-BEX-02 | A cancelled export never emits a partial 200 and frees its slot/lock | TestWriteToCtx_CancelledReturnsError | COVERED | BEHAVIORAL | Deferred lock+slot release; 499/503. |

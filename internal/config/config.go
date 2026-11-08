@@ -50,10 +50,16 @@ type SignalsConfig struct {
 	LogLevel             string          `yaml:"log_level"`
 	LogJSON              bool            `yaml:"log_json"`
 	MaxConcurrentTargets int             `yaml:"max_concurrent_targets"`
-	TargetTimeout        time.Duration   `yaml:"-"`
-	TargetTimeoutS       string          `yaml:"target_timeout"`
-	QueryTimeout         time.Duration   `yaml:"-"`
-	QueryTimeoutS        string          `yaml:"query_timeout"`
+	// MaxConcurrentExports bounds how many full-history exports run at once
+	// (#730 / A6). Each export materializes snapshots/runs/decoded rows and the
+	// HTTP path buffers the ZIP, so unbounded concurrency can exceed the shipped
+	// memory limit. Excess requests are rejected with HTTP 429 rather than
+	// queued/buffered. Default 2; 0 (or negative) = unlimited (opt-out).
+	MaxConcurrentExports int           `yaml:"max_concurrent_exports"`
+	TargetTimeout        time.Duration `yaml:"-"`
+	TargetTimeoutS       string        `yaml:"target_timeout"`
+	QueryTimeout         time.Duration `yaml:"-"`
+	QueryTimeoutS        string        `yaml:"query_timeout"`
 	// QueryTimeoutGrace is the margin added to the per-query budget for
 	// the CLIENT-side query context, so the server-side statement_timeout
 	// (set to the per-query budget) always fires first and cancels a slow
@@ -576,6 +582,7 @@ func DefaultConfig() Config {
 			LogLevel:             "info",
 			LogJSON:              false,
 			MaxConcurrentTargets: 4,
+			MaxConcurrentExports: 2,
 			TargetTimeout:        60 * time.Second,
 			TargetTimeoutS:       "60s",
 			QueryTimeout:         10 * time.Second,

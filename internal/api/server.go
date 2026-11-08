@@ -70,6 +70,9 @@ type Deps struct {
 	// empty.
 	TLSCertFile string
 	TLSKeyFile  string
+	// MaxConcurrentExports bounds concurrent full-history exports (#730 / A6).
+	// Excess requests get HTTP 429 instead of piling up in memory. 0 = unlimited.
+	MaxConcurrentExports int
 }
 
 // Server is the Elevarq Signals HTTP API server.
@@ -97,7 +100,8 @@ func NewServer(addr string, readTimeout, writeTimeout time.Duration, apiToken st
 	mux.HandleFunc("POST /collect/pause", handleCollectPause(deps))
 	mux.HandleFunc("POST /collect/resume", handleCollectResume(deps))
 	mux.HandleFunc("POST /reload", handleConfigReload(deps, deps.ConfigPath))
-	mux.HandleFunc("GET /export", handleExport(deps))
+	// #730 (A6): admission-bound concurrent exports. nil when unlimited.
+	mux.HandleFunc("GET /export", handleExport(deps, newExportLimiter(deps.MaxConcurrentExports)))
 
 	// Optional Prometheus /metrics endpoint (R079). Off unless an
 	// explicit Metrics registry is supplied. Inherits the same bearer
@@ -642,9 +646,66 @@ func newRequestID() string {
 	return ulid.MustNew(ulid.Now(), rand.Reader).String()
 }
 
-func handleExport(deps *Deps) http.HandlerFunc {
+// exportLimiter bounds the number of concurrent full-history exports (#730 /
+// A6). A nil limiter means unlimited. tryAcquire is non-blocking so excess
+// requests are rejected (HTTP 429) rather than queued/buffered in memory.
+type exportLimiter struct {
+	slots chan struct{}
+}
+
+// newExportLimiter returns a limiter admitting at most n concurrent exports, or
+// nil (unlimited) when n <= 0.
+func newExportLimiter(n int) *exportLimiter {
+	if n <= 0 {
+		return nil
+	}
+	return &exportLimiter{slots: make(chan struct{}, n)}
+}
+
+// tryAcquire grabs a slot without blocking; returns false when full. A nil
+// limiter always admits.
+func (l *exportLimiter) tryAcquire() bool {
+	if l == nil {
+		return true
+	}
+	select {
+	case l.slots <- struct{}{}:
+		return true
+	default:
+		return false
+	}
+}
+
+func (l *exportLimiter) release() {
+	if l == nil {
+		return
+	}
+	<-l.slots
+}
+
+func handleExport(deps *Deps, lim *exportLimiter) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
+
+		// #730 (A6): admission bound. Reject (429) rather than let unbounded
+		// concurrent exports materialize history + buffer ZIPs past the memory
+		// budget. A nil limiter (max_concurrent_exports <= 0) admits everything.
+		if !lim.tryAcquire() {
+			safety.AuditLog("export_rejected",
+				"actor", actorFromCtx(r.Context()),
+				"reason", "concurrency_limit",
+				"duration_ms", time.Since(start).Milliseconds(),
+			)
+			deps.Metrics.RecordExport("rejected", time.Since(start).Seconds())
+			deps.Metrics.RecordExportFailure("concurrency_limit")
+			w.Header().Set("Retry-After", "5")
+			writeJSON(w, http.StatusTooManyRequests, map[string]string{
+				"error":  "export concurrency limit reached; retry shortly",
+				"reason": "concurrency_limit",
+			})
+			return
+		}
+		defer lim.release()
 		opts := export.Options{
 			Since:      r.URL.Query().Get("since"),
 			Until:      r.URL.Query().Get("until"),
@@ -791,7 +852,27 @@ func handleExport(deps *Deps) http.HandlerFunc {
 		//   * ErrSnapshotNotFound     → 404 (FC-08; unknown --snapshot-id).
 		// Everything else stays as 500 with category=builder_error.
 		var buf bytes.Buffer
-		if err := deps.Exporter.WriteTo(&buf, opts); err != nil {
+		if err := deps.Exporter.WriteToCtx(r.Context(), &buf, opts); err != nil {
+			// #730 (A6): a cancelled / timed-out request aborts the export; no
+			// partial ZIP is written. 499 (client closed) is conventional for a
+			// client-cancelled request; a server deadline surfaces as 503.
+			if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+				safety.AuditLog("export_completed",
+					"actor", actor,
+					"status", "cancelled",
+					"duration_ms", time.Since(start).Milliseconds(),
+					"size_bytes", 0,
+					"error_category", "cancelled",
+				)
+				deps.Metrics.RecordExport("cancelled", time.Since(start).Seconds())
+				deps.Metrics.RecordExportFailure("cancelled")
+				if errors.Is(err, context.DeadlineExceeded) {
+					writeJSON(w, http.StatusServiceUnavailable, map[string]string{"error": "export timed out"})
+				} else {
+					w.WriteHeader(499)
+				}
+				return
+			}
 			switch {
 			case errors.Is(err, export.ErrConflictingSelectors):
 				safety.AuditLog("export_completed",

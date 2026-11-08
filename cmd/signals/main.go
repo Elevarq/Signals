@@ -405,17 +405,18 @@ func run() error {
 		slog.Info("metrics endpoint enabled", "path", metricsPath)
 	}
 	deps := &api.Deps{
-		DB:                  store,
-		Metrics:             metricsReg,
-		MetricsPath:         metricsPath,
-		Collector:           coll,
-		Exporter:            exporter,
-		Targets:             cfg.Targets,
-		ConfigPath:          *configPath, // R100: needed for POST /reload + SIGHUP handler.
-		RunningEnv:          runningEnv,  // R130/F05: immutable env policy for /reload validation.
-		ControlPlaneTokenFn: signalsControlPlaneTokenFn,
-		TLSCertFile:         cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
-		TLSKeyFile:          cfg.API.TLSKeyFile,
+		DB:                   store,
+		Metrics:              metricsReg,
+		MetricsPath:          metricsPath,
+		Collector:            coll,
+		Exporter:             exporter,
+		Targets:              cfg.Targets,
+		ConfigPath:           *configPath, // R100: needed for POST /reload + SIGHUP handler.
+		RunningEnv:           runningEnv,  // R130/F05: immutable env policy for /reload validation.
+		ControlPlaneTokenFn:  signalsControlPlaneTokenFn,
+		TLSCertFile:          cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
+		TLSKeyFile:           cfg.API.TLSKeyFile,
+		MaxConcurrentExports: cfg.Signals.MaxConcurrentExports, // #730 (A6): admission bound.
 	}
 	srv := api.NewServer(cfg.API.ListenAddr, cfg.API.ReadTimeout, cfg.API.WriteTimeout, cfg.API.APIToken, deps)
 
