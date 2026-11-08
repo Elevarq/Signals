@@ -533,3 +533,18 @@ exporter's flag stamped over history (audit A3). Acceptance:
 | CTP-R005 | Opt-out suppresses future collection only; top-level flags describe the export process | TestCTP_MixedHistoryNotFalselyClean | COVERED | DOC | `collection_policy.semantics` string + spec; existing keys clarified. |
 | INV-CTP-01 | A uniform true/false is reported only when every packaged snapshot agrees | TestCTP_MixedHistoryNotFalselyClean, TestCTP_KnownPlusUnknownIsMixed | COVERED | BEHAVIORAL | Mixed/known+unknown never reads as uniform. |
 | INV-CTP-02 | Unknown policy is explicit and never replaced by a fabricated value | TestCTP_UnknownLegacyNotInvented, TestMigration009_DoesNotInventLegacyPolicy | COVERED | BEHAVIORAL | NULL preserved through upgrade and export. |
+
+## Collector Shutdown Join (`specifications/collector-shutdown-join.md`, #731)
+
+Every daemon shutdown path (signal and server-error) cancels and joins the
+collector goroutine within a bounded deadline before closing the store, so
+in-flight collection is not raced by store.Close and the goroutine is not leaked
+(audit A7a). Acceptance: `specifications/collector-shutdown-join.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| SHUT-R001 | Every shutdown path cancels + joins the collector before closing the store | TestJoinCollector_FinishesBeforeDeadline, TestJoinCollector_FinishesJustInTime | COVERED | BEHAVIORAL | joinCollector waits for the goroutine's done signal. |
+| SHUT-R002 | Join bounded by a positive finite deadline; proceed with warning on elapse | TestJoinCollector_TimesOutWhenCollectorHangs, TestCollectorShutdownTimeout_Bounded | COVERED | BEHAVIORAL | 20s default; returns false, does not hang exit. |
+| SHUT-R003 | Server-error path cancels+joins before returning the error | TestJoinCollector_FinishesBeforeDeadline | COVERED | BEHAVIORAL | errCh path no longer returns early; cancel()+join then return serverErr. |
+| INV-SHUT-01 | store.Close never runs while the collector is still running within deadline | TestJoinCollector_FinishesJustInTime | COVERED | BEHAVIORAL | Deferred close reached only after join returns. |
+| INV-SHUT-02 | Collector goroutine always signalled to stop on exit; not leaked | TestJoinCollector_TimesOutWhenCollectorHangs | COVERED | BEHAVIORAL | cancel() invoked on both paths. |
