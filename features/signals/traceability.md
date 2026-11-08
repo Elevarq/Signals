@@ -1082,3 +1082,19 @@ watcher, so otherwise a changed ConfigMap would leave the old target set active
 | CAU-R002 | Annotation tracks ConfigMap only; unrelated changes do not restart | TestHelm_NonConfigChangeDoesNotRollPod | COVERED | STRUCTURAL | Image-tag edit leaves checksum unchanged. |
 | INV-CAU-01 | After a config-changing upgrade the running pod reflects the new ConfigMap | TestHelm_ConfigChangeRollsPod | COVERED | STRUCTURAL | New pod template → rollout. |
 | INV-CAU-02 | Config-triggered rollout preserves single-store ownership (Recreate) | TestHelm_ConfigChangeRollsPod | COVERED | DOC | Pairs with STO-R001 (#718). |
+## GCP Startup Reconcile Idempotency (`specifications/gcp-startup-idempotency.md`, #732)
+
+The GCP startup reconcile reuses an existing operator token and reconciles the
+collector container by name (start if present, run only if absent) instead of an
+unconditional token-mint + `docker run` that failed on re-run/reboot name clash
+and orphaned operator access (audit A7b). The logic lives in a single shared
+`reconcile-collector.sh` embedded by the terraform startup script. Acceptance:
+`specifications/gcp-startup-idempotency.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| GSI-R001 | Reuse existing operator token; mint only on first boot | TestGCPReconcile_IdempotentAcrossRerun | COVERED | BEHAVIORAL | Token unchanged across re-run. |
+| GSI-R002 | Reconcile container by name; never unconditional docker run | TestGCPReconcile_IdempotentAcrossRerun | COVERED | BEHAVIORAL | Second run docker-starts, no re-run. |
+| GSI-R003 | Single shared reconcile script embedded by terraform | TestGCPReconcile_TerraformEmbedsSharedScript | COVERED | STRUCTURAL | file() embed of reconcile-collector.sh. |
+| INV-GSI-01 | After reboots/re-runs exactly one container runs with the stored token | TestGCPReconcile_IdempotentAcrossRerun | COVERED | BEHAVIORAL | Idempotent reconcile. |
+| INV-GSI-02 | Re-running never destroys durable data or orphans access | TestGCPReconcile_IdempotentAcrossRerun | COVERED | DOC | /data + token preserved. |
