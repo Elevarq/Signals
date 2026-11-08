@@ -548,3 +548,16 @@ in-flight collection is not raced by store.Close and the goroutine is not leaked
 | SHUT-R003 | Server-error path cancels+joins before returning the error | TestJoinCollector_FinishesBeforeDeadline | COVERED | BEHAVIORAL | errCh path no longer returns early; cancel()+join then return serverErr. |
 | INV-SHUT-01 | store.Close never runs while the collector is still running within deadline | TestJoinCollector_FinishesJustInTime | COVERED | BEHAVIORAL | Deferred close reached only after join returns. |
 | INV-SHUT-02 | Collector goroutine always signalled to stop on exit; not leaked | TestJoinCollector_TimesOutWhenCollectorHangs | COVERED | BEHAVIORAL | cancel() invoked on both paths. |
+
+## Singleton Store Upgrade Lifecycle (`specifications/singleton-store-upgrade.md`, #718)
+
+The collector Deployment pins `strategy.type: Recreate` so the single-writer
+SQLite store has exactly one owner across an upgrade (stop-before-start), rather
+than the Kubernetes-default RollingUpdate that would surge a second writer
+(audit F12). Acceptance: `specifications/singleton-store-upgrade.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| STO-R001 | Deployment uses strategy.type Recreate, never RollingUpdate | TestHelm_DeploymentUsesRecreateStrategy | COVERED | STRUCTURAL | helm render asserts Recreate; skips if helm CLI absent. |
+| STO-R002 | Upgrade contract (stop-before-start, bounded downtime, forward-only schema, backup rollback) documented | — | COVERED | DOC | docs/install/kubernetes-production.md upgrade section. |
+| INV-STO-01 | At most one collector pod owns the SQLite store at any time | TestHelm_DeploymentUsesRecreateStrategy | COVERED | STRUCTURAL | Recreate forbids a co-mounting surge pod. |
