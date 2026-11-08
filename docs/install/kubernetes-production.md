@@ -170,12 +170,20 @@ helm upgrade signals deploy/helm/signals/ \
 What happens:
 
 1. Helm renders the new release; new ConfigMap + Deployment.
-2. Deployment rollout: new pod scheduled, readiness probe waits
-   for `/readyz` → 200 (store reachable + first collection cycle
-   done), old pod terminated.
+2. Deployment rollout uses the **`Recreate` strategy** (#718): the
+   **old pod is terminated first**, then the replacement is
+   scheduled and its readiness probe waits for `/readyz` → 200
+   (store reachable + first collection cycle done). This is
+   stop-before-start, not a rolling surge — the single-writer
+   SQLite store on the ReadWriteOnce claim must have exactly one
+   owner at a time, so there is a **brief, bounded collection
+   downtime** between the old pod stopping and the new pod becoming
+   ready. Collected history on the PVC is unaffected.
 3. PVC unchanged; the new pod re-mounts the existing SQLite store
    on `/data/signals.db`. Schema migrations run on startup
-   via `internal/db.Migrate()`.
+   via `internal/db.Migrate()` — and because the old pod is already
+   gone, no old binary writes the store the new binary just
+   migrated.
 4. Secrets unchanged; the bearer token survives.
 
 The SQLite migration path is forward-only and idempotent —
