@@ -254,6 +254,33 @@ permissions: [`postgres-role.md`](postgres-role.md).
 | `timescaledb_job_stats_v1` | `timescaledb_information.job_stats` | 15m | Per-job run counters and last-run status — visible for all jobs |
 | `timescaledb_job_errors_v1` | `timescaledb_information.job_errors` | 1h | Failed runs, newest first, capped at 1000; rows visible only with job-owner/db-owner membership (zero rows is the expected least-privilege state); `err_message` is high-sensitivity (redact path) |
 
+## High-sensitivity / unsafe-mode opt-out semantics (#729)
+
+High-sensitivity collectors and unsafe-role mode are **off by default** and
+opt-in. Disabling them (or never enabling them) suppresses **future**
+collection only — it does **not** retroactively scrub, filter, or delete
+already-collected history. Evidence collected while a policy was enabled stays
+in the store and in exports of that history until normal retention removes it.
+
+So an export can legitimately contain snapshots collected under **different**
+policies. To keep provenance honest:
+
+- Each snapshot records the sensitivity/unsafe policy in effect **at its own
+  collection time** (immutable; tri-state — a pre-#729 snapshot's policy is
+  `unknown`, never a fabricated value).
+- `snapshots.ndjson` carries that per-snapshot policy
+  (`collect_unsafe_mode`, `collect_high_sensitivity`: `true` / `false` /
+  `null`).
+- `metadata.json` adds a `collection_policy` object aggregated over the
+  packaged snapshots: `"true"` / `"false"` only when **every** packaged snapshot
+  agrees, `"unknown"` when all are unknown, otherwise `"mixed"`. The pre-existing
+  top-level `unsafe_mode` / `high_sensitivity_collectors_enabled` keys describe
+  the **current export process**, not the included history — a current `false`
+  there must never be read as "the included history was collected safely / was
+  scrubbed".
+
+See `specifications/export-collection-provenance.md` (CTP-R001..R005).
+
 ## Version and extension behavior
 
 - Collectors with `MinPGVersion` are excluded on older PostgreSQL

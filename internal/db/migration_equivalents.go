@@ -29,6 +29,13 @@ var migrationEquivalents = map[string][]string{
 	// backfill), so a 1.x store whose ledger records the main filename is
 	// adopted and reconciled, not refused or re-ALTERed.
 	"009_snapshot_source_identity.sql": {"008_snapshot_source_identity.sql"},
+	// #729: the per-snapshot collection-time policy migration shipped on main
+	// (1.x) as 009_snapshot_collection_policy.sql and on this POC line as 010
+	// (the numbers run one ahead here because 007 is snapshot_engine). The DDL is
+	// identical (ADD COLUMN collect_unsafe_mode / collect_high_sensitivity,
+	// nullable, no backfill), so a store whose ledger records the main filename
+	// is adopted, not re-ALTERed.
+	"010_snapshot_collection_policy.sql": {"009_snapshot_collection_policy.sql"},
 }
 
 // recognizedLedgerFilenames returns every filename a store's ledger may

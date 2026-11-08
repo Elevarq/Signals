@@ -565,18 +565,35 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 		engineVersion = scope.snapshots[0].PGVersion
 	}
 	data := map[string]any{
-		"engine":                              engine,
-		"schema_version":                      snapshot.SchemaVersion,
-		"collector_status_schema_version":     CollectorStatusSchemaVersion,
-		"instance_id":                         b.instanceID,
-		"signals_version":                     safety.Version,
-		"collector_version":                   safety.Version, // legacy alias
-		"collector_commit":                    safety.Commit,
-		"generated_at":                        now,
-		"collected_at":                        now, // legacy alias
+		"engine":                          engine,
+		"schema_version":                  snapshot.SchemaVersion,
+		"collector_status_schema_version": CollectorStatusSchemaVersion,
+		"instance_id":                     b.instanceID,
+		"signals_version":                 safety.Version,
+		"collector_version":               safety.Version, // legacy alias
+		"collector_commit":                safety.Commit,
+		"generated_at":                    now,
+		"collected_at":                    now, // legacy alias
+		"collect_normalized_query_text":   b.collectNormalizedQueryText,
+		// #729 / CTP: these two keys describe the CURRENT EXPORT PROCESS policy
+		// (the builder's flags), retained for backward compatibility and used by
+		// the forensic unsafe-reasons block below. They are NOT a claim about the
+		// policy under which the included historical snapshots were collected — a
+		// current `false` here must never be read as "old sensitive text was
+		// collected safely / scrubbed". The honest per-content provenance is the
+		// `collection_policy` object, aggregated from each packaged snapshot's
+		// collection-time policy (uniform true/false, "mixed", or "unknown").
 		"unsafe_mode":                         b.unsafeMode,
 		"high_sensitivity_collectors_enabled": b.highSensitivityCollectorsEnabled,
-		"collect_normalized_query_text":       b.collectNormalizedQueryText,
+		"collection_policy": map[string]any{
+			"unsafe_mode":                         aggregateCollectionPolicy(scope.snapshots, func(s db.Snapshot) *bool { return s.CollectUnsafeMode }),
+			"high_sensitivity_collectors_enabled": aggregateCollectionPolicy(scope.snapshots, func(s db.Snapshot) *bool { return s.CollectHighSensitivity }),
+			// Opt-out semantics (documented contract): disabling high-sensitivity
+			// or unsafe collection suppresses FUTURE collection only; it does not
+			// retroactively scrub or filter already-collected history. Mixed/unknown
+			// above makes that explicit so no false certainty is advertised.
+			"semantics": "per-snapshot collection-time policy; opt-out suppresses future collection only, never rewrites history",
+		},
 		// R086 — explicit scope intent for downstream consumers.
 		// `snapshot_count` is the number of snapshots packaged in
 		// this ZIP (0 on an empty store, 1 for --snapshot-id and
@@ -926,6 +943,51 @@ func (b *Builder) writeQueryResults(zw zipCreator, scope *exportScope) error {
 	return nil
 }
 
+// aggregateCollectionPolicy summarises one collection-time policy flag across
+// the packaged snapshots into an honest tri-state-plus-mixed string (#729 /
+// CTP). Each snapshot contributes "true"/"false" (recorded) or "unknown" (nil,
+// a pre-#729 snapshot). The result is:
+//   - "unknown"            — no snapshots, or every packaged snapshot is unknown;
+//   - "true" / "false"     — every packaged snapshot agrees on that value;
+//   - "mixed"              — the packaged snapshots disagree, OR a recorded value
+//     coexists with unknowns.
+//
+// This guarantees a uniform "false" is reported ONLY when every included
+// snapshot was provably collected with that policy — so a consumer can never
+// mistake the exporter's current flag for a property of mixed/unknown history.
+func aggregateCollectionPolicy(snaps []db.Snapshot, get func(db.Snapshot) *bool) string {
+	if len(snaps) == 0 {
+		return "unknown"
+	}
+	sawTrue, sawFalse, sawUnknown := false, false, false
+	for _, s := range snaps {
+		switch v := get(s); {
+		case v == nil:
+			sawUnknown = true
+		case *v:
+			sawTrue = true
+		default:
+			sawFalse = true
+		}
+	}
+	distinct := 0
+	for _, seen := range []bool{sawTrue, sawFalse, sawUnknown} {
+		if seen {
+			distinct++
+		}
+	}
+	switch {
+	case distinct > 1:
+		return "mixed"
+	case sawTrue:
+		return "true"
+	case sawFalse:
+		return "false"
+	default:
+		return "unknown"
+	}
+}
+
 // snapshotSourceIdentity returns the immutable source identity captured on the
 // snapshot at collection time (#716 / R094.1) and whether it is populated. A
 // pre-#716 snapshot whose source fields were never set (and, post-migration,
@@ -992,6 +1054,13 @@ func (b *Builder) writeSnapshots(zw zipCreator, opts Options, scope *exportScope
 			"payload":      json.RawMessage(s.Payload),
 		}
 		setExportVersionFields(row, engineOf(scope), s.PGVersion)
+		// #729 / CTP: the policy in effect WHEN THIS snapshot was collected,
+		// so a consumer attributes sensitivity/unsafe provenance per cycle and
+		// not from the current exporter. Tri-state: true/false when recorded,
+		// null (JSON) when unknown (pre-#729 snapshot). A nil *bool encodes as
+		// JSON null, which is exactly the "unknown" we must not fabricate.
+		row["collect_unsafe_mode"] = s.CollectUnsafeMode
+		row["collect_high_sensitivity"] = s.CollectHighSensitivity
 		// R094: per-snapshot target_identity for multi-target exports
 		// (and consistent in single-target exports too — additive). The
 		// metadata.json top-level block is still authoritative for
