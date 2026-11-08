@@ -1039,3 +1039,18 @@ than the Kubernetes-default RollingUpdate that would surge a second writer
 | STO-R001 | Deployment uses strategy.type Recreate, never RollingUpdate | TestHelm_DeploymentUsesRecreateStrategy | COVERED | STRUCTURAL | helm render asserts Recreate; skips if helm CLI absent. |
 | STO-R002 | Upgrade contract (stop-before-start, bounded downtime, forward-only schema, backup rollback) documented | — | COVERED | DOC | docs/install/kubernetes-production.md upgrade section. |
 | INV-STO-01 | At most one collector pod owns the SQLite store at any time | TestHelm_DeploymentUsesRecreateStrategy | COVERED | STRUCTURAL | Recreate forbids a co-mounting surge pod. |
+
+## NetworkPolicy Egress Composition (`specifications/networkpolicy-egress-composition.md`, #727)
+
+The opt-in restrictive NetworkPolicy permits egress for every configured target
+port (primary + `targets[]`) and provides an operator-scoped `extraEgress`
+passthrough for cloud-credential / S3-export endpoints, without weakening
+default-deny or adding blanket internet egress (audit A1). Acceptance:
+`specifications/networkpolicy-egress-composition.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| NPE-R001 | Egress permits every configured target port, not just the primary | TestHelm_EgressCoversAllTargetPorts | COVERED | STRUCTURAL | Distinct ports from target.port + targets[].port. |
+| NPE-R002 | Operator-scoped extraEgress passthrough for cloud/S3 endpoints | TestHelm_EgressExtraEgressPassthrough | COVERED | STRUCTURAL | Rendered verbatim; empty by default. |
+| NPE-R003 | No weakening of default-deny; no blanket 0.0.0.0/0 egress added | TestHelm_EgressNoBlanketInternetByDefault | COVERED | STRUCTURAL | Only operator-configured CIDRs/ports. |
+| INV-NPE-01 | No egress destination broader than operator config | TestHelm_EgressNoBlanketInternetByDefault | COVERED | STRUCTURAL | targetCIDRs + kubeDNS + extraEgress only. |

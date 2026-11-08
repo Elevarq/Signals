@@ -64,15 +64,27 @@ spec:
     # the conservative default.
     {{- end }}
   egress:
-    # Postgres target
+    # Database targets (#727). Emit a port rule for the primary target AND
+    # every distinct port among the configured additional `targets[]`, so a
+    # multi-target install is not silently blocked by an enforcing CNI that
+    # only allowed the single primary port. `targetCIDRs` bounds the
+    # destinations (operators scope these to their database subnets).
     - to:
         {{- range .Values.networkPolicy.targetCIDRs }}
         - ipBlock:
             cidr: {{ . | quote }}
         {{- end }}
       ports:
+        {{- $ports := list .Values.target.port }}
+        {{- range .Values.targets }}
+        {{- if .port }}
+        {{- $ports = append $ports .port }}
+        {{- end }}
+        {{- end }}
+        {{- range ($ports | uniq) }}
         - protocol: TCP
-          port: {{ .Values.target.port }}
+          port: {{ . }}
+        {{- end }}
     # DNS
     {{- with .Values.networkPolicy.kubeDNS }}
     - to:
@@ -85,5 +97,15 @@ spec:
           port: 53
         - protocol: TCP
           port: 53
+    {{- end }}
+    # Operator-scoped egress for enabled cloud-credential (aws_rds_iam /
+    # azure_entra / gcp_cloudsql_iam / secret_store) and S3-export
+    # integrations (#727). EMPTY by default — default-deny is preserved and no
+    # blanket internet egress is added. When those paths are enabled the
+    # operator MUST add explicit destination CIDRs + ports for the provider
+    # endpoints (STS / instance-metadata / Secrets Manager / S3) here, scoped
+    # to their topology. Each item is a standard NetworkPolicyEgressRule.
+    {{- with .Values.networkPolicy.extraEgress }}
+    {{- toYaml . | nindent 4 }}
     {{- end }}
 {{- end }}
