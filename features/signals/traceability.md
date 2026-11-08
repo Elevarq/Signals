@@ -976,3 +976,20 @@ per-collector coverage is the 2.0 scope.
 | SCQ-INV-1 | status='success' + reconciliation are necessary but NOT sufficient for semantic qualification | TestSemanticQual_ExecutionWithoutValuesIsNotQualification | COVERED | BEHAVIORAL | The governing invariant: collector success != qualification. |
 | SCQ-INV-2 | Additive: existing cadence/reconciliation/Tier-1 verifiers and PostgreSQL behaviour unchanged | — | COVERED | DOC | New file only; MySQL/MariaDB Tier-1 reused verbatim. |
 | SCQ-INV-3 | Deterministic pass/fail and violation ordering for identical input | TestSemanticQual_TamperedValueFails | COVERED | BEHAVIORAL | Row-then-field ordering; pure function of payload. |
+
+## CI Supply-Chain Tool Pinning (`specifications/ci-tool-pinning.md`, #733)
+
+CI verifies the `kube-linter` and `conftest` release tarballs against pinned
+SHA-256 digests before extraction (audit A8). `scripts/install-pinned-tool.sh`
+stages the download, verifies the digest, and extracts only on match; the
+`ci.yml` install steps call it with pinned digests. Acceptance:
+`specifications/ci-tool-pinning.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| SCT-R001 | CI verifies each pinned tool tarball against an expected SHA-256 before extraction; no unverified download piped into tar | TestCIPinnedTool_MatchingDigestExtracts, TestCIPinnedTool_WorkflowPinsBothTools | COVERED | BEHAVIORAL | Verified fixture extracts; ci.yml pins both digests via the script. |
+| SCT-R002 | Mismatch / missing download / malformed pin / absent member fail closed (no extract, no execute) | TestCIPinnedTool_AlteredBytesRejected, TestCIPinnedTool_MissingDownloadRejected, TestCIPinnedTool_MalformedDigestRejected, TestCIPinnedTool_MissingMemberRejected | COVERED | BEHAVIORAL | Each failure mode exits non-zero and leaves nothing extracted. |
+| SCT-R003 | Installer preserves transient-network retry, fails on HTTP error, dependency-free beyond bash/curl/tar/sha256 | TestCIPinnedTool_MissingDownloadRejected | COVERED | BEHAVIORAL | `curl --retry` with `-f`; `sha256sum`/`shasum` fallback. |
+| SCT-R004 | Expected digests recorded with version/URL in ci.yml; update procedure documented | TestCIPinnedTool_WorkflowPinsBothTools | COVERED | STRUCTURAL | Digests pinned next to versions; procedure in the spec. |
+| INV-SCT-01 | CI never extracts/executes tool bytes whose identity has not matched a pinned digest | TestCIPinnedTool_MatchingDigestExtracts, TestCIPinnedTool_AlteredBytesRejected | COVERED | BEHAVIORAL | Match extracts; mismatch does not. |
+| INV-SCT-02 | A tool version bump cannot land without a digest update | TestCIPinnedTool_WorkflowPinsBothTools | COVERED | STRUCTURAL | Changed URL with stale digest fails the gate. |
