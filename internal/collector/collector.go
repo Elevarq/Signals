@@ -56,6 +56,10 @@ type Collector struct {
 	targets       []config.TargetConfig // reload-mutable; access via currentTargets() / Targets().
 	interval      time.Duration         // set-at-construction; reload-v1 leaves the ticker armed at boot value.
 	retentionDays int                   // set-at-construction.
+	// auditRetentionDays bounds the `events` audit log in the cleanup pass,
+	// distinct from diagnostic retention (#726 / F19). 0 = keep forever.
+	// set-at-construction.
+	auditRetentionDays int
 	// afterCycle, when non-nil, is invoked after every completed collection
 	// cycle (#350 scheduled export). Set once via SetAfterCycle before
 	// Run starts, so it is read-only for Run's lifetime (no lock needed).
@@ -452,6 +456,15 @@ func WithCircuitManager(m *circuit.Manager) CollectorOption {
 func WithRetention(r config.RetentionConfig) CollectorOption {
 	return func(c *Collector) {
 		c.retention = r
+	}
+}
+
+// WithAuditRetentionDays threads the audit-event retention bound (#726 / F19)
+// into the cleanup pass. Days <= 0 keeps events forever (the pre-#726
+// behaviour); a positive value prunes `events` older than that cutoff.
+func WithAuditRetentionDays(days int) CollectorOption {
+	return func(c *Collector) {
+		c.auditRetentionDays = days
 	}
 }
 
@@ -2127,7 +2140,7 @@ func (c *Collector) cleanup() {
 	// Deferred so it reflects any space reclaimed by the VACUUM below.
 	defer c.updateStoreSizeMetric()
 
-	if c.retentionDays <= 0 && !c.retention.IsSet() {
+	if c.retentionDays <= 0 && !c.retention.IsSet() && c.auditRetentionDays <= 0 {
 		return
 	}
 
@@ -2184,13 +2197,32 @@ func (c *Collector) cleanup() {
 		}
 	}
 
+	// #726 / F19: prune the `events` audit log by its OWN retention bound,
+	// distinct from the diagnostic snapshot/run retention above. Collection
+	// inserts an event every cycle (success and failure), and before this the
+	// table was never pruned — so a configured diagnostic retention did not
+	// bound the store over the daemon's lifetime. Default 90 days; 0 keeps them
+	// forever (explicit opt-out). Pruned under the same retention lock, so an
+	// overlapping export sees a consistent pre/post state.
+	eventsDeleted := int64(0)
+	if c.auditRetentionDays > 0 {
+		eventCutoff := now.AddDate(0, 0, -c.auditRetentionDays).Format(time.RFC3339)
+		deleted, err := c.db.DeleteEventsOlderThan(eventCutoff)
+		if err != nil {
+			slog.Error("audit event cleanup failed", "err", err)
+		} else if deleted > 0 {
+			slog.Info("audit event cleanup complete", "deleted", deleted, "cutoff", eventCutoff)
+			eventsDeleted = deleted
+		}
+	}
+
 	// #443: VACUUM to reclaim the freed space. SQLite never shrinks the
 	// file on its own, so without this the store grows monotonically
 	// even under active retention. Only VACUUM when rows were actually
 	// deleted (VACUUM rewrites the whole file — pointless when nothing
 	// was freed). A SQLITE_BUSY is logged, not fatal: the next
 	// retention pass retries; the collection cycle is unaffected.
-	if totalRunsDeleted > 0 || snapshotsDeleted > 0 {
+	if totalRunsDeleted > 0 || snapshotsDeleted > 0 || eventsDeleted > 0 {
 		before, _ := c.db.SizeBytes()
 		if err := c.db.Vacuum(); err != nil {
 			slog.Warn("store vacuum failed; will retry next retention pass", "err", err)

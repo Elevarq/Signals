@@ -1120,6 +1120,7 @@ gates in the generic templates (audit F07). Acceptance:
 | INV-CDD-01 | Existing data filesystem never destroyed by the bootstrap | TestPrepareDisk_PreservesExistingFilesystem | COVERED | BEHAVIORAL | Format only on confirmed-blank. |
 | INV-CDD-02 | Absence/ambiguity/probe errors fail closed | TestPrepareDisk_ProbeErrorFailsClosed, TestPrepareDisk_MissingDeviceFailsClosed | COVERED | BEHAVIORAL | Never act on an unverified device. |
 
+<<<<<<< HEAD
 ## Bounded Export Memory and Cancellation (`specifications/bounded-export.md`, #730)
 
 Concurrent full-history exports are admission-bounded (`max_concurrent_exports`,
@@ -1136,3 +1137,20 @@ resources (audit A6, POC scope). Acceptance:
 | BEX-R003 | Export honours context cancellation; WriteTo stays a background shim | TestWriteToCtx_CancelledReturnsError, TestWriteTo_BackgroundContextStillWorks | COVERED | BEHAVIORAL | Phase-boundary ctx.Err() checks; no partial archive. |
 | INV-BEX-01 | Peak concurrent exports bounded unless opted out | TestExportLimiter_AdmitsUpToLimitThenRejects | COVERED | BEHAVIORAL | Caps peak materialization memory. |
 | INV-BEX-02 | A cancelled export never emits a partial 200 and frees its slot/lock | TestWriteToCtx_CancelledReturnsError | COVERED | BEHAVIORAL | Deferred lock+slot release; 499/503. |
+=======
+## Audit Event Retention (`specifications/audit-event-retention.md`, #726)
+
+The `events` audit log is pruned by its own `audit_retention_days` bound
+(default 90, distinct from diagnostic retention; 0 = keep forever) in the
+cleanup pass under the retention lock, so the store cannot grow unbounded over
+the daemon's lifetime while recent incident evidence is preserved (audit F19).
+Acceptance: `specifications/audit-event-retention.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| AER-R001 | DeleteEventsOlderThan prunes events with timestamp < cutoff (strict) | TestDeleteEventsOlderThan_PrunesOldKeepsRecent, TestDeleteEventsOlderThan_CutoffIsStrict | COVERED | BEHAVIORAL | Indexed single-statement DELETE. |
+| AER-R002 | Cleanup prunes events by audit bound even when diagnostic retention is off | TestCleanup_PrunesAuditEventsByOwnBound | COVERED | BEHAVIORAL | Under the retention lock. |
+| AER-R003 | audit_retention_days<=0 keeps events forever; default 90 bounds growth | TestCleanup_AuditRetentionZeroKeepsEvents | COVERED | BEHAVIORAL | Config default 90; 0 = opt-out. |
+| INV-AER-01 | With default config the events table cannot grow unbounded | TestCleanup_PrunesAuditEventsByOwnBound | COVERED | BEHAVIORAL | Bounded by audit_retention_days. |
+| INV-AER-02 | Audit retention is a separate contract from diagnostic retention | TestCleanup_PrunesAuditEventsByOwnBound | COVERED | DOC | Distinct config field + prune path. |
+>>>>>>> e68bd99 (collector: bound the audit event log with its own retention (#726) (#782))

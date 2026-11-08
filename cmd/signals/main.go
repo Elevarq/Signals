@@ -223,6 +223,7 @@ func run() error {
 		collector.WithMetrics(metricsReg),
 		collector.WithCircuitManager(circuitMgr),
 		collector.WithRetention(cfg.Signals.Retention),
+		collector.WithAuditRetentionDays(cfg.Signals.AuditRetentionDays),
 	}
 	// #491 — cron-scheduled collection. Config validation already proved the
 	// expression/timezone/jitter parse, so an error here is defensive only.

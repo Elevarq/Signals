@@ -38,6 +38,7 @@ signals:
                             # a fleet doesn't stampede a shared target at the
                             # anchor. Empty/0 = no jitter.
   retention_days: 30         # Days to retain collected data; 0 or negative disables cleanup
+  audit_retention_days: 90   # Days to retain the `events` audit log (#726); distinct from retention_days; 0 = keep forever
   log_level: info            # debug, info, warn, error
   log_json: false            # Output logs as JSON
   max_concurrent_targets: 4  # Max targets collected in parallel
@@ -176,6 +177,7 @@ fields:
 | `SIGNALS_SCHEDULE_TIMEZONE` | `signals.schedule_timezone` | `""` (UTC) | IANA timezone for the cron schedule (#491) |
 | `SIGNALS_SCHEDULE_JITTER` | `signals.schedule_jitter` | `""` | Per-fire jitter `[0, jitter)` for the schedule (#491) |
 | `SIGNALS_RETENTION_DAYS` | `signals.retention_days` | `30` | |
+| — | `signals.audit_retention_days` | `90` | Audit `events` retention (#726); distinct from diagnostic retention; 0 = keep forever |
 | `SIGNALS_LOG_LEVEL` | `signals.log_level` | `info` | |
 | `SIGNALS_LOG_JSON` | `signals.log_json` | `false` | |
 | `SIGNALS_MAX_CONCURRENT_TARGETS` | `signals.max_concurrent_targets` | `4` | |

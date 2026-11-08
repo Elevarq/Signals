@@ -11,7 +11,11 @@ data:
     signals:
       poll_interval: {{ .Values.collector.pollInterval }}
       retention_days: {{ .Values.collector.retentionDays }}
+<<<<<<< HEAD
       max_concurrent_exports: {{ .Values.collector.maxConcurrentExports }}
+=======
+      audit_retention_days: {{ .Values.collector.auditRetentionDays }}
+>>>>>>> e68bd99 (collector: bound the audit event log with its own retention (#726) (#782))
       target_timeout: {{ .Values.collector.targetTimeout }}
       query_timeout: {{ .Values.collector.queryTimeout }}
     database:
