@@ -111,3 +111,13 @@ hashes, secret material, or user table data. It is therefore not
 - `tls-not-enforced` (Analyzer #1757) — reads the transport-security GUCs
   from `pg_settings_v1`; this collector complements it with the HBA view
   (e.g. `host` vs `hostssl` rules).
+
+## Credential redaction (REDACT-R001, #708 / F01, INV-SIGNALS-07)
+
+When the optional HBA grants are installed, `pg_hba_file_rules_v1` emits an
+`options` `text[]` that can carry `ldapbindpasswd` / `radiussecret`. Before the
+rows are encoded to NDJSON, sensitive option values are replaced with
+`<redacted>` while the array shape is preserved
+(`redactHBAOptionsIfNeeded` → `pgqueries.RedactOptionsArray`, key-name based:
+`ldapbindpasswd` matches `pass`, `radiussecret` matches `secret`). Non-sensitive
+options (e.g. `ldapserver`) are untouched; the collector stays read-only.
