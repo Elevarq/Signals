@@ -13,6 +13,7 @@ package export
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -20,6 +21,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -58,6 +60,86 @@ type ScheduledExporter struct {
 	// downstream consumer can bound its LIST to recent partitions (#494).
 	// Default false keeps the flat `<prefix>/<file>` layout.
 	s3DatePartition bool
+
+	// Delivery decoupling + bounding (#721 / F15, SE-R016). Delivery is
+	// triggered from startup and the post-cycle hook via Deliver, which runs at
+	// most one bounded ExportLatest at a time in the background so a hung/slow
+	// sink cannot gate startup, stall the collection loop, or queue unbounded
+	// work.
+	deliverMu       sync.Mutex    // single-flight: held for the duration of an in-flight delivery
+	deliveryTimeout time.Duration // finite per-delivery deadline; 0 => defaultDeliveryTimeout
+	// afterDelivery, when set, is called with each background delivery's result
+	// (written paths + aggregate error). It replaces the default outcome logging
+	// (used by cmd/signals for info/warn logging, and by tests to observe the
+	// bounded background delivery deterministically).
+	afterDelivery func(paths []string, err error)
+}
+
+// defaultDeliveryTimeout bounds a single scheduled-export delivery when no
+// explicit timeout is configured (#721 / SE-R016). Generous enough for a
+// multi-target S3 upload, finite so a hung sink cannot block forever.
+const defaultDeliveryTimeout = 2 * time.Minute
+
+// SetDeliveryTimeout overrides the finite per-delivery deadline (#721). A
+// non-positive value restores defaultDeliveryTimeout.
+func (e *ScheduledExporter) SetDeliveryTimeout(d time.Duration) {
+	e.deliveryTimeout = d
+}
+
+// SetAfterDelivery registers a callback invoked with each background delivery's
+// result (#721). cmd/signals uses it to log success/failure; tests use it to
+// await and assert the bounded background delivery.
+func (e *ScheduledExporter) SetAfterDelivery(fn func(paths []string, err error)) {
+	e.afterDelivery = fn
+}
+
+// Deliver triggers a scheduled-export delivery and returns immediately
+// (SE-R016, #721). It is the ONLY path startup and the post-cycle hook use, so
+// neither blocks on the sink:
+//
+//   - If no delivery is in flight, it starts one in a background goroutine under
+//     a bounded context (parent + deliveryTimeout) and returns true.
+//   - If a delivery is already in flight, the trigger is coalesced (dropped,
+//     not queued) and it returns false — so a sink outage can never accumulate
+//     an unbounded backlog of pending deliveries or goroutines.
+//
+// Each delivery reads the latest snapshot per target at run time, so coalescing
+// preserves latest-per-target semantics (the running delivery publishes the
+// newest state; the next cycle re-triggers). The background delivery's outcome
+// goes to afterDelivery (or default logging). parent is the daemon context, so
+// shutdown cancels an in-flight delivery.
+func (e *ScheduledExporter) Deliver(parent context.Context) bool {
+	if !e.deliverMu.TryLock() {
+		e.logf("scheduled export: delivery already in flight, coalescing this trigger", "dest", e.destLabel())
+		return false
+	}
+	timeout := e.deliveryTimeout
+	if timeout <= 0 {
+		timeout = defaultDeliveryTimeout
+	}
+	go func() {
+		defer e.deliverMu.Unlock()
+		ctx, cancel := context.WithTimeout(parent, timeout)
+		defer cancel()
+		paths, err := e.ExportLatest(ctx)
+		if e.afterDelivery != nil {
+			e.afterDelivery(paths, err)
+			return
+		}
+		if err != nil {
+			e.logf("scheduled export failed; some databases may not have been written this delivery",
+				"err", err.Error(), "dest", e.destLabel(), "written", len(paths))
+		}
+	}()
+	return true
+}
+
+// destLabel returns a non-secret label for the delivery destination for logs.
+func (e *ScheduledExporter) destLabel() string {
+	if e.s3 != nil {
+		return "s3"
+	}
+	return e.dest
 }
 
 // SetS3DatePartition enables date-partitioned S3 object keys
@@ -205,11 +287,21 @@ func (e *ScheduledExporter) ExportLatest(ctx context.Context) ([]string, error) 
 	if err != nil {
 		return nil, fmt.Errorf("scheduled export: list targets: %w", err)
 	}
+	// SE-R015 (#721): one target's delivery failure MUST NOT abort the other,
+	// independent targets. Record per-target errors and continue; return every
+	// file written plus the aggregate error. (Also stop promptly if the bounded
+	// delivery context is cancelled — a hung sink deadline or shutdown.)
 	written := make([]string, 0, len(ids))
+	var errs []error
 	for _, id := range ids {
+		if err := ctx.Err(); err != nil {
+			errs = append(errs, fmt.Errorf("scheduled export: cancelled before target %d: %w", id, err))
+			break
+		}
 		final, err := e.exportOne(ctx, id)
 		if err != nil {
-			return written, fmt.Errorf("scheduled export: target %d: %w", id, err)
+			errs = append(errs, fmt.Errorf("scheduled export: target %d: %w", id, err))
+			continue
 		}
 		written = append(written, final)
 		// #385 — bound the local dir; best-effort, never fails the export. In
@@ -219,7 +311,7 @@ func (e *ScheduledExporter) ExportLatest(ctx context.Context) ([]string, error) 
 			e.pruneTarget(id)
 		}
 	}
-	return written, nil
+	return written, errors.Join(errs...)
 }
 
 // exportOne writes one target's latest-snapshot export ZIP atomically
