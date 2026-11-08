@@ -12,6 +12,16 @@ metadata:
     app.kubernetes.io/instance: {{ .Release.Name }}
 spec:
   replicas: 1
+  # #718 (F12): the collector is a single-writer SQLite store. The old pod MUST
+  # stop before the replacement starts — one store owner at a time. The
+  # Kubernetes default (RollingUpdate) would surge a second pod that either
+  # mounts the same ReadWriteOnce claim (two writers to one SQLite store) or
+  # stalls when the volume cannot attach to the new pod's node, and during a
+  # schema change the old binary could keep writing a store the new binary just
+  # migrated. Recreate enforces stop-before-start (brief downtime by design).
+  # Mixed old/new binaries sharing one store are NOT supported.
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: signals
