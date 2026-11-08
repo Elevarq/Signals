@@ -25,6 +25,7 @@ func TestMariaDBCatalogReadOnly(t *testing.T) {
 // TC-MDC-02 (MDC-R005): expected MariaDB collector set (all green under SELECT,PROCESS).
 func TestMariaDBCatalogExpectedSet(t *testing.T) {
 	want := []string{
+		"mariadb_column_stats_v1",
 		"mariadb_columns_v1",
 		"mariadb_engines_v1",
 		"mariadb_galera_status_v1",
@@ -636,5 +637,54 @@ func TestMariaDBInnodbIndexStats(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["stat_value"]; v != "5000" {
 		t.Errorf("stat_value = %v, want 5000", v)
+	}
+}
+
+// #640 Replay Tier-2 — mariadb_column_stats_v1 reads MariaDB Engine-Independent
+// Table Statistics (mysql.column_stats) for per-column selectivity. MariaDB-only;
+// read-only; SAFETY: projects only the distribution scalars (nulls_ratio,
+// avg_length, avg_frequency) and NEVER the min_value/max_value data columns or
+// the histogram blob.
+func TestMariaDBColumnStats(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_column_stats_v1")
+	if c == nil {
+		t.Fatal("mariadb_column_stats_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("column_stats carries no sensitive payload (distribution scalars only)")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "MYSQL.COLUMN_STATS") {
+		t.Errorf("must read mysql.column_stats; SQL=%q", c.SQL)
+	}
+	// Safety invariant: never select the actual data-value columns or the
+	// histogram blob — only the distribution scalars.
+	for _, banned := range []string{"MIN_VALUE", "MAX_VALUE", "HISTOGRAM"} {
+		if strings.Contains(up, banned) {
+			t.Errorf("must NOT select data-value/histogram column %s; SQL=%q", banned, c.SQL)
+		}
+	}
+	for _, want := range []string{"nulls_ratio", "avg_length", "avg_frequency"} {
+		if !strings.Contains(c.SQL, want) {
+			t.Errorf("must select distribution scalar %s; SQL=%q", want, c.SQL)
+		}
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "MYSQL.COLUMN_STATS") {
+			return []map[string]any{
+				{"db_name": "app", "table_name": "orders", "column_name": "customer_id", "nulls_ratio": "0.0000", "avg_length": "8.0000", "avg_frequency": "3.5000"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["avg_frequency"]; v != "3.5000" {
+		t.Errorf("avg_frequency = %v, want 3.5000", v)
 	}
 }

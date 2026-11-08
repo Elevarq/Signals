@@ -177,6 +177,28 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT database_name, table_name, index_name, stat_name, stat_value, sample_size FROM mysql.innodb_index_stats WHERE database_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND stat_name LIKE 'n_diff_pfx%' ORDER BY database_name, table_name, index_name, stat_name",
 		},
 		{
+			// #640 Replay Tier-2: per-COLUMN selectivity from MariaDB's
+			// Engine-Independent Table Statistics (mysql.column_stats, populated
+			// by ANALYZE TABLE ... PERSISTENT). nulls_ratio / avg_length /
+			// avg_frequency are the per-column distribution inputs the Analyzer
+			// row-estimate injection (Analyzer#4142) uses to refine single- and
+			// multi-column selectivity. MariaDB-ONLY: MySQL has no column_stats
+			// equivalent (MySQL ships histograms via information_schema.
+			// COLUMN_STATISTICS — a later increment).
+			//
+			// SAFETY: mysql.column_stats also carries min_value / max_value —
+			// ACTUAL column data values (potential PII) — and a histogram blob.
+			// This SELECT deliberately projects ONLY the three distribution
+			// scalars and NEVER a data value; the histogram is deferred to a
+			// later increment. Read-only mysql-schema metadata (baseline global
+			// SELECT grant; a privilege denial is a legitimate skip). Schema-
+			// bounded. Signals reads the engine's precomputed stat; never
+			// computes it. Not HighSensitivity.
+			ID:       "mariadb_column_stats_v1",
+			Category: "schema",
+			SQL:      "SELECT db_name, table_name, column_name, nulls_ratio, avg_length, avg_frequency FROM mysql.column_stats WHERE db_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY db_name, table_name, column_name",
+		},
+		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
 			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
 			// STATUS='enabled').
