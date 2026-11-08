@@ -199,6 +199,26 @@ func mysqlCatalog() []Collector {
 			SQL:      "SELECT database_name, table_name, index_name, stat_name, stat_value, sample_size FROM mysql.innodb_index_stats WHERE database_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND stat_name LIKE 'n_diff_pfx%' ORDER BY database_name, table_name, index_name, stat_name",
 		},
 		{
+			// #640 Replay Tier-3: per-partition inventory from information_schema.
+			// PARTITIONS — partitioning method, the partitioning expression, the
+			// range/list boundaries (PARTITION_DESCRIPTION), the ordinal, and the
+			// per-partition TABLE_ROWS estimate. This lets the Analyzer model
+			// partition pruning and per-partition row estimates (Analyzer#4142).
+			// Bounded to actually-partitioned tables via PARTITION_NAME IS NOT NULL
+			// (a non-partitioned table surfaces a single NULL-partition row we skip),
+			// so output is one row per real partition, never one per table.
+			//
+			// SAFETY: the boundaries (PARTITION_DESCRIPTION) and the partitioning
+			// expression are DBA-authored DDL — they appear verbatim in SHOW CREATE
+			// TABLE and are part of the schema definition, NOT sampled column data
+			// (contrast the i3 min_value/max_value exclusion, which ARE observed data
+			// values). Read-only; schema-bounded; engine-precomputed, never computed.
+			// Not HighSensitivity.
+			ID:       "mysql_partitions_v1",
+			Category: "schema",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, PARTITION_ORDINAL_POSITION, PARTITION_METHOD, SUBPARTITION_METHOD, PARTITION_EXPRESSION, SUBPARTITION_EXPRESSION, PARTITION_DESCRIPTION, TABLE_ROWS FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND PARTITION_NAME IS NOT NULL ORDER BY TABLE_SCHEMA, TABLE_NAME, PARTITION_ORDINAL_POSITION",
+		},
+		{
 			ID:       "mysql_replication_status_v1",
 			Category: "topology",
 			SQL:      "SELECT CHANNEL_NAME, SERVICE_STATE, SOURCE_UUID FROM performance_schema.replication_connection_status",

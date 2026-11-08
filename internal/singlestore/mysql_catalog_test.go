@@ -38,6 +38,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_innodb_metrics_v1",
 		"mysql_innodb_transactions_v1",
 		"mysql_metadata_locks_v1",
+		"mysql_partitions_v1",
 		"mysql_processlist_v1",
 		"mysql_replica_applier_status_v1",
 		"mysql_replica_lag_v1",
@@ -676,5 +677,51 @@ func TestMySQLInnodbIndexStats(t *testing.T) {
 	}
 	if v := rs[0].Rows[0]["stat_value"]; v != "900" {
 		t.Errorf("stat_value = %v, want 900", v)
+	}
+}
+
+// #640 Replay Tier-3 — mysql_partitions_v1 reads information_schema.PARTITIONS
+// for the per-partition inventory (method, expression, boundaries, per-partition
+// TABLE_ROWS estimate), bounded to actually-partitioned tables. Read-only schema
+// metadata; boundaries are DBA-authored DDL, not sampled data; not HighSensitivity.
+func TestMySQLPartitions(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_partitions_v1")
+	if c == nil {
+		t.Fatal("mysql_partitions_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("partitions inventory carries no sensitive payload (DDL schema only)")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.PARTITIONS") {
+		t.Errorf("must read information_schema.PARTITIONS; SQL=%q", c.SQL)
+	}
+	// Bounded to actually-partitioned tables (non-partitioned tables surface one
+	// NULL-PARTITION_NAME row we must exclude).
+	if !strings.Contains(up, "PARTITION_NAME IS NOT NULL") {
+		t.Errorf("must exclude non-partitioned tables via PARTITION_NAME IS NOT NULL; SQL=%q", c.SQL)
+	}
+	for _, want := range []string{"PARTITION_METHOD", "PARTITION_EXPRESSION", "PARTITION_DESCRIPTION", "TABLE_ROWS"} {
+		if !strings.Contains(up, want) {
+			t.Errorf("must select %s for partition-pruning fidelity; SQL=%q", want, c.SQL)
+		}
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "INFORMATION_SCHEMA.PARTITIONS") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "events", "PARTITION_NAME": "p2025", "PARTITION_ORDINAL_POSITION": "1", "PARTITION_METHOD": "RANGE", "PARTITION_EXPRESSION": "YEAR(created_at)", "PARTITION_DESCRIPTION": "2026", "TABLE_ROWS": "120000"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["TABLE_ROWS"]; v != "120000" {
+		t.Errorf("TABLE_ROWS = %v, want 120000", v)
 	}
 }
