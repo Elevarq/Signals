@@ -71,12 +71,30 @@ cmd_up() {
     *) die "unexpected MariaDB version '${ver}' (want ${EXPECTED_VERSION_PREFIX}x from the pinned image)" ;;
   esac
   say "applying deterministic seed (user + grants + schema + seed + workload)"
-  # #588: fail closed — filter the benign password warning from stderr via
-  # process substitution so the client's exit status still propagates.
-  if ! docker exec -i "${CONTAINER}" mariadb -uroot -p"${ROOT_PW}" < "${INIT_SQL}" \
-      2> >(grep -v 'Using a password on the command line' >&2); then
-    die "seed failed — required setup SQL did not apply cleanly (see errors above)"
-  fi
+  # #588: fail closed on a real seed error. #801: the official MariaDB image runs
+  # a temporary bootstrap server during first-boot init, then shuts it down and
+  # restarts into the real server. The VERSION() readiness probe above can succeed
+  # against that temporary server, so a seed run immediately after can land in the
+  # restart window and hit "Can't connect ... socket" (ERROR 2002) with NOTHING
+  # applied (connect-time failure). Retry ONLY that transient connect error for a
+  # bounded window; surface any other seed error immediately (fail closed). The
+  # `2>&1 1>/dev/null` capture takes stderr only (no pipe, so the client's exit
+  # status is preserved under `set -o pipefail`).
+  local seeded="" seed_err=""
+  for attempt in $(seq 1 30); do
+    if seed_err="$(docker exec -i "${CONTAINER}" mariadb -uroot -p"${ROOT_PW}" < "${INIT_SQL}" 2>&1 1>/dev/null)"; then
+      seeded=1; break
+    fi
+    case "${seed_err}" in
+      *"Can't connect"*|*"ERROR 2002"*)
+        say "seed: MariaDB still finishing its init/restart (attempt ${attempt}/30) — retrying"
+        sleep 2 ;;
+      *)
+        printf '%s\n' "${seed_err}" | grep -v 'Using a password on the command line' >&2 || true
+        die "seed failed — required setup SQL did not apply cleanly (see errors above)" ;;
+    esac
+  done
+  [ -n "${seeded}" ] || die "seed failed — MariaDB never left its init/restart window after retries"
   say "seed applied — MariaDB ${ver} ready on 127.0.0.1:${HOST_PORT}"
 }
 
