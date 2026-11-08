@@ -181,6 +181,29 @@ the per-migration transaction makes the sequence crash-safe/resumable.
   MUST be documented in this specification (and reaffirmed where operators
   read it). The recorded "downgrade" procedure is restore-from-backup, never a
   reverse migration.
+- **R-SCHEMA-08 (cross-branch ledger equivalence — #710 / F03)**: When two
+  shipped release lines issued the **same DDL under different migration
+  ordinals**, the binary MUST recognize the historical filename(s) as
+  **equivalent** to its own embedded migration rather than classifying them as
+  unknown/newer. Concretely, the POC/2.0 line allocated `007` to snapshot-engine
+  identity and renumbered the production `007_cycle_outcome_last_error.sql` to
+  `008_cycle_outcome_last_error.sql` (byte-identical DDL: two additive columns
+  on `target_cycle_outcomes`). The binary maintains an explicit, append-only
+  **equivalence map** from each embedded migration to the historical filenames
+  that applied the same DDL. Two behaviours follow:
+  1. **Adoption, not refusal (extends R-SCHEMA-03)**: a ledger filename that is
+     a recognized equivalent of an embedded migration is NOT "unknown" — it does
+     not trigger `*SchemaNewerError`. Only a filename that is neither embedded
+     nor a recognized equivalent is genuinely newer and still refused.
+  2. **Reconcile without duplicate DDL (extends R-SCHEMA-06)**: before applying
+     an embedded migration whose DDL a recorded equivalent already applied, the
+     binary MUST record the embedded filename in the ledger **without re-running
+     the DDL** (a ledger-only, transactional, idempotent insert) — so the store
+     is not subjected to duplicate `ADD COLUMN` (which SQLite rejects) and the
+     ledger converges to the embedded identity. This is **non-destructive**: the
+     historical ledger row is preserved, never rewritten or deleted
+     (INV-SCHEMA-02/03). A genuinely-missing migration (no embedded row, no
+     equivalent) still applies its DDL normally.
 
 ## Invariants
 
@@ -200,6 +223,13 @@ the per-migration transaction makes the sequence crash-safe/resumable.
   state.
 - **INV-SCHEMA-05**: This schema-version work introduces no credential value
   into `signals.db` (reaffirms INV-SIGNALS-07 / INV-DUR-04).
+- **INV-SCHEMA-06 (#710 / F03)**: The equivalence map only ever lets a store be
+  ADOPTED that would otherwise be wrongly refused, and only ever SKIPS DDL that
+  a recorded equivalent already applied. It never applies a migration twice,
+  never deletes or rewrites a ledger row, and never widens the set of accepted
+  stores beyond those carrying a specifically-enumerated historical filename —
+  a genuinely newer/unknown migration is still refused (R-SCHEMA-03 holds for
+  everything outside the explicit map).
 
 ## Failure conditions
 
@@ -209,6 +239,8 @@ the per-migration transaction makes the sequence crash-safe/resumable.
 | An embedded migration's DDL fails | The error propagates out of `Migrate`; the failing migration's ledger row is not inserted; rerun retries it (R-SCHEMA-06, INV-SCHEMA-04). |
 | `Migrate` is interrupted mid-sequence | Rerun skips committed migrations and applies the rest; no half-recorded state (B7, INV-SCHEMA-04). |
 | A legacy/unversioned or empty store is opened | Adopted by the forward path; never treated as newer (R-SCHEMA-05, B2). |
+| A production store whose ledger ends at `007_cycle_outcome_last_error.sql` is opened by the POC/2.0 binary (whose embedded `008` is the same DDL) | Adopted, not refused: the production filename is a recognized equivalent of embedded `008` (R-SCHEMA-08). The new `007_snapshot_engine.sql` applies normally; `008_cycle_outcome_last_error.sql` is recorded ledger-only (no re-run of the duplicate `ADD COLUMN`). State/history/watermarks/circuits preserved; the historical ledger row is kept (INV-SCHEMA-02/06). |
+| A genuinely newer migration (neither embedded nor a recognized equivalent) is in the ledger | Still refused with `*SchemaNewerError` — the equivalence map is a closed, enumerated set and never widens acceptance beyond it (R-SCHEMA-08, INV-SCHEMA-06). |
 
 ## Constraints
 
