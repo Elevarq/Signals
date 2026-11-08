@@ -6,6 +6,54 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [2.0.0-poc.6] - 2026-11-08
+
+POC prerelease. Headline: the #640 Tier-2/Tier-3 higher-fidelity Replay
+evidence set for MySQL/MariaDB, plus POC CI qualification coverage and the
+shared hardening batch carried from the 1.x line.
+
+### Added
+
+- **#640 MySQL/MariaDB Tier-2/Tier-3 Replay evidence (i1-i6).** Six new
+  schema-metadata collectors feeding the Analyzer row-estimate / Replay
+  fidelity contract (Analyzer#4142), all read-only and engine-precomputed:
+  per-index `CARDINALITY` (i1), InnoDB per-index-prefix cardinality
+  `n_diff_pfxNN` (i2), MariaDB EITS per-column selectivity
+  `nulls_ratio`/`avg_length`/`avg_frequency` (i3), partition inventory (i4),
+  histogram **shape** metadata (i5), and the foreign-key column graph (i6).
+  Data-value-bearing fields (column min/max, histogram bucket boundaries) are
+  deliberately excluded and deferred behind a future redaction design.
+- **Admission-bounded concurrent exports + request cancellation (#730).**
+
+### Changed
+
+- **`poc/singlestore` is qualified on direct push, not only via PRs (#723).**
+  `ci.yml` now runs the full qualification matrix on pushes to the active POC
+  integration branch.
+- **Release publish is gated on CI qualification at the tag SHA and requires
+  chart delivery for completion (#724).**
+
+### Fixed
+
+- **Apply target collection profiles to every non-PostgreSQL engine (#709).**
+- **Reconcile the production migration ledger so 1.x stores upgrade to 2.0
+  (#710).**
+- **Mid-cycle connection loss degrades to a partial snapshot (#705)** rather
+  than discarding the whole target.
+- ClickHouse replicated-cluster live-qualification fixture (#566).
+
+### Security / hardening (shared with the 1.x line)
+
+- Redact credentials in `pg_settings` + HBA options before persistence (#708);
+  enforce production TLS policy on every config-install path (#711); scope
+  credential caches by full source identity (#714); bind the cloud collector
+  API to the container interface (#719); NetworkPolicy egress covers all target
+  ports + cloud/S3 (#727); honest export sensitivity/provenance (#729); verify
+  pinned kube-linter/conftest release bytes before extraction (#733); audit
+  event log retention (#726); export-integrity + deployment + shutdown fixes
+  (#712/#713/#715/#716/#717/#718/#720/#721/#722/#728/#731/#732); docs
+  (#725/#734).
+
 ## [2.0.0-poc.5] - 2026-11-06
 
 ### Fixed
