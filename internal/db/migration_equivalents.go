@@ -23,6 +23,12 @@ package db
 // may record for the same change.
 var migrationEquivalents = map[string][]string{
 	"008_cycle_outcome_last_error.sql": {"007_cycle_outcome_last_error.sql"},
+	// #716: the per-snapshot source-identity migration shipped on main (1.x) as
+	// 008_snapshot_source_identity.sql and on this POC line as 009 (008 here is
+	// cycle_outcome). The DDL is identical (ADD COLUMN source_* on snapshots +
+	// backfill), so a 1.x store whose ledger records the main filename is
+	// adopted and reconciled, not refused or re-ALTERed.
+	"009_snapshot_source_identity.sql": {"008_snapshot_source_identity.sql"},
 }
 
 // recognizedLedgerFilenames returns every filename a store's ledger may
