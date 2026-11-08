@@ -1567,6 +1567,15 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		// REDACT-R001..R003 (#188 / INV-SIGNALS-07).
 		redactStatementSecretsIfNeeded(q.ID, rows)
 
+		// #708 (F01 / INV-SIGNALS-07): redact credential-bearing GUC values
+		// (primary_conninfo, archive/restore *_command, ssl_passphrase_command)
+		// in pg_settings_v1, and sensitive HBA options (ldapbindpasswd /
+		// radiussecret) in pg_hba_file_rules_v1, BEFORE encoding — the
+		// sensitivity opt-out does not exclude these general collectors. No-op
+		// otherwise.
+		redactSettingsSecretsIfNeeded(q.ID, rows)
+		redactHBAOptionsIfNeeded(q.ID, rows)
+
 		// R075 (revised, issue #6): when the operator has opted out of
 		// high-sensitivity collection, NULL the collector's declared
 		// SensitiveColumns in each row so the sensitive payload never
