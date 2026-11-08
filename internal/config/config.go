@@ -45,11 +45,19 @@ type SignalsConfig struct {
 	// cutoff for every retention class. R099 adds the structured
 	// `Retention` block below; the two are mutually exclusive
 	// (FC-21). When `Retention` is set, RetentionDays is ignored.
-	RetentionDays        int             `yaml:"retention_days"`
-	Retention            RetentionConfig `yaml:"retention"`
-	LogLevel             string          `yaml:"log_level"`
-	LogJSON              bool            `yaml:"log_json"`
-	MaxConcurrentTargets int             `yaml:"max_concurrent_targets"`
+	RetentionDays int             `yaml:"retention_days"`
+	Retention     RetentionConfig `yaml:"retention"`
+	// AuditRetentionDays bounds the `events` audit log, which is DISTINCT from
+	// the diagnostic (snapshot/run) retention above (#726 / F19). Collection
+	// events are inserted every cycle but were never pruned, so a configured
+	// diagnostic retention did not bound the store over the daemon's lifetime.
+	// Default 90 days (audit/incident evidence outlives diagnostic data); 0 means
+	// keep forever — an explicit operator opt-out that re-exposes unbounded
+	// growth, so pair it with capacity guidance.
+	AuditRetentionDays   int    `yaml:"audit_retention_days"`
+	LogLevel             string `yaml:"log_level"`
+	LogJSON              bool   `yaml:"log_json"`
+	MaxConcurrentTargets int    `yaml:"max_concurrent_targets"`
 	// MaxConcurrentExports bounds how many full-history exports run at once
 	// (#730 / A6). Each export materializes snapshots/runs/decoded rows and the
 	// HTTP path buffers the ZIP, so unbounded concurrency can exceed the shipped
@@ -579,6 +587,7 @@ func DefaultConfig() Config {
 			PollInterval:         5 * time.Minute,
 			PollIntervalS:        "5m",
 			RetentionDays:        30,
+			AuditRetentionDays:   90,
 			LogLevel:             "info",
 			LogJSON:              false,
 			MaxConcurrentTargets: 4,
