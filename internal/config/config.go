@@ -416,6 +416,36 @@ func (t TargetConfig) ConnIdentity() string {
 	return fmt.Sprintf("%s:%d/%s@%s", t.Host, port, t.DBName, t.User)
 }
 
+// CredentialCacheIdentity returns the full identity a RESOLVED credential is
+// cached under (#714 / F08, keystone NFR001). It extends ConnIdentity (the
+// connection tuple) with the target name and EVERY credential-source selector,
+// plus the cache policy, so that:
+//
+//   - two targets that share a connection tuple but resolve credentials from a
+//     different source (different secret_ref / JSON key / Azure identity / GCP
+//     impersonation / region) never share a cache entry — before #714 the key
+//     was ConnIdentity+auth_method only, so the second target's resolution
+//     returned the first target's credential; and
+//   - a changed source or a changed max_cache_ttl yields a different key, so a
+//     stale entry (old credential, old TTL) is never reused after an edit.
+//
+// It carries no secret VALUE — only the references/selectors that identify
+// which secret to fetch — so it is safe to use as a map key and to log counts.
+// Fields not relevant to a given auth method are empty and contribute a stable
+// empty segment, so the key is well-defined for every method.
+func (t TargetConfig) CredentialCacheIdentity() string {
+	return strings.Join([]string{
+		t.ConnIdentity(),
+		t.Name,
+		t.SecretRef,
+		t.SecretJSONKey,
+		t.AzureClientID,
+		t.GCPImpersonateServiceAccount,
+		t.Region,
+		t.MaxCacheTTL.String(),
+	}, "|")
+}
+
 // Auth-method values (credential-providers.md, #93). Only the methods
 // this build implements appear in SupportedAuthMethods; methods named in
 // the keystone but not yet built (e.g. gcp_cloudsql_iam) are rejected by

@@ -80,7 +80,7 @@ func (r *credentialResolver) resolveAWS(ctx context.Context, tgt config.TargetCo
 // distinct hosts/users — produce distinct keys, so a token is never
 // shared across targets (NFR001).
 func awsCacheKey(tgt config.TargetConfig) string {
-	return tgt.ConnIdentity() + "|" + config.AuthMethodAWSRDSIAM
+	return tgt.CredentialCacheIdentity() + "|" + config.AuthMethodAWSRDSIAM
 }
 
 // resolveAWSRegion resolves the AWS region for a target in the order
