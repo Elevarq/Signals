@@ -42,6 +42,12 @@ type Deps struct {
 	// re-read the same file. Empty when the daemon was started
 	// with built-in defaults.
 	ConfigPath string
+	// RunningEnv is the environment the daemon started in — the
+	// immutable security policy (SIGNALS-R130 / F05). POST /reload
+	// validates the re-read config under at least this environment
+	// via config.ValidateEffective, so a reload cannot relax the
+	// production TLS policy by lowering the config file's `env`.
+	RunningEnv string
 	// Metrics is the optional Prometheus registry. When nil the
 	// /metrics endpoint is not registered. Pass non-nil only when
 	// signals.metrics_enabled is true.

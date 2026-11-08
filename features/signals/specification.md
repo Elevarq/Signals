@@ -2133,6 +2133,40 @@ add / remove / modify events fire from `Collector.Reload`:
 - **FC-24**: New config fails `ValidateStrict` → reload rejected,
   daemon continues with the previous config.
 
+**SIGNALS-R130 (effective security-policy validation on every
+config-install path — F05 / #711)**: Every path that installs the
+effective target configuration — startup, `POST /reload`, the
+`SIGHUP` handler, and the doctor `config_valid` (C1) diagnostic —
+MUST apply the **same authoritative validation**: `ValidateStrict`
+**and** `ValidateProdTLS`, via the single entry point
+`config.ValidateEffective`. Before R130, startup enforced both but
+the two reload paths and the doctor check ran `ValidateStrict`
+only, so a `env: prod` + password-auth target edited to
+`sslmode: disable` passed strict validation and was installed as
+the next live target by an authenticated `/reload` (HTTP 200) or a
+`SIGHUP` — defeating the production TLS policy precisely during an
+ordinary operational change and exposing credentials/data on the
+target connection.
+
+`ValidateEffective` additionally enforces the **running immutable
+environment policy**: a reload MUST NOT relax the environment the
+daemon started in. The incoming config is validated under the
+*strictest* of (running env, edited env) — environment strictness
+order `prod` > `lab` > `dev` — so an insecure-TLS (or unsafe-role)
+edit can never slip past the production gate by downgrading the
+config file's `env` field from `prod` to `dev`/`lab` at reload time.
+Raising the environment (e.g. `dev` → `prod`) is honoured; lowering
+it below the running policy is not. A rejected reload leaves running
+state **untouched** and emits `config_reload_rejected` (reason
+`validate_failed`), identical to the FC-24 posture.
+
+- **FC-25**: New config passes `ValidateStrict` but fails the
+  effective TLS / environment policy (`ValidateProdTLS` under the
+  running env) → reload rejected, daemon continues with the previous
+  config, targets/pools unchanged. **INV-SIGNALS-07** (no credential
+  ever persisted) and the production TLS policy hold across reloads,
+  not only at startup.
+
 ### Logical replication slot health
 
 The existing `replication_slots_risk_v1` collector
