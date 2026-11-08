@@ -45,16 +45,24 @@ type SignalsConfig struct {
 	// cutoff for every retention class. R099 adds the structured
 	// `Retention` block below; the two are mutually exclusive
 	// (FC-21). When `Retention` is set, RetentionDays is ignored.
-	RetentionDays                    int             `yaml:"retention_days"`
-	Retention                        RetentionConfig `yaml:"retention"`
-	LogLevel                         string          `yaml:"log_level"`
-	LogJSON                          bool            `yaml:"log_json"`
-	MaxConcurrentTargets             int             `yaml:"max_concurrent_targets"`
-	TargetTimeout                    time.Duration   `yaml:"-"`
-	TargetTimeoutS                   string          `yaml:"target_timeout"`
-	QueryTimeout                     time.Duration   `yaml:"-"`
-	QueryTimeoutS                    string          `yaml:"query_timeout"`
-	HighSensitivityCollectorsEnabled bool            `yaml:"high_sensitivity_collectors_enabled"`
+	RetentionDays int             `yaml:"retention_days"`
+	Retention     RetentionConfig `yaml:"retention"`
+	// AuditRetentionDays bounds the `events` audit log, which is DISTINCT from
+	// the diagnostic (snapshot/run) retention above (#726 / F19). Collection
+	// events are inserted every cycle but were never pruned, so a configured
+	// diagnostic retention did not bound the store over the daemon's lifetime.
+	// Default 90 days (audit/incident evidence outlives diagnostic data); 0 means
+	// keep forever — an explicit operator opt-out that re-exposes unbounded
+	// growth, so pair it with capacity guidance.
+	AuditRetentionDays               int           `yaml:"audit_retention_days"`
+	LogLevel                         string        `yaml:"log_level"`
+	LogJSON                          bool          `yaml:"log_json"`
+	MaxConcurrentTargets             int           `yaml:"max_concurrent_targets"`
+	TargetTimeout                    time.Duration `yaml:"-"`
+	TargetTimeoutS                   string        `yaml:"target_timeout"`
+	QueryTimeout                     time.Duration `yaml:"-"`
+	QueryTimeoutS                    string        `yaml:"query_timeout"`
+	HighSensitivityCollectorsEnabled bool          `yaml:"high_sensitivity_collectors_enabled"`
 	// CollectArrayRangeHistograms (#128) is the per-collector
 	// opt-in for pg_stats_array_range_v1. Layered ON TOP of
 	// HighSensitivityCollectorsEnabled — both must be true for the
@@ -502,6 +510,7 @@ func DefaultConfig() Config {
 			PollInterval:         5 * time.Minute,
 			PollIntervalS:        "5m",
 			RetentionDays:        30,
+			AuditRetentionDays:   90,
 			LogLevel:             "info",
 			LogJSON:              false,
 			MaxConcurrentTargets: 4,
