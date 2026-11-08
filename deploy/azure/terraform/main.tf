@@ -35,25 +35,15 @@ locals {
     # NOT the OS disk and NOT a Docker named volume. Azure exposes the LUN at a
     # stable path under /dev/disk/azure/scsi1/. Mount format-if-empty so a
     # re-attached populated disk keeps its signals.db untouched (R-DUR-03).
-    DATA_DEV="$(readlink -f /dev/disk/azure/scsi1/lun${var.data_disk_lun} 2>/dev/null || true)"
-    if [ -z "$DATA_DEV" ] || [ ! -b "$DATA_DEV" ]; then
-      for d in /dev/sd*; do
-        [ -b "$d" ] || continue
-        case "$d" in *[0-9]) continue;; esac
-        if lsblk -no MOUNTPOINT "$d" | grep -qE '^(/|/boot)'; then continue; fi
-        DATA_DEV="$d"
-      done
-    fi
-    mkdir -p /data
-    if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
-      mkfs.ext4 -F "$DATA_DEV"
-    fi
-    DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
-    grep -q "$DATA_UUID" /etc/fstab || \
-      echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
-    mount /data || mount "$DATA_DEV" /data
-    # Non-root container user (uid 10001, group 10001) owns /data (R-DUR-04).
-    chown 10001:10001 /data
+    # #713 (F07): resolve the intended data disk by its STABLE Azure LUN path,
+    # wait bounded for it, and format only if provably blank — never scan-and-pick
+    # an arbitrary non-root /dev/sd* (which could be the resource/scratch disk),
+    # and never treat a blkid probe error as "empty". Shared, tested logic in
+    # deploy/common/scripts/prepare-data-disk.sh, embedded verbatim below.
+    export DATA_DISK_IDENTITY="/dev/disk/azure/scsi1/lun${var.data_disk_lun}"
+    export DATA_MOUNT="/data"
+    export DATA_OWNER="10001:10001"
+${indent(4, file("${path.module}/../../common/scripts/prepare-data-disk.sh"))}
     # Azure Flexible Server CA bundle for sslmode=verify-full.
     curl -fsSL ${var.db_ca_cert_url} -o /etc/signals/azure-ca.pem
     cat > /etc/signals/signals.yaml <<'YAML'

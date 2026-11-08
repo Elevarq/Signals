@@ -34,24 +34,15 @@ locals {
     # exposes an attached PD at /dev/disk/by-id/google-<device_name>. Mount
     # format-if-empty so a re-attached populated disk keeps its signals.db
     # untouched (R-DUR-03).
-    DATA_DEV="/dev/disk/by-id/google-${var.data_device_name}"
-    for _ in $(seq 1 30); do [ -b "$DATA_DEV" ] && break; sleep 1; done
-    if [ ! -b "$DATA_DEV" ]; then
-      for d in /dev/disk/by-id/google-*; do
-        case "$d" in *google-persistent-disk-0|*-part*) continue;; esac
-        [ -b "$d" ] && DATA_DEV="$d" && break
-      done
-    fi
-    mkdir -p /data
-    if ! blkid "$DATA_DEV" >/dev/null 2>&1; then
-      mkfs.ext4 -F "$DATA_DEV"
-    fi
-    DATA_UUID="$(blkid -s UUID -o value "$DATA_DEV")"
-    grep -q "$DATA_UUID" /etc/fstab || \
-      echo "UUID=$DATA_UUID /data ext4 defaults,nofail 0 2" >> /etc/fstab
-    mount /data || mount "$DATA_DEV" /data
-    # Non-root container user (uid 10001, group 10001) owns /data (R-DUR-04).
-    chown 10001:10001 /data
+    # #713 (F07): resolve the intended persistent disk by its STABLE
+    # by-id/google-<device_name> path, wait bounded for it, and format only if
+    # provably blank — never scan-and-pick an arbitrary google-* disk, and never
+    # treat a blkid probe error as "empty". Shared, tested logic in
+    # deploy/common/scripts/prepare-data-disk.sh, embedded verbatim below.
+    export DATA_DISK_IDENTITY="/dev/disk/by-id/google-${var.data_device_name}"
+    export DATA_MOUNT="/data"
+    export DATA_OWNER="10001:10001"
+${indent(4, file("${path.module}/../../common/scripts/prepare-data-disk.sh"))}
     # Cloud SQL instance server CA for sslmode=verify-full (public certificate).
     cat > /etc/signals/cloudsql-ca.pem <<'PEM'
     ${var.db_server_ca_cert}
