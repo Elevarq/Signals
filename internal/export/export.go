@@ -315,7 +315,20 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 	}
 
 	zw := zip.NewWriter(w)
-	defer func() { _ = zw.Close() }()
+	// #717 / F11: the zip central directory + final buffered output are written
+	// by Close, which can fail AFTER every entry writer returned success. A
+	// deferred Close whose error is discarded would report a truncated/corrupt
+	// archive as a successful export, and the scheduled exporter would then
+	// promote/upload it. So the success path closes explicitly below and
+	// RETURNS the Close error; this defer only guards the early-error returns
+	// (best-effort — the real error is already being returned, so a Close error
+	// there would just mask it).
+	finalized := false
+	defer func() {
+		if !finalized {
+			_ = zw.Close()
+		}
+	}()
 
 	// #455: tee every entry through SHA-256 so a per-file integrity
 	// manifest can be written last.
@@ -357,6 +370,13 @@ func (b *Builder) WriteTo(w io.Writer, opts Options) error {
 		return fmt.Errorf("write manifest.json: %w", err)
 	}
 
+	// #717 / F11: finalize the archive and surface the result. The central
+	// directory is flushed here; its failure means the archive is truncated,
+	// so an export is "successful" only once this returns nil.
+	finalized = true
+	if err := zw.Close(); err != nil {
+		return fmt.Errorf("finalize export archive: %w", err)
+	}
 	return nil
 }
 
