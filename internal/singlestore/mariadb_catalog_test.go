@@ -565,3 +565,41 @@ func collectorByID(cat []Collector, id string) *Collector {
 	}
 	return nil
 }
+
+// #640 Replay Tier-2 — mariadb_index_inventory_v1 collects per-index CARDINALITY
+// (distinct MariaDB engine identity), NULL carried through as absent.
+func TestMariaDBIndexInventoryCardinality(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_index_inventory_v1")
+	if c == nil {
+		t.Fatal("mariadb_index_inventory_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mariadb_index_inventory_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mariadb_index_inventory_v1 carries no sensitive payload")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.STATISTICS") || !strings.Contains(up, "CARDINALITY") {
+		t.Errorf("#640 Tier-2: mariadb_index_inventory_v1 must select CARDINALITY from information_schema.STATISTICS; SQL=%q", c.SQL)
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "INFORMATION_SCHEMA.STATISTICS") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "INDEX_NAME": "PRIMARY", "SEQ_IN_INDEX": "1", "COLUMN_NAME": "id", "NON_UNIQUE": "0", "CARDINALITY": "5000"},
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "fresh", "INDEX_NAME": "idx_new", "SEQ_IN_INDEX": "1", "COLUMN_NAME": "k", "NON_UNIQUE": "1", "CARDINALITY": nil},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["CARDINALITY"]; v != "5000" {
+		t.Errorf("populated CARDINALITY = %v, want 5000", v)
+	}
+	if v, ok := rs[0].Rows[1]["CARDINALITY"]; !ok || v != nil {
+		t.Errorf("NULL CARDINALITY must carry through as nil")
+	}
+}

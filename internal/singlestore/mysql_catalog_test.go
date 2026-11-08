@@ -593,3 +593,48 @@ func TestMySQLReplicaLagNotAReplicaAbsent(t *testing.T) {
 		t.Errorf("not-a-replica must yield zero rows (no replica_lag_seconds value present), got %d rows: %+v", len(rs[0].Rows), rs[0].Rows)
 	}
 }
+
+// #640 Replay Tier-2 — mysql_index_inventory_v1 collects the per-index
+// CARDINALITY (the engine's precomputed distinct-value estimate) from the same
+// information_schema.STATISTICS read, carrying a NULL (un-ANALYZEd) value
+// through as absent, never erroring. Read-only, no sensitive payload.
+func TestMySQLIndexInventoryCardinality(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_index_inventory_v1")
+	if c == nil {
+		t.Fatal("mysql_index_inventory_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("mysql_index_inventory_v1 must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("mysql_index_inventory_v1 carries no sensitive payload; got HighSensitivity=%v cols=%v", c.HighSensitivity, c.SensitiveColumns)
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "INFORMATION_SCHEMA.STATISTICS") {
+		t.Errorf("must read information_schema.STATISTICS; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(up, "CARDINALITY") {
+		t.Errorf("#640 Tier-2: mysql_index_inventory_v1 must select CARDINALITY; SQL=%q", c.SQL)
+	}
+
+	// A NULL CARDINALITY (index not yet ANALYZEd) is carried through as nil.
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "INFORMATION_SCHEMA.STATISTICS") {
+			return []map[string]any{
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "orders", "INDEX_NAME": "idx_cust", "SEQ_IN_INDEX": "1", "COLUMN_NAME": "cust_id", "NON_UNIQUE": "1", "CARDINALITY": "1234"},
+				{"TABLE_SCHEMA": "app", "TABLE_NAME": "fresh", "INDEX_NAME": "idx_new", "SEQ_IN_INDEX": "1", "COLUMN_NAME": "k", "NON_UNIQUE": "1", "CARDINALITY": nil},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["CARDINALITY"]; v != "1234" {
+		t.Errorf("populated CARDINALITY = %v, want 1234", v)
+	}
+	if v, ok := rs[0].Rows[1]["CARDINALITY"]; !ok || v != nil {
+		t.Errorf("NULL CARDINALITY must carry through as nil; got ok=%v v=%v", ok, v)
+	}
+}

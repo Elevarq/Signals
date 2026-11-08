@@ -148,13 +148,18 @@ func mariadbCatalog() []Collector {
 			// #538 (Replay Tier-1 evidence): per-index inventory. INDEX_NAME='PRIMARY'
 			// carries primary-key identity losslessly (no separate PK collector);
 			// NON_UNIQUE=0 marks unique/PK vs ordinary; SEQ_IN_INDEX preserves
-			// composite-index ordering exactly. Per-index CARDINALITY is Tier-2 and
-			// NOT collected. Identical acquisition SQL to MySQL, verified equivalent
-			// live across all four MariaDB LTS lines; distinct MariaDB identity.
-			// Schema metadata only -> not HighSensitivity.
+			// composite-index ordering exactly. #640 Replay Tier-2: CARDINALITY is
+			// the engine's precomputed distinct-value estimate for the index prefix
+			// — the per-index selectivity the Analyzer replay-evidence-contract
+			// Tier-2 leads with (consumed by Elevarq/Analyzer#4142). Read-only
+			// metadata from the SAME information_schema.STATISTICS row; MariaDB
+			// populates it from its engine-independent statistics / InnoDB stats,
+			// NULL until ANALYZE (carried as absent). Identical acquisition SQL to
+			// MySQL, verified equivalent live across the MariaDB LTS lines; distinct
+			// MariaDB identity. Schema metadata only -> not HighSensitivity.
 			ID:       "mariadb_index_inventory_v1",
 			Category: "schema",
-			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION, CARDINALITY FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
 		},
 		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
