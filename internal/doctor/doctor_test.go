@@ -36,8 +36,14 @@ targets:
     port: 5432
     dbname: postgres
     user: monitor
-    sslmode: disable
+    sslmode: verify-full
+    sslrootcert_file: /etc/ssl/certs/ca.pem
 `
+	// NB: C1 now runs the authoritative ValidateEffective (R130) — strict +
+	// production TLS policy. A genuinely-good config therefore uses a strong
+	// sslmode with a CA, matching what the daemon accepts at startup. (A
+	// sslmode=disable config without SIGNALS_ALLOW_INSECURE_PG_TLS would be
+	// rejected by startup too, so it is not a "good config".)
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatalf("write test config: %v", err)
 	}

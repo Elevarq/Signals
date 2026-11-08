@@ -45,8 +45,13 @@ targets:
     port: 5432
     dbname: postgres
     user: monitor
-    sslmode: disable
+    sslmode: verify-full
+    sslrootcert_file: /etc/ssl/certs/ca.pem
 `
+	// Strong TLS so the config passes the authoritative ValidateEffective
+	// (R130) that POST /reload now runs — a sslmode=disable config would be
+	// rejected on reload (and at startup), so it is not a valid fixture for a
+	// reload that is expected to succeed.
 	if err := os.WriteFile(configPath, []byte(contents), 0o600); err != nil {
 		t.Fatalf("write config: %v", err)
 	}
@@ -61,7 +66,7 @@ targets:
 	}
 
 	tgts := []config.TargetConfig{
-		{Name: "prod", Host: "127.0.0.1", Port: 5432, DBName: "postgres", User: "monitor", SSLMode: "disable", Enabled: true},
+		{Name: "prod", Host: "127.0.0.1", Port: 5432, DBName: "postgres", User: "monitor", SSLMode: "verify-full", SSLRootCertFile: "/etc/ssl/certs/ca.pem", Enabled: true},
 	}
 	coll := collector.New(store, tgts, 1*time.Hour, 30)
 	exp := export.NewBuilder(store, "test-instance-id")

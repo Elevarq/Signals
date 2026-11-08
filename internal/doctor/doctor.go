@@ -101,7 +101,8 @@ var SupportedCheckIDs = []string{"C1", "C2", "C3", "C4", "C5", "C6"}
 const targetReachableTimeout = 3 * time.Second
 
 // CheckConfigValid (C1) returns OK when the config file exists,
-// parses, and passes ValidateStrict. FAIL otherwise.
+// parses, and passes the authoritative ValidateEffective (strict +
+// production TLS policy, R130). FAIL otherwise.
 func CheckConfigValid(configPath string) CheckResult {
 	start := time.Now()
 	result := CheckResult{ID: "C1", Name: "config_valid"}
@@ -121,9 +122,14 @@ func CheckConfigValid(configPath string) CheckResult {
 		return result
 	}
 
-	if _, err := config.ValidateStrict(cfg); err != nil {
+	// R130/F05: diagnose against the SAME authoritative path the daemon uses
+	// to install config — ValidateStrict AND ValidateProdTLS. A strict-only
+	// C1 check would report green for a config the running daemon's /reload
+	// correctly rejects (e.g. env=prod + sslmode=disable). The doctor has no
+	// separate running daemon, so it validates under the config's own env.
+	if _, err := config.ValidateEffective(cfg.Env, cfg); err != nil {
 		result.Status = StatusFail
-		result.Detail = fmt.Sprintf("ValidateStrict on %s: %v", configPath, err)
+		result.Detail = fmt.Sprintf("ValidateEffective on %s: %v", configPath, err)
 		result.Duration = time.Since(start)
 		return result
 	}

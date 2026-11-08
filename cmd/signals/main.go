@@ -65,9 +65,17 @@ func run() error {
 	// Setup logging before validation so warnings reach the configured sink.
 	safety.SetupLogging(cfg.Signals.LogLevel, cfg.Signals.LogJSON)
 
-	// Strict configuration validation (R076). Hard errors abort startup;
-	// warnings are logged and the daemon continues.
-	warnings, err := config.ValidateStrict(cfg)
+	// The environment the daemon starts in is the immutable security policy
+	// (SIGNALS-R130 / F05): no reload may relax it. Captured here and passed
+	// to every reload path so ValidateEffective validates under at least this
+	// environment even if an edited config file lowers its `env` field.
+	runningEnv := cfg.Env
+
+	// Authoritative configuration validation (R076 + R130). This is the SINGLE
+	// path shared by startup, POST /reload, SIGHUP and the doctor C1 check:
+	// ValidateStrict AND the production TLS policy (ValidateProdTLS). Hard
+	// errors abort startup; warnings are logged and the daemon continues.
+	warnings, err := config.ValidateEffective(runningEnv, cfg)
 	for _, w := range warnings {
 		slog.Warn("config warning", "msg", w)
 	}
@@ -96,15 +104,6 @@ func run() error {
 			"phase", "data_dir_writable",
 		)
 		return err
-	}
-
-	// Enforce Postgres TLS policy.
-	if err := config.ValidateProdTLS(cfg); err != nil {
-		safety.AuditLog("config_validated",
-			"status", "error",
-			"phase", "tls_policy",
-		)
-		return fmt.Errorf("TLS policy: %w", err)
 	}
 
 	// Audit posture: high-sensitivity gate state and target enable/disable
@@ -398,6 +397,7 @@ func run() error {
 		Exporter:            exporter,
 		Targets:             cfg.Targets,
 		ConfigPath:          *configPath, // R100: needed for POST /reload + SIGHUP handler.
+		RunningEnv:          runningEnv,  // R130/F05: immutable env policy for /reload validation.
 		ControlPlaneTokenFn: signalsControlPlaneTokenFn,
 		TLSCertFile:         cfg.API.TLSCertFile, // R113: daemon-terminated TLS (both-or-neither, validated).
 		TLSKeyFile:          cfg.API.TLSKeyFile,
@@ -439,7 +439,11 @@ func run() error {
 						"actor", "signal_handler", "reason", "load_failed", "error", redacted)
 					continue
 				}
-				if _, err := config.ValidateStrict(newCfg); err != nil {
+				// R130/F05: authoritative effective validation (strict + prod
+				// TLS) under the running immutable env — a SIGHUP reload must
+				// not relax the production TLS policy via an insecure-TLS edit
+				// or an env downgrade.
+				if _, err := config.ValidateEffective(runningEnv, newCfg); err != nil {
 					redacted := redactReloadErr(err)
 					slog.Error("SIGHUP reload: validation failed", "err", redacted)
 					safety.AuditLog("config_reload_rejected",
