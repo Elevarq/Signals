@@ -186,6 +186,17 @@ What happens:
    migrated.
 4. Secrets unchanged; the bearer token survives.
 
+**Config-only upgrades are applied automatically (#728).** The pod
+template carries a `checksum/config` annotation derived from the
+target ConfigMap, so a `helm upgrade` that changes only target /
+connection values still changes the pod template and rolls the pod
+(stop-before-start, per the Recreate strategy above) — the new
+target configuration becomes active without a manual reload. An
+upgrade that changes nothing in the ConfigMap (e.g. only the image
+tag) does not trigger this restart. Confirm the effective
+configuration after the roll with
+`kubectl -n observability exec deploy/signals-signals -- signalsctl status`.
+
 The SQLite migration path is forward-only and idempotent —
 re-running the same version against an already-migrated store is
 a no-op. Downgrading is NOT supported (schema may have evolved):
