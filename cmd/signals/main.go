@@ -331,8 +331,15 @@ func run() error {
 		slog.Warn("could not restore circuit state; starting with all circuits closed", "err", err)
 	}
 
-	// Start collector in background.
-	go coll.Run(ctx)
+	// Start collector in background. #731: signal completion via collDone so
+	// the shutdown path can JOIN the collector before the deferred store.Close
+	// runs — an in-flight collection/delivery must finish (or abort cleanly)
+	// before its backing store is closed.
+	collDone := make(chan struct{})
+	go func() {
+		defer close(collDone)
+		coll.Run(ctx)
+	}()
 
 	// Generate API token if not set.
 	if cfg.API.APIToken == "" {
@@ -474,14 +481,33 @@ func run() error {
 	}()
 
 	// Wait for shutdown signal or server error.
+	var serverErr error
 	select {
 	case <-ctx.Done():
 		slog.Info("shutting down...")
 	case err := <-errCh:
-		return fmt.Errorf("server error: %w", err)
+		// #731: do NOT return here. The server-error path must still cancel and
+		// JOIN the collector before the deferred store.Close runs, exactly like
+		// the signal path — otherwise an in-flight collection races store close
+		// and the collector goroutine leaks.
+		serverErr = fmt.Errorf("server error: %w", err)
+		slog.Error("server error; shutting down", "err", err)
 	}
 
-	// Graceful shutdown.
+	// #731: cancel the collector's context and JOIN its goroutine within a
+	// bounded deadline before closing any dependency. On the signal path ctx is
+	// already cancelled; on the server-error path it is not, so cancel()
+	// explicitly (idempotent). In-flight collection commits atomically or aborts
+	// cleanly; nothing acknowledges success for discarded work.
+	cancel()
+	if joinCollector(collDone, collectorShutdownTimeout) {
+		slog.Info("collector stopped")
+	} else {
+		slog.Warn("collector did not stop within shutdown deadline; proceeding",
+			"timeout", collectorShutdownTimeout)
+	}
+
+	// Graceful HTTP shutdown.
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer shutdownCancel()
 
@@ -491,7 +517,27 @@ func run() error {
 
 	_ = store.InsertEvent("signals_stopped", "graceful shutdown")
 	slog.Info("signals stopped")
-	return nil
+	return serverErr
+}
+
+// collectorShutdownTimeout bounds how long the daemon waits for the collector
+// goroutine to finish an in-flight cycle after cancellation before it proceeds
+// to close the store and exit (#731). Generous enough for a cycle's final
+// atomic persistence, bounded so a misbehaving dependency cannot hang exit.
+const collectorShutdownTimeout = 20 * time.Second
+
+// joinCollector waits up to timeout for the collector goroutine to finish,
+// signalled by done being closed. It returns true if the collector stopped
+// within the deadline, false if the deadline elapsed first (the caller then
+// proceeds with a logged warning rather than hanging). The caller MUST have
+// cancelled the collector's context before calling this (#731).
+func joinCollector(done <-chan struct{}, timeout time.Duration) bool {
+	select {
+	case <-done:
+		return true
+	case <-time.After(timeout):
+		return false
+	}
 }
 
 func syncQueryCatalog(store *db.DB) {
