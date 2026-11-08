@@ -565,7 +565,48 @@ func (d *DB) InsertSnapshot(s Snapshot) error {
 	return err
 }
 
+// canonicalSinceBound normalizes an RFC3339 lower-bound (inclusive `>=`) to the
+// canonical UTC second-resolution text that `collected_at` is stored in, so
+// lexical SQLite comparison equals instant comparison (#720 / F09 / MTE-R010).
+// Timezone offsets collapse to `Z`; a sub-second instant rounds UP to the next
+// whole second — the smallest stored second that is still `>=` the requested
+// instant — so a stored second strictly before the bound is not wrongly
+// included. Empty or unparseable input is returned unchanged (the API rejects
+// invalid RFC3339 before the store is reached; this is defensive).
+func canonicalSinceBound(s string) string {
+	if s == "" {
+		return s
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return s
+	}
+	u := t.UTC()
+	if u.Nanosecond() > 0 {
+		u = u.Truncate(time.Second).Add(time.Second)
+	}
+	return u.Format(time.RFC3339)
+}
+
+// canonicalUntilBound normalizes an RFC3339 upper-bound (inclusive `<=`) to the
+// canonical UTC second-resolution text. Offsets collapse to `Z`; a sub-second
+// instant truncates DOWN to the whole second — the largest stored second still
+// `<=` the requested instant — so an exactly-equal whole-second stored
+// timestamp is included even when `until` carries fractional seconds. Empty or
+// unparseable input is returned unchanged.
+func canonicalUntilBound(s string) string {
+	if s == "" {
+		return s
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return s
+	}
+	return t.UTC().Truncate(time.Second).Format(time.RFC3339)
+}
+
 func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapshot, error) {
+	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
 	query := "SELECT id, target_id, collected_at, pg_version, payload, size_bytes FROM snapshots WHERE target_id = ?"
 	args := []any{targetID}
 	if since != "" {
@@ -598,6 +639,7 @@ func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapsh
 }
 
 func (d *DB) GetAllSnapshots(since, until string) ([]Snapshot, error) {
+	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
 	query := "SELECT id, target_id, collected_at, pg_version, payload, size_bytes FROM snapshots WHERE 1=1"
 	var args []any
 	if since != "" {
@@ -1103,6 +1145,7 @@ func insertRunsAndResults(tx *sql.Tx, runs []QueryRun, results []QueryResult) er
 }
 
 func (d *DB) GetAllQueryRuns(since, until string) ([]QueryRun, error) {
+	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
 	query := "SELECT id, target_id, snapshot_id, query_id, collected_at, pg_version, duration_ms, row_count, error, created_at, status, reason FROM query_runs WHERE 1=1"
 	var args []any
 	if since != "" {
@@ -1120,6 +1163,7 @@ func (d *DB) GetAllQueryRuns(since, until string) ([]QueryRun, error) {
 // GetQueryRunsByTarget returns query runs filtered by target ID and
 // optional time range (MTE-R001).
 func (d *DB) GetQueryRunsByTarget(targetID int64, since, until string) ([]QueryRun, error) {
+	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
 	query := "SELECT id, target_id, snapshot_id, query_id, collected_at, pg_version, duration_ms, row_count, error, created_at, status, reason FROM query_runs WHERE target_id = ?"
 	args := []any{targetID}
 	if since != "" {
