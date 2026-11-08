@@ -220,6 +220,23 @@ networkPolicy:
   # Kube-DNS CIDR. Typical defaults below; override per cluster.
   kubeDNS:
     - "10.96.0.10/32"   # kube-system default; override for your cluster
+  # Operator-scoped extra egress (#727). EMPTY by default so the
+  # default-deny posture is preserved — this never adds blanket
+  # internet egress. When a cloud-credential auth method
+  # (aws_rds_iam / azure_entra / gcp_cloudsql_iam / secret_store) or
+  # an s3:// export destination is enabled, the required outbound
+  # flows (STS / instance-metadata / Secrets Manager / S3, typically
+  # TCP 443) are NOT covered by the target/DNS rules above — add them
+  # here, scoped to your provider endpoints. Each item is a standard
+  # NetworkPolicy egress rule. Example:
+  #   extraEgress:
+  #     - to:
+  #         - ipBlock:
+  #             cidr: 10.0.0.0/8   # VPC endpoints for S3 / Secrets Manager
+  #       ports:
+  #         - protocol: TCP
+  #           port: 443
+  extraEgress: []
 
 # PodDisruptionBudget (#140). Opt-in. Protects the single replica
 # during voluntary disruptions (kubectl drain, cluster-autoscaler
