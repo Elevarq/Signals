@@ -515,3 +515,21 @@ stages the download, verifies the digest, and extracts only on match; the
 | SCT-R004 | Expected digests recorded with version/URL in ci.yml; update procedure documented | TestCIPinnedTool_WorkflowPinsBothTools | COVERED | STRUCTURAL | Digests pinned next to versions; procedure in the spec. |
 | INV-SCT-01 | CI never extracts/executes tool bytes whose identity has not matched a pinned digest | TestCIPinnedTool_MatchingDigestExtracts, TestCIPinnedTool_AlteredBytesRejected | COVERED | BEHAVIORAL | Match extracts; mismatch does not. |
 | INV-SCT-02 | A tool version bump cannot land without a digest update | TestCIPinnedTool_WorkflowPinsBothTools | COVERED | STRUCTURAL | Changed URL with stale digest fails the gate. |
+
+## Export Collection-Time Policy Provenance (`specifications/export-collection-provenance.md`, #729)
+
+Per-snapshot collection-time sensitivity/unsafe policy (migration 009, nullable
+tri-state) so an export describes its included evidence honestly — uniform only
+when every packaged snapshot agrees, else "mixed"/"unknown", never the current
+exporter's flag stamped over history (audit A3). Acceptance:
+`specifications/export-collection-provenance.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CTP-R001 | Each snapshot records its collection-time unsafe/high-sensitivity policy immutably | TestInsertSnapshot_PersistsCollectionPolicy | COVERED | BEHAVIORAL | Collector sets policy at insert; round-trips via store. |
+| CTP-R002 | Tri-state policy; pre-#729 rows read unknown; migration 009 invents nothing | TestMigration009_DoesNotInventLegacyPolicy, TestCTP_UnknownLegacyNotInvented | COVERED | BEHAVIORAL | Nullable columns, no backfill UPDATE. |
+| CTP-R003 | metadata.json collection_policy aggregate: uniform only on agreement, else mixed/unknown | TestCTP_UniformPolicyReported, TestCTP_MixedHistoryNotFalselyClean, TestCTP_UnknownLegacyNotInvented, TestCTP_KnownPlusUnknownIsMixed | COVERED | BEHAVIORAL | Current exporter flag never advertised over mixed/unknown history. |
+| CTP-R004 | snapshots.ndjson carries each snapshot's collection-time policy (true/false/null) | TestCTP_SnapshotNdjsonCarriesPerCyclePolicy | COVERED | BEHAVIORAL | Per-cycle provenance attribution. |
+| CTP-R005 | Opt-out suppresses future collection only; top-level flags describe the export process | TestCTP_MixedHistoryNotFalselyClean | COVERED | DOC | `collection_policy.semantics` string + spec; existing keys clarified. |
+| INV-CTP-01 | A uniform true/false is reported only when every packaged snapshot agrees | TestCTP_MixedHistoryNotFalselyClean, TestCTP_KnownPlusUnknownIsMixed | COVERED | BEHAVIORAL | Mixed/known+unknown never reads as uniform. |
+| INV-CTP-02 | Unknown policy is explicit and never replaced by a fabricated value | TestCTP_UnknownLegacyNotInvented, TestMigration009_DoesNotInventLegacyPolicy | COVERED | BEHAVIORAL | NULL preserved through upgrade and export. |

@@ -319,6 +319,10 @@ func (c *Collector) GetAllowUnsafeRole() bool {
 	return c.allowUnsafeRole
 }
 
+// boolPtr returns a pointer to b, used to record a concrete (non-unknown)
+// collection-time policy value on a snapshot (#729 / CTP).
+func boolPtr(b bool) *bool { return &b }
+
 // WithHighSensitivityCollectors enables the four definition-text collectors
 // flagged HighSensitivity in the query catalog (R075). Off by default.
 func WithHighSensitivityCollectors(enabled bool) CollectorOption {
@@ -1743,6 +1747,12 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 		SourcePort: tgt.Port,
 		SourceDB:   tgt.DBName,
 		SourceUser: tgt.User,
+		// #729 / CTP: record the collection-time sensitivity/unsafe policy on the
+		// snapshot itself so an export describes its included evidence honestly
+		// rather than stamping the current exporter's policy onto older history.
+		// Non-nil = the policy in effect for THIS cycle; immutable thereafter.
+		CollectUnsafeMode:      boolPtr(c.allowUnsafeRole),
+		CollectHighSensitivity: boolPtr(c.highSensitivityEnabled),
 	}
 
 	// Step 5: Persist snapshot + runs + results atomically (R077). A
