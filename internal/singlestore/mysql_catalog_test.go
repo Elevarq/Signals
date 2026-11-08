@@ -34,6 +34,7 @@ func TestMySQLCatalogExpectedSet(t *testing.T) {
 		"mysql_identity_v1",
 		"mysql_index_inventory_v1",
 		"mysql_innodb_deadlocks_v1",
+		"mysql_innodb_index_stats_v1",
 		"mysql_innodb_metrics_v1",
 		"mysql_innodb_transactions_v1",
 		"mysql_metadata_locks_v1",
@@ -636,5 +637,44 @@ func TestMySQLIndexInventoryCardinality(t *testing.T) {
 	}
 	if v, ok := rs[0].Rows[1]["CARDINALITY"]; !ok || v != nil {
 		t.Errorf("NULL CARDINALITY must carry through as nil; got ok=%v v=%v", ok, v)
+	}
+}
+
+// #640 Replay Tier-2 — mysql_innodb_index_stats_v1 reads the InnoDB persistent
+// per-index-prefix cardinality (mysql.innodb_index_stats, n_diff_pfxNN rows):
+// read-only system-schema metadata, filtered to the cardinality rows, no
+// sensitive payload.
+func TestMySQLInnodbIndexStats(t *testing.T) {
+	c := collectorByID(mysqlCatalog(), "mysql_innodb_index_stats_v1")
+	if c == nil {
+		t.Fatal("mysql_innodb_index_stats_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("innodb_index_stats carries no sensitive payload")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "MYSQL.INNODB_INDEX_STATS") {
+		t.Errorf("must read mysql.innodb_index_stats; SQL=%q", c.SQL)
+	}
+	if !strings.Contains(c.SQL, "n_diff_pfx") {
+		t.Errorf("must filter to n_diff_pfx%% cardinality rows; SQL=%q", c.SQL)
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "MYSQL.INNODB_INDEX_STATS") {
+			return []map[string]any{
+				{"database_name": "app", "table_name": "orders", "index_name": "idx_cust", "stat_name": "n_diff_pfx01", "stat_value": "900", "sample_size": "20"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["stat_value"]; v != "900" {
+		t.Errorf("stat_value = %v, want 900", v)
 	}
 }
