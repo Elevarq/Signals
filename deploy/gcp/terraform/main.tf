@@ -64,7 +64,14 @@ locals {
       path: /data/signals.db
       wal: true
     api:
-      listen_addr: "127.0.0.1:8081"
+      # #719 (F13): bind the daemon to the CONTAINER interface (0.0.0.0) inside
+      # its isolated network namespace, NOT the container's loopback. With Docker
+      # bridge networking the host publish `-p 127.0.0.1:8081:8081` below delivers
+      # to the container's eth0, so a 127.0.0.1-inside bind is unreachable from the
+      # host. External exposure is still prevented by the host publish being
+      # restricted to loopback (plus bearer-token auth), so this does not widen
+      # reachability beyond the VM itself.
+      listen_addr: "0.0.0.0:8081"
     targets:
       - name: ${var.db_name}-cloudsql
         host: ${var.db_host}
