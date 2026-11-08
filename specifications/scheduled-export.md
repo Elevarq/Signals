@@ -50,6 +50,18 @@ set; otherwise it is a no-op (existing behaviour unchanged).
   success or failure.
 - **SE-R013** — A failed export (build error, unwritable destination) is
   **logged and skipped**; it MUST NOT disrupt or fail the collection cycle.
+- **SE-R014 (archive finalization is the success signal — #717 / F11)** — The
+  export builder (`export.Builder.WriteTo`) MUST treat finalization of the ZIP
+  as part of success and return any error from it. The ZIP central directory
+  and final buffered output are flushed when the `zip.Writer` is **closed**,
+  which can fail (short write, closed pipe, disk-full) **after** every entry
+  writer has returned success. `WriteTo` MUST therefore close the writer
+  explicitly and return that error, never discard it in a deferred close — so a
+  truncated/corrupt archive can never be reported as a successful export. The
+  scheduled exporter relies on this: a non-nil `WriteTo` result removes the
+  temporary file and promotes/uploads **nothing** (SE-R012/SE-R013), so a
+  failed finalization is never renamed into place or `PutObject`-ed as a
+  completed artifact.
 
 ## Invariants
 
