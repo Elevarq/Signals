@@ -126,6 +126,36 @@ FAIL dev-broken   password_resolve   password_env "DEV_DB_PW" is not set
   appear in **config-declared target order** regardless of which
   goroutine finishes first (parallelism is allowed; output order is
   pinned).
+- **INV-CONN-05 (shared backend/credential resolution — #722 / F16)**:
+  A config-based connect test diagnoses each target over the **same
+  credential path collection would use**, selected by the target's
+  `auth_method`, NOT a universal password DSN. A target whose
+  `auth_method` requires the runtime resolver
+  (`TargetConfig.RequiresCredentialResolver()` — `aws_rds_iam`,
+  `azure_entra`, `gcp_cloudsql_iam`, `secret_store`, `mtls`) is tested
+  through `TestConnectionWithResolver` with the production credential
+  resolver, so a cloud-IAM / vault / mTLS target connects with its
+  **real minted/fetched/loaded credential** instead of a password-only
+  DSN that would spuriously fail. Password-by-reference (and the empty
+  default) stay on the static DSN path, whose resolution errors are
+  non-secret and actionable (e.g. "password_env FOO not set"). The
+  ad-hoc `--dsn` one-off carries no `auth_method` and stays on the DSN
+  path. This shares collection's provider dispatch rather than
+  reimplementing a parallel set of checks; credentials are still never
+  emitted (INV-CONN-02). The same `auth_method` selection governs the
+  doctor `role_safe` (C4) and `collector_prerequisites` (C5)
+  connectivity checks.
+- **INV-CONN-06 (explicit per-engine capability — #722 / F16, POC)**:
+  The connect test and the doctor `role_safe`/`collector_prerequisites`
+  checks speak the **PostgreSQL** protocol (pgx) and run PostgreSQL
+  catalog queries. A target whose `EffectiveEngine()` is **not**
+  `postgresql` (MySQL / MariaDB / SingleStore / ClickHouse) is reported
+  as **explicitly unsupported** — connect test: a result with
+  `category = unsupported_engine` naming the engine; doctor C4/C5: a
+  `warn` skip explaining the check is PostgreSQL-only — rather than run
+  through pgx against the wrong wire protocol, which would emit a
+  misleading TLS / auth / startup failure. The wire/native engines are
+  exercised by their own live qualification, not this diagnostic.
 
 ## Failure Conditions
 

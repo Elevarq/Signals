@@ -13,6 +13,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
+	"log/slog"
 	"net"
 	"strings"
 	"sync"
@@ -24,6 +26,17 @@ import (
 	"github.com/elevarq/signals/internal/collector"
 	"github.com/elevarq/signals/internal/config"
 )
+
+// configResolver is the production credential resolver used for config-based
+// connect tests (#722 / F16): it dispatches on each target's auth_method, so a
+// cloud-IAM / vault / mTLS target is diagnosed with its REAL credential instead
+// of a password-only DSN that would fail. Password-by-reference targets resolve
+// identically to the prior DSN path (the resolver's default branch). A discard
+// logger keeps the resolver's internal debug output out of the CLI diagnostic;
+// the classified Result is the only output. Shared by Run and doctor.
+func configResolver() collector.CredentialResolver {
+	return collector.NewCredentialResolver(slog.New(slog.NewTextHandler(io.Discard, nil)))
+}
 
 // Category enumerates the classification labels surfaced to operators.
 // Lower-case wire form matches the JSON contract in the spec.
@@ -39,6 +52,12 @@ const (
 	CategoryRole            Category = "role"
 	CategoryPasswordResolve Category = "password_resolve"
 	CategoryConfig          Category = "config"
+	// CategoryUnsupportedEngine (#722 / F16, POC): the config-based connect
+	// test is PostgreSQL-protocol; a non-PostgreSQL engine target is reported
+	// explicitly unsupported rather than diagnosed with a misleading PG/auth
+	// failure. The wire/native engines are exercised by their own live
+	// qualification, not this diagnostic.
+	CategoryUnsupportedEngine Category = "unsupported_engine"
 )
 
 // Result is one connection attempt's outcome.
@@ -398,13 +417,41 @@ func Run(ctx context.Context, configPath, targetName string, adhoc map[string]st
 	// Pre-allocate results indexed by config slot so output order is
 	// deterministic regardless of completion timing (INV-CONN-04).
 	report.Attempts = make([]Result, len(targets))
+	// #722 / F16: config-based targets are diagnosed through the SAME credential
+	// resolver collection uses — dispatching on each target's auth_method — so a
+	// cloud-IAM / vault / mTLS target is tested with its real credential rather
+	// than a password-only DSN. (The ad-hoc one-off DSN path above stays on the
+	// password path; it carries no auth_method.)
+	res := configResolver()
 	if len(targets) == 1 {
-		report.Attempts[0] = TestConnection(ctx, targets[0], opts)
+		report.Attempts[0] = testConfigTarget(ctx, targets[0], res, opts)
 	} else {
-		runParallel(ctx, targets, opts, report.Attempts)
+		runParallel(ctx, targets, res, opts, report.Attempts)
 	}
 	report.Summary = summarize(report.Attempts)
 	return report, nil
+}
+
+// testConfigTarget diagnoses one config target with the path appropriate to its
+// auth_method (#722 / F16): cloud-identity and mtls methods resolve their real
+// credential through the shared resolver; password-by-reference stays on the
+// static DSN path, whose resolution errors are non-secret and actionable.
+func testConfigTarget(ctx context.Context, tgt config.TargetConfig, res collector.CredentialResolver, opts Options) Result {
+	// #722 / F16 (POC): the connect test speaks the PostgreSQL protocol. A
+	// non-PostgreSQL engine target (MySQL/MariaDB/SingleStore/ClickHouse) is
+	// reported as EXPLICITLY unsupported — not run through pgx, which would
+	// produce a misleading TLS/auth/startup failure for the wrong protocol.
+	if engine := tgt.EffectiveEngine(); engine != config.EnginePostgreSQL {
+		return Result{
+			Target: tgt.Name, Host: tgt.Host, Port: tgt.Port, DBName: tgt.DBName, Username: tgt.User,
+			Category: CategoryUnsupportedEngine,
+			Detail:   fmt.Sprintf("connect test is not supported for engine %q (PostgreSQL only); the %s backend is exercised by its own live qualification", engine, engine),
+		}
+	}
+	if tgt.RequiresCredentialResolver() {
+		return TestConnectionWithResolver(ctx, tgt, res, opts)
+	}
+	return TestConnection(ctx, tgt, opts)
 }
 
 // runParallel dispatches per-target TestConnection calls into goroutines
@@ -417,7 +464,7 @@ func Run(ctx context.Context, configPath, targetName string, adhoc map[string]st
 // from the parent (cancellation propagates naturally inside it).
 // A WaitGroup replaces the ad-hoc done channel for simpler
 // shutdown semantics.
-func runParallel(ctx context.Context, targets []config.TargetConfig, opts Options, out []Result) {
+func runParallel(ctx context.Context, targets []config.TargetConfig, res collector.CredentialResolver, opts Options, out []Result) {
 	const cap = 8
 	sem := make(chan struct{}, cap)
 	var wg sync.WaitGroup
@@ -438,7 +485,7 @@ func runParallel(ctx context.Context, targets []config.TargetConfig, opts Option
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			out[i] = TestConnection(ctx, t, opts)
+			out[i] = testConfigTarget(ctx, t, res, opts)
 		}()
 	}
 	wg.Wait()
