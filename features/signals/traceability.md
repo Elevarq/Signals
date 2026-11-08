@@ -576,3 +576,16 @@ default-deny or adding blanket internet egress (audit A1). Acceptance:
 | NPE-R002 | Operator-scoped extraEgress passthrough for cloud/S3 endpoints | TestHelm_EgressExtraEgressPassthrough | COVERED | STRUCTURAL | Rendered verbatim; empty by default. |
 | NPE-R003 | No weakening of default-deny; no blanket 0.0.0.0/0 egress added | TestHelm_EgressNoBlanketInternetByDefault | COVERED | STRUCTURAL | Only operator-configured CIDRs/ports. |
 | INV-NPE-01 | No egress destination broader than operator config | TestHelm_EgressNoBlanketInternetByDefault | COVERED | STRUCTURAL | targetCIDRs + kubeDNS + extraEgress only. |
+## Cloud API Port Binding (`specifications/cloud-api-binding.md`, #719)
+
+Under Docker bridge networking the daemon binds the container interface
+(`0.0.0.0:8081`) so the host publish reaches it, while the host publication
+stays loopback-restricted (`127.0.0.1:8081:8081`) so other hosts cannot — fixing
+the Azure/GCP host-side control-plane reachability (audit F13). Acceptance:
+`specifications/cloud-api-binding.acceptance.md`.
+
+| Rule ID | Rule Summary | Test ID(s) | Coverage Status | Evidence Type | Notes |
+|---------|-------------|------------|-----------------|---------------|-------|
+| CAB-R001 | Bridge templates bind the container interface (0.0.0.0:8081), not loopback | TestCloudTemplates_BindContainerInterface | COVERED | STRUCTURAL | Azure/GCP terraform + bicep. |
+| CAB-R002 | Host publish stays loopback-restricted (127.0.0.1:8081:8081), never all-interfaces | TestCloudTemplates_HostPublishStaysLoopback | COVERED | STRUCTURAL | No external exposure introduced. |
+| INV-CAB-01 | No change widens reachability beyond the VM itself | TestCloudTemplates_HostPublishStaysLoopback | COVERED | STRUCTURAL | Loopback-published + token-authenticated. |
