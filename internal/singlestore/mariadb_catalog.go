@@ -162,6 +162,21 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX, COLUMN_NAME, NON_UNIQUE, INDEX_TYPE, NULLABLE, SUB_PART, COLLATION, CARDINALITY FROM information_schema.STATISTICS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY TABLE_SCHEMA, TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX",
 		},
 		{
+			// #640 Replay Tier-2: per-index-PREFIX cardinality from InnoDB's
+			// persistent statistics (mysql.innodb_index_stats). The `n_diff_pfxNN`
+			// rows carry MariaDB's estimated distinct-value count per index prefix —
+			// finer than information_schema.STATISTICS.CARDINALITY and the direct
+			// input to the Analyzer row-estimate injection (Analyzer#4142). MariaDB
+			// ships InnoDB persistent stats in the same `mysql.innodb_index_stats`
+			// table; distinct MariaDB identity. Read-only metadata (baseline global
+			// SELECT grant; privilege denial is a legitimate skip). Schema-bounded.
+			// Signals reads the engine's precomputed stat; never computes it. Not
+			// HighSensitivity.
+			ID:       "mariadb_innodb_index_stats_v1",
+			Category: "schema",
+			SQL:      "SELECT database_name, table_name, index_name, stat_name, stat_value, sample_size FROM mysql.innodb_index_stats WHERE database_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND stat_name LIKE 'n_diff_pfx%' ORDER BY database_name, table_name, index_name, stat_name",
+		},
+		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
 			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
 			// STATUS='enabled').

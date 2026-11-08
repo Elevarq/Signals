@@ -33,6 +33,7 @@ func TestMariaDBCatalogExpectedSet(t *testing.T) {
 		"mariadb_identity_v1",
 		"mariadb_index_inventory_v1",
 		"mariadb_innodb_deadlocks_v1",
+		"mariadb_innodb_index_stats_v1",
 		"mariadb_innodb_lock_waits_v1",
 		"mariadb_innodb_locks_v1",
 		"mariadb_innodb_metrics_v1",
@@ -601,5 +602,39 @@ func TestMariaDBIndexInventoryCardinality(t *testing.T) {
 	}
 	if v, ok := rs[0].Rows[1]["CARDINALITY"]; !ok || v != nil {
 		t.Errorf("NULL CARDINALITY must carry through as nil")
+	}
+}
+
+// #640 Replay Tier-2 — mariadb_innodb_index_stats_v1 reads InnoDB persistent
+// per-index-prefix cardinality (distinct MariaDB identity), read-only.
+func TestMariaDBInnodbIndexStats(t *testing.T) {
+	c := collectorByID(mariadbCatalog(), "mariadb_innodb_index_stats_v1")
+	if c == nil {
+		t.Fatal("mariadb_innodb_index_stats_v1 missing")
+	}
+	if HasWrite(c.SQL) {
+		t.Errorf("must be read-only: %q", c.SQL)
+	}
+	if c.HighSensitivity || len(c.SensitiveColumns) != 0 {
+		t.Errorf("innodb_index_stats carries no sensitive payload")
+	}
+	up := strings.ToUpper(c.SQL)
+	if !strings.Contains(up, "MYSQL.INNODB_INDEX_STATS") || !strings.Contains(c.SQL, "n_diff_pfx") {
+		t.Errorf("must read mysql.innodb_index_stats filtered to n_diff_pfx%%; SQL=%q", c.SQL)
+	}
+	runner := func(_ context.Context, sql string) ([]map[string]any, error) {
+		if strings.Contains(strings.ToUpper(sql), "MYSQL.INNODB_INDEX_STATS") {
+			return []map[string]any{
+				{"database_name": "app", "table_name": "orders", "index_name": "PRIMARY", "stat_name": "n_diff_pfx01", "stat_value": "5000", "sample_size": "20"},
+			}, nil
+		}
+		return []map[string]any{}, nil
+	}
+	rs := Collect(context.Background(), runner, []Collector{*c}, true, false)
+	if len(rs) != 1 || rs[0].Err != "" || len(rs[0].Rows) != 1 {
+		t.Fatalf("unexpected result: %+v", rs)
+	}
+	if v := rs[0].Rows[0]["stat_value"]; v != "5000" {
+		t.Errorf("stat_value = %v, want 5000", v)
 	}
 }
