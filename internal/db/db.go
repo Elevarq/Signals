@@ -619,6 +619,15 @@ type Snapshot struct {
 	Engine    string
 	Payload   json.RawMessage
 	SizeBytes int
+	// Source identity captured at collection time (#716 / F10, R094.1).
+	// Immutable per snapshot — unlike the mutable `targets` row keyed by
+	// TargetID — so historical evidence keeps its collection-time identity
+	// even after the target name is retargeted. Empty on pre-#716 snapshots
+	// (the exporter then falls back to the current targets row).
+	SourceHost string
+	SourcePort int
+	SourceDB   string
+	SourceUser string
 }
 
 // snapshotEngine normalizes an empty engine to the PostgreSQL default
@@ -632,8 +641,8 @@ func snapshotEngine(e string) string {
 
 func (d *DB) InsertSnapshot(s Snapshot) error {
 	_, err := d.sql.Exec(
-		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, engine, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		s.ID, s.TargetID, s.CollectedAt, s.PGVersion, snapshotEngine(s.Engine), string(s.Payload), s.SizeBytes,
+		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		s.ID, s.TargetID, s.CollectedAt, s.PGVersion, snapshotEngine(s.Engine), string(s.Payload), s.SizeBytes, s.SourceHost, s.SourcePort, s.SourceDB, s.SourceUser,
 	)
 	return err
 }
@@ -680,7 +689,7 @@ func canonicalUntilBound(s string) string {
 
 func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapshot, error) {
 	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
-	query := "SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes FROM snapshots WHERE target_id = ?"
+	query := "SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE target_id = ?"
 	args := []any{targetID}
 	if since != "" {
 		query += " AND collected_at >= ?"
@@ -702,7 +711,7 @@ func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapsh
 	for rows.Next() {
 		var s Snapshot
 		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes); err != nil {
+		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
 			return nil, err
 		}
 		s.Payload = json.RawMessage(payload)
@@ -713,7 +722,7 @@ func (d *DB) GetSnapshotsByTarget(targetID int64, since, until string) ([]Snapsh
 
 func (d *DB) GetAllSnapshots(since, until string) ([]Snapshot, error) {
 	since, until = canonicalSinceBound(since), canonicalUntilBound(until)
-	query := "SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes FROM snapshots WHERE 1=1"
+	query := "SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE 1=1"
 	var args []any
 	if since != "" {
 		query += " AND collected_at >= ?"
@@ -735,7 +744,7 @@ func (d *DB) GetAllSnapshots(since, until string) ([]Snapshot, error) {
 	for rows.Next() {
 		var s Snapshot
 		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes); err != nil {
+		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
 			return nil, err
 		}
 		s.Payload = json.RawMessage(payload)
@@ -789,9 +798,9 @@ func (d *DB) GetSnapshotByID(id string) (*Snapshot, error) {
 	var s Snapshot
 	var payload string
 	err := d.sql.QueryRow(
-		"SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes FROM snapshots WHERE id = ?",
+		"SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user FROM snapshots WHERE id = ?",
 		id,
-	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes)
+	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -815,7 +824,7 @@ func (d *DB) GetSnapshotByID(id string) (*Snapshot, error) {
 // accessible via the `--all` selector for forensic exports.
 func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 	const q = `
-		SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.engine, s.payload, s.size_bytes
+		SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.engine, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user
 		FROM snapshots s
 		JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		JOIN (
@@ -840,7 +849,7 @@ func (d *DB) GetLatestSnapshotsPerTarget() ([]Snapshot, error) {
 	for rows.Next() {
 		var s Snapshot
 		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes); err != nil {
+		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
 			return nil, err
 		}
 		if seen[s.TargetID] {
@@ -867,13 +876,13 @@ func (d *DB) GetLatestSnapshotForTarget(targetID int64) (*Snapshot, error) {
 	var s Snapshot
 	var payload string
 	err := d.sql.QueryRow(
-		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.engine, s.payload, s.size_bytes
+		`SELECT s.id, s.target_id, s.collected_at, s.pg_version, s.engine, s.payload, s.size_bytes, s.source_host, s.source_port, s.source_db, s.source_user
 		 FROM snapshots s
 		 JOIN targets t ON t.id = s.target_id AND t.enabled = 1
 		 WHERE s.target_id = ?
 		 ORDER BY s.collected_at DESC, s.id DESC LIMIT 1`,
 		targetID,
-	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes)
+	).Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser)
 	if err == sql.ErrNoRows {
 		return nil, nil
 	}
@@ -1030,7 +1039,7 @@ func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
 	}
 	placeholders := strings.Repeat("?,", len(ids))
 	placeholders = placeholders[:len(placeholders)-1]
-	q := `SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes
+	q := `SELECT id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user
 	      FROM snapshots WHERE id IN (` + placeholders + `)
 	      ORDER BY target_id ASC, id ASC`
 	args := make([]any, len(ids))
@@ -1047,7 +1056,7 @@ func (d *DB) GetSnapshotsByIDs(ids []string) ([]Snapshot, error) {
 	for rows.Next() {
 		var s Snapshot
 		var payload string
-		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes); err != nil {
+		if err := rows.Scan(&s.ID, &s.TargetID, &s.CollectedAt, &s.PGVersion, &s.Engine, &payload, &s.SizeBytes, &s.SourceHost, &s.SourcePort, &s.SourceDB, &s.SourceUser); err != nil {
 			return nil, err
 		}
 		s.Payload = json.RawMessage(payload)
@@ -1156,8 +1165,8 @@ func (d *DB) InsertCollectionAtomic(snapshot Snapshot, runs []QueryRun, results 
 	defer tx.Rollback()
 
 	if _, err := tx.Exec(
-		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, engine, payload, size_bytes) VALUES (?, ?, ?, ?, ?, ?, ?)",
-		snapshot.ID, snapshot.TargetID, snapshot.CollectedAt, snapshot.PGVersion, snapshotEngine(snapshot.Engine), string(snapshot.Payload), snapshot.SizeBytes,
+		"INSERT INTO snapshots (id, target_id, collected_at, pg_version, engine, payload, size_bytes, source_host, source_port, source_db, source_user) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+		snapshot.ID, snapshot.TargetID, snapshot.CollectedAt, snapshot.PGVersion, snapshotEngine(snapshot.Engine), string(snapshot.Payload), snapshot.SizeBytes, snapshot.SourceHost, snapshot.SourcePort, snapshot.SourceDB, snapshot.SourceUser,
 	); err != nil {
 		return fmt.Errorf("insert snapshot: %w", err)
 	}

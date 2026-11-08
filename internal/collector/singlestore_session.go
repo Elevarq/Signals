@@ -300,6 +300,10 @@ func (c *Collector) collectMySQLWire(ctx context.Context, tgt config.TargetConfi
 	if mapErr != nil {
 		return snapID, nil, mapErr
 	}
+	// #716 / R094.1: capture the source identity at collection time (from the
+	// target config, not a mutable targets lookup) so this snapshot keeps its
+	// collection-time identity even if the target name is later retargeted.
+	snap.SourceHost, snap.SourcePort, snap.SourceDB, snap.SourceUser = tgt.Host, tgt.Port, tgt.DBName, tgt.User
 	// SP-R010/#709: record the profile-dropped collectors as skipped so the
 	// status/outcome inventory names them, matching the PostgreSQL gated-run
 	// handling. No payload rows — a skipped collector produces no evidence.

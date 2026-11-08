@@ -616,14 +616,23 @@ func (b *Builder) writeMetadata(zw zipCreator, opts Options, scope *exportScope)
 		// any other error -> fail the export so the operator sees the
 		// problem instead of a misleadingly-clean ZIP with missing
 		// identity rows.
-		ident, err := b.store.GetTargetIdentity(opts.TargetID)
-		switch {
-		case err == nil:
+		// #716 / R094.1: prefer the immutable source identity shared by the
+		// scoped snapshots (so a retargeted target name doesn't relabel the
+		// export's top-level block); fall back to the current `targets` row when
+		// the scope is empty or its snapshots disagree (per-snapshot identity in
+		// snapshots.ndjson is then authoritative).
+		if ident, ok := scopeSourceIdentity(scope); ok {
 			data["target_identity"] = ident
-		case errors.Is(err, sql.ErrNoRows):
-			// Orphan — fall through; target_identity stays absent.
-		default:
-			return fmt.Errorf("target_identity lookup for target_id=%d: %w", opts.TargetID, err)
+		} else {
+			ident, err := b.store.GetTargetIdentity(opts.TargetID)
+			switch {
+			case err == nil:
+				data["target_identity"] = ident
+			case errors.Is(err, sql.ErrNoRows):
+				// Orphan — fall through; target_identity stays absent.
+			default:
+				return fmt.Errorf("target_identity lookup for target_id=%d: %w", opts.TargetID, err)
+			}
 		}
 	}
 	if b.unsafeMode && b.unsafeReasonsFunc != nil {
@@ -917,6 +926,45 @@ func (b *Builder) writeQueryResults(zw zipCreator, scope *exportScope) error {
 	return nil
 }
 
+// snapshotSourceIdentity returns the immutable source identity captured on the
+// snapshot at collection time (#716 / R094.1) and whether it is populated. A
+// pre-#716 snapshot whose source fields were never set (and, post-migration,
+// not backfilled — e.g. an orphan) returns ok=false so the caller falls back to
+// the current `targets` row.
+func snapshotSourceIdentity(s db.Snapshot) (db.TargetIdentity, bool) {
+	if s.SourceHost == "" && s.SourceDB == "" && s.SourceUser == "" && s.SourcePort == 0 {
+		return db.TargetIdentity{}, false
+	}
+	return db.TargetIdentity{Host: s.SourceHost, Port: s.SourcePort, DBName: s.SourceDB, Username: s.SourceUser}, true
+}
+
+// scopeSourceIdentity returns the single immutable source identity shared by
+// every snapshot in scope (#716 / R094.1), or ok=false when the scope is empty
+// or the snapshots disagree — e.g. a target retargeted mid-history, where the
+// per-snapshot identity in snapshots.ndjson is authoritative and the top-level
+// metadata block falls back to the current target row.
+func scopeSourceIdentity(scope *exportScope) (db.TargetIdentity, bool) {
+	var found *db.TargetIdentity
+	for i := range scope.snapshots {
+		id, ok := snapshotSourceIdentity(scope.snapshots[i])
+		if !ok {
+			return db.TargetIdentity{}, false
+		}
+		if found == nil {
+			f := id
+			found = &f
+			continue
+		}
+		if *found != id {
+			return db.TargetIdentity{}, false
+		}
+	}
+	if found == nil {
+		return db.TargetIdentity{}, false
+	}
+	return *found, true
+}
+
 func (b *Builder) writeSnapshots(zw zipCreator, opts Options, scope *exportScope) error {
 	f, err := zw.Create("snapshots.ndjson")
 	if err != nil {
@@ -956,22 +1004,31 @@ func (b *Builder) writeSnapshots(zw zipCreator, opts Options, scope *exportScope
 		// error -> fail the export. We do NOT cache transient errors,
 		// so the export aborts on first occurrence; an operator's
 		// retry then sees a fresh lookup.
-		entry, cached := identityCache[s.TargetID]
-		if !cached {
-			ident, err := b.store.GetTargetIdentity(s.TargetID)
-			switch {
-			case err == nil:
-				entry = cachedIdent{id: ident, has: true}
-				identityCache[s.TargetID] = entry
-			case errors.Is(err, sql.ErrNoRows):
-				entry = cachedIdent{has: false}
-				identityCache[s.TargetID] = entry
-			default:
-				return fmt.Errorf("target_identity lookup for target_id=%d: %w", s.TargetID, err)
+		// #716 / R094.1: the snapshot's OWN immutable source identity is
+		// authoritative — a retargeted target name must never relabel
+		// historical evidence. Fall back to the current `targets` row only for
+		// a snapshot whose source identity is empty (pre-#716 + not backfilled,
+		// i.e. an orphan).
+		if ident, ok := snapshotSourceIdentity(s); ok {
+			row["target_identity"] = ident
+		} else {
+			entry, cached := identityCache[s.TargetID]
+			if !cached {
+				ident, err := b.store.GetTargetIdentity(s.TargetID)
+				switch {
+				case err == nil:
+					entry = cachedIdent{id: ident, has: true}
+					identityCache[s.TargetID] = entry
+				case errors.Is(err, sql.ErrNoRows):
+					entry = cachedIdent{has: false}
+					identityCache[s.TargetID] = entry
+				default:
+					return fmt.Errorf("target_identity lookup for target_id=%d: %w", s.TargetID, err)
+				}
 			}
-		}
-		if entry.has {
-			row["target_identity"] = entry.id
+			if entry.has {
+				row["target_identity"] = entry.id
+			}
 		}
 		if err := enc.Encode(row); err != nil {
 			return err

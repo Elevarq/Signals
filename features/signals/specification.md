@@ -1690,10 +1690,30 @@ single transaction, no superuser, no writes, no telemetry, no
 credential material in output (R013, R018–R020, INV-SIGNALS-05,
 INV-SIGNALS-07).
 
+**SIGNALS-R094.1 (immutable per-snapshot source identity — #716 / F10)**:
+A `target_identity` that attributes a *snapshot* to its source cluster MUST
+reflect the identity the snapshot was **collected under**, not the current
+(mutable) `targets` row. Target rows are upserted **by name** and overwrite
+their connection identity, so reusing or retargeting a target name to point at
+another database would otherwise make historical snapshots identify as the new
+database. To prevent this, Signals persists the source identity
+(`host`/`port`/`dbname`/`username`) **on each snapshot** at collection time
+(the immutable `snapshots.source_{host,port,db,user}` columns) and the exporter
+emits each snapshot's `target_identity` from those columns — never from a live
+`targets` lookup keyed by `target_id`. The identity is thus stable for the life
+of the evidence regardless of later retargeting. The daemon-wide `targets` row
+remains the source of the *current* target identity (used for the `metadata.json`
+top-level block only when the scoped target's snapshots share one source
+identity; otherwise the per-snapshot identity is authoritative). Pre-#716
+snapshots are backfilled once from the then-current `targets` row (the only
+identity available for historical rows) and are immutable thereafter. Carries no
+auth material (INV-SIGNALS-07).
+
 **SIGNALS-R094**: Every export ZIP whose `metadata.json` is
 anchored to a non-orphan `target_id` shall carry a `target_identity`
-block sourced from the daemon's `targets` table for that target.
-The block has the shape:
+block sourced from the snapshot's immutable captured source identity
+(R094.1); the current `targets` row is consulted only as the backfill/fallback
+source. The block has the shape:
 
 ```json
 {
