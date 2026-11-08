@@ -1039,6 +1039,21 @@ func (d *DB) DeleteSnapshotsOlderThan(before string) (int64, error) {
 	return res.RowsAffected()
 }
 
+// DeleteEventsOlderThan prunes audit `events` rows whose timestamp is strictly
+// before `before` (an RFC3339 cutoff), returning the number deleted (#726 /
+// F19). Events are the audit log (collection succeeded/failed, pause/resume,
+// reloads) and are DISTINCT from diagnostic snapshot/run retention — without
+// this the table grew unbounded over the daemon's lifetime. The DELETE uses the
+// `idx_events_time` index on `timestamp`; a single statement is atomic in
+// SQLite, so recent incident evidence inside the window is preserved.
+func (d *DB) DeleteEventsOlderThan(before string) (int64, error) {
+	res, err := d.sql.Exec("DELETE FROM events WHERE timestamp < ?", before)
+	if err != nil {
+		return 0, err
+	}
+	return res.RowsAffected()
+}
+
 // --- Query Catalog ---
 
 type QueryCatalogRow struct {

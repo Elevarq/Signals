@@ -87,6 +87,12 @@ targets: []
 collector:
   pollInterval: 5m
   retentionDays: 30
+  # Audit-event (`events` table) retention, DISTINCT from the diagnostic
+  # retentionDays above (#726). Collection events are pruned older than this
+  # many days so the audit log cannot grow unbounded over the daemon's
+  # lifetime. Default 90 (audit/incident evidence outlives diagnostic data).
+  # Set to 0 to keep events forever (explicit opt-out — provision/monitor disk).
+  auditRetentionDays: 90
   targetTimeout: 60s
   queryTimeout: 10s
 
