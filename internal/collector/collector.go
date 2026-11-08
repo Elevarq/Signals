@@ -82,7 +82,7 @@ type Collector struct {
 	metrics                     *metrics.Registry
 	bypassedChecks              []string
 	bypassedChecksMu            sync.Mutex
-	pools                       map[string]*pgxpool.Pool
+	pools                       map[string]pooledConn
 	poolsMu                     sync.Mutex
 	collectNowCh                chan CollectRequest
 	entropy                     io.Reader
@@ -187,7 +187,7 @@ func New(store *db.DB, targets []config.TargetConfig, interval time.Duration, re
 		targetTimeout:        60 * time.Second,
 		queryTimeout:         10 * time.Second,
 		minSnapshotInterval:  DefaultMinSnapshotInterval, // R091; overridable via WithMinSnapshotInterval
-		pools:                make(map[string]*pgxpool.Pool),
+		pools:                make(map[string]pooledConn),
 		collectNowCh:         make(chan CollectRequest, 1),
 		entropy:              &lockedRandReader{r: rand.New(rand.NewSource(time.Now().UnixNano()))},
 		// R097: per-target circuit-breaker. Defaults to documented
@@ -393,6 +393,21 @@ func (c *Collector) Targets() []config.TargetConfig {
 	return c.currentTargets()
 }
 
+// currentTargetByName returns the CURRENT configuration for a target name
+// under RLock, or ok=false when the name is no longer configured. getPool uses
+// it to reject a pool request from a stale in-flight cycle whose captured
+// target no longer matches the live config (#715).
+func (c *Collector) currentTargetByName(name string) (config.TargetConfig, bool) {
+	c.runtimeMu.RLock()
+	defer c.runtimeMu.RUnlock()
+	for _, t := range c.targets {
+		if t.Name == name {
+			return t, true
+		}
+	}
+	return config.TargetConfig{}, false
+}
+
 // Reload atomically swaps the collector's target list with the
 // supplied one (R100). Removed targets have their pools closed
 // after the swap; added targets pick up on the next cycle.
@@ -456,16 +471,16 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) error {
 	// Close pools for removed AND modified targets. A modified
 	// target needs a fresh pool because connection params changed.
 	c.poolsMu.Lock()
-	for name, pool := range c.pools {
+	for name, pc := range c.pools {
 		next, stillThere := nextByName[name]
 		if !stillThere {
-			pool.Close()
+			pc.pool.Close()
 			delete(c.pools, name)
 			safety.AuditLog("config_reload_target_removed", "target", name)
 			continue
 		}
 		if !sameConnection(prevByName[name], next) {
-			pool.Close()
+			pc.pool.Close()
 			delete(c.pools, name)
 			safety.AuditLog("config_reload_target_modified", "target", name)
 		}
@@ -480,6 +495,17 @@ func (c *Collector) Reload(newTargets []config.TargetConfig) error {
 	}
 
 	return nil
+}
+
+// pooledConn is a live pool tagged with the connection identity it was built
+// for (#715 / SIGNALS-R100.2). getPool reuses a stored pool ONLY when the
+// requester's identity matches `id`, and never installs a pool whose identity
+// no longer matches the current config for the name — so a stale in-flight
+// cycle cannot repopulate a name's slot with a prior target that later current
+// cycles would then reuse.
+type pooledConn struct {
+	pool *pgxpool.Pool
+	id   connIdentity
 }
 
 // connIdentity is the derived "connection identity" of a target: the
@@ -1735,11 +1761,32 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 }
 
 func (c *Collector) getPool(ctx context.Context, tgt config.TargetConfig) (*pgxpool.Pool, error) {
+	wantID := connectionIdentity(tgt)
+
+	// #715 / SIGNALS-R100.2: a cycle may hold a target captured before a
+	// concurrent reload. Reject building/installing a pool for a target whose
+	// connection identity no longer matches the CURRENT configuration for this
+	// name — otherwise a stale in-flight cycle would repopulate the name's slot
+	// with the prior target (host/auth), and later CURRENT cycles would reuse
+	// that stale pool by name. Checked before poolsMu to avoid holding both
+	// locks (runtimeMu via currentTargetByName, then poolsMu below). A target
+	// removed from config (ok=false) is left to the normal removed-target path.
+	if cur, ok := c.currentTargetByName(tgt.Name); ok && connectionIdentity(cur) != wantID {
+		return nil, fmt.Errorf("getPool: target %q connection identity no longer matches the current configuration (reloaded); refusing to install a stale pool (#715)", tgt.Name)
+	}
+
 	c.poolsMu.Lock()
 	defer c.poolsMu.Unlock()
 
-	if pool, ok := c.pools[tgt.Name]; ok {
-		return pool, nil
+	// Reuse an existing pool ONLY when its identity matches the requester's.
+	// A stored pool whose identity differs is stale (e.g. a race where a
+	// removed-then-re-added name briefly kept an old pool); close + rebuild it.
+	if pc, ok := c.pools[tgt.Name]; ok {
+		if pc.id == wantID {
+			return pc.pool, nil
+		}
+		pc.pool.Close()
+		delete(c.pools, tgt.Name)
 	}
 
 	// Build connection config from structured fields, resolving secrets at runtime.
@@ -1793,7 +1840,7 @@ func (c *Collector) getPool(ctx context.Context, tgt config.TargetConfig) (*pgxp
 		return nil, err
 	}
 
-	c.pools[tgt.Name] = pool
+	c.pools[tgt.Name] = pooledConn{pool: pool, id: wantID}
 	return pool, nil
 }
 
@@ -1857,9 +1904,12 @@ func (c *Collector) SeedPoolForTest(name string) error {
 	c.poolsMu.Lock()
 	defer c.poolsMu.Unlock()
 	if existing, ok := c.pools[name]; ok {
-		existing.Close()
+		existing.pool.Close()
 	}
-	c.pools[name] = pool
+	// Seeded placeholder: a zero identity, which no real target matches, so a
+	// subsequent getPool for the real target rebuilds it (and Reload can still
+	// observe this placeholder being closed).
+	c.pools[name] = pooledConn{pool: pool}
 	return nil
 }
 
@@ -1891,8 +1941,8 @@ func (c *Collector) closePools() {
 	c.poolsMu.Lock()
 	defer c.poolsMu.Unlock()
 
-	for name, pool := range c.pools {
-		pool.Close()
+	for name, pc := range c.pools {
+		pc.pool.Close()
 		slog.Info("closed pool", "target", name)
 	}
 }
