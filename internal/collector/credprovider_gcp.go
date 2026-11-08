@@ -88,7 +88,7 @@ func (r *credentialResolver) resolveGCP(ctx context.Context, tgt config.TargetCo
 // distinct hosts/users — produce distinct keys, so a token is never shared
 // across targets (NFR001).
 func gcpCacheKey(tgt config.TargetConfig) string {
-	return tgt.ConnIdentity() + "|" + config.AuthMethodGCPCloudSQLIAM
+	return tgt.CredentialCacheIdentity() + "|" + config.AuthMethodGCPCloudSQLIAM
 }
 
 // resolveGCPImpersonation returns the service account the collector should
