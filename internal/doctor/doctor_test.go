@@ -607,3 +607,29 @@ func TestRun_SummaryReflectsCheckOutcomes(t *testing.T) {
 			report.Summary.OK, report.Summary.Warn, report.Summary.Fail, len(report.Checks))
 	}
 }
+
+// #722 / F16: a cloud/mtls target's C4 connectivity check resolves its
+// credential through the shared resolver (loading the client cert here), not
+// the password-only DSN path — so a missing-cert mtls target fails at
+// credential resolution rather than producing a misleading password/connect
+// error.
+func TestCheckRoleSafe_MTLSTargetUsesResolverPath(t *testing.T) {
+	tgt := config.TargetConfig{
+		Name: "m", Host: "h.invalid", Port: 5432, DBName: "db", User: "u",
+		SSLMode: "verify-full", AuthMethod: config.AuthMethodMTLS,
+		SSLCert: "/no/such/client.crt", SSLKey: "/no/such/client.key",
+		SSLRootCertFile: "/no/such/ca.pem", Enabled: true,
+	}
+	r := CheckRoleSafe(context.Background(), tgt, true)
+	if r.Status != StatusFail {
+		t.Fatalf("want fail, got %s (detail=%q)", r.Status, r.Detail)
+	}
+	// The resolver branch loads the client cert and fails on the missing file;
+	// the static DSN path would instead report "resolve password" / connect.
+	if strings.Contains(r.Detail, "resolve password") {
+		t.Errorf("mtls target was diagnosed via the password DSN path, not the resolver: %q", r.Detail)
+	}
+	if !strings.Contains(r.Detail, "resolve credential") && !strings.Contains(r.Detail, "cert") && !strings.Contains(r.Detail, "mtls") {
+		t.Errorf("mtls C4 detail does not reflect credential resolution via the resolver: %q", r.Detail)
+	}
+}
