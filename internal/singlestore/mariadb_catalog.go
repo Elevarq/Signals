@@ -199,6 +199,28 @@ func mariadbCatalog() []Collector {
 			SQL:      "SELECT db_name, table_name, column_name, nulls_ratio, avg_length, avg_frequency FROM mysql.column_stats WHERE db_name NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') ORDER BY db_name, table_name, column_name",
 		},
 		{
+			// #640 Replay Tier-3: per-partition inventory from information_schema.
+			// PARTITIONS — partitioning method, the partitioning expression, the
+			// range/list boundaries (PARTITION_DESCRIPTION), the ordinal, and the
+			// per-partition TABLE_ROWS estimate. This lets the Analyzer model
+			// partition pruning and per-partition row estimates (Analyzer#4142).
+			// MariaDB exposes the same information_schema.PARTITIONS shape as MySQL;
+			// distinct MariaDB identity. Bounded to actually-partitioned tables via
+			// PARTITION_NAME IS NOT NULL (a non-partitioned table surfaces a single
+			// NULL-partition row we skip), so output is one row per real partition,
+			// never one per table.
+			//
+			// SAFETY: the boundaries (PARTITION_DESCRIPTION) and the partitioning
+			// expression are DBA-authored DDL — they appear verbatim in SHOW CREATE
+			// TABLE and are part of the schema definition, NOT sampled column data
+			// (contrast the i3 min_value/max_value exclusion, which ARE observed data
+			// values). Read-only; schema-bounded; engine-precomputed, never computed.
+			// Not HighSensitivity.
+			ID:       "mariadb_partitions_v1",
+			Category: "schema",
+			SQL:      "SELECT TABLE_SCHEMA, TABLE_NAME, PARTITION_NAME, SUBPARTITION_NAME, PARTITION_ORDINAL_POSITION, PARTITION_METHOD, SUBPARTITION_METHOD, PARTITION_EXPRESSION, SUBPARTITION_EXPRESSION, PARTITION_DESCRIPTION, TABLE_ROWS FROM information_schema.PARTITIONS WHERE TABLE_SCHEMA NOT IN ('mysql', 'performance_schema', 'information_schema', 'sys') AND PARTITION_NAME IS NOT NULL ORDER BY TABLE_SCHEMA, TABLE_NAME, PARTITION_ORDINAL_POSITION",
+		},
+		{
 			// #616: InnoDB engine counters (MariaDB keeps INNODB_METRICS in
 			// information_schema; MariaDB uses the ENABLED flag, not MySQL's
 			// STATUS='enabled').
