@@ -6,6 +6,65 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.8.0] - 2026-11-08
+
+Hardening and reliability release: credential-handling and transport
+hardening, Kubernetes/cloud deployment correctness, export integrity, and a
+new bounded audit-event retention control.
+
+### Added
+
+- **Audit event log retention (#726).** A dedicated `audit_retention_days`
+  setting (default 90; `0` keeps forever) bounds the audit event log
+  independently of snapshot retention, pruning events older than the window on
+  each cleanup cycle.
+
+### Security
+
+- **Redact credentials in `pg_settings` + HBA options before persistence
+  (#708, GA port).** Credential-bearing option values are scrubbed before they
+  reach the store or any export.
+- **Enforce production TLS policy on every config-install path (#711).** No
+  install path can silently weaken the required transport security.
+- **Scope credential caches by full source identity (#714).** A cached
+  credential can no longer be reused across a retargeted source.
+- **Bind the cloud collector API to the container interface (#719)**, not a
+  broader interface.
+- **NetworkPolicy egress covers all target ports + cloud/S3 integrations
+  (#727).**
+- **Honest collection-time sensitivity / unsafe provenance in exports (#729).**
+- **Verify pinned kube-linter and conftest release bytes before extraction
+  (#733)** — supply-chain integrity for the CI lint/policy tools.
+
+### Changed
+
+- **Config-only upgrades apply via a ConfigMap checksum annotation (#728)** so
+  a values-only change rolls pods without an image bump.
+- **`Recreate` deployment strategy for the single-writer collector store
+  (#718)** prevents two writers overlapping across a rollout.
+- **Release publish is gated on CI qualification at the tag SHA and requires
+  chart delivery for completion (#724).**
+
+### Fixed
+
+- **Export integrity:** propagate ZIP finalization failures so a truncated
+  archive is never reported as success (#717); keep historical source identity
+  immutable when a target is retargeted (#716); bound, coalesce and decouple
+  scheduled-export delivery (#721); compare export time selectors as instants,
+  not RFC3339 text (#720).
+- **Connection/credential identity:** bind pools to connection identity so a
+  stale cycle cannot install an old-config pool (#715); diagnose config targets
+  via the shared credential resolver per `auth_method` (#722).
+- **Deployment:** resolve and verify the intended data disk before
+  mount/format (#713); make the GCP startup reconcile idempotent on
+  reboot/re-run (#732); retain the data PVC across uninstall and correct the
+  runbook (#712).
+- **Shutdown:** join the collector before closing the store (#731).
+- **Mid-cycle connection loss degrades to a partial snapshot (#682, GA port)**
+  rather than discarding the whole target.
+- **Docs:** correct the production CA config example key (#725); correct
+  `pause` help + spec summary to reflect persisted pause state (#734).
+
 ## [1.7.0] - 2026-11-07
 
 ### Added
