@@ -118,6 +118,33 @@ func isFDWSensitiveKey(key string) bool {
 	return false
 }
 
+// RedactOptionsArray redacts a libpq-style `key=value` option array in
+// place-of-value while PRESERVING the `[]string` array shape (unlike
+// RedactFDWOptions, which returns a map). Used for collectors whose
+// options column must keep its array shape for downstream ingestion —
+// e.g. pg_hba_file_rules_v1's `options` (#708), which can carry
+// `ldapbindpasswd` / `radiussecret`. Sensitive keys (isFDWSensitiveKey,
+// substring match — `ldapbindpasswd` matches `pass`, `radiussecret`
+// matches `secret`) have their value replaced with "<redacted>";
+// non-sensitive entries and malformed entries pass through unchanged.
+func RedactOptionsArray(opts []string) []string {
+	out := make([]string, 0, len(opts))
+	for _, kv := range opts {
+		eq := strings.IndexByte(kv, '=')
+		if eq <= 0 {
+			out = append(out, kv) // malformed / no key — pass through
+			continue
+		}
+		key := kv[:eq]
+		if isFDWSensitiveKey(key) {
+			out = append(out, key+"="+fdwRedactedSentinel)
+			continue
+		}
+		out = append(out, kv)
+	}
+	return out
+}
+
 // SortedFDWOptionKeys returns the keys of an options map in stable
 // sorted order. Helpful for tests pinning rendered output and for
 // any future code path that needs deterministic iteration without
