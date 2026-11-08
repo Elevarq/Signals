@@ -28,7 +28,7 @@ target:
   passwordSecretName: pg-credentials
   passwordSecretKey: password
   sslmode: verify-full
-  sslrootcertFile: /etc/ssl/certs/ca-certificates.crt
+  sslRootCertFile: /etc/ssl/certs/ca-certificates.crt
 api:
   tokenSecretName: signals-api
   tokenSecretKey: token
