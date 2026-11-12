@@ -83,14 +83,17 @@ type Collector struct {
 	// #128: per-collector opt-in for pg_stats_array_range_v1.
 	// Layered on top of highSensitivityEnabled.
 	collectArrayRangeHistograms bool // set-at-construction.
-	metrics                     *metrics.Registry
-	bypassedChecks              []string
-	bypassedChecksMu            sync.Mutex
-	pools                       map[string]pooledConn
-	poolsMu                     sync.Mutex
-	collectNowCh                chan CollectRequest
-	entropy                     io.Reader
-	running                     sync.Mutex
+	// maxQueryResultBytes bounds a single run's encoded query_results
+	// payload (#808); 0 disables the cap. set-at-construction.
+	maxQueryResultBytes int
+	metrics             *metrics.Registry
+	bypassedChecks      []string
+	bypassedChecksMu    sync.Mutex
+	pools               map[string]pooledConn
+	poolsMu             sync.Mutex
+	collectNowCh        chan CollectRequest
+	entropy             io.Reader
+	running             sync.Mutex
 	// sched, when non-nil, anchors collection to a cron schedule (#491):
 	// Run waits for each cron match instead of ticking from process start,
 	// and performs no start-time baseline. Nil = interval mode (the ticker).
@@ -342,6 +345,23 @@ func WithCollectArrayRangeHistograms(enabled bool) CollectorOption {
 	return func(c *Collector) {
 		c.collectArrayRangeHistograms = enabled
 	}
+}
+
+// WithMaxQueryResultBytes bounds a single run's encoded query_results
+// payload (#808). A run whose encoded payload exceeds n is recorded
+// skipped/result_too_large with no payload, so one large OLAP result
+// cannot produce a single NDJSON line over the Analyzer's per-line ingest
+// ceiling and fail the whole snapshot. n <= 0 disables the cap.
+func WithMaxQueryResultBytes(n int) CollectorOption {
+	return func(c *Collector) {
+		c.maxQueryResultBytes = n
+	}
+}
+
+// overResultPayloadCap reports whether an encoded payload of sizeBytes
+// exceeds the configured per-run cap. capBytes <= 0 disables the cap (#808).
+func overResultPayloadCap(capBytes, sizeBytes int) bool {
+	return capBytes > 0 && sizeBytes > capBytes
 }
 
 // WithMetrics attaches a Prometheus registry so collection cycle, per-
@@ -1666,6 +1686,24 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 				}
 				continue
 			}
+		}
+
+		// #808: bound the per-run encoded payload. A result over the cap is
+		// recorded skipped/result_too_large with NO payload, so one large
+		// OLAP result cannot emit a single NDJSON line over the Analyzer's
+		// per-line ingest ceiling and fail the whole snapshot
+		// (Elevarq/Analyzer#4215). INVARIANT #312 holds: this is NOT a
+		// success (no orphaned success without a joinable payload).
+		if overResultPayloadCap(c.maxQueryResultBytes, sizeBytes) {
+			run.RowCount = len(rows)
+			run.Status = "skipped"
+			run.Reason = "result_too_large"
+			runs = append(runs, run)
+			if c.warnOnce(tgt.Name, q.ID, "result_too_large") {
+				slog.Warn("collector result skipped: encoded payload exceeds signals.max_query_result_bytes — recorded skipped (result_too_large), not persisted, so the snapshot stays ingestible. Raise signals.max_query_result_bytes to capture it",
+					"query", q.ID, "target", tgt.Name, "size_bytes", sizeBytes, "cap_bytes", c.maxQueryResultBytes)
+			}
+			continue
 		}
 
 		// Payload encoded — only now is it safe to record the run as
