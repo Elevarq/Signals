@@ -42,6 +42,7 @@ signals:
   log_level: info            # debug, info, warn, error
   log_json: false            # Output logs as JSON
   max_concurrent_targets: 4  # Max targets collected in parallel
+  max_query_result_bytes: 33554432  # (#808) Cap a single run's encoded query_results payload (default 32 MiB); over-cap run -> skipped/result_too_large with no payload so the snapshot stays ingestible; <=0 disables
   target_timeout: 60s        # Per-target collection time budget
   query_timeout: 10s         # Per-query execution timeout
   high_sensitivity_collectors_enabled: true   # Default: true (collect-

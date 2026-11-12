@@ -218,6 +218,7 @@ func run() error {
 		collector.WithAllowUnsafeRole(cfg.AllowUnsafeRole),
 		collector.WithHighSensitivityCollectors(cfg.Signals.HighSensitivityCollectorsEnabled),
 		collector.WithCollectArrayRangeHistograms(cfg.Signals.CollectArrayRangeHistograms),
+		collector.WithMaxQueryResultBytes(cfg.Signals.MaxQueryResultBytes),
 		collector.WithMetrics(metricsReg),
 		collector.WithCircuitManager(circuitMgr),
 		collector.WithRetention(cfg.Signals.Retention),
