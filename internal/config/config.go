@@ -104,6 +104,15 @@ type SignalsConfig struct {
 	// format as `poll_interval`. FC-10 rejects zero/negative.
 	MinSnapshotInterval  time.Duration `yaml:"-"`
 	MinSnapshotIntervalS string        `yaml:"min_snapshot_interval"`
+	// MaxQueryResultBytes bounds a single run's encoded query_results
+	// payload (#808). A run whose encoded payload exceeds this is recorded
+	// skipped/reason=result_too_large with NO payload, so one large OLAP
+	// result (e.g. a big pg_stat_statements set) cannot emit a single
+	// NDJSON line over the Analyzer's per-line ingest ceiling and fail the
+	// whole snapshot (Elevarq/Analyzer#4215). Default 32 MiB (headroom
+	// under the 64 MiB ceiling); <= 0 disables the cap (explicit opt-out).
+	// Negative is rejected by ValidateStrict (FC-808).
+	MaxQueryResultBytes int `yaml:"max_query_result_bytes"`
 	// R083: Mode B opt-in. "standalone" (default) keeps Phase 2
 	// behaviour byte-for-byte. "managed" activates the
 	// control_plane_token check.
@@ -598,6 +607,7 @@ func DefaultConfig() Config {
 			QueryTimeoutS:        "10s",
 			QueryTimeoutGrace:    5 * time.Second,
 			QueryTimeoutGraceS:   "5s",
+			MaxQueryResultBytes:  32 << 20, // 32 MiB (#808)
 			MinSnapshotInterval:  60 * time.Second,
 			MinSnapshotIntervalS: "60s",
 			MetricsEnabled:       false,
@@ -997,6 +1007,15 @@ func ValidateStrict(cfg Config) (warnings []string, err error) {
 	// never silently collect through an over-privileged role.
 	if cfg.Env == "prod" && cfg.AllowUnsafeRole {
 		hard = append(hard, "SIGNALS_ALLOW_UNSAFE_ROLE is not permitted in env=prod; it bypasses the superuser/replication/bypassrls role-safety check — run collection as a least-privilege (NOSUPERUSER) role instead")
+	}
+	// FC-808: a negative max_query_result_bytes is a config error. 0 (or
+	// unset-then-defaulted) disables the per-run payload cap; a positive
+	// value bounds each run's encoded query_results payload (#808).
+	if cfg.Signals.MaxQueryResultBytes < 0 {
+		hard = append(hard, fmt.Sprintf(
+			"signals.max_query_result_bytes must be >= 0 (got %d); 0 disables the cap, a positive value bounds a run's payload — see SIGNALS-R808/FC-808",
+			cfg.Signals.MaxQueryResultBytes,
+		))
 	}
 	// FC-10 (R091): zero or negative min_snapshot_interval is not
 	// supported in v1.x. Disabling the protection would defeat the

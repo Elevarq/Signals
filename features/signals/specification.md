@@ -2069,6 +2069,33 @@ the tear can never be *committed* even under process failure.
   `query_runs` row survives with its payload intact — never a
   `success` run stripped of its payload.
 
+### Per-run result-payload cap (R808)
+
+Signals emits one `query_results` NDJSON line per successful run,
+carrying that run's entire encoded payload. On a busy OLAP database a
+single collector's result (e.g. a large `pg_stat_statements` set) can
+encode to tens of MiB on one line. A downstream consumer (the Analyzer)
+rejects any single NDJSON line over its per-line ingest ceiling and
+fails the WHOLE snapshot, so one large database makes its reports
+un-ingestible (Elevarq/Analyzer#4215).
+
+- **SIGNALS-R808**: `signals.max_query_result_bytes` bounds a single
+  run's encoded `query_results` payload. When a run's encoded payload
+  exceeds the cap, the run is recorded `skipped` with
+  `reason=result_too_large` and **no** `query_results` row — never a
+  `success` without a joinable payload (upholds INV-SNAP-STATUS-PAYLOAD
+  / #312). The export then emits no over-cap line and the snapshot stays
+  ingestible; the skip + reason is visible in `collector_status` /
+  `query_runs`. Default **32 MiB** (headroom under the consumer's
+  64 MiB per-line ceiling). A value `<= 0` disables the cap (explicit
+  opt-out). Every other collector in the cycle is unaffected.
+
+### Failure conditions (R808)
+
+- **FC-808**: `signals.max_query_result_bytes < 0` → `ValidateStrict`
+  hard error. `0` (or unset-then-defaulted) disables the cap; a
+  positive value bounds the per-run payload.
+
 ### Configuration reload
 
 Adding / removing / modifying a target previously required a full

@@ -220,6 +220,7 @@ func run() error {
 		collector.WithHighSensitivityCollectors(cfg.Signals.HighSensitivityCollectorsEnabled),
 		collector.WithCollectArrayRangeHistograms(cfg.Signals.CollectArrayRangeHistograms),
 		collector.WithStructuralQueryText(cfg.Signals.CollectNormalizedQueryText),
+		collector.WithMaxQueryResultBytes(cfg.Signals.MaxQueryResultBytes),
 		collector.WithMetrics(metricsReg),
 		collector.WithCircuitManager(circuitMgr),
 		collector.WithRetention(cfg.Signals.Retention),
