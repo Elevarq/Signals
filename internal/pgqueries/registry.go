@@ -158,6 +158,27 @@ func resolveSQL(id string, major int, defaultSQL string) string {
 	return defaultSQL
 }
 
+// catalogBaseline is the PG major whose override catalog supplies SQL
+// for this target (#816 / CVS-R002, CVS-R003). It is CatalogBaselineMajor
+// when set (> 0, the clamped experimental-fallback major), else the
+// actual PGMajorVersion — so callers that set only PGMajorVersion, and
+// every in-window major where actual == baseline, are unchanged.
+func (p FilterParams) catalogBaseline() int {
+	if p.CatalogBaselineMajor > 0 {
+		return p.CatalogBaselineMajor
+	}
+	return p.PGMajorVersion
+}
+
+// versionGateBlocks reports whether q's MinPGVersion floor blocks it for
+// the ACTUAL server major (#816 / CVS-R001). Capability gating keys on
+// the real server version, never the clamped catalog baseline, so a
+// MinPGVersion:19 collector is eligible on a real PG19 target even while
+// its SQL resolves against the PG18 baseline catalog.
+func versionGateBlocks(q QueryDef, actualMajor int) bool {
+	return q.MinPGVersion > 0 && actualMajor < q.MinPGVersion
+}
+
 // HasOverride reports whether (major, id) has a registered override.
 // Used by tests; not on the hot path.
 func HasOverride(major int, id string) bool {
@@ -184,7 +205,9 @@ func All() []QueryDef {
 // separately so operators can see the gate is active.
 //
 // R081: each returned QueryDef has its `SQL` field already resolved
-// against `overrideRegistry[p.PGMajorVersion]`. Callers do not need to
+// against `overrideRegistry[p.catalogBaseline()]` (#816 — the catalog
+// baseline, which equals PGMajorVersion in-window and the clamped
+// fallback major above the window). Callers do not need to
 // know whether they're getting default or version-specific SQL; the
 // logical ID is stable either way.
 func Filter(p FilterParams) []QueryDef {
@@ -195,7 +218,7 @@ func Filter(p FilterParams) []QueryDef {
 
 	var out []QueryDef
 	for _, q := range registry {
-		if q.MinPGVersion > 0 && p.PGMajorVersion < q.MinPGVersion {
+		if versionGateBlocks(q, p.PGMajorVersion) {
 			continue
 		}
 		if q.RequiresExtension != "" && !extSet[q.RequiresExtension] {
@@ -237,7 +260,7 @@ func Filter(p FilterParams) []QueryDef {
 		}
 		// Copy and swap SQL with the resolved (override or default).
 		resolved := q
-		resolved.SQL = resolveSQL(q.ID, p.PGMajorVersion, q.SQL)
+		resolved.SQL = resolveSQL(q.ID, p.catalogBaseline(), q.SQL)
 		out = append(out, resolved)
 	}
 
@@ -268,7 +291,7 @@ func HighSensitivityIDs(p FilterParams) []string {
 		if !q.HighSensitivity || len(q.SensitiveColumns) > 0 {
 			continue
 		}
-		if q.MinPGVersion > 0 && p.PGMajorVersion < q.MinPGVersion {
+		if versionGateBlocks(q, p.PGMajorVersion) {
 			continue
 		}
 		if q.RequiresExtension != "" && !extSet[q.RequiresExtension] {
@@ -315,7 +338,7 @@ func GatedIDsByReason(p FilterParams) map[string][]string {
 	out := map[string][]string{}
 	for _, q := range registry {
 		switch {
-		case q.MinPGVersion > 0 && p.PGMajorVersion < q.MinPGVersion:
+		case versionGateBlocks(q, p.PGMajorVersion):
 			out[GateReasonVersionUnsupported] = append(out[GateReasonVersionUnsupported], q.ID)
 		case q.RequiresExtension != "" && !extSet[q.RequiresExtension]:
 			out[GateReasonExtensionMissing] = append(out[GateReasonExtensionMissing], q.ID)
