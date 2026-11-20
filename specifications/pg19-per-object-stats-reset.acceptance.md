@@ -102,9 +102,14 @@ coding-error guards.
 
 ---
 
-### TC-SR-05: Live reset identified after counters catch up (BLOCKED)
+### TC-SR-05: Live reset identified after counters catch up (COVERED)
 
-**Rule:** SR-R003, downstream Analyzer#4315
+**Rule:** SR-R003, INV-SR-01, downstream Analyzer#4315
+
+**Test:** `tests/signals_pg19_stats_reset_live_test.go`
+(`TestIntegration_PG19PerObjectStatsResetAfterCatchup`), build tag
+`integration`, `SIGNALS_TEST_PG_DSN`-gated, PG19-only. Runs on the
+`integration-pg (19)` CI leg.
 
 **Scenario:** On a live PG19 target, reset a relation's per-object
 statistics, then generate enough activity that the counters climb back
@@ -125,6 +130,12 @@ above their pre-reset values; the reset must still be identifiable from
 - The no-reset relation's `stats_reset` is stable and survives export.
 - A row the role cannot read has no fabricated `stats_reset`.
 
-**Expected Result:** BLOCKED — requires the official `postgres:19`
-image, not published as of 2026-11-19 (Docker Hub latest 19.x is
-`19rc2`). Recorded as a blocker; never reported as passing.
+**Expected Result:** COVERED — the official `postgres:19` image has now
+published (GA), so the live fixture is implemented and runs on the
+`integration-pg (19)` CI leg. The reset table's `stats_reset` advances
+across the two cycles despite the counters catching up; the never-reset
+sibling's `stats_reset` stays stable and survives export; the reset is
+single-table scoped. The fixture cannot run locally (needs Docker PG19);
+live validation is the CI `integration-pg (19)` leg. The amd64 manifest
+of the `postgres:19` image may still be propagating, so the first CI run
+can transiently fail to pull until amd64 lands.

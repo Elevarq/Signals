@@ -146,16 +146,35 @@ column so the pre-existing identity and column order are preserved.
   extra round-trips. On a large catalog the delta is linear in the
   existing table/index row count already emitted by these collectors.
 
-## Live-fixture dependency (blocked)
+## Live-fixture dependency (covered)
 
 The live acceptance (TC-SR-05: "identify a reset even after counters
-catch up") requires a final-GA PG19 stats container in CI. As of
-2026-11-19 the official `postgres:19` image is not yet published (Docker
-Hub `library/postgres` latest 19.x is `19rc2`; no `19`/`19.0`), so the
-live reset/catch-up and masked-visibility fixtures cannot run yet. The
-catalog/unit layer (CPJ-R001..R003, SR-R001..R003, INV-SR-01..03) is
-verified now; the live fixtures are recorded as blocked, never reported
-as passing.
+catch up") requires a final-GA PG19 stats container in CI. The official
+`postgres:19` image has now published (GA), so the live reset/catch-up
+fixture is implemented and runs on the `integration-pg (19)` CI leg:
+`tests/signals_pg19_stats_reset_live_test.go`
+(`TestIntegration_PG19PerObjectStatsResetAfterCatchup`), gated by the
+`integration` build tag and `SIGNALS_TEST_PG_DSN`, and PG19-only (it
+skips below 19 where per-object `stats_reset` does not exist, SR-R002).
+
+The test seeds two sibling tables as the non-superuser collector role
+(so that role OWNS them), collects a baseline `stats_reset` (T0),
+resets ONE table's counters via `pg_stat_reset_single_table_counters`
+(a privileged reset via the superuser setup DSN — superuser-or-granted only; test setup simulating an external reset, not collection), generates
+MORE activity so the cumulative counters climb back ABOVE their
+pre-reset values, collects again (T1), and asserts: the reset table's
+`stats_reset` ADVANCED (T1 > T0) even though its counters caught up (the
+#817 / Analyzer #4315 point), the never-reset sibling's `stats_reset`
+stayed stable and survived export, and the reset was single-table scoped
+(the stable table did not also advance). Collection throughout runs as
+the non-superuser role (INV-SR-03 preserved).
+
+The catalog/unit layer (CPJ-R001..R003, SR-R001..R003, INV-SR-01..03)
+was already verified; the live TC-SR-05 fixture is now implemented and
+its live validation runs on the `integration-pg (19)` CI leg (it cannot
+run locally without a Docker PG19). Note: the `postgres:19` image's
+amd64 manifest may still be propagating, so the first CI run can
+transiently fail to pull until the amd64 platform lands.
 
 ## NFR overrides
 
