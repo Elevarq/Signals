@@ -1362,25 +1362,31 @@ func (c *Collector) collectTarget(ctx context.Context, tgt config.TargetConfig, 
 			tgt.Name, disc.MajorVersion, pgqueries.MinSupportedMajor)
 	}
 
-	// PG 19+: experimental — no first-class catalog support yet. Fall
-	// back to the highest supported major (PG 18) catalog so collection
-	// still works against pre-release servers, but log it loudly so the
-	// operator notices.
-	effectiveMajor := disc.MajorVersion
-	if pgqueries.IsExperimentalMajor(effectiveMajor) {
-		slog.Warn("PG major above supported window — falling back to highest supported catalog",
+	// PG 19+: experimental — no first-class catalog override set yet. The
+	// actual server major still drives capability gating (so a
+	// MinPGVersion:19 collector runs on a real PG19), but SQL resolves
+	// against the highest supported catalog (PG 18) as the baseline
+	// (#816 / CVS-R001, CVS-R004). Log the fallback loudly so the
+	// operator sees the experimental status; the actual banner
+	// (disc.ServerVersion) is never overwritten.
+	catalogBaseline := disc.MajorVersion
+	if pgqueries.IsExperimentalMajor(catalogBaseline) {
+		slog.Warn("PG major above supported window — gating by actual major, resolving SQL against highest supported catalog",
 			"target", tgt.Name,
 			"server_major", disc.MajorVersion,
-			"falling_back_to", pgqueries.MaxSupportedMajor,
+			"catalog_baseline", pgqueries.MaxSupportedMajor,
 		)
-		effectiveMajor = pgqueries.MaxSupportedMajor
+		catalogBaseline = pgqueries.MaxSupportedMajor
 	}
 
 	// Step 2: Filter eligible queries with version-aware SQL resolution.
 	// R098: per-target sensitivity profile, layered on top of the
-	// daemon-wide gates.
+	// daemon-wide gates. #816: PGMajorVersion is the ACTUAL server major
+	// (drives MinPGVersion capability gates); CatalogBaselineMajor is the
+	// clamped baseline (drives SQL override resolution).
 	filterParams := pgqueries.FilterParams{
-		PGMajorVersion:              effectiveMajor,
+		PGMajorVersion:              disc.MajorVersion,
+		CatalogBaselineMajor:        catalogBaseline,
 		Extensions:                  disc.Extensions,
 		ExtensionVersions:           disc.ExtensionVersions, // R115
 		HighSensitivityEnabled:      c.highSensitivityEnabled,

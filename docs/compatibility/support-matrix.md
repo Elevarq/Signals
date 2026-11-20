@@ -27,7 +27,7 @@ is emitted/supported, and the integrity guarantees — see
 | 16 | **Supported** | Same as 14. |
 | 17 | **Supported** | Includes the `pg_stat_progress_vacuum` PG-17 column additions (caught pre-Beta; see `CHANGELOG.md` 0.5.0). |
 | 18 | **Supported** | Latest tested major; release smoke runs against PG 18 too. |
-| 19+ | **Experimental** | `IsExperimentalMajor()` accepts PG 19 with a warning so operators on rolling early-adopter clusters aren't blocked. Collectors that depend on PG-19-only columns are gated; the rest run unchanged. |
+| 19+ | **Experimental** | `IsExperimentalMajor()` accepts PG 19 with a warning so operators on rolling early-adopter clusters aren't blocked. Capability gating keys on the **actual** server major while SQL resolves against the PG 18 baseline catalog (#816): a `MinPGVersion:19` collector runs on a real PG 19, and PG-18-and-earlier collectors run unchanged. This is routing, not a support claim — full PG 19 support is gated on live-CI evidence (#815, blocked on PG 19 GA). |
 | 12, 13 | **Unsupported** | EOL upstream. No catalog mapping. Collector refuses to start with `unsupported_pg_major`. |
 | ≤ 11 | **Unsupported** | Out of scope. |
 

@@ -154,8 +154,21 @@ type QueryDef struct {
 
 // FilterParams controls which queries are eligible for a given target.
 type FilterParams struct {
+	// PGMajorVersion is the ACTUAL connected server major (from
+	// discovery, never clamped). It drives every MinPGVersion
+	// capability gate (#816 / CVS-R001) so a MinPGVersion:19 collector
+	// runs on a real PG19 even while its SQL resolves against a lower
+	// baseline catalog.
 	PGMajorVersion int
-	Extensions     []string
+	// CatalogBaselineMajor is the PG major whose override catalog
+	// supplies version-specific SQL (#816 / CVS-R002). 0 means "same as
+	// PGMajorVersion" — the pre-#816 caller shape and the in-window case
+	// (actual == baseline). The collector sets this to the clamped
+	// experimental-fallback major (e.g. 18) when the actual server is
+	// above the supported window (e.g. 19), so PG18 SQL is reused
+	// without gating off capabilities the real server has.
+	CatalogBaselineMajor int
+	Extensions           []string
 	// ExtensionVersions maps installed extension name → extversion
 	// (from discovery, R115). Consulted only by collectors that set
 	// RequiresExtensionMinVersion. A nil/empty map, or a missing
