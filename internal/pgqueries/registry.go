@@ -23,6 +23,17 @@ var registryByID = map[string]*QueryDef{}
 // SQL underneath differs.
 var overrideRegistry = map[int]map[string]string{}
 
+// capabilityOverrideRegistry holds SQL projections keyed by the ACTUAL
+// server major (not the clamped catalog baseline). CPJ-R001 (#817): a
+// collector whose projection depends on a capability that exists only on
+// a specific major — e.g. the per-object stats_reset column PG19 added to
+// pg_stat_all_tables / pg_stat_all_indexes — registers here so the real
+// column is selected on a real PG19 target even while #816 clamps the
+// catalog baseline to 18 and resolves the default/baseline SQL against
+// PG18. Precedence over the baseline overrideRegistry is CPJ-R002:
+// capability projection (actual major) wins when present.
+var capabilityOverrideRegistry = map[int]map[string]string{}
+
 // validCadences is the set of allowed Cadence values (zero included as default).
 var validCadences = map[Cadence]bool{
 	0:             true,
@@ -72,6 +83,42 @@ func RegisterOverride(major int, id, sql string) {
 		panic(fmt.Sprintf("pgqueries.RegisterOverride(major=%d, id=%q): duplicate override", major, id))
 	}
 	overrideRegistry[major][id] = sql
+}
+
+// RegisterCapabilityOverride records SQL that replaces the default for a
+// logical collector when the connected target's ACTUAL major is `major`
+// (CPJ-R001/CPJ-R003, #817). Unlike RegisterOverride — whose SQL resolves
+// against the clamped catalog baseline — a capability projection keys on
+// the real server major, so a column that exists only on that major
+// (e.g. PG19's per-object stats_reset) is selected on a real target even
+// when the catalog baseline is clamped to a lower major (#816). It is
+// lint-checked exactly like Register/RegisterOverride and panics on an
+// unknown logical id or a duplicate (major, id) pair — both coding errors
+// in the per-major catalog files.
+func RegisterCapabilityOverride(major int, id, sql string) {
+	if _, exists := registryByID[id]; !exists {
+		panic(fmt.Sprintf("pgqueries.RegisterCapabilityOverride(major=%d, id=%q): unknown logical id; must be registered in the default catalog first", major, id))
+	}
+	if err := LintQuery(sql); err != nil {
+		panic(fmt.Sprintf("pgqueries.RegisterCapabilityOverride(major=%d, id=%q): lint failed: %v", major, id, err))
+	}
+	if capabilityOverrideRegistry[major] == nil {
+		capabilityOverrideRegistry[major] = map[string]string{}
+	}
+	if _, dup := capabilityOverrideRegistry[major][id]; dup {
+		panic(fmt.Sprintf("pgqueries.RegisterCapabilityOverride(major=%d, id=%q): duplicate override", major, id))
+	}
+	capabilityOverrideRegistry[major][id] = sql
+}
+
+// HasCapabilityOverride reports whether (actualMajor, id) has a registered
+// capability projection. Used by tests; not on the hot path.
+func HasCapabilityOverride(actualMajor int, id string) bool {
+	if m := capabilityOverrideRegistry[actualMajor]; m != nil {
+		_, ok := m[id]
+		return ok
+	}
+	return false
 }
 
 // extVersionGateBlocks reports whether q's RequiresExtensionMinVersion
@@ -146,14 +193,28 @@ func leadingInt(parts []string, i int) (int, bool) {
 	return v, true
 }
 
-// resolveSQL returns the effective SQL for `id` against the connected
-// server's major. If a version-specific override exists, that wins;
-// otherwise the default SQL from Register is used.
-func resolveSQL(id string, major int, defaultSQL string) string {
-	if m := overrideRegistry[major]; m != nil {
+// lookupOverride returns the SQL registered for (major, id) in reg, if any.
+func lookupOverride(reg map[int]map[string]string, major int, id string) (string, bool) {
+	if m := reg[major]; m != nil {
 		if sql, ok := m[id]; ok {
-			return sql
+			return sql, true
 		}
+	}
+	return "", false
+}
+
+// resolveEffectiveSQL applies the full override precedence (CPJ-R002,
+// #817): a capability projection for the ACTUAL major wins; else a
+// baseline override for the baseline major; else the default SQL. It
+// takes the two registries as parameters so it is a pure function —
+// callable from Filter with the package registries and from tests with
+// in-memory maps, with no global state.
+func resolveEffectiveSQL(capReg, baseReg map[int]map[string]string, id string, actualMajor, baselineMajor int, defaultSQL string) string {
+	if sql, ok := lookupOverride(capReg, actualMajor, id); ok {
+		return sql
+	}
+	if sql, ok := lookupOverride(baseReg, baselineMajor, id); ok {
+		return sql
 	}
 	return defaultSQL
 }
@@ -258,9 +319,15 @@ func Filter(p FilterParams) []QueryDef {
 		if p.Exclude[q.ID] {
 			continue
 		}
-		// Copy and swap SQL with the resolved (override or default).
+		// Copy and swap SQL with the resolved SQL. Precedence (CPJ-R002,
+		// #817): capability projection for the ACTUAL major first, then
+		// the baseline override for the clamped baseline (#816), then the
+		// default. In-window majors with no capability projection resolve
+		// byte-identically to the pre-#817 resolveSQL(catalogBaseline).
 		resolved := q
-		resolved.SQL = resolveSQL(q.ID, p.catalogBaseline(), q.SQL)
+		resolved.SQL = resolveEffectiveSQL(
+			capabilityOverrideRegistry, overrideRegistry,
+			q.ID, p.PGMajorVersion, p.catalogBaseline(), q.SQL)
 		out = append(out, resolved)
 	}
 
