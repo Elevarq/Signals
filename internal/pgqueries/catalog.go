@@ -78,6 +78,12 @@ func init() {
 		Cadence:        Cadence15m,
 	})
 
+	// Default SQL serves PG 10-18: PG 19 added a per-object stats_reset
+	// column to pg_stat_user_tables; older majors emit it as a typed
+	// NULL so the output column set is stable across majors (#817,
+	// SR-R002). A real PG19 target selects the live column via the
+	// capability projection in catalog_pg19.go (SR-R001) — keyed on the
+	// ACTUAL major, not the clamped catalog baseline (#816).
 	Register(QueryDef{
 		ID:       "pg_stat_user_tables_v1",
 		Category: "tables",
@@ -85,7 +91,8 @@ func init() {
 		idx_scan, idx_tup_fetch, n_tup_ins, n_tup_upd, n_tup_del, n_tup_hot_upd,
 		n_live_tup, n_dead_tup, last_vacuum, last_autovacuum, last_analyze,
 		last_autoanalyze, vacuum_count, autovacuum_count, analyze_count,
-		autoanalyze_count
+		autoanalyze_count,
+		NULL::timestamptz AS stats_reset
 		FROM pg_stat_user_tables
 		ORDER BY schemaname, relname`,
 		ResultKind:     ResultRowset,
@@ -93,11 +100,16 @@ func init() {
 		Timeout:        10 * time.Second,
 	})
 
+	// Default SQL serves PG 10-18: PG 19 added a per-object stats_reset
+	// column to pg_stat_user_indexes; older majors emit it as a typed
+	// NULL (#817, SR-R002). A real PG19 target selects the live column
+	// via the capability projection in catalog_pg19.go (SR-R001).
 	Register(QueryDef{
 		ID:       "pg_stat_user_indexes_v1",
 		Category: "indexes",
 		SQL: `SELECT schemaname, relname, indexrelname, idx_scan,
-		idx_tup_read, idx_tup_fetch
+		idx_tup_read, idx_tup_fetch,
+		NULL::timestamptz AS stats_reset
 		FROM pg_stat_user_indexes
 		ORDER BY schemaname, relname, indexrelname`,
 		ResultKind:     ResultRowset,
