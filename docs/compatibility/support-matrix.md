@@ -27,7 +27,8 @@ is emitted/supported, and the integrity guarantees — see
 | 16 | **Supported** | Same as 14. |
 | 17 | **Supported** | Includes the `pg_stat_progress_vacuum` PG-17 column additions (caught pre-Beta; see `CHANGELOG.md` 0.5.0). |
 | 18 | **Supported** | Latest tested major; release smoke runs against PG 18 too. |
-| 19+ | **Experimental** | `IsExperimentalMajor()` accepts PG 19 with a warning so operators on rolling early-adopter clusters aren't blocked. Capability gating keys on the **actual** server major while SQL resolves against the PG 18 baseline catalog (#816): a `MinPGVersion:19` collector runs on a real PG 19, and PG-18-and-earlier collectors run unchanged. This is routing, not a support claim — full PG 19 support is gated on live-CI evidence (#815, blocked on PG 19 GA). |
+| 19 | **Supported** | PostgreSQL 19 reached GA on 2026-11-19. Collection is exercised in the **required** `integration-pg` live-CI matrix against the final GA `postgres:19` image (#815) under the non-superuser `signals` role — the full per-collector output/type contract runs green. Collectors run via actual-major capability gating with SQL resolved against the PG 18 baseline catalog (`IsExperimentalMajor` → PG 18 override set, #816) plus PG 19 capability projections (`stats_reset`, #817); a `MinPGVersion:19` collector runs on a real PG 19 and PG-18-and-earlier collectors run unchanged. |
+| 20+ | **Experimental** | `IsExperimentalMajor()` accepts a newer major with a warning so operators on rolling early-adopter clusters aren't blocked; collection runs best-effort against the PG 18 baseline catalog until a first-class catalog ships. |
 | 12, 13 | **Unsupported** | EOL upstream. No catalog mapping. Collector refuses to start with `unsupported_pg_major`. |
 | ≤ 11 | **Unsupported** | Out of scope. |
 
