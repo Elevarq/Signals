@@ -160,7 +160,7 @@ skips below 19 where per-object `stats_reset` does not exist, SR-R002).
 The test seeds two sibling tables as the non-superuser collector role
 (so that role OWNS them), collects a baseline `stats_reset` (T0),
 resets ONE table's counters via `pg_stat_reset_single_table_counters`
-(an OWNER reset — no superuser; test setup, not collection), generates
+(a privileged reset via the superuser setup DSN — superuser-or-granted only; test setup simulating an external reset, not collection), generates
 MORE activity so the cumulative counters climb back ABOVE their
 pre-reset values, collects again (T1), and asserts: the reset table's
 `stats_reset` ADVANCED (T1 > T0) even though its counters caught up (the

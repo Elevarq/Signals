@@ -42,11 +42,13 @@
 // Collection runs as the non-superuser `signals` monitoring role via
 // SIGNALS_TEST_PG_DSN exactly like the other integration-pg tests
 // (INV-SR-03: no writes, no superuser for collection). The ONLY
-// privileged-looking action is the stats reset itself, which is a TEST
-// SETUP step performed via the seed pool — and it is an OWNER reset:
-// the `signals` role owns the seeded table (it created it), and a table
-// owner may reset its own table's statistics (PG15+). No superuser, no
-// pg_monitor-beyond-visibility, no collector write is introduced; the
+// privileged action is the stats reset itself — a TEST SETUP step that
+// simulates an external reset event (restart / crash recovery / major
+// upgrade / privileged admin) and runs via the superuser setup DSN
+// (SIGNALS_TEST_PG_SUPERUSER_DSN), the same seam the output-contract
+// test uses for FDW provisioning. pg_stat_reset_single_table_counters
+// is superuser-or-granted only — table ownership and pg_monitor do not
+// confer it. Collection introduces no superuser and no write; the
 // read-only collection invariant is preserved.
 //
 // Gated by the `integration` build tag and SIGNALS_TEST_PG_DSN (skips
@@ -103,6 +105,14 @@ func TestIntegration_PG19PerObjectStatsResetAfterCatchup(t *testing.T) {
 	if dsn == "" {
 		t.Skip("SIGNALS_TEST_PG_DSN not set — skipping live PostgreSQL integration test")
 	}
+	// The reset step needs a privileged connection: pg_stat_reset_single_table_counters
+	// is superuser-or-granted only (table ownership and pg_monitor do not
+	// confer it), and the same superuser seam the output-contract test uses
+	// for FDW provisioning performs it. Collection still runs as `signals`.
+	superDSN := os.Getenv("SIGNALS_TEST_PG_SUPERUSER_DSN")
+	if superDSN == "" {
+		t.Skip("SIGNALS_TEST_PG_SUPERUSER_DSN not set — the reset-after-catchup setup needs a privileged reset; skipping")
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
 	defer cancel()
@@ -128,9 +138,10 @@ func TestIntegration_PG19PerObjectStatsResetAfterCatchup(t *testing.T) {
 	tgt := targetFromDSN(t, dsn)
 
 	// --- Seed ------------------------------------------------------------
-	// Two sibling tables in a dedicated schema. The `signals` role (the
-	// DSN user) CREATEs them, so it OWNS them — which is what lets the
-	// owner-reset of resetTable work without superuser (PG15+).
+	// Two sibling tables in a dedicated schema, created + owned by the
+	// `signals` collector role so collection sees them as its own
+	// relations. The counter reset below runs via the privileged setup
+	// DSN (not this role) — ownership does not confer the reset.
 	seedResetFixture(t, ctx, pool)
 
 	// Generate baseline activity on BOTH tables so their stats are
@@ -157,9 +168,10 @@ func TestIntegration_PG19PerObjectStatsResetAfterCatchup(t *testing.T) {
 	// --- Reset resetTable's counters, then make them CATCH UP -----------
 	// pg_stat_reset_single_table_counters zeroes this one table's
 	// cumulative counters and stamps a new stats_reset. This is TEST
-	// SETUP (not collection) and is an OWNER reset by the `signals` role,
-	// which owns the seeded table — no superuser required (PG15+).
-	resetSingleTableCounters(t, ctx, pool, resetSchema, resetTable)
+	// SETUP (not collection) simulating an external reset event, run via
+	// the privileged setup DSN (the reset function is superuser-or-granted
+	// only; collection never resets anything — INV-SR-03).
+	resetSingleTableCounters(t, ctx, superDSN, resetSchema, resetTable)
 
 	// Generate MORE activity on resetTable than before, so the cumulative
 	// counters climb back ABOVE their pre-reset values. A naive
@@ -281,8 +293,9 @@ func targetFromDSN(t *testing.T, dsn string) config.TargetConfig {
 }
 
 // seedResetFixture creates the two sibling tables in a dedicated schema
-// as the DSN (collector) role, so that role OWNS them — the owner-reset
-// of resetTable then needs no superuser (PG15+). Idempotent; dropped on
+// as the DSN (collector) role, so collection sees them as its own
+// relations; the counter reset runs via the privileged setup DSN, not
+// this role (ownership does not confer it). Idempotent; dropped on
 // cleanup.
 func seedResetFixture(t *testing.T, ctx context.Context, pool *pgxpool.Pool) {
 	t.Helper()
@@ -332,23 +345,34 @@ func generateActivity(t *testing.T, ctx context.Context, pool *pgxpool.Pool, tab
 }
 
 // resetSingleTableCounters zeroes one table's cumulative statistics and
-// stamps a fresh per-object stats_reset. OWNER reset (the `signals` role
-// owns the seeded table) — no superuser. This is test SETUP, not
-// collection.
-func resetSingleTableCounters(t *testing.T, ctx context.Context, pool *pgxpool.Pool, schema, table string) {
+// stamps a fresh per-object stats_reset. This is TEST SETUP that
+// simulates an external reset event (a restart / crash recovery / major
+// upgrade / privileged admin action) — NOT a collector action. Table
+// ownership does NOT confer EXECUTE on pg_stat_reset_single_table_counters
+// (it is superuser-or-granted only, even on PG15+), and pg_monitor does
+// not grant it either, so the reset runs via the superuser setup DSN
+// (SIGNALS_TEST_PG_SUPERUSER_DSN) — the same privileged seam the
+// output-contract test uses for FDW provisioning. Collection itself
+// still runs only as the non-superuser `signals` role (INV-SR-03).
+func resetSingleTableCounters(t *testing.T, ctx context.Context, superDSN, schema, table string) {
 	t.Helper()
+	super, err := pgxpool.New(ctx, superDSN)
+	if err != nil {
+		t.Fatalf("connect SIGNALS_TEST_PG_SUPERUSER_DSN for the privileged reset: %v", err)
+	}
+	defer super.Close()
 	var oid uint32
-	if err := pool.QueryRow(ctx,
+	if err := super.QueryRow(ctx,
 		`SELECT (quote_ident($1) || '.' || quote_ident($2))::regclass::oid`,
 		schema, table,
 	).Scan(&oid); err != nil {
 		t.Fatalf("resolve oid for %s.%s: %v", schema, table, err)
 	}
-	if _, err := pool.Exec(ctx, `SELECT pg_stat_reset_single_table_counters($1)`, oid); err != nil {
-		t.Fatalf("pg_stat_reset_single_table_counters(%d) for %s.%s failed (owner reset should be permitted for the table owner on PG15+): %v",
+	if _, err := super.Exec(ctx, `SELECT pg_stat_reset_single_table_counters($1)`, oid); err != nil {
+		t.Fatalf("pg_stat_reset_single_table_counters(%d) for %s.%s failed via the superuser setup DSN: %v",
 			oid, schema, table, err)
 	}
-	_, _ = pool.Exec(ctx, `SELECT pg_stat_force_next_flush()`)
+	_, _ = super.Exec(ctx, `SELECT pg_stat_force_next_flush()`)
 }
 
 // waitForStatsResetAdvance polls the live catalog until the reset
