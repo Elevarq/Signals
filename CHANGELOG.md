@@ -6,6 +6,36 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+## [1.9.0] - 2026-11-20
+
+PostgreSQL 19 GA support. Signals now collects from, and is live-CI-qualified
+against, the final PostgreSQL 19.0 release — PostgreSQL only (MySQL/MariaDB
+multi-engine collection remains on the POC branches and is not part of this
+release).
+
+### Added
+
+- **PostgreSQL 19 in the required live CI matrix (#815).** The `integration-pg`
+  job now exercises the full per-collector output/type contract against a live
+  GA `postgres:19` image under the non-superuser `signals` monitoring role,
+  alongside PG 14–18. PG 19 moves from *Experimental* to *Supported* in the
+  compatibility matrix, citing this live evidence.
+- **Per-object `stats_reset` projection for table and index collectors
+  (#817).** On PG 19, `pg_stat_user_tables` / `pg_stat_user_indexes` expose a
+  per-object `stats_reset` timestamp; the collectors now surface it (nullable,
+  capability-gated), so a downstream consumer can identify a counter reset even
+  after the cumulative counters catch back up. PG 14–18 emit a typed `NULL`
+  (row shape unchanged). Validated live, including a reset-after-catchup
+  acceptance fixture.
+
+### Changed
+
+- **Separate the actual server major from the compatible SQL baseline (#816).**
+  Capability gating (`MinPGVersion`) now keys on the *actual* connected server
+  major, while SQL override resolution uses a clamped catalog baseline. A
+  `MinPGVersion:19` collector therefore runs on a real PG 19 even while its SQL
+  resolves against the PG 18 baseline catalog. PG 14–18 behaviour is unchanged.
+
 ## [1.8.0] - 2026-11-08
 
 Hardening and reliability release: credential-handling and transport
